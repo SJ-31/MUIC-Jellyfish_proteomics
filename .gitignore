@@ -1,0 +1,6 @@
+work/*
+.nextflow*
+reports/*
+resources/*
+rna-seq/work/*
+shotgun/work/*

@@ -1,0 +1,7 @@
+{
+    "files.exclude": {
+        ".nextflow.log.1": true,
+        "rna-seq": true
+    },
+    "workspace.isHidden": true
+}
