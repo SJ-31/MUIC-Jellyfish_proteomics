@@ -3,7 +3,7 @@ process MSGF {
     path(files)
     //
     output:
-
+    
     //
     script: // -inst 3 specifies the Q-Exactive machine
     // You could change -tda to 1 to search the decoy database

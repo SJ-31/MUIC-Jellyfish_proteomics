@@ -19,7 +19,6 @@ workflow 'database_search' {
 
 workflow 'de_novo' {
     SMSNET(mgf_ch, params.smsnet_dir, params.smsnetmodel)
-
 }
 
 workflow 'collect_results' {

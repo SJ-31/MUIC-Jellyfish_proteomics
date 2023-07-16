@@ -1,6 +1,6 @@
 process SMSNET {
     publishDir "$outdir", mode: 'symlink'
-    conda "/home/shannc/anaconda3/envs/smsnet-shann"
+    conda "/mnt/data/sirasris/miniconda3/envs/smsnet"
 
     input:
     path(mgfs)
@@ -12,8 +12,7 @@ process SMSNET {
     //
     script:
     """
-    smsnet.py --model_dir $model_dir \
-    --inference_input_file $mgfs \
+    smsnet_wrapper.sh $mgfs $model_dir $outdir
     """
     //
 }
