@@ -1,6 +1,9 @@
 process MSGF {
+    publishDir "$outdir", mode: "copy"
+
     input:
     path(files)
+    val(outdir)
     //
     output:
     path("${files.baseName}_msgf.tsv")
@@ -14,7 +17,7 @@ process MSGF {
     -inst $params.inst \
     -t $params.msgf_tolerance \
     -tda 0
-    mono Mzid_to_tsv_wrapper.sh temp.mzid ${files.baseName_msgf.tsv}
+    Mzid_to_tsv_wrapper.sh temp.mzid ${files.baseName}_msgf.tsv
     """
     //
 }

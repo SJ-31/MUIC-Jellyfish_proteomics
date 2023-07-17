@@ -1,8 +1,3 @@
-params.assembled = "../resources/RNA-seq/4-assembly"
-params.translated = "../resources/RNA-seq/6-translated"
-params.alignlog = "../reports/RNA-seq/rnaquast-read_alignment"
-params.k = "31"
-
 process BLOOM {
     publishDir "$params.assembled/rnabloom/"
 
@@ -24,7 +19,7 @@ process BLOOM {
 }
 
 process SPADES {
-    publishDir "$params.assembled/rnaspades"
+    publishDir "$params.assembled/rnaspades", mode: "copy"
     conda "/home/shannc/anaconda3/envs/spades"
 
     input:
@@ -65,7 +60,7 @@ process PLASS {
 }
 
 process TRANSDECODE {
-    publishDir "$params.translated/$folder", mode: 'symlink'
+    publishDir "$params.translated/$folder", mode: 'copy'
 
     input:
     tuple val(folder), path(assembly)
