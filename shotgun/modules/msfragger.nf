@@ -1,5 +1,5 @@
 process MSFRAGGER {
-    publishDir "$outdir"
+    publishDir "$outdir", mode: "copy"
 
     input:
     path(files)

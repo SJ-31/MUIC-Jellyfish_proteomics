@@ -13,7 +13,7 @@ include { MSFRAGGER } from './modules/msfragger'
 include { SMSNET } from './modules/smsnet'
 
 workflow 'database_search' {
-    MAXQUANT(par_ch)
+    // MAXQUANT(par_ch)
     MSFRAGGER(mzmls_ch, params.fragger_dir)
 }
 

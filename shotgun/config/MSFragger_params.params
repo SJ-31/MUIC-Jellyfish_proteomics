@@ -58,7 +58,7 @@ max_variable_mods_per_peptide = 3           # Maximum total number of variable m
 max_variable_mods_combinations = 5000       # Maximum number of modified forms allowed for each peptide (up to 65534).
 mass_diff_to_variable_mod = 0               # Put mass diff as a variable modification. 0 for no; 1 for yes and remove delta mass; 2 for yes and keep delta mass.
 
-output_format = pepxml                      # File format of output files (tsv, pin, pepxml, tsv_pin, tsv_pepxml, pepxml_pin, or tsv_pepxml_pin).
+output_format = tsv                      # File format of output files (tsv, pin, pepxml, tsv_pin, tsv_pepxml, pepxml_pin, or tsv_pepxml_pin).
 output_report_topN = 1                      # Reports top N PSMs per input spectrum.
 output_max_expect = 50                      # Suppresses reporting of PSM if top hit has expectation value greater than this threshold.
 report_alternative_proteins = 0             # Report alternative proteins for peptides that are found in multiple proteins (0 for no, 1 for yes).
