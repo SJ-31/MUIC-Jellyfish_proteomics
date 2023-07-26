@@ -16,6 +16,10 @@ process MSGF {
     -d $params.database \
     -inst $params.inst \
     -t $params.msgf_tolerance \
+    -minLength $params.minpeplength \
+    -m 3
+    -addFeatures 1 \
+    -maxMissedCleavages 2 \
     -tda 0
     Mzid_to_tsv_wrapper.sh temp.mzid ${files.baseName}_msgf.tsv
     """

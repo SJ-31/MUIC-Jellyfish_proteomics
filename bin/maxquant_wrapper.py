@@ -8,11 +8,6 @@ parser = ArgumentParser(prog="MaxQuant Wrapper",
                         description="Specify input files to MaxQuant config")
 parser.add_argument("raw_file")
 parser.add_argument("config_template")
-# A comma-separated list of fasta file specifications
-#   The first line of the file will be its location, followed by the
-#   identifier parse rule, description parse rule, taxonomy parse rule,
-#   modification parse rule and taxonomy ID
-#   The only required part is the file path
 args = parser.parse_args()
 raw = Path(args.raw_file)
 

@@ -1,6 +1,8 @@
 work/*
 .nextflow*
 *temp*
+data/*
+results/*
 reports/*
 resources/*
 rna-seq/work/*
