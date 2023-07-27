@@ -15,12 +15,10 @@ process IDENTIPY {
         -db $params.database \
         -of tsv \
         -at \
-        -ad \
         -out .
     """
     // -at Auto-tune search parameters
     // -mc Number of missed cleavages
-    // -ad Add decoy
     // -method {reverse,shuffle} for decoy generation
     //
 }

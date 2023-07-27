@@ -4,6 +4,7 @@ process MSFRAGGER {
 
     input:
     path(files)
+    val(pars)
     val(outdir)
 
     output:
@@ -11,10 +12,13 @@ process MSFRAGGER {
 
     script:
     """
-    java -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
-    ${projectDir}/config/MSFragger_params.params \
-    $files
+    java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
+        --database_name $params.databaseWdecoy \
+        $pars \
+        ${projectDir}/config/MSFragger_params.params \
+        $files
     mv ${files.baseName}.tsv ${files.baseName}_msfragger.tsv
     """
+    // Calibrate mass
 }
 

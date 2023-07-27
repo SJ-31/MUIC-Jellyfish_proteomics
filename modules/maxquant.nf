@@ -4,7 +4,6 @@ process MAXQUANT {
 
     input:
     path(raw_file)
-    val(mq_config)
     val(outdir)
     //
     output:
@@ -12,7 +11,7 @@ process MAXQUANT {
 
     shell:
     '''
-    cp !{mq_config} template.xml
+    cp !{params.mqPars} template.xml
     maxquant_wrapper.py !{raw_file} template.xml
     rm template.xml
     dotnet /home/shannc/tools/MaxQuant_2.4.2.0/bin/MaxQuantCmd.exe mqconfig.xml

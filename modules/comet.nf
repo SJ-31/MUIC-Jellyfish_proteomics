@@ -12,10 +12,10 @@ process COMET {
 
     script:
     """
-    cp $params.cometpars .
+    cp $params.cometPars .
     philosopher workspace init
     comet --param default_comet.params $mzXML
     mv ${mzXML.baseName}.txt ${mzXML.baseName}_comet.tsv
     """
-    //
+    // Comet does the reverse decoy search by default
 }

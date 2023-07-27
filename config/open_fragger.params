@@ -1,10 +1,10 @@
 # MSFragger-3.7
 num_threads = 0                             # Number of CPU threads to use.
-database_name = # Will specify on command line
+database_name =                   # Path to the protein database file in FASTA format.
 
-precursor_mass_lower = -20                  # Lower bound of the precursor mass window.
-precursor_mass_upper = 20                   # Upper bound of the precursor mass window.
-precursor_mass_units = 1                    # Precursor mass tolerance units (0 for Da, 1 for ppm).
+precursor_mass_lower = -150                 # Lower bound of the precursor mass window.
+precursor_mass_upper = 500                  # Upper bound of the precursor mass window.
+precursor_mass_units = 0                    # Precursor mass tolerance units (0 for Da, 1 for ppm).
 data_type = 0                               # Data type (0 for DDA, 1 for DIA, 2 for DIA-narrow-window).
 precursor_true_tolerance = 20               # True precursor mass tolerance (window is +/- this value).
 precursor_true_units = 1                    # True precursor mass tolerance units (0 for Da, 1 for ppm).
@@ -16,12 +16,12 @@ write_calibrated_mzml = 0                   # Write calibrated MS2 scans (0 for 
 write_uncalibrated_mgf = 0                  # Write uncalibrated MS2 scans (0 for No, 1 for Yes). Only for .raw and .d formats.
 decoy_prefix = rev_                         # Prefix of the decoy protein entries. Used for parameter optimization only.
 
-isotope_error = 0/1/2                       # Also search for MS/MS events triggered on specified isotopic peaks.
+isotope_error = 0                           # Also search for MS/MS events triggered on specified isotopic peaks.
 mass_offsets = 0                            # Creates multiple precursor tolerance windows with specified mass offsets.
-restrict_deltamass_to = all                 # Specify amino acids on which delta masses (mass offsets or search modifications) can occur. Allowed values are single letter codes (e.g. ACD), must be capitalized. Use 'all' to allow any amino acid.
-precursor_mass_mode = selected              # One of isolated/selected/corrected.
+restrict_deltamass_to = all                 # Specify amino acids on which delta masses (mass offsets or search modifications) can occur. Allowed values are single letter codes (e.g. ACD), must be capitalized. Use 'all' to allow any amino acid. 
+precursor_mass_mode = corrected             # One of isolated/selected/corrected.
 
-localize_delta_mass = 0                     # Include fragment ions mass-shifted by unknown modifications (recommended for open
+localize_delta_mass = 1                     # Include fragment ions mass-shifted by unknown modifications (recommended for open
                                             # and mass offset searches) (0 for OFF, 1 for ON).
 delta_mass_exclude_ranges = (-1.5,3.5)      # Exclude mass range for shifted ions searching.
 fragment_ion_series = b,y                   # Ion series used in search, specify any of a,b,c,x,y,z,b-18,y-18,b~,y~,Y (comma separated).
@@ -80,7 +80,7 @@ add_topN_complementary = 0                  # Inserts complementary ions corresp
 
 check_spectral_files = 1                    # Checking spectral files before searching.
 minimum_peaks = 15                          # Minimum number of peaks in experimental spectrum for matching.
-use_topN_peaks = 150                        # Pre-process experimental spectrum to only use top N peaks.
+use_topN_peaks = 100                        # Pre-process experimental spectrum to only use top N peaks.
 deisotope = 1                               # Perform deisotoping or not (0=no, 1=yes and assume singleton peaks single charged, 2=yes and assume singleton
                                             # peaks single or double charged).
 deneutralloss = 1                           # Perform deneutrallossing or not (0=no, 1=yes).
