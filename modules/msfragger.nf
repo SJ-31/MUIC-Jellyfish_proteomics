@@ -13,9 +13,7 @@ process MSFRAGGER {
     script:
     """
     java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
-        --database_name $params.databaseWdecoy \
         $pars \
-        ${projectDir}/config/MSFragger_params.params \
         $files
     mv ${files.baseName}.tsv ${files.baseName}_msfragger.tsv
     """

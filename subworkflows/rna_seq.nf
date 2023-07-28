@@ -22,7 +22,7 @@ filter_ch = Channel.fromPath(params.filters)
 overrepresented_ch = Channel.fromPath(params.queries)
 
 /*
-* Initial checks and adapter filtering
+* initial checks and adapter filtering
 */
 include { MULTIQC; TRIM; FASTQCREPORT; STATS; TODIR } from '../modules/RNA-seq_initial_checks'
 include { BBDUK; ORNA; BLAST; SORTMERNA } from '../modules/RNA-seq_filtering'

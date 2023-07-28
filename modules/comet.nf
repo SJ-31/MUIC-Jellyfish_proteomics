@@ -2,7 +2,7 @@ process COMET {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(mzXML)
+    path(mzXMLs)
     val(outdir0
     //
 
@@ -14,8 +14,8 @@ process COMET {
     """
     cp $params.cometPars .
     philosopher workspace init
-    comet --param default_comet.params $mzXML
-    mv ${mzXML.baseName}.txt ${mzXML.baseName}_comet.tsv
+    comet --param default_comet.params $mzXMLs
+    mv ${mzXMLs[0].baseName}.txt ${mzXMLs[0].baseName}_comet.tsv
     """
     // Comet does the reverse decoy search by default
 }

@@ -15,13 +15,17 @@ process MSGF {
         -o temp.mzid \
     -d $params.database \
     -inst $params.inst \
+    -decoy $params.decoy_prefix
     -t $params.msgf_tolerance \
     -minLength $params.minpeplength \
     -m 3
     -addFeatures 1 \
     -maxMissedCleavages 2 \
-    -tda 0
+    -tda 1
     Mzid_to_tsv_wrapper.sh temp.mzid ${files.baseName}_msgf.tsv
     """
     //
 }
+/*
+ * -tda 1 means search a concatenated target-decoy database
+ */
