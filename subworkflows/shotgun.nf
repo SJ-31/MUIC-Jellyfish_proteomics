@@ -14,12 +14,14 @@ include { SMSNET } from '../modules/smsnet'
 include { MSGF } from '../modules/msgf'
 include { COMET } from '../modules/comet'
 include { IDENTIPY } from '../modules/identipy'
+include { METAMORPHEUS } from '../modules/metamorpheus'
 
 workflow 'search' {
     // MAXQUANT(raw_ch, params.mqpars, "$params.results/MaxQuant")
-    COMET(mzxml_ch.collect(), "$params.results/Comet")
-    // MSFRAGGER(mzmls_ch, "$params.results/MsFragger")
-    IDENTIPY(mzmls_ch, params.database,"$params.results/Identipy")
+    // COMET(mzxml_ch.collect(), "$params.results/Comet")
+    MSFRAGGER(mzmls_ch.collect(), params.fragger_closedPars, "$params.results/MsFragger")
+    // IDENTIPY(mzmls_ch, "$params.results/Identipy")
+    // METAMORPHEUS(raw_ch.collect(), "$params.results/Metamorpheus")
     // MSGF(mzmls_ch, "$params.results/msgf")
     // SMSNET(mgf_ch, "$params.results/SMSNET")
 }

@@ -2,12 +2,13 @@ process COMET {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(mzXMLs)
-    val(outdir0
+    tuple val(pref), path(mzXMLs)
+    val(outdir)
     //
 
     output:
-    path ("${mzXML.baseName}_comet.tsv")
+    path ("${params.pref}_comet.tsv")
+    path("${params.pref}-comet_percolator")
     //
 
     script:
@@ -15,7 +16,8 @@ process COMET {
     cp $params.cometPars .
     philosopher workspace init
     comet --param default_comet.params $mzXMLs
-    mv ${mzXMLs[0].baseName}.txt ${mzXMLs[0].baseName}_comet.tsv
+    percolator_wrapper.sh $params.pref ${params.pref}.pin $params.databaseWdecoy comet
+    mv ${params.pref}.txt ${params.pref}_comet.tsv
     """
     // Comet does the reverse decoy search by default
 }

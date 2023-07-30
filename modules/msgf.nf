@@ -13,19 +13,21 @@ process MSGF {
     """
     java -jar ~/tools/MSGFPlus/MSGFPlus.jar -s $files \
         -o temp.mzid \
-    -d $params.database \
-    -inst $params.inst \
-    -decoy $params.decoy_prefix
-    -t $params.msgf_tolerance \
-    -minLength $params.minpeplength \
-    -m 3
-    -addFeatures 1 \
-    -maxMissedCleavages 2 \
-    -tda 1
+        -d $params.database \
+        -inst $params.inst \
+        -decoy rev_
+        -t ${params.masstolerance}ppm \
+        -minLength $params.minpeplength \
+        -m 3
+        -addFeatures 1 \
+        -maxMissedCleavages 2 \
+        -tda 0
     Mzid_to_tsv_wrapper.sh temp.mzid ${files.baseName}_msgf.tsv
     """
     //
 }
 /*
- * -tda 1 means search a concatenated target-decoy database
+ * -tda 0 assumes that decoys are already present in the database */
+/* -inst 1 specifies orbitrap */
+/* -m 3 is HCD fragmentation
  */

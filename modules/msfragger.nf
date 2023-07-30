@@ -3,20 +3,24 @@ process MSFRAGGER {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(files)
+    path(mzmls)
     val(pars)
     val(outdir)
 
     output:
-    path("${files.baseName}_msfragger.tsv")
+    path("${params.pref}_msfragger.tsv")
 
     script:
     """
     java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
         $pars \
-        $files
-    mv ${files.baseName}.tsv ${files.baseName}_msfragger.tsv
+        $mzmls
+    mv ${params.pref}.tsv ${params.pref}_msfragger.tsv
     """
+    // The output pin files need to be merged into a single one before doing the percolator analysis
     // Calibrate mass
 }
 
+// Something is wrong...
+    // percolator_wrapper.sh $params.pref ${params.pref}.pin $params.databaseWdecoy msfragger
+// for output: path("${params.pref}-msfragger_percolator")

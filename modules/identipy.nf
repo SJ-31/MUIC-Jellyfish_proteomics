@@ -12,7 +12,7 @@ process IDENTIPY {
     script:
     """
     identipy $mzML \
-        -db $params.database \
+        -db $params.databaseWdecoy \
         -of tsv \
         -at \
         -prefix $params.decoy_prefix
