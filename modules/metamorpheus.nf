@@ -8,6 +8,8 @@ process METAMORPHEUS {
     //
 
     output:
+
+    path("${params.pref}-comet_percolator")
     //
 
     script:
@@ -16,6 +18,12 @@ process METAMORPHEUS {
         -o . \
         -t $params.morpheusPars \
         -d $params.databaseWdecoy \
+    mv Task1SearchTask/{All*,results.txt} .
+    percolator_wrapper.sh \
+        -p $params.pref \
+        -i AllPSMS_FormattedForPercolator.tab \
+        -f $params.databaseWdecoy \
+        -e metamorpheus
     """
     // Need to add extraction for percolator
 }

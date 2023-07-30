@@ -15,6 +15,7 @@ include { MSGF } from '../modules/msgf'
 include { COMET } from '../modules/comet'
 include { IDENTIPY } from '../modules/identipy'
 include { METAMORPHEUS } from '../modules/metamorpheus'
+include { CASANOVO } from '../modules/casanovo'
 
 workflow 'search' {
     // MAXQUANT(raw_ch, params.mqpars, "$params.results/MaxQuant")

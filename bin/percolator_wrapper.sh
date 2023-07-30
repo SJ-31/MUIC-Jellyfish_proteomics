@@ -1,10 +1,21 @@
 #!/usr/bin/env sh
 
-prefix=$1
-input=$2
-fasta=$3
-engine=$4
-percolator "$input" \
+while getopts "p:i:f:e" opt; do
+    case $opt in
+        p)
+            prefix=$OPTARG ;;
+        i)
+            input=$OPTARG ;;
+        f)
+            fasta=$OPTARG ;;
+        e)
+            engine=$OPTARG ;;
+        *) echo "Unsupported flag";;
+    esac
+done
+mkdir ${prefix}-${engine}_percolator
+cd ${prefix}-${engine}_percolator
+percolator ../"$input" \
     -r "${prefix}"_peptides.tsv \
     -B "${prefix}"_decoy_peptides.tsv \
     -m "${prefix}"_psms.tsv \
@@ -16,5 +27,3 @@ percolator "$input" \
     --protein-decoy-pattern rev_ \
     --protein-enzyme trypsin \
     --protein-report-duplicates
-mkdir ${prefix}_percolator
-find . -maxdepth 1 -type f \! -name "$input" -exec mv {} ${prefix}-${engine}_percolator \;

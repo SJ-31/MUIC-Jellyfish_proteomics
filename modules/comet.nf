@@ -16,7 +16,11 @@ process COMET {
     cp $params.cometPars .
     philosopher workspace init
     comet --param default_comet.params $mzXMLs
-    percolator_wrapper.sh $params.pref ${params.pref}.pin $params.databaseWdecoy comet
+    percolator_wrapper.sh \
+        -p $params.pref \
+        -i ${params.pref}.pin \
+        -f $params.databaseWdecoy \
+        -e comet
     mv ${params.pref}.txt ${params.pref}_comet.tsv
     """
     // Comet does the reverse decoy search by default
