@@ -19,10 +19,10 @@ include { CASANOVO } from '../modules/casanovo'
 
 workflow 'search' {
     // MAXQUANT(manifest.raw, params.mqpars, "$params.results/MaxQuant")
-    COMET(manifest.mzXML.collect(), "$params.results/Comet")
+    // COMET(manifest.mzXML.collect(), "$params.results/Comet")
     // MSFRAGGER(manifest.mzML.collect(), params.fragger_closedPars, "$params.results/MsFragger")
     // IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy")
-    // METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
+    METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
     // MSGF(manifest.mzML.collect(), "$params.results/msgf")
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET")
     // CASANOVO(manifest.mzML.collect(), "$params.results/Casanovo")

@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# Wrapper for running percolator on a single combined pin file
 
 while getopts "p:i:f:e:h" opt; do
     case $opt in
@@ -31,5 +32,5 @@ percolator "$input" \
     --picked-protein "$fasta" \
     -P rev_ \
     --protein-enzyme trypsin \
-        # --protein-report-duplicates
+    --protein-report-duplicates
 #        -J "${prefix}"_features.tsv \

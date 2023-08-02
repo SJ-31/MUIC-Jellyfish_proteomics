@@ -9,7 +9,6 @@ process COMET {
     output:
     path ("${params.pref}_comet.tsv")
     path ("comet*.tsv")
-    path("${params.pref}-comet_percolator")
     //
 
     script:
@@ -24,21 +23,26 @@ process COMET {
     find . -maxdepth 1 -name "*txt" -exec sed -se 2d {} + >> \
         "${params.pref}_comet.tsv"
 
-    percolator_wrapper.sh \
-        -p $params.pref \
-        -i pin \
-        -f $params.database \
-        -e comet
-
     merge_tables.sh -r "$pin_header" \
-        -o comet_all_pin.txt \
+        -o comet_all_pins.temp \
         -p pin
 
-    percolator_wrapper2.sh \
-        -p $params.pref \
-        -i comet_all_pin \
+    percolator_wrapper_combined.sh \
+        -p comet \
+        -i comet_all_pins.temp \
         -f $params.database \
         -e comet
+
+    Rscript $params.bin/to_combined_PEP.r \
+        -m comet_percolator_psms.tsv \
+        -d comet_percolator_decoy_psms.tsv \
+        -o comet_psm2combined_PEP.tsv
+
+    Rscript $params.bin/to_combined_PEP.r \
+        -m comet_percolator_proteins.tsv \
+        -d comet_percolator_decoy_proteins.tsv \
+        --protein_matches \
+        -o comet_prot2combined_PEP.tsv
     """
-    // The comet step works, its just percolator thats failing now
+    //
 }

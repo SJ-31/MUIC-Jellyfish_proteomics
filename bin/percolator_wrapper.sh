@@ -1,4 +1,5 @@
 #!/usr/bin/env sh
+# Wrapper for running percolator in a loop on multiple PIN files
 
 while getopts "p:i:f:e:h" opt; do
     case $opt in

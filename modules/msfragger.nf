@@ -10,7 +10,6 @@ process MSFRAGGER {
     output:
     path("${params.pref}_msfragger.tsv")
     path("msfragger*.tsv")
-    path("${params.pref}-msfragger_percolator")
 
     script:
     tsv_header = "scannum	precursor_neutral_mass	retention_time	charge	ion_mobility	compensation_voltage	hit_rank	peptide	peptide_prev_aa	peptide_next_aa	protein	num_matched_ions	tot_num_ions	calc_neutral_pep_mass	massdiff	num_tol_term	num_missed_cleavages	modification_info	hyperscore	nextscore	expectscore	best_locs	score_without_delta_mass	best_score_with_delta_mass	second_best_score_with_delta_mass	delta_score"
@@ -20,14 +19,20 @@ process MSFRAGGER {
         ${pars} \
         ${mzmls}
 
+
     merge_tables.sh -r "$tsv_header" \
         -o ${params.pref}_msfragger.txt \
         -p tsv
+
+    merge_tables.sh -r "$pin_header" \
+        -o fragger_all_pins.temp \
+        -p pin
+
     mv ${params.pref}_msfragger.txt ${params.pref}_msfragger.tsv
 
-    percolator_wrapper.sh \
-       -p $params.pref \
-       -i pin \
+    percolator_wrapper_combined.sh \
+       -p msfragger \
+       -i fragger_all_pins.temp \
        -f $params.database \
        -e msfragger
     """

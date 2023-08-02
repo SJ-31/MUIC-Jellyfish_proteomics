@@ -1,5 +1,4 @@
 #!/usr/bin/python
-# 
 
 import csv
 import os
@@ -205,10 +204,8 @@ class CombinedPEP(object):
 
     def generate_psm_to_scores_dict(self, input_engines):
         for engine_combo in self.all_combinations(input_engines):
-
             engines_not_in_combo = \
                 {e for e in input_engines if e not in engine_combo}
-
             if engines_not_in_combo:
                 print('\nScoring PSMs that were found by\n  {0}'\
                     '\nbut not by\n  {1}'.format(
@@ -394,6 +391,7 @@ def main(columns_for_grouping=None, input_csvs=None, output_csv=None,
 
     # Calculate Bayes PEP and combined PEP for each PSM:
     c.generate_psm_to_scores_dict(input_engines)
+    # input_engines is literally the list of given engines
 
     # Write merged CSV with Bayes PEP and combined PEP column:
     c.write_output_csv(output_csv)
@@ -427,7 +425,7 @@ def parse_args(verbose=True):
         '-js', '--join_sep', type=str, default=';',
         help='Delimiter for multiple values in the same field')
     parser.add_argument(
-        '-e', '--input_engines', type=str, required=True,
+        '-e', '--input_engines', type=str, required=True, nargs="+",
         help='The search engines of each input file (must be same order as input_csvs)')
     parser.add_argument(
         '-w', '--window_size', type=int, default=251,
