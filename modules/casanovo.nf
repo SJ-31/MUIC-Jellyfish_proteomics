@@ -3,6 +3,7 @@ process CASANOVO {
     conda "/mnt/data/shannc/anaconda3/casanovo"
 
     input:
+    val(prefix)
     path(mzMLs)
     val(outdir)
     //

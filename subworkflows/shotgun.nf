@@ -1,12 +1,12 @@
-Channel.fromPath(params.raws)
-    .set { raw_ch }
-Channel.fromPath(params.mzmls)
-    .set { mzmls_ch }
-Channel.fromPath(params.mzXMLs)
-    .set { mzxml_ch }
-Channel.fromPath(params.mgfs)
-    .set { mgf_ch }
-
+Channel.fromPath(params.manifest_file)
+    .splitCsv(header: true, sep: "\t")
+    .map { it -> [ it.Prefix, it.Raw, it.mzML, it.mzXML, it.mgf ] }
+    .flatten().branch {
+        mzML: it =~ /.mzML/
+        mzXML: it =~ /.mzXML/
+        mgf: it =~ /.mgf/
+        raw: it =~ /.raw/
+    }.set { manifest }
 
 include { MAXQUANT } from '../modules/maxquant'
 include { MSFRAGGER } from '../modules/msfragger'
@@ -18,11 +18,12 @@ include { METAMORPHEUS } from '../modules/metamorpheus'
 include { CASANOVO } from '../modules/casanovo'
 
 workflow 'search' {
-    // MAXQUANT(raw_ch, params.mqpars, "$params.results/MaxQuant")
-    // COMET(mzxml_ch.collect(), "$params.results/Comet")
-    MSFRAGGER(mzmls_ch.collect(), params.fragger_closedPars, "$params.results/MsFragger")
-    // IDENTIPY(mzmls_ch, "$params.results/Identipy")
-    // METAMORPHEUS(raw_ch.collect(), "$params.results/Metamorpheus")
-    // MSGF(mzmls_ch, "$params.results/msgf")
-    // SMSNET(mgf_ch, "$params.results/SMSNET")
+    // MAXQUANT(manifest.raw, params.mqpars, "$params.results/MaxQuant")
+    COMET(manifest.mzXML.collect(), "$params.results/Comet")
+    // MSFRAGGER(manifest.mzML.collect(), params.fragger_closedPars, "$params.results/MsFragger")
+    // IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy")
+    // METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
+    // MSGF(manifest.mzML.collect(), "$params.results/msgf")
+    // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET")
+    // CASANOVO(manifest.mzML.collect(), "$params.results/Casanovo")
 }

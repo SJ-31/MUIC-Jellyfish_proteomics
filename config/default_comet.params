@@ -2,7 +2,7 @@
 # Comet MS/MS search engine parameters file.
 # Everything following the '#' symbol is treated as a comment.
 
-database_name = /mnt/shannc/nf/data/reference/protein_databases/combined/decoysWnormal.fasta
+database_name = /mnt/data/shannc/nf/data/reference/protein_databases/combined/decoysWnormal.fasta
 decoy_search = 0                       # 0=no (default), 1=concatenated search, 2=separate search
 peff_format = 0                        # 0=no (normal fasta, default), 1=PEFF PSI-MOD, 2=PEFF Unimod
 peff_obo =                             # path to PSI Mod or Unimod OBO file

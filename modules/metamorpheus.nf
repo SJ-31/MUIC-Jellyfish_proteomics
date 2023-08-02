@@ -1,29 +1,33 @@
 process METAMORPHEUS {
     publishDir "$outdir", mode: "copy"
+    publishDir "$params.logs/Metamorpheus", mode: "copy", pattern: "${params.pref}_results*"
     conda "/home/shannc/anaconda3/envs/metamorpheus"
 
     input:
-    path(raws)
+    path(mzmls)
     val(outdir)
     //
 
     output:
-
+    path("${params.pref}")
     path("${params.pref}-comet_percolator")
     //
 
-    script:
-    """
-    metamorpheus -s $raws \
+    shell:
+    '''
+    metamorpheus -s !{mzmls} \
         -o . \
-        -t $params.morpheusPars \
-        -d $params.databaseWdecoy \
-    mv Task1SearchTask/{All*,results.txt} .
+        -t !{params.morpheusPars} \
+        -d !{params.databaseWdecoy} \
+    mv Task1SearchTask/[Aa]ll* .
     percolator_wrapper.sh \
-        -p $params.pref \
+        -p !{params.pref} \
         -i AllPSMS_FormattedForPercolator.tab \
-        -f $params.databaseWdecoy \
+        -f !{params.database} \
         -e metamorpheus
-    """
-    // Need to add extraction for percolator
+    for i in [Aa]ll*
+        do
+        mv $i !{params.pref}_${i}
+        done
+    '''
 }

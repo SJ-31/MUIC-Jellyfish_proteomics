@@ -173,7 +173,7 @@ class CombinedPEP(object):
                 self.input_csv_fieldnames.add(fieldname)
             self.psm_dicts[input_engine_name] = self.reader_to_psm_dict(
                 reader, input_engine_name
-            )
+            ) # Just adds all the fields from the passed engine CSV file
         print('Finished parsing {0}'.format(os.path.basename(input_csv_path)))
 
     def reader_to_psm_dict(self, reader, input_engine_name):

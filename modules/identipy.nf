@@ -3,24 +3,25 @@ process IDENTIPY {
     conda "/home/shannc/anaconda3/envs/identipy"
 
     input:
-    path(mzML)
+    path(mzMLs)
     val(outdir)
     //
     output:
-    path("${mzML.baseName}_identipy.tsv")
+    path("${params.pref}_identipy.tsv")
+    path("identipy*.tsv")
+    path("${params.pref}-identipy_percolator")
     //
-    script:
+    shell:
     """
-    identipy $mzML \
-        -db $params.databaseWdecoy \
-        -of tsv \
-        -at \
-        -prefix $params.decoy_prefix
-        -out .
-    mv ${mzML.baseName}.tsv ${mzML.baseName}_identipy.tsv
-    Rscript $params.bin/identipy2pin.r ${mzML.baseName}_identipy.tsv \
-        ${mzML.baseName}_identipy.pin \
-        ${mzML.baseName}
+    identipy_wrapper.sh -d $params.databaseWdecoy \
+        -p $params.pref \
+        -c $params.bin/identipy2pin.r
+
+    percolator_wrapper.sh \
+        -p ${params.pref} \
+        -i pin \
+        -f ${params.database} \
+        -e identipy
     """
     // -at Auto-tune search parameters
     // -mc Number of missed cleavages

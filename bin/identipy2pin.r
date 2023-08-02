@@ -25,7 +25,7 @@ split_to_tab <- function(identipy_proteins) {
 }
 
 identipy <- identipy %>%
-  mutate(Proteins = unlist(lapply(Proteins, gsub, # Change the name for this, the column header is "Proteins"
+  mutate(Proteins = unlist(lapply(Proteins, gsub,
     pattern = ";",
     replacement = "\t"
   ))) %>%
