@@ -16,14 +16,30 @@ include { COMET } from '../modules/comet'
 include { IDENTIPY } from '../modules/identipy'
 include { METAMORPHEUS } from '../modules/metamorpheus'
 include { CASANOVO } from '../modules/casanovo'
+include { PERCOLATOR } from '../modules/percolator'
 
 workflow 'search' {
+    // MaxQuant seems to only work with .raw files
     // MAXQUANT(manifest.raw, params.mqpars, "$params.results/MaxQuant")
+    // .set { maxq }
     // COMET(manifest.mzXML.collect(), "$params.results/Comet")
+    // .set { comet }
     // MSFRAGGER(manifest.mzML.collect(), params.fragger_closedPars, "$params.results/MsFragger")
-    // IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy")
-    METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
+    // .set { fragger }
+    IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy")
+        .set { ipy }
+    // METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
+    //     .set{ mmorph }
     // MSGF(manifest.mzML.collect(), "$params.results/msgf")
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET")
     // CASANOVO(manifest.mzML.collect(), "$params.results/Casanovo")
+    // PERCOLATOR(
+    //         .mix(
+    //             mmorph.percolator,
+    //             maxq.percolator,
+    //             comet.percolator,
+    //             fragger.percolator,
+    //             ipy.percolator
+    // )
+
 }

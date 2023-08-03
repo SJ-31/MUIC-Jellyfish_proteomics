@@ -9,6 +9,7 @@ process COMET {
     output:
     path ("${params.pref}_comet.tsv")
     path ("comet*.tsv")
+    tuple val("comet"), path("comet_all_pins.temp"), emit: percolator
     //
 
     script:
@@ -26,23 +27,6 @@ process COMET {
     merge_tables.sh -r "$pin_header" \
         -o comet_all_pins.temp \
         -p pin
-
-    percolator_wrapper_combined.sh \
-        -p comet \
-        -i comet_all_pins.temp \
-        -f $params.database \
-        -e comet
-
-    Rscript $params.bin/to_combined_PEP.r \
-        -m comet_percolator_psms.tsv \
-        -d comet_percolator_decoy_psms.tsv \
-        -o comet_psm2combined_PEP.tsv
-
-    Rscript $params.bin/to_combined_PEP.r \
-        -m comet_percolator_proteins.tsv \
-        -d comet_percolator_decoy_proteins.tsv \
-        --protein_matches \
-        -o comet_prot2combined_PEP.tsv
     """
     //
 }

@@ -9,12 +9,10 @@ while getopts "p:i:f:e:h" opt; do
             input=$OPTARG ;;
         f)
             fasta=$OPTARG ;;
-        e)
-            engine=$OPTARG ;;
         h)
             echo "  Usage"
             echo "  -p <prefix> -i <input_percolator_file>"
-            echo "  -f <database_in_fasta_format> -e <engine>"
+            echo "  -f <database_in_fasta_format>"
             echo "\n"
             ;;
         *) echo "Unsupported flag";;

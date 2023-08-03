@@ -13,12 +13,12 @@ process MSGF {
     """
     java -jar ~/tools/MSGFPlus/MSGFPlus.jar -s $files \
         -o temp.mzid \
-        -d $params.database \
+        -d $params.databaseWdecoy \
         -inst $params.inst \
-        -decoy rev_
+        -decoy rev \
         -t ${params.masstolerance}ppm \
         -minLength $params.minpeplength \
-        -m 3
+        -m 3 \
         -addFeatures 1 \
         -maxMissedCleavages 2 \
         -tda 0

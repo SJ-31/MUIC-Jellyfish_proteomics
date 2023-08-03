@@ -1,5 +1,5 @@
 #!/usr/bin/env sh
-#
+
 mzid=$1
 tsv=$2
 

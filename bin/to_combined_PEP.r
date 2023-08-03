@@ -1,5 +1,6 @@
 library(tidyverse)
 library(optparse)
+## Renames headers and formats percolator output files for use with Ursgal's combine_pep_1_0_0.py script
 args <- commandArgs(trailingOnly = TRUE)
 ## args <- c("comet_psms.tsv", "comet_decoy_psms.tsv", "combined_comet.csv")
 ## valid_file <- args[1]
@@ -41,7 +42,6 @@ read_percolator <- function(filename, header, col_select, is_decoy) {
   return(percolator_output)
 }
 
-
 ## args <- parse_args(parser, args = test_mq)
 args <- parse_args(parser)
 peptide_cols <- c("V2", "V3", "V4", "V5")
@@ -51,18 +51,6 @@ mq_cols <- c("V36", "V11", "V37", "V34", "V12")
 psm_header <- c("score", "q-value", "PEP", "peptide")
 percolator_protein_header <- c("ProteinId", "ProteinGroupID", "q-value", "PEP")
 
-## maxquant <- read.table(args$maxquant, sep = "\t") %>%
-##   as_tibble() %>%
-##   select(all_of(mq_cols)) %>%
-##   `colnames<-`(c(psm_header, "Is decoy")) %>%
-##   mutate(`q-value` = NaN) %>%
-##   mutate(`Is decoy` = unlist(lapply(`Is decoy`, function(x) {
-##     return(x == "+")
-##   }))) %>%
-##   slice(2:dim(.)[1]) %>%
-##   filter(peptide != " ")
-## maxquant %>% filter(PEP < 1) %>% dim
-## Use the modified sequence
 if (args$protein_matches) {
   valid <- read_percolator(args$matches, percolator_protein_header,
                            protein_cols, FALSE)

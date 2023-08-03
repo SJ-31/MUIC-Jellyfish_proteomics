@@ -10,8 +10,8 @@ process METAMORPHEUS {
     //
 
     output:
-    path("${params.pref}")
-    path("metamorpheus*.tsv")
+    path("metamorpheus*")
+    tuple val("metamorpheus"), path("metamorpheus_AllPSMs_FormattedForPercolator.tab"), emit: percolator
     //
 
     shell:
@@ -19,19 +19,13 @@ process METAMORPHEUS {
     metamorpheus -s !{mzmls} \
         -o . \
         -t !{params.morpheusPars} \
-        -d !{params.databaseWdecoy}
+        -d !{params.database}
 
     mv Task1SearchTask/[Aa]ll* .
 
-    percolator_wrapper_combined.sh \
-        -p metamorpheus \
-        -i AllPSMS_FormattedForPercolator.tab \
-        -f !{params.database} \
-        -e metamorpheus
-
     for i in [Aa]ll*
         do
-        mv $i !{params.pref}_${i}
+        mv $i metamorpheus_${i}
         done
     '''
 }

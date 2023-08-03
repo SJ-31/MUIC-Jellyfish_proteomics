@@ -8,4 +8,3 @@ workflow rnaseq {
 workflow identify {
     search()
 }
-

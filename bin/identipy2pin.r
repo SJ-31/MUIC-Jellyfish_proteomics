@@ -1,11 +1,8 @@
 library(tidyverse)
-library(R.utils)
 files <- commandArgs(trailingOnly = TRUE)
-files <- c("identipy.tsv", "identipy.pin", "CiCs1")
 input <- files[1]
 pin_file <- files[2]
 sample_id <- files[3]
-
 
 identipy <- read.delim(input, sep = "\t") %>% as_tibble()
 new_names <- c(Peptide = "Modified.sequence")
@@ -20,20 +17,6 @@ decoy_label <- function(identipy_proteins) {
     return(-1)
   }
   return(1)
-}
-
-
-# Unfinished
-sample <- "TcamCPFVDK"
-splits <- unlist(strsplit(sample, ""))
-splits[length(splits)-1]
-
-
-unify_mods <- function(modified_seq) {
-# Use the same modification syntax as comet and msfragger
-  modified_seq <- modi
-
-
 }
 
 split_to_tab <- function(identipy_proteins) {
@@ -59,13 +42,11 @@ identipy <- identipy[, c(
   8, 7, 6, 5, 4, 3, 2, 1, 12, 10
 )]
 
-
-
 pin <- seq_along(identipy$ScanNr) %>%
   lapply(., function(x) {
     return(identipy[x, ] %>% paste0(collapse = "\t"))
   }) %>%
   unlist()
 
-base::cat(c(colnames(identipy), "\n"), file = pin_file, sep = "\t")
+cat(c(colnames(identipy), "\n"), file = pin_file, sep = "\t")
 write_lines(pin, pin_file, append = TRUE)

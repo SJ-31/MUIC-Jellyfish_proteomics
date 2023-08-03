@@ -1,8 +1,8 @@
 #!/usr/bin/env sh
 while getopts "d:p:c:" opt; do
     case $opt in
-        d)
-            database=$OPTARG ;;
+        g)
+            config=$OPTARG ;;
         p)
             prefix=$OPTARG ;;
         c)
@@ -14,10 +14,8 @@ tsv_header="Title	Assumed charge	RT	compensation_voltage	Rank	Matched ions	Total
 for mzML in *mzML
 do
     identipy $mzmL \
-        -db "$database"
-        -of tsv \
+        -cfg ${config} \
         -at \
-        -prefix rev_
         -out .
 done
 
