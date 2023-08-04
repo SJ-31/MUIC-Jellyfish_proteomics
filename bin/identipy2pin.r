@@ -7,11 +7,13 @@ sample_id <- files[3]
 identipy <- read.delim(input, sep = "\t") %>% as_tibble()
 new_names <- c(Peptide = "Modified.sequence")
 find_scan <- function(identipy_title) {
+  # Extracts the scan number
   match <- regexec(pattern = "scan=(.*)", identipy_title)
   scan <- regmatches(identipy_title, match)
   return(as.integer(scan[[1]][2]))
 }
 decoy_label <- function(identipy_proteins) {
+   # Returns decoy label from reading a list of proteins
   split <- unlist(strsplit(identipy_proteins, ";", fixed = TRUE))
   if (substr(split[1], 1, 4) == "rev_") {
     return(-1)

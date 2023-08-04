@@ -14,5 +14,5 @@ while getopts "r:h:o:p:" opt; do
 done
 
 
-echo -e "$header" > "$output"
+echo "$header" > "$output"
 find . -maxdepth 1 -name "*${pattern}" -exec sed -se 1d {} + >> "$output"

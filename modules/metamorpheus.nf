@@ -18,7 +18,7 @@ process METAMORPHEUS {
     '''
     metamorpheus -s !{mzmls} \
         -o . \
-        -t !{params.morpheusPars} \
+        -t !{params.config}/metamorpheus_params.toml \
         -d !{params.database}
 
     mv Task1SearchTask/[Aa]ll* .

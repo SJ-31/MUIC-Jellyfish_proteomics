@@ -8,7 +8,7 @@ process COMET {
 
     output:
     path ("${params.pref}_comet.tsv")
-    path ("comet*.tsv")
+    path ("comet*.txt")
     tuple val("comet"), path("comet_all_pins.temp"), emit: percolator
     //
 
@@ -16,7 +16,7 @@ process COMET {
     tsv_header = "scan	num	charge	exp_neutral_mass	calc_neutral_mass	e-value	xcorr	delta_cn	sp_score	ions_matched	ions_total	plain_peptide	modified_peptide	prev_aa	next_aa	protein	protein_count	modifications"
     pin_header = "SpecId	Label	ScanNr	ExpMass	CalcMass	lnrSp	deltLCn	deltCn	lnExpect	Xcorr	Sp	IonFrac	Mass	PepLen	Charge1	Charge2	Charge3	Charge4	Charge5	Charge6	enzN	enzC	enzInt	lnNumSP	dM	absdM	Peptide	Proteins"
     """
-    cp $params.cometPars .
+    cp ${params.config}/default_comet.params .
     philosopher workspace --init
     philosopher comet --param default_comet.params $mzXMLs
 

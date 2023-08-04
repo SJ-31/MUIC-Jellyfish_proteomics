@@ -4,8 +4,8 @@
      <FastaFileInfo>
          <fastaFilePath>/mnt/data/shannc/nf/data/reference/protein_databases/combined/all_normal.fasta</fastaFilePath>
          <identifierParseRule>&gt;(\w*)</identifierParseRule>
-         <descriptionParseRule>[0-9]\s(.*)\s\[</descriptionParseRule>
-         <taxonomyParseRule>\[(.*)\]</taxonomyParseRule>
+         <descriptionParseRule></descriptionParseRule>
+         <taxonomyParseRule></taxonomyParseRule>
          <variationParseRule />
          <modificationParseRule />
          <taxonomyId />
