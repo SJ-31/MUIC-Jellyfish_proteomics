@@ -7,6 +7,7 @@ process METAMORPHEUS {
     input:
     path(mzmls)
     val(outdir)
+    val(database)
     //
 
     output:
@@ -19,7 +20,7 @@ process METAMORPHEUS {
     metamorpheus -s !{mzmls} \
         -o . \
         -t !{params.config}/metamorpheus_params.toml \
-        -d !{params.database}
+        -d !{database}
 
     mv Task1SearchTask/[Aa]ll* .
 

@@ -22,7 +22,7 @@ read_percolator <- function(filename, header, col_select, is_decoy) {
     filter(!(grepl("[A-Za-z]", V2))) %>%
     filter(V2 != "") %>%
     `colnames<-`(header)%>%
-    mutate("Is decoy" = is_decoy)
+    mutate("Is_decoy" = is_decoy)
   return(percolator_output)
 }
 

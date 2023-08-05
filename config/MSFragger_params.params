@@ -1,6 +1,6 @@
 # MSFragger-3.7
 num_threads = 0                             # Number of CPU threads to use.
-database_name = /mnt/data/shannc/nf/data/reference/protein_databases/combined/decoysWnormal.fasta
+database_name =
 
 precursor_mass_lower = -20                  # Lower bound of the precursor mass window.
 precursor_mass_upper = 20                   # Upper bound of the precursor mass window.

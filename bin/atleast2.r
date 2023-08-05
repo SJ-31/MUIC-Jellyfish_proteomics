@@ -1,14 +1,12 @@
 library(tidyverse)
 library(optparse)
 parser <- OptionParser()
-parser <- add_option(parser, c("-p", "--file_paths"), type = "character",
-                default = ".", help = "Location of Percolator protein output files")
 parser <- add_option(parser, c("-m", "--map_file"), type = "character",
                      help="Path to header mapping")
 parser <- add_option(parser, c("-o", "--output"), type="character",
                 help="Output file name")
 args <- parse_args(parser)
-files <- list.files(args$file_paths) # This script will be run in a Nextflow process where
+files <- list.files(".") # This script will be run in a Nextflow process where
                                     # all the results files have been dumped
                                     # into the directory
 map_file <- args$map_file
@@ -17,6 +15,30 @@ target <- "ProteinId"
 headers <- c("ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
             "peptideIds")
 
+split_duplicates <- function(dupe_table, index) {
+    # Split a Percolator row containing duplicate protein ids into several rows, one for each id
+    dupes <- dupe_table[index, ]$ProteinId %>% strsplit(",")
+    split_dupes <- lapply(seq_along(dupes), function(x) {
+        return(data.frame(ProteinId = dupes[x],
+                ProteinGroupId = dupe_table[index, ]$ProteinGroupId,
+                q.value = dupe_table[index, ]$q.value,
+                posterior_error_prob = dupe_table[index, ]$posterior_error_prob,
+                peptideIds = dupe_table[index, ]$peptideIds))
+    })[[1]]
+    colnames(split_dupes)[1] <- c("ProteinId")
+    return(split_dupes)
+}
+
+sort_duplicates <- function(file_path) {
+# Read in a Percolator protein output file and sort duplicates
+    table <- read.delim(file_path, sep = "\t")
+    duplicates <- table %>% filter(grepl(",", ProteinId))
+    table <- table %>% filter(!grepl(",", ProteinId))
+    duplicates <- lapply(1:dim(duplicates)[1], split_duplicates, dupe_table = duplicates) %>%
+    bind_rows()
+    return(bind_rows(list(duplicates, table)))
+}
+
 filter_pep <- function(percolator_out, thresh) {
   filtered <- percolator_out[percolator_out$posterior_error_prob <= thresh, ]
   return(filtered)
@@ -24,7 +46,7 @@ filter_pep <- function(percolator_out, thresh) {
 
 get_matches <- function(file_name, target) {
   engine <- gsub("_.*", "", file_name)
-  results <- read.delim(file_name, sep = "\t")
+  results <- sort_duplicates(file_name)
   ## results <- filter_pep(results, 0.1)
   matches <- results[[target]]
   engine_results <- list(matches)
@@ -32,12 +54,10 @@ get_matches <- function(file_name, target) {
   return(engine_results)
 }
 
-
 engi <- lapply(files, get_matches, target = target) %>%
   unlist(recursive = FALSE)
-engi$sim <- sim$ProteinId
 
-tables <- lapply(files, read.delim, sep = "\t")
+tables <- lapply(files, sort_duplicates)
 
 combos <- combn(names(engi), 2)
 master_list <- lapply(1:ncol(combos), function(x) {

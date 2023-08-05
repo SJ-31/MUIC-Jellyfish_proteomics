@@ -2,7 +2,7 @@
 <MaxQuantParams xmlns:xsd="http://www.w3.org/2001/XMLSchema" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
    <fastaFiles>
      <FastaFileInfo>
-         <fastaFilePath>/mnt/data/shannc/nf/data/reference/protein_databases/combined/all_normal.fasta</fastaFilePath>
+         <fastaFilePath></fastaFilePath>
          <identifierParseRule>>(.*)</identifierParseRule>
          <descriptionParseRule></descriptionParseRule>
          <taxonomyParseRule></taxonomyParseRule>

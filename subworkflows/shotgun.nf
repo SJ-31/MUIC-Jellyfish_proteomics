@@ -20,26 +20,40 @@ include { TIDE } from '../modules/tide'
 include { CASANOVO } from '../modules/casanovo'
 include { PERCOLATOR } from '../modules/percolator'
 include { MS2RESCORE } from '../modules/ms2rescore'
+include { SEARCH_INTERSECT } from '../modules/search_intersect'
+include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
+include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 
-workflow 'search' {
-    // MaxQuant seems to only work with .raw files
-    MAXQUANT(manifest.raw, "$params.results/MaxQuant")
-        .set { maxq }
-    // COMET(manifest.mzXML.collect(), "$params.results/Comet")
-    // .set { comet }
-    // MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
-    // "$params.results/MsFragger")
-    // .set { fragger }
-    // IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy")
-    //     .set { ipy }
-    // METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus")
-    //     .set { mmorph }
-    // MSGF(manifest.mzML.collect(), "$params.results/msgf")
-    //     .set { msgf }
-    // TIDE(manifest.mzXML.collect(), "$params.results/Tide", "$params.results/Percolator")
-    //     .set { tide }
+workflow 'denovo' {
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET")
     // CASANOVO(manifest.mzML.collect(), "$params.results/Casanovo")
+}
+
+workflow 'make_db' {
+
+}
+
+dbWdecoys = $params.databaseWdecoy
+db = $params.database
+workflow 'search' {
+    // MaxQuant seems to only work with .raw files
+    MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
+        .set { maxq }
+    // COMET(manifest.mzXML.collect(), "$params.results/Comet",
+    // dbWdecoys)
+    // .set { comet }
+    // MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
+    // "$params.results/MsFragger", dbWdecoys)
+    // .set { fragger }
+    // IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy", dbWdecoys)
+    //     .set { ipy }
+    // METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus", db)
+    //     .set { mmorph }
+    // MSGF(manifest.mzML.collect(), "$params.results/msgf", db)
+    //     .set { msgf }
+    // TIDE(manifest.mzXML.collect(), "$params.results/Tide", "$params.results/Percolator",
+    // db)
+    //     .set { tide }
     MS2RESCORE(maxq.ms2rescore.collect(), "$params.results/MaxQuant",
     manifest.mgf.collect())
         .set { maxq_percolator }
@@ -53,5 +67,10 @@ workflow 'search' {
     //             maxq_percolator,
     //             ),
     // "$params.results/Percolator")
-
+    //     .set { percolator }
+    // SEARCH_INTERSECT(percolator.prot2intersect.collect(), "$params.results/Combined")
+    // COMBINE_PEP_PSM(percolator.psm2combinedPEP.collect(), true,
+    //                 "$params.results/Combined")
+    // COMBINE_PEP_PSM(percolator.prot2combinedPEP.collect(), false,
+    //                 "$params.results/Combined")
 }

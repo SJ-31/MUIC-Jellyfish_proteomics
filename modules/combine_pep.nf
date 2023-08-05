@@ -2,24 +2,29 @@ process COMBINE_PEP {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(combined_PEPs)
+    path(percolator_out)
     val(is_psm)
+    val(outdir)
     //
 
     output:
+    path("$out")
     //
-
     script:
-    peptide_header = 'score q-value PEP peptide "Is decoy"'
-    protein_header = 'ProteinId ProteinGroupdId q-value PEP "Is decoy"'
-    if (is_peptide) {
-        header = peptide_header
+    psm_header = 'score q-value PEP peptide "Is_decoy"'
+    protein_header = 'ProteinId ProteinGroupID q-value PEP Is_decoy'
+    if (is_psm) {
+        header = psm_header
+        out = "combined_PEP_psms.tsv"
+    } else {
+        header = protein_header
+        out = "combined_PEP_prot.tsv"
     }
     """
     combine_pep_1_0_0.py \
-        -i \
+        -i $combine \
         -c $header \
-        -e $engines
+        -o $out
     """
     //
 }

@@ -4,6 +4,7 @@ process MSGF {
     input:
     path(files)
     val(outdir)
+    vald(database)
     //
     output:
     path("${files.baseName}_msgf.tsv")
@@ -13,7 +14,7 @@ process MSGF {
     """
     java -jar ~/tools/MSGFPlus/MSGFPlus.jar -s $files \
         -o temp.mzid \
-        -d $params.databaseWdecoy \
+        -d $database \
         -inst $params.inst \
         -decoy rev \
         -t ${params.masstolerance}ppm \

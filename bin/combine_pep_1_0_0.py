@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import csv
 import os
@@ -134,9 +134,9 @@ class CombinedPEP(object):
         Check if a unified CSV row is a target or decoy PSM.
         Returns True if decoy and False if target.
         '''
-        if row['Is decoy'].lower() == 'true':
+        if row['Is_decoy'].lower() == 'true':
             is_decoy = True
-        elif row['Is decoy'].lower() == 'false':
+        elif row['Is_decoy'].lower() == 'false':
             is_decoy = False
         else:
             raise Exception('Could not determine whether PSM is decoy or not.')
@@ -261,7 +261,7 @@ class CombinedPEP(object):
 
                 self.score_dict[engine_combo][PSM_key] = {
                     'Bayes PEP' : bayesPEP,
-                    'Is decoy' : PSM_is_decoy,
+                    'Is_decoy' : PSM_is_decoy,
                 }
 
 
@@ -281,7 +281,7 @@ class CombinedPEP(object):
                 key = lambda kv: kv[1]['Bayes PEP']
             )
             sorted_decoy_bools = [
-                kv_tuple[1]['Is decoy'] for kv_tuple in psms_sorted_by_bayes_pep
+                kv_tuple[1]['Is_decoy'] for kv_tuple in psms_sorted_by_bayes_pep
             ]
 
             for i, (n_decoys, __, current_win_size) in enumerate(
@@ -332,33 +332,6 @@ class CombinedPEP(object):
                         writer.writerow(out_row)
         return
 
-    # def merge_rowdicts(self, rows_to_merge, sep=';'):
-    #     '''
-    #     Merges different DictReader rows (=dictionaries) to a single merged
-    #     dictionary. If all values are in agreement, only that value is entered.
-    #     If there are conflicting values, they are joined with a separator
-    #     (i.e. ';').
-    #     '''
-    #     md = {}  # merged rowdict
-    #     for row in rows_to_merge:
-    #         for col_name, field_val in row.items():
-
-    #             if col_name not in md:
-    #                 # value is not there yet, so add it
-    #                 md[col_name] = field_val
-    #                 continue
-
-    #             if md[col_name] == field_val:
-    #                 # value is already there, no need to add it
-    #                 continue
-
-    #             # Different value(s) are already there! join them (i.e. with ';')
-    #             old_vals = set(md[col_name].split(sep))
-    #             old_vals.add(field_val)
-    #             old_vals.discard('')
-    #             md[col_name] = sep.join(sorted(old_vals))
-    #     return md
-
 def main(columns_for_grouping=None, input_csvs=None, output_csv=None,
          input_sep=None, output_sep=None, join_sep=None, pep_colname=None,
          input_engines=None, window_size=None):
@@ -384,6 +357,7 @@ def main(columns_for_grouping=None, input_csvs=None, output_csv=None,
     c.join_sep = join_sep
     c.pep_colname = pep_colname
     c.window_size = window_size
+    input_engines = [i[:i.find("_")] for i in input_csvs]
 
     # Parse input CSV files and buffer them as PSM-to-row dicts:
     for input_csv, input_engine in zip(input_csvs, input_engines):
@@ -424,9 +398,6 @@ def parse_args(verbose=True):
     parser.add_argument(
         '-js', '--join_sep', type=str, default=';',
         help='Delimiter for multiple values in the same field')
-    parser.add_argument(
-        '-e', '--input_engines', type=str, required=True, nargs="+",
-        help='The search engines of each input file (must be same order as input_csvs)')
     parser.add_argument(
         '-w', '--window_size', type=int, default=251,
         help='The size of the sliding window for PEP calculation.')

@@ -10,7 +10,7 @@ process MS2RESCORE {
     //
 
     output:
-    path("${engine}_all_pins.temp")
+    tuple val(engine), path("${engine}_all_pins.temp")
     //
 
     shell:
