@@ -21,10 +21,10 @@ process MS2RESCORE {
     for output in !{engine_out}
        do
         name=$(echo $output | sed 's/_.*//')
-        ms2rescore $output
-            -c ${params.config}/ms2rescore_config.json \
+        ms2rescore $output \
+            -c !{params.config}/ms2rescore_config.json \
             -o $name \
-        -m mgfs
+            -m mgf
         done
     merge_tables.sh -r "${pin_header}" \
         -o !{engine}_all_pins.temp \

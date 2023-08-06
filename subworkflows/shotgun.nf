@@ -33,8 +33,8 @@ workflow 'make_db' {
 
 }
 
-dbWdecoys = $params.databaseWdecoy
-db = $params.database
+dbWdecoys = params.databaseWdecoy
+db = params.database
 workflow 'search' {
     // MaxQuant seems to only work with .raw files
     MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
@@ -54,7 +54,10 @@ workflow 'search' {
     // TIDE(manifest.mzXML.collect(), "$params.results/Tide", "$params.results/Percolator",
     // db)
     //     .set { tide }
-    MS2RESCORE(maxq.ms2rescore.collect(), "$params.results/MaxQuant",
+    maxq.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
+        .map { it -> ["maxquant", it] }
+        .set { maxqms2rescore }
+    MS2RESCORE(maxqms2rescore, "$params.results/MaxQuant",
     manifest.mgf.collect())
         .set { maxq_percolator }
     // PERCOLATOR(
