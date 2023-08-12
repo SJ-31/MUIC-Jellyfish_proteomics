@@ -3,6 +3,7 @@ process SEARCH_INTERSECT {
 
     input:
     path(percolator_protein)
+    val(outdir)
     //
 
     output:
@@ -12,7 +13,7 @@ process SEARCH_INTERSECT {
     script:
     """
     Rscript $params.bin/atleast2.r \
-        -m $params.mapping \
+        -m $params.mappings \
         -o intersected_searches.tsv
     """
     //

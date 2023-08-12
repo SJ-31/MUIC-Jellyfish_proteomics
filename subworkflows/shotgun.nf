@@ -47,9 +47,9 @@ workflow 'make_db' {
     // } else {
     //     denovo = Channel.empty()
     // }
-        // COMBINED_DATABASE(database_listing, denovo.combined,
-        // denovo.normal, denovo.decoys,
-            // "$projectDir/data/reference/protein_databases/combined".)
+    // COMBINED_DATABASE(database_listing, denovo.combined,
+    // denovo.normal, denovo.decoys,
+        // "$projectDir/data/reference/protein_databases/combined")
 }
 
 dbWdecoys = params.databaseWdecoy
@@ -74,6 +74,8 @@ workflow 'search' {
     TIDE(manifest.mzXML.collect(), "$params.results/Tide", "$params.results/Percolator",
     db)
         .set { tide }
+    tide.percolator.flatten().filter( ~/.*\.target\.proteins\.txt/ )
+        .set { tide_percolator }
     // maxq.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
     //     .map { it -> ["maxquant", it] }
     //     .set { maxqms2rescore }
@@ -90,9 +92,9 @@ workflow 'search' {
         ),
     "$params.results/Percolator")
         .set { percolator }
-    // SEARCH_INTERSECT(percolator.prot2intersect.collect(), "$params.results/Combined")
-    // COMBINE_PEP_PSM(percolator.psm2combinedPEP.collect(), true,
-    //                 "$params.results/Combined")
-    // COMBINE_PEP_PROT(percolator.prot2combinedPEP.collect(), false,
-    //                 "$params.results/Combined")
+    SEARCH_INTERSECT(percolator.prot2intersect.mix(tide_percolator).collect(), "$params.results/Combined")
+    COMBINE_PEP_PSM(percolator.psm2combinedPEP.collect(), true,
+                    "$params.results/Combined")
+    COMBINE_PEP_PROT(percolator.prot2combinedPEP.collect(), false,
+                    "$params.results/Combined")
 }

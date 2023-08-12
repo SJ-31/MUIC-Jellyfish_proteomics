@@ -22,7 +22,7 @@ process COMBINE_PEP {
     }
     """
     combine_pep_1_0_0.py \
-        -i $combine \
+        -i $percolator_out \
         -c $header \
         -o $out
     """
