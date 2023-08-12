@@ -9,7 +9,6 @@ process COMET {
 
     output:
     path ("${params.pref}_comet.tsv")
-    path ("comet*.txt")
     tuple val("comet"), path("comet_all_pins.temp"), emit: percolator
     //
 
@@ -20,10 +19,10 @@ process COMET {
     database="!{database}"
 
     cp !{params.config}/default_comet.params .
-    cat default_comet.params | sed "s/database.*/database = $database/" > comet.params
+    cat default_comet.params | sed "s;database.*;database_name = $database;" > comet.params
     philosopher workspace --init
-    philosopher comet --param comet.params $mzXMLs
-    echo "$tsv_header" > "${params.pref}_comet.tsv"
+    philosopher comet --param comet.params !{mzXMLs}
+    echo "$tsv_header" > "!{params.pref}_comet.tsv"
     find . -maxdepth 1 -name "*txt" -exec sed -se 2d {} + >> \
         "!{params.pref}_comet.tsv"
 

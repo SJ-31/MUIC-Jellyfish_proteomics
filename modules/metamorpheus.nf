@@ -1,7 +1,7 @@
 process METAMORPHEUS {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs/Metamorpheus", mode: "copy", pattern: "${params.pref}_results*"
-    debug true
+    // debug true
     conda "/home/shannc/anaconda3/envs/metamorpheus"
 
     input:

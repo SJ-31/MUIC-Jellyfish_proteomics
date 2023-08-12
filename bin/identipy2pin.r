@@ -26,6 +26,12 @@ split_to_tab <- function(identipy_proteins) {
   return(paste0(to_tab, collapse = "\t"))
 }
 
+add_flanks <- function(identipy_seq) {
+  seq <- sub("(\\w{1})(.*)", "\\1.\\2", identipy_seq)
+  seq <- sub("(.*)(\\w{1})", "\\1.\\2", seq)
+  return(seq)
+}
+
 identipy <- identipy %>%
   mutate(Proteins = unlist(lapply(Proteins, gsub,
     pattern = ";",
@@ -42,7 +48,8 @@ identipy <- identipy %>%
 identipy <- identipy[, c(
   19, 18, 17, 16, 15, 14, 13, 11, 9,
   8, 7, 6, 5, 4, 3, 2, 1, 12, 10
-)]
+)] %>% mutate(Peptide = unlist(lapply(Peptide, add_flanks)))
+
 
 pin <- seq_along(identipy$ScanNr) %>%
   lapply(., function(x) {

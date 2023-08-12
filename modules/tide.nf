@@ -24,7 +24,7 @@ process TIDE {
         --nterm-protein-mods-spec 1X+42.010565 \
         --mods-spec 3M+15.994915
 
-    crux tide-search $mxXMLs ./db \
+    crux tide-search $mzXMLs ./db \
         --auto-precursor-window warn \
         --spectrum-parser mstoolkit \
         --output-dir .

@@ -8,7 +8,7 @@ parser <- add_option(parser, c("-m", "--matches"), type="character",
                 help="File containing non-decoy matches only")
 parser <- add_option(parser, c("-d", "--decoys"), type="character",
                 help="File containing decoy matches only")
-parser <- add_option(parser, c("-p", "--protein_matches"), default=FALSE,
+parser <- add_option(parser, c("-p", "--protein_matches"), default = FALSE,
                      action="store_true",
                      help="Set this if the files contain matches to
         proteins rather than peptides/psms")
@@ -16,7 +16,8 @@ parser <- add_option(parser, c("-o", "--output"), type="character",
                      help="Output file name")
 
 read_percolator <- function(filename, header, col_select, is_decoy) {
-  percolator_output <- read.table(filename, sep = "\t", fill = TRUE) %>%
+  percolator_output <- read.table(filename, sep = "\t", fill = TRUE,
+                                  skip = 1) %>%
     as_tibble() %>%
     select(all_of(col_select)) %>%
     filter(!(grepl("[A-Za-z]", V2))) %>%

@@ -17,8 +17,9 @@ process CASANOVO {
         --mode=denovo \
         --peak_path=$mzMLs \
         --config ${params.config}/casanovo.yaml
-        --ouput=${mzMLs.baseName}_casanovo.tsv \
+        --ouput=temp.tsv \
         --model=$params.casanovomodel
+    grep -v ^M temp.tsv > ${mzMLs.baseName}_casanovo.tsv
     """
     //
 }

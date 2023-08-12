@@ -3,6 +3,7 @@ process PERCOLATOR {
 
     input:
     tuple val(engine), path(pin_file)
+    val(outdir)
     //
 
     output:
