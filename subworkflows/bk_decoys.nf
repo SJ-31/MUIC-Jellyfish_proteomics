@@ -19,10 +19,19 @@ workflow bk_decoys {
             msfragger: it[0] =~ /msfragger/
             }.set { bk_db }
     COMET(mzXML_ch.collect(), "$params.results/Second_pass/Comet",
-          bk_db.comet.)
+          bk_db.comet)
     IDENTIPY(mzML_ch.collect(), "$params.results/Second_pass/Identipy",
              bk_db.identipy)
     MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params",
     "$params.results/Second_pass/MsFragger",
               bk_db.msfragger)
+    PERCOLATOR(COMET.out.percolator.mix(IDENTIPY.out.percolator,
+                                        MSFRAGGER.out.percolator),
+               "$params.results/Second_pass/Percolator", database)
+
+    emit:
+    prot2intersect = PERCOLATOR.out.prot2intersect
+    psm2combinedPEP = PERCOLATOR.out.psm2combinedPEP
+    prot2combinedPEP = PERCOLATOR.out.prot2combinedPEP
+
 }

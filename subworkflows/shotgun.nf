@@ -15,7 +15,7 @@ include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
 include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { COMBINED_DATABASE } from '../modules/combined_database'
 include { EXTRACT_CASANOVO } from '../modules/extract_casanovo'
-include { DEISOTOPE } from '../modules/extract_casanovo'
+include { DEISOTOPE } from '../modules/deisotope'
 include { bk_decoys } from './bk_decoys.nf'
 
 workflow 'preprocess' {
@@ -65,43 +65,40 @@ workflow 'search' {
     empty = Channel.empty()
     // MaxQuant seems to only work with .raw files
     // MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
-    //     .set { maxq }
     COMET(manifest.mzXML.collect(), "$params.results/Comet",
     dbWdecoys)
-    .set { comet }
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/MsFragger", dbWdecoys)
-    .set { fragger }
     IDENTIPY(manifest.mzML.collect(), "$params.results/Identipy", dbWdecoys)
-        .set { ipy }
     METAMORPHEUS(manifest.mzML.collect(), "$params.results/Metamorpheus", db)
-        .set { mmorph }
     MSGF(manifest.mzML, "$params.results/msgf", db)
-        .set { msgf }
     TIDE(manifest.mzXML.collect(), "$params.results/Tide", "$params.results/Percolator",
     db)
-        .set { tide }
-    tide.percolator.flatten().filter( ~/.*\.target\.proteins\.txt/ )
+    TIDE.out.percolator.flatten().filter( ~/.*\.target\.proteins\.txt/ )
         .set { tide_percolator }
-    // maxq.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
+    // MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
     //     .map { it -> ["maxquant", it] }
     //     .set { maxqms2rescore }
     // MS2RESCORE(maxqms2rescore, "$params.results/MaxQuant",
     // manifest.mgf.collect())
-    //     .set { maxq_percolator }
     empty.mix(
-        mmorph.percolator,
-        //maxq.percolator
-        comet.percolator,
-        fragger.percolator,
-        ipy.percolator
+        METAMORPHEUS.out.percolator,
+        //MS2RESCORE.out,
+        COMET.out.percolator,
+        MSFRAGGER.out.percolator,
+        IDENTIPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(percolator_out, "$params.results/Percolator", dbWdecoys)
-        .set { percolator }
-    bk_decoys(percolator.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
-    SEARCH_INTERSECT(percolator.prot2intersect.mix(tide_percolator).collect(), "$params.results/Combined")
-    COMBINE_PEP_PSM(percolator.psm2combinedPEP.collect(), true,
+
+    PERCOLATOR(to_percolator, "$params.results/Percolator", dbWdecoys)
+    SEARCH_INTERSECT(PERCOLATOR.out.prot2intersect.mix(tide_percolator).collect(),
+                     "$params.results/Combined")
+    COMBINE_PEP_PSM(PERCOLATOR.out.psm2combinedPEP.collect(), true,
                     "$params.results/Combined")
-    COMBINE_PEP_PROT(percolator.prot2combinedPEP.collect(), false,
+    COMBINE_PEP_PROT(PERCOLATOR.out.prot2combinedPEP.collect(), false,
                     "$params.results/Combined")
+
+    // Second pass with Bern and Kil decoy database
+    bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
+    // bk_decoys.out.prot2intersect.view()
+
 }
