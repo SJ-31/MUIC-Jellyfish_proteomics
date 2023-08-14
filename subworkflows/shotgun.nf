@@ -1,18 +1,3 @@
-Channel.fromPath(params.manifest_file)
-    .splitCsv(header: true, sep: "\t")
-    .map { it -> [ it.Prefix, it.Raw, it.mzML, it.mzXML, it.mgf ] }
-    .flatten().branch {
-        mzML: it =~ /.mzML/
-        mzXML: it =~ /.mzXML/
-        mgf: it =~ /.mgf/
-        raw: it =~ /.raw/
-    }.set { manifest }
-
-// Channel.fromPath(params.databases)
-//     .splitText()
-//     .set { database_listing }
-
-
 // CONVENTION: the final protein/PSMs output file will be prefixed with the engine that produced them
 include { MAXQUANT } from '../modules/maxquant'
 include { MSFRAGGER } from '../modules/msfragger'
@@ -30,6 +15,28 @@ include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
 include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { COMBINED_DATABASE } from '../modules/combined_database'
 include { EXTRACT_CASANOVO } from '../modules/extract_casanovo'
+include { DEISOTOPE } from '../modules/extract_casanovo'
+include { bk_decoys } from './bk_decoys.nf'
+
+workflow 'preprocess' {
+    DEISOTOPE(params.manifest_file)
+}
+
+Channel.fromPath(params.manifest_file)
+    .splitCsv(header: true, sep: "\t")
+    .map { it -> [ it.Prefix, it.Raw, it.mzML, it.mzXML, it.mgf ] }
+    .flatten().branch {
+        mzML: it =~ /.mzML/
+        mzXML: it =~ /.mzXML/
+        mgf: it =~ /.mgf/
+        raw: it =~ /.raw/
+    }.set { manifest }
+
+// Channel.fromPath(params.databases)
+//     .splitText()
+//     .set { database_listing }
+
+
 
 workflow 'make_db' {
     // if ( params.denovo ) {
@@ -82,16 +89,16 @@ workflow 'search' {
     // MS2RESCORE(maxqms2rescore, "$params.results/MaxQuant",
     // manifest.mgf.collect())
     //     .set { maxq_percolator }
-    PERCOLATOR(
-            empty.mix(
-                mmorph.percolator,
-                // maxq.percolator,
-                comet.percolator,
-                fragger.percolator,
-                ipy.percolator,
-        ),
-    "$params.results/Percolator")
+    empty.mix(
+        mmorph.percolator,
+        //maxq.percolator
+        comet.percolator,
+        fragger.percolator,
+        ipy.percolator
+    ).set { to_percolator }
+    PERCOLATOR(percolator_out, "$params.results/Percolator", dbWdecoys)
         .set { percolator }
+    bk_decoys(percolator.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
     SEARCH_INTERSECT(percolator.prot2intersect.mix(tide_percolator).collect(), "$params.results/Combined")
     COMBINE_PEP_PSM(percolator.psm2combinedPEP.collect(), true,
                     "$params.results/Combined")

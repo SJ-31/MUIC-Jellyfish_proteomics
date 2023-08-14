@@ -1,0 +1,5 @@
+/mnt/data/shannc/nf/data/reference/protein_databases/spades-Cf_transcriptome_Clean.fasta
+/mnt/data/shannc/nf/data/reference/protein_databases/spades-Cy_transcriptome_Clean.fasta
+/mnt/data/shannc/nf/data/reference/protein_databases/Toxprot_venom_proteins.fasta
+/mnt/data/shannc/nf/data/reference/protein_databases/NCBI_cnidarians.fasta
+/mnt/data/shannc/nf/data/reference/protein_databases/uniprot_cnidaria.fasta

@@ -1,28 +1,16 @@
 library(tidyverse)
-file <- commandArgs(trailingOnly = TRUE)
+args <- commandArgs(trailingOnly = TRUE)
+file <- args[1]
+engine <- args[2]
+file <- "./test_manifest_identipy.tsv"
+engine <- "comet"
 # Unify n-terminal modifications, remove indication of fixed modifications
 nA <- "n[42.0106]"
 mOx <- "M[15.9949]"
-
-identipy_samples <- c("acetyl-ALPEHEK", "SSLoxMNSGR")
-msfragger_samples <- c("R.M[15.9949]NM[15.9949]DNHRTNINDR.R", "-.SILAAEVYADLTFM[15.9949]AK.P",
-    "K.TVYC[57.0215]EEKFNK.I")
-comet_samples <- c("K.M[15.9949]RLM[15.9949]HR.R")
-
-my_insert <- function(insert, pos, string) {
-  # Insert a string into another string
-  splits <- strsplit(string, "")[[1]]
-  if (pos < 0) {
-    pos <- length(splits) + 1 - abs(pos)
-  }
-  begin <- splits[1:pos-1]
-  begin <- begin[!is.na(begin)]
-  end <- splits[pos:length(splits)]
-  end <- end[!is.na(end)]
-  return(paste0(c(begin, insert, end), collapse = ""))
-}
-
-identipy_mods <- list("cam" = "C", "oxM" = mOx, "acetyl-" = nA)
+metamorpheus_mods <- list("[Common Fixed:Carbamidomethyl on C]" = "C",
+                          "[Common Variable:Oxidation on M]" = mOx)
+identipy_mods <- list("cam" = "C", "oxM" = "M", "acetyl-" = nA)
+fragger_mods <- list("C[57.0215]" = "C")
 
 change_mods <- function(modified_seq, mod_map) {
     for (i in seq_along(mod_map)) {
@@ -30,5 +18,19 @@ change_mods <- function(modified_seq, mod_map) {
     }
     return(modified_seq)
 }
+ipy <- read.delim(file, sep = "\t") %>% as_tibble()
+ipy <- ipy %>% mutate(Peptide = change_mods(Modified.sequence, identipy_mods))
+ipy$Peptide
 
-identipy_mods(identipy_samples[2], identipy_mods)
+## if (engine == "comet") {
+
+## } else if (engine == "msfragger") {
+
+## } else if (engine == "maxquant") {
+
+## } else if (engine == "identipy") {
+##   file <- read.table(sep
+
+## } else if (engine == "metamorpheus") {
+
+## }

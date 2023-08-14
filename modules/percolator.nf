@@ -4,6 +4,7 @@ process PERCOLATOR {
     input:
     tuple val(engine), path(pin_file)
     val(outdir)
+    val(database)
     //
 
     output:
@@ -19,7 +20,7 @@ process PERCOLATOR {
     percolator_wrapper_combined.sh \
         -p $engine \
         -i $pin_file \
-        -f $params.database
+        -f $database
 
     Rscript $params.bin/to_combined_PEP.r \
         -m ${engine}_percolator_psms.tsv \

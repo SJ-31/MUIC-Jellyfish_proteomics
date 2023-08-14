@@ -32,6 +32,15 @@ add_flanks <- function(identipy_seq) {
   return(seq)
 }
 
+change_mods <- function(modified_seq, mod_map) {
+    for (i in seq_along(mod_map)) {
+      modified_seq <- gsub(names(mod_map)[i], mod_map[i], modified_seq)
+    }
+    return(modified_seq)
+}
+nA <- "n[42.0106]"
+identipy_mods <- list("cam" = "C", "oxM" = "M", "acetyl-" = nA)
+
 identipy <- identipy %>%
   mutate(Proteins = unlist(lapply(Proteins, gsub,
     pattern = ";",
@@ -48,8 +57,7 @@ identipy <- identipy %>%
 identipy <- identipy[, c(
   19, 18, 17, 16, 15, 14, 13, 11, 9,
   8, 7, 6, 5, 4, 3, 2, 1, 12, 10
-)] %>% mutate(Peptide = unlist(lapply(Peptide, add_flanks)))
-
+)] %>% mutate(Peptide = change_mods(Peptide, identipy_mods))
 
 pin <- seq_along(identipy$ScanNr) %>%
   lapply(., function(x) {
