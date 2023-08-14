@@ -100,7 +100,7 @@ workflow 'search' {
 
     // Second pass with Bern and Kil decoy database
     bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
-    // bk_decoys.out.prot2intersect.view()
+    bk_decoys.out.prot2intersect.view()
 
     // ANNOTATE(SEARCH_INTERSECT.out, "$params.results")
 }
