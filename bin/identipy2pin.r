@@ -13,7 +13,7 @@ find_scan <- function(identipy_title) {
   return(as.integer(scan[[1]][2]))
 }
 decoy_label <- function(identipy_proteins) {
-   # Returns decoy label from reading a list of proteins
+  # Returns decoy label from reading a list of proteins
   split <- unlist(strsplit(identipy_proteins, ";", fixed = TRUE))
   if (substr(split[1], 1, 4) == "rev_") {
     return(-1)
@@ -57,7 +57,8 @@ identipy <- identipy %>%
 identipy <- identipy[, c(
   19, 18, 17, 16, 15, 14, 13, 11, 9,
   8, 7, 6, 5, 4, 3, 2, 1, 12, 10
-)] %>% mutate(Peptide = change_mods(Peptide, identipy_mods))
+)] %>% mutate(Peptide = change_mods(Peptide, identipy_mods)) %>%
+  mutate(Peptide = add_flanks(Peptide))
 
 pin <- seq_along(identipy$ScanNr) %>%
   lapply(., function(x) {

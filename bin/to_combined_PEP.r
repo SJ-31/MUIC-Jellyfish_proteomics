@@ -17,8 +17,10 @@ parser <- add_option(parser, c("-o", "--output"), type="character",
 
 read_percolator <- function(filename, header, col_select, is_decoy) {
   percolator_output <- read.table(filename, sep = "\t", fill = TRUE,
-                                  skip = 1) %>%
-    as_tibble() %>%
+                                  skip = 1,
+                                  header = FALSE) %>%
+    as_tibble()
+  percolator_output <- percolator_output %>%
     select(all_of(col_select)) %>%
     filter(!(grepl("[A-Za-z]", V2))) %>%
     filter(V2 != "") %>%

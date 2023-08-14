@@ -1,6 +1,8 @@
 include { COMET } from  '../modules/comet'
 include { MSFRAGGER } from '../modules/msfragger'
-include { PERCOLATOR } from '../modules/percolator'
+include { PERCOLATOR as P_COMET } from '../modules/percolator'
+include { PERCOLATOR as P_IPY} from '../modules/percolator'
+include { PERCOLATOR as P_FRAGGER } from '../modules/percolator'
 include { IDENTIPY } from '../modules/identipy'
 include { MAKE_BK_DB } from '../modules/make_bk_db'
 
@@ -12,12 +14,15 @@ workflow bk_decoys {
     mzML_ch
 
     main:
-    MAKE_BK_DB(percolator_out, params.mappings, database).flatten().filter( ~/.*\.fasta/ )
-        .branch {
-            comet: it[0] =~ /comet/
-            identipy: it[0] =~ /identipy/
-            msfragger: it[0] =~ /msfragger/
-            }.set { bk_db }
+    MAKE_BK_DB(percolator_out, params.mappings, database,
+               "$params.results/Second_pass/BK_databases")
+    .flatten().filter( ~/.*\.fasta/ )
+    .branch {
+        comet: it.baseName =~ /comet*/
+        identipy: it.baseName =~ /identipy*/
+        msfragger: it.baseName =~ /msfragger*/
+        }.set { bk_db }
+    bk_db.identipy.view()
     COMET(mzXML_ch.collect(), "$params.results/Second_pass/Comet",
           bk_db.comet)
     IDENTIPY(mzML_ch.collect(), "$params.results/Second_pass/Identipy",
@@ -25,13 +30,10 @@ workflow bk_decoys {
     MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params",
     "$params.results/Second_pass/MsFragger",
               bk_db.msfragger)
-    PERCOLATOR(COMET.out.percolator.mix(IDENTIPY.out.percolator,
-                                        MSFRAGGER.out.percolator),
-               "$params.results/Second_pass/Percolator", database)
-
-    emit:
-    prot2intersect = PERCOLATOR.out.prot2intersect
-    psm2combinedPEP = PERCOLATOR.out.psm2combinedPEP
-    prot2combinedPEP = PERCOLATOR.out.prot2combinedPEP
-
+    P_COMET(COMET.out.percolator,
+            "$params.results/Second_pass/Percolator", bk_db.comet)
+    P_IPY(IDENTIPY.out.percolator,
+            "$params.results/Second_pass/Percolator", bk_db.identipy)
+    P_FRAGGER(MSFRAGGER.out.percolator,
+            "$params.results/Second_pass/Percolator", bk_db.msfragger)
 }

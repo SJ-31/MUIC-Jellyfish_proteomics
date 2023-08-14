@@ -57,7 +57,7 @@ if rounds > 0:
     for r in range(rounds):
         num = randint(0, valid_prot.shape[0]-1)
         pick = valid_prot.iloc[num]
-        extra["id"].append(f'>rev_{pick["id"][1:]}')
+        extra["id"].append(f'>rev_{pick["id"][1:]}_addedN{randint(0, 1000)}')
         extra["seq"].append(pick["seq"][::-1])
         extra["is_decoy"].append(True)
 extra = pd.DataFrame(extra)

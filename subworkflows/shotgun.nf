@@ -16,6 +16,7 @@ include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { COMBINED_DATABASE } from '../modules/combined_database'
 include { EXTRACT_CASANOVO } from '../modules/extract_casanovo'
 include { DEISOTOPE } from '../modules/deisotope'
+include { ANNOTATE } from '../modules/annotate'
 include { bk_decoys } from './bk_decoys.nf'
 
 workflow 'preprocess' {
@@ -101,4 +102,5 @@ workflow 'search' {
     bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
     // bk_decoys.out.prot2intersect.view()
 
+    // ANNOTATE(SEARCH_INTERSECT.out, "$params.results")
 }

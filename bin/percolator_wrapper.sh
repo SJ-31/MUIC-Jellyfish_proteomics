@@ -44,7 +44,7 @@ do
         -L "${name}"_decoy_proteins.tsv \
         --picked-protein "$fasta" \
         -P rev_ \
-        --protein-enzyme trypsin \
+        --protein-enzyme trypsin
         # --protein-report-duplicates
 #        -J "${name}"_features.tsv \
 done
