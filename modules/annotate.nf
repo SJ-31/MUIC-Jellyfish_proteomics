@@ -3,6 +3,7 @@ process ANNOTATE {
 
     input:
     path(combined_tsv)
+    val(outdir)
     //
 
     output:
