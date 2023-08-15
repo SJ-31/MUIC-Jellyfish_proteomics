@@ -40,3 +40,32 @@ process TIDE {
     """
     //
 }
+
+process TIDE_COMBINED_PEP {
+    publishDir "$outdir", mode: "copy"
+
+    input:
+    path(percolator_files)
+    val(outdir)
+    //
+
+    output:
+    path("tide_psm2combined_PEP.tsv"), emit: psm2combinedPEP
+    path("tide_prot2combined_PEP.tsv"), emit: prot2combinedPEP
+    //
+
+    script:
+    """
+    Rscript $params.bin/to_combined_PEP.r \
+        -m tide.percolator.target.psms.txt \
+        -d tide.percolator.decoy.psms.txt \
+        -o tide_psm2combined_PEP.tsv
+
+    Rscript $params.bin/to_combined_PEP.r \
+        -m tide.percolator.target.proteins.txt \
+        -d tide.percolator.decoy.proteins.txt \
+        --protein_matches \
+        -o tide_prot2combined_PEP.tsv
+    """
+    //
+}
