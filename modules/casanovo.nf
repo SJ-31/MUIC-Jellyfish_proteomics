@@ -41,7 +41,7 @@ process EXTRACT_CASANOVO {
     merge_tables.sh -r $header \
         -o all_casanovo.temp \
         -p tsv
-    extract_casanovo.py all_casanovo.temp
+    extract_denovo.py all_casanovo.temp casanovo
     """
     //
 }

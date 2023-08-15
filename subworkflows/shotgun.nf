@@ -14,6 +14,7 @@ include { COMBINED_DATABASE } from '../modules/combined_database'
 include { EXTRACT_CASANOVO } from '../modules/casanovo'
 include { DEISOTOPE } from '../modules/deisotope'
 include { PEPNET } from '../modules/pepnet'
+include { EXTRACT_PEPNET } from '../modules/pepnet'
 include { bk_decoys } from './bk_decoys.nf'
 include { combine_searches as combine_searches_FIRST } from './combine_searches.nf'
 include { combine_searches as combine_searches_SECOND } from './combine_searches.nf'
@@ -43,7 +44,8 @@ workflow 'make_db' {
             CASANOVO(manifest.mzML.collect(),"$params.results/Casanovo"),
             "$params.results/Casanovo")
     PEPNET(manifest.mgf, "$params.results/PepNet")
-    EXTRACT_CASANOVO.out.mix(SMSNET.out, PEPNET.out).flatten()
+    EXTRACT_PEPNET(PEPNET.out.collect(), "$params.results/PepNet")
+    EXTRACT_CASANOVO.out.mix(SMSNET.out, EXTRACT_PEPNET.out).flatten()
     .branch {
         combined: it ~/.*combined.*/
         decoys: it ~/.*decoys.*/
@@ -63,7 +65,6 @@ workflow 'search' {
     empty = Channel.empty()
     // MaxQuant seems to only work with .raw files
     // MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
-    manifest.mzML.view()
     COMET(manifest.mzXML.collect(), "$params.results/First_pass/Comet",
     dbWdecoys)
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
