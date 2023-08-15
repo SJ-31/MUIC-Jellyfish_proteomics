@@ -13,12 +13,12 @@ workflow 'combine_searches' {
 
     main:
     SEARCH_INTERSECT(prot2intersect.collect(),
-                     "$outdir")
+                     "$outdir/Combined")
     COMBINE_PEP_PSM(psm2combinedPEP.collect(), true,
-                    "$outdir")
+                    "$outdir/Combined")
     COMBINE_PEP_PROT(prot2combinedPEP.collect(), false,
-                    "$outdir")
-    ANNOTATE(SEARCH_INTERSECT.out, "$params.results/First_pass")
+                    "$outdir/Combined")
+    ANNOTATE(SEARCH_INTERSECT.out, "$params.results")
 
     emit:
     intersected_searches = SEARCH_INTERSECT.out

@@ -56,7 +56,8 @@ workflow 'make_db' {
     }
     COMBINED_DATABASE(database_listing, denovo.combined,
     denovo.normal, denovo.decoys,
-        "$projectDir/data/reference/protein_databases/combined")
+                      "$projectDir/data/reference/protein_databases/combined",
+                      "$projectDir/data/reference/protein_databases/mapping")
 }
 
 dbWdecoys = params.databaseWdecoy
@@ -90,17 +91,23 @@ workflow 'search' {
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator
     ).set { to_percolator }
-
-
     PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", dbWdecoys)
-
     combine_searches_FIRST(PERCOLATOR.out.prot2intersect.mix(tide_percolator),
                            PERCOLATOR.out.psm2combinedPEP
                                 .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
                            PERCOLATOR.out.prot2combinedPEP
                                 .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
-                        "$params.results/First_pass/Combined")
+                        "$params.results/First_pass")
+
     // Second pass with Bern and Kil decoy database
     bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
-    // PERCOLATOR.out.filter( !()
+    from_first = /.*metamorpheus.*|.*maxquant.*/
+    combine_searches_SECOND(
+        PERCOLATOR.out.prot2intersect.filter( ~from_first )
+            .mix(tide_percolator),
+        PERCOLATOR.out.psm2combinedPEP.filter( ~from_first )
+            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
+        PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
+            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
+        "$params.results/Second_pass")
 }
