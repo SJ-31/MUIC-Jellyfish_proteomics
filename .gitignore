@@ -9,3 +9,4 @@ resources/*
 rna-seq/work/*
 testzone*
 shotgun/work/*
+tools/*

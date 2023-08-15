@@ -10,14 +10,12 @@ include { TIDE } from '../modules/tide'
 include { CASANOVO } from '../modules/casanovo'
 include { PERCOLATOR } from '../modules/percolator'
 include { MS2RESCORE } from '../modules/ms2rescore'
-include { SEARCH_INTERSECT } from '../modules/search_intersect'
-include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
-include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { COMBINED_DATABASE } from '../modules/combined_database'
 include { EXTRACT_CASANOVO } from '../modules/extract_casanovo'
 include { DEISOTOPE } from '../modules/deisotope'
-include { ANNOTATE } from '../modules/annotate'
 include { bk_decoys } from './bk_decoys.nf'
+include { combine_searches as combine_searches_FIRST } from './combine_searches.nf'
+include { combine_searches as combine_searches_SECOND } from './combine_searches.nf'
 
 workflow 'preprocess' {
     DEISOTOPE(params.manifest_file)
@@ -89,16 +87,15 @@ workflow 'search' {
         IDENTIPY.out.percolator
     ).set { to_percolator }
 
-    PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", dbWdecoys)
-    SEARCH_INTERSECT(PERCOLATOR.out.prot2intersect.mix(tide_percolator).collect(),
-                     "$params.results/First_pass/Combined")
-    COMBINE_PEP_PSM(PERCOLATOR.out.psm2combinedPEP.collect(), true,
-                    "$params.results/First_pass/Combined")
-    COMBINE_PEP_PROT(PERCOLATOR.out.prot2combinedPEP.collect(), false,
-                    "$params.results/First_pass/Combined")
 
-    ANNOTATE(SEARCH_INTERSECT.out, "$params.results/First_pass")
+    PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", dbWdecoys)
+
+    combine_searches_FIRST(PERCOLATOR.out.prot2intersect.mix(tide_percolator),
+                           PERCOLATOR.out.psm2combinedPEP,
+                           PERCOLATOR.out.prot2combinedPEP,
+                        "$params.results/First_pass/Combined")
 
     // Second pass with Bern and Kil decoy database
     bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
+    PERCOLATOR.out.prot2intersect.view()
 }
