@@ -17,8 +17,9 @@ process MAKE_BK_DB {
     make_bk_db.py $percolator_valid \
         $percolator_decoys \
         $database \
-        $mapping_file \
         "${engine}_bk_database.fasta"
+    wc -l "${engine}_bk_database.fasta"
+    grep ">" "${engine}_bk_database.fasta" | wc -l
     """
     //
 }

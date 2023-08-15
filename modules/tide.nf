@@ -15,16 +15,16 @@ process TIDE {
     path("*percolator*"), emit: percolator
     // ADd a special output channel for percolator
 
-    shell:
-    '''
-    cp !{database} database.fasta
+    script:
+    """
+    cp ${database} database.fasta
     crux tide-index database.fasta db \
          --decoy-format peptide-reverse \
          --decoy-prefix rev_ \
         --nterm-protein-mods-spec 1X+42.010565 \
         --mods-spec 3M+15.994915
 
-    crux tide-search !{mzXMLs} ./db \
+    crux tide-search ${mzXMLs} ./db \
         --auto-precursor-window warn \
         --spectrum-parser mstoolkit \
         --output-dir .
@@ -38,12 +38,8 @@ process TIDE {
     --search-input concatenated \
     --fileroot tide
 
-    for t in tide*percolator*
-        do
-        rename="$(echo "$t" | sed -e 's/\./_/g' -e 's/_txt/\.tsv/ -e 's/_target//')"
-        mv $t $rename
-    done
-    '''
+    rename_tide.sh
+    """
     //
 }
 

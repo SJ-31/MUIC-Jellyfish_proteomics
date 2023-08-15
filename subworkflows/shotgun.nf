@@ -61,6 +61,7 @@ workflow 'make_db' {
 }
 
 dbWdecoys = params.databaseWdecoy
+dbWdecoys_mapping = params.databaseWdecoy_mapping
 db = params.database
 workflow 'search' {
     empty = Channel.empty()
@@ -77,7 +78,7 @@ workflow 'search' {
     TIDE(manifest.mzXML.collect(), "$params.results/First_pass/Tide", "$params.results/First_pass/Percolator",
     db)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/First_pass/Percolator")
-    TIDE.out.percolator.flatten().filter( ~/.*\.target\.proteins\.txt/ )
+    TIDE.out.percolator.flatten().filter( ~/.*_target_proteins\.tsv/ )
         .set { tide_percolator }
     // MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
     //     .map { it -> ["maxquant", it] }
@@ -100,14 +101,17 @@ workflow 'search' {
                         "$params.results/First_pass")
 
     // Second pass with Bern and Kil decoy database
-    bk_decoys(PERCOLATOR.out.prot, dbWdecoys, manifest.mzXML, manifest.mzML)
+    compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
+    bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), dbWdecoys_mapping, manifest.mzXML, manifest.mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
     combine_searches_SECOND(
         PERCOLATOR.out.prot2intersect.filter( ~from_first )
-            .mix(tide_percolator),
+            .mix(tide_percolator, bk_decoys.out.prot2intersect),
         PERCOLATOR.out.psm2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
+            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP,
+                 bk_decoys.out.psm2combinedPEP),
         PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
+            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP,
+                bk_decoys.out.prot2combinedPEP),
         "$params.results/Second_pass")
 }
