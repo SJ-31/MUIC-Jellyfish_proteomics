@@ -9,7 +9,6 @@
     animals
 - Search for families of animal venom proteins
   - ="hemolysin"[All Fields] OR "pore-forming"[All Fields] OR "hemolysis"[All Fields] OR "pore-forming protein"[All Fields] OR ("metalloproteinase"[All Fields] AND "venom"[All Fields]) AND animals[filter]=
-- Cnidarian proteins, from INSDC, PDB, RefSeq, PIR and PRF databases
 *** UniProt
 - [[https://www.uniprot.org/uniprotkb?query=(taxonomy_id:6073)][Taxonomy search "cnidarian"]]
   - 309,513 results as of Mon 17 Apr, 2023,

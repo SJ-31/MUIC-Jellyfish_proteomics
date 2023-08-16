@@ -18,7 +18,7 @@ workflow 'combine_searches' {
                     "$outdir/Combined")
     COMBINE_PEP_PROT(prot2combinedPEP.collect(), false,
                     "$outdir/Combined")
-    ANNOTATE(SEARCH_INTERSECT.out, "$params.results")
+    ANNOTATE(SEARCH_INTERSECT.out, "$outdir")
 
     emit:
     intersected_searches = SEARCH_INTERSECT.out

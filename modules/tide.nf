@@ -59,13 +59,13 @@ process TIDE_COMBINED_PEP {
     script:
     """
     Rscript $params.bin/to_combined_PEP.r \
-        -m tide.percolator.target.psms.txt \
-        -d tide.percolator.decoy.psms.txt \
+        -m tide_percolator_psms.tsv \
+        -d tide_percolator_decoy_psms.tsv \
         -o tide_psm2combined_PEP.tsv
 
     Rscript $params.bin/to_combined_PEP.r \
-        -m tide.percolator.target.proteins.txt \
-        -d tide.percolator.decoy.proteins.txt \
+        -m tide_percolator_proteins.tsv \
+        -d tide_percolator_decoy_proteins.tsv \
         --protein_matches \
         -o tide_prot2combined_PEP.tsv
     """

@@ -12,18 +12,14 @@ elif engine == "pepnet":
     peps = file["DENOVO"]
     name = "PepNet"
 
-def get_seq(index: int, peptide: str) -> list[str]:
-    peps: list[str] = [pep for pep in re.findall(r"([A-Z]+)", peptide)]
-    rev = ''.join(peps)[::-1]
-    return [f">{name}{index}\n"] + peps + ["\n"] + [f">rev_{name}{index}\n{rev}\n"]
 
 w_decoys: list = []
 decoys: list = []
 normal: list = []
 for index, p in enumerate(peps):
     seq = ''.join(re.findall(r"[A-Z]+", p))
-    pep = f">{name}{index}\n{seq}\n"
-    rev = f">rev_{name}{index}\n{seq[::-1]}\n"
+    pep = f">{name}{index}-DENOVO\n{seq}\n"
+    rev = f">rev_{name}{index}-DENOVO\n{seq[::-1]}\n"
     w_decoys.extend([pep, rev])
     normal.append(pep)
     decoys.append(rev)
