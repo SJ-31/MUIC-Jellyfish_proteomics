@@ -1,6 +1,0 @@
-/mnt/data/shannc/nf/data/protein_databases/spades-Cy_transcriptome_Clean.fasta
-/mnt/data/shannc/nf/data/protein_databases/spades-Cf_transcriptome_Clean.fasta
-/mnt/data/shannc/nf/data/protein_databases/downloads/uniprotkb_taxonomy_id_33208_AND_cc_tiss_2023_08_16.fasta
-/mnt/data/shannc/nf/data/protein_databases/downloads/NCBI_animal_venoms.fasta
-/mnt/data/shannc/nf/data/protein_databases/downloads/uniprot_cnidaria.fasta
-/mnt/data/shannc/nf/data/protein_databases/downloads/No_Anthozoa.fasta

@@ -33,19 +33,19 @@ Channel.fromPath(params.manifest_file)
         raw: it =~ /.raw/
     }.set { manifest }
 
-// Channel.fromPath(params.databases)
-//     .splitText()
-//     .set { database_listing }
+Channel.fromPath(params.databases)
+    .splitText()
+    .set { database_listing }
 
 workflow 'make_db' {
     if ( params.denovo ) {
-    SMSNET(manifest.mgf.collect(), "$params.results/SMSNET")
-    EXTRACT_CASANOVO(
-            CASANOVO(manifest.mzML.collect(),"$params.results/Casanovo"),
-            "$params.results/Casanovo")
+    // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
+    CASANOVO(manifest.mzML,"$params.results/Casanovo")
+    EXTRACT_CASANOVO(CASANOVO.out.collect(), "$params.results/Casanovo")
     PEPNET(manifest.mgf, "$params.results/PepNet")
     EXTRACT_PEPNET(PEPNET.out.collect(), "$params.results/PepNet")
-    EXTRACT_CASANOVO.out.mix(SMSNET.out, EXTRACT_PEPNET.out).flatten()
+
+    EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out).flatten()
     .branch {
         combined: it ~/.*combined.*/
         decoys: it ~/.*decoys.*/
@@ -56,8 +56,8 @@ workflow 'make_db' {
     }
     COMBINED_DATABASE(database_listing, denovo.combined,
     denovo.normal, denovo.decoys,
-                      "$projectDir/data/reference/protein_databases/combined",
-                      "$projectDir/data/reference/protein_databases/mapping")
+                      "$projectDir/data/protein_databases/combined",
+                      "$projectDir/data/protein_databases/mapping")
 }
 
 dbWdecoys = params.databaseWdecoy
@@ -66,7 +66,7 @@ db = params.database
 workflow 'search' {
     empty = Channel.empty()
     // MaxQuant seems to only work with .raw files
-    // MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
+    MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
     COMET(manifest.mzXML.collect(), "$params.results/First_pass/Comet",
     dbWdecoys)
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
@@ -80,14 +80,14 @@ workflow 'search' {
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/First_pass/Percolator")
     TIDE.out.percolator.flatten().filter( ~/.*_target_proteins\.tsv/ )
         .set { tide_percolator }
-    // MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
-    //     .map { it -> ["maxquant", it] }
-    //     .set { maxqms2rescore }
-    // MS2RESCORE(maxqms2rescore, "$params.results/First_pass/MaxQuant",
-    // manifest.mgf.collect())
+    MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
+        .map { it -> ["maxquant", it] }
+        .set { maxqms2rescore }
+    MS2RESCORE(maxqms2rescore, "$params.results/First_pass/MaxQuant",
+    manifest.mgf.collect())
     empty.mix(
         METAMORPHEUS.out.percolator,
-        //MS2RESCORE.out,
+        MS2RESCORE.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator

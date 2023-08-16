@@ -1,6 +1,7 @@
 process IDENTIPY {
     publishDir "$outdir", mode: "copy"
     conda "/home/shannc/anaconda3/envs/identipy"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     path(mzMLs)
@@ -20,7 +21,7 @@ process IDENTIPY {
     cat identipy.cfg | sed "s;^database:.*;database: $database;" > config.cfg
     identipy_wrapper.sh -g config.cfg \
         -p !{params.pref} \
-        -c !{params.bin}/identipy2pin.r
+        -c !{params.bin}/identipy2pin.r > identipy.log
 
     merge_tables.sh -r "$pin_header" \
         -o identipy_all_pins.temp \

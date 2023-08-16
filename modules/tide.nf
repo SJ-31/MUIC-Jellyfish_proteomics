@@ -1,6 +1,7 @@
-process TIDE {
+process TIDE
     publishDir "$outdir", mode: "copy", pattern: "tide-search*"
     publishDir "$percolatordir", mode: "copy", pattern: "*percolator*"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     path(mzXMLs)
@@ -27,7 +28,7 @@ process TIDE {
     crux tide-search ${mzXMLs} ./db \
         --auto-precursor-window warn \
         --spectrum-parser mstoolkit \
-        --output-dir .
+        --output-dir . > tide.log
 
     crux percolator ./tide-search.target.txt \
     --overwrite T \
@@ -36,7 +37,7 @@ process TIDE {
     --output-dir . \
     --protein-report-duplicates T \
     --search-input concatenated \
-    --fileroot tide
+    --fileroot tide > percolator_tide.log
 
     rename_tide.sh
     """

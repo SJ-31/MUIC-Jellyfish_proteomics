@@ -1,6 +1,7 @@
 process CASANOVO {
     publishDir "$outdir", mode: "copy"
-    conda "/mnt/data/shannc/anaconda3/envs/casanovo"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    conda "/home/shannc/anaconda3/envs/casanovo"
 
     input:
     path(mzMLs)
@@ -15,10 +16,10 @@ process CASANOVO {
     casanovo \
         --mode=denovo \
         --peak_path=$mzMLs \
-        --config ${params.config}/casanovo.yaml
-        --ouput=temp.tsv \
-        --model=$params.casanovomodel
-    grep -v ^M temp.tsv > ${mzMLs.baseName}_casanovo.tsv
+        --config ${params.config}/casanovo.yaml \
+        --output=temp \
+        --model=$params.casanovomodel > casanovo.log
+    grep -v ^M temp.mztab > ${mzMLs.baseName}_casanovo.tsv
     """
     //
 }

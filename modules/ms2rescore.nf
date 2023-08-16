@@ -2,6 +2,7 @@ process MS2RESCORE {
     publishDir "$outdir", mode: "copy"
     stageInMode "copy"
     conda "/home/shannc/anaconda3/envs/ms2rescore"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     tuple val(engine), path(engine_out)
@@ -24,7 +25,7 @@ process MS2RESCORE {
         ms2rescore $output \
             -c !{params.config}/ms2rescore_config.json \
             -o $name \
-            -m mgf
+            -m mgf >> ms2rescore.log
         done
     merge_tables.sh -r "${pin_header}" \
         -o !{engine}_all_pins.temp \

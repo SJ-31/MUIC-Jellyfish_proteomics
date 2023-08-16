@@ -1,5 +1,6 @@
 process PERCOLATOR {
     publishDir "$outdir", mode: "copy"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     tuple val(engine), path(pin_file)
@@ -20,7 +21,7 @@ process PERCOLATOR {
     percolator_wrapper_combined.sh \
         -p $engine \
         -i $pin_file \
-        -f $database
+        -f $database > percolator_${engine}.log
 
     Rscript $params.bin/to_combined_PEP.r \
         -m ${engine}_percolator_psms.tsv \

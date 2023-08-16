@@ -1,6 +1,7 @@
 process MSFRAGGER {
     memory { 2.GB * task.attempt }
     publishDir "$outdir", mode: "copy"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     path(mzmls)
@@ -23,7 +24,7 @@ process MSFRAGGER {
 
     java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
         config.cfg \
-        !{mzmls}
+        !{mzmls} > msfragger.log
 
     merge_tables.sh -r "$tsv_header" \
         -o !{params.pref}_msfragger.txt \

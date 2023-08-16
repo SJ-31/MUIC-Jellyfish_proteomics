@@ -1,6 +1,7 @@
 process PEPNET {
     publishDir "$outdir", mode: "copy"
-    conda "/mnt/data/shannc/anaconda3/envs/PepNet"
+    conda "/home/shannc/anaconda3/envs/PepNet"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
     path(mgf)
@@ -16,7 +17,7 @@ process PEPNET {
     python $params.pepnet_exe \
         --input $mgf \
         --model $params.pepnetmodel \
-        --output ${mgf.baseName}_pepnet.tsv
+        --output ${mgf.baseName}_pepnet.tsv > pepnet.log
     """
     //
 }
