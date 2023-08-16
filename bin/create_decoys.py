@@ -10,9 +10,9 @@ def write_lines(file: str, line_list: list) -> None:
 
 mapping: dict = {"key": [], "val": []}
 mapping_name = sys.argv[2]
-combined: str = "decoysWnormal.temp"
-decoys: str = "all_decoys.temp"
-normal: str = "all_normal.temp"
+combined: str = "decoysWnormal.fasta"
+decoys: str = "all_decoys.fasta"
+normal: str = "all_normal.fasta"
 for num, record in enumerate(SeqIO.parse(sys.argv[1], "fasta")):
     mapping["key"].append(f"P{num}")
     mapping["val"].append(f"{record.description}")

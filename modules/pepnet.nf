@@ -5,7 +5,7 @@ process PEPNET {
 
     input:
     path(mgf)
-    path(outdir)
+    val(outdir)
     //
 
     output:
@@ -23,7 +23,7 @@ process PEPNET {
 }
 
 process EXTRACT_PEPNET {
-    publishDir "$output", mode: "copy"
+    publishDir "$outdir", mode: "copy"
 
     input:
     path(pepnet_output)
@@ -37,7 +37,7 @@ process EXTRACT_PEPNET {
     script:
     header="TITLE	DENOVO	Score	PPM Difference	Positional Score"
     """
-    merge_tables.sh -r $header \
+    merge_tables.sh -r "$header" \
         -o all_pepnet.temp \
         -p tsv
     extract_denovo.py all_pepnet.temp pepnet

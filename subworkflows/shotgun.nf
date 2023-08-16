@@ -45,38 +45,37 @@ workflow 'make_db' {
     PEPNET(manifest.mgf, "$params.results/PepNet")
     EXTRACT_PEPNET(PEPNET.out.collect(), "$params.results/PepNet")
 
-    EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out).flatten()
-    .branch {
-        combined: it ~/.*combined.*/
-        decoys: it ~/.*decoys.*/
-        normal: it ~/.*normal.*/
-        }.set { denovo }
+    EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out)
+     .set { denovo }
     } else {
         denovo = Channel.empty()
     }
-    COMBINED_DATABASE(database_listing, denovo.combined,
-    denovo.normal, denovo.decoys,
-                      "$projectDir/data/protein_databases/combined",
-                      "$projectDir/data/protein_databases/mapping")
+    COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
+                      "$params.results/databases")
 }
 
-dbWdecoys = params.databaseWdecoy
-dbWdecoys_mapping = params.databaseWdecoy_mapping
-db = params.database
 workflow 'search' {
+    Channel.fromPath(params.db_spec)
+        .splitText()
+        .flatten().branch {
+            normal: it =~ /all_normal/
+            plusdecoys: it =~ /decoysWnormal.fasta/
+            seq_mapping : it =~ /decoysWnormal_mapping/
+            header_mapping : it =~ /header_mappings/
+        }.set { db }
     empty = Channel.empty()
     // MaxQuant seems to only work with .raw files
-    MAXQUANT(manifest.raw, "$params.results/MaxQuant", db)
+    MAXQUANT(manifest.raw, "$params.results/MaxQuant", db.normal)
     COMET(manifest.mzXML.collect(), "$params.results/First_pass/Comet",
-    dbWdecoys)
+    db.plusdecoys)
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
-    "$params.results/First_pass/MsFragger", dbWdecoys)
-    IDENTIPY(manifest.mzML.collect(), "$params.results/First_pass/Identipy", dbWdecoys)
-    METAMORPHEUS(manifest.mzML.collect(), "$params.results/First_pass/Metamorpheus", db)
-    // MSGF(manifest.mzML, "$params.results/First_pass/msgf", db) No longer used,
+    "$params.results/First_pass/MsFragger", db.plusdecoys)
+    IDENTIPY(manifest.mzML.collect(), "$params.results/First_pass/Identipy", db.plusdecoys)
+    METAMORPHEUS(manifest.mzML.collect(), "$params.results/First_pass/Metamorpheus", db.normal)
+    // MSGF(manifest.mzML, "$params.results/First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
     TIDE(manifest.mzXML.collect(), "$params.results/First_pass/Tide", "$params.results/First_pass/Percolator",
-    db)
+    db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/First_pass/Percolator")
     TIDE.out.percolator.flatten().filter( ~/.*_target_proteins\.tsv/ )
         .set { tide_percolator }
@@ -92,7 +91,7 @@ workflow 'search' {
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", dbWdecoys)
+    PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", db.plusdecoys)
     combine_searches_FIRST(PERCOLATOR.out.prot2intersect.mix(tide_percolator),
                            PERCOLATOR.out.psm2combinedPEP
                                 .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
@@ -102,7 +101,8 @@ workflow 'search' {
 
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
-    bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), dbWdecoys_mapping, manifest.mzXML, manifest.mzML)
+    bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), db.seq_mapping,
+              db.header_mapping, manifest.mzXML, manifest.mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
     combine_searches_SECOND(
         PERCOLATOR.out.prot2intersect.filter( ~from_first )
@@ -113,5 +113,6 @@ workflow 'search' {
         PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
             .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP,
                 bk_decoys.out.prot2combinedPEP),
+        db.header_mapping,
         "$params.results/Second_pass")
 }

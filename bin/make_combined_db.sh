@@ -1,5 +1,5 @@
 #!/bin/bash
-cat $@ | seqkit rmdup  > inter1.fasta
+cat $@ | seqkit rmdup > inter1.fasta
 if [[ -e decoysWnormal.fasta ]]
 then
     rm decoysWnormal.fasta all_decoys.fasta all_normal.fasta

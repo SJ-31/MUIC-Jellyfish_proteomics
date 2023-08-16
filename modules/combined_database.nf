@@ -1,14 +1,11 @@
 process COMBINED_DATABASE {
     publishDir "$outdir", mode: "copy"
-    publishDir "$mapdir", mode: "copy", pattern: "*tsv"
+    publishDir "$projectDir", mode: "copy", pattern: "*.DB.txt"
 
     input:
     path(other_fasta)
-    path(denovo_peptidesWdecoys)
     path(denovo_peptides)
-    path(denovo_decoys)
     val(outdir)
-    val(mapdir)
     //
 
     output:
@@ -16,20 +13,21 @@ process COMBINED_DATABASE {
     path("all_normal.fasta")
     path("all_decoys.fasta")
     path("*tsv")
+    path("${params.pref}.DB.txt")
     //
 
     script:
     """
-    make_combined.db $other_fasta
-    cat decoysWnormal.temp $denovo_peptidesWdecoys | seqkit rmdup \
-        > decoysWnormal.fasta
-    cat all_decoys.temp $denovo_decoys | seqkit rmdup \
-        > all_decoys.fasta
-    cat all_normal.temp $denovo_peptides | seqkit rmdup \
-        > all_normal.fasta
+    make_combined_db.sh $other_fasta $denovo_peptides
+
     fasta_table.py decoysWnormal.fasta decoysWnormal_mapping.tsv
     fasta_table.py all_decoys.fasta all_decoys_mapping.tsv
     fasta_table.py all_normal.fasta all_normal_mapping.tsv
+
+    echo "${outdir}/all_normal.fasta" >> ${params.pref}.DB.txt
+    echo "${outdir}/decoysWnormal.fasta" >> ${params.pref}.DB.txt
+    echo "${outdir}/decoysWnormal_mapping.tsv" >> ${params.pref}.DB.txt
+    echo "${outdir}/header_mappings.tsv" >> ${params.pref}.DB.txt
     """
     //
 }
