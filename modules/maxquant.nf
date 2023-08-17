@@ -4,7 +4,7 @@ process MAXQUANT {
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
-    path(raw_file)
+    path(raw_file) // Maxquant seems to only work with .raw files
     val(outdir)
     val(database)
     //

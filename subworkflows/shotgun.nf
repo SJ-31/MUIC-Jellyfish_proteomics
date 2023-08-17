@@ -56,7 +56,6 @@ workflow 'make_db' {
 workflow 'search' {
     // Channel.fromPath("$params.db_spec/*")
     Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
-        .view()
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
@@ -64,7 +63,8 @@ workflow 'search' {
             header_mapping : it ==~ /.*header_mappings.tsv/
         }.set { db }
     empty = Channel.empty()
-    // MaxQuant seems to only work with .raw files
+
+    // All searches
     MAXQUANT(manifest.raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
     COMET(manifest.mzXML.collect(), "$params.results/1-First_pass/Comet",
     db.plusdecoys)
@@ -84,22 +84,25 @@ workflow 'search' {
         .set { maxqms2rescore }
     MS2RESCORE(maxqms2rescore, "$params.results/1-First_pass/MaxQuant",
     manifest.mgf.collect())
-    empty.mix(
+
+    // Post-processing with Percolator
+    empty.mix( // Perhaps you need to start with ms2rescore
         METAMORPHEUS.out.percolator,
         MS2RESCORE.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys)
+    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys.first())
 
+    // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
-            .mix(tide_percolator).collect(),
+            .mix(tide_percolator),
         PERCOLATOR.out.psm2combinedPEP
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
+            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
         PERCOLATOR.out.prot2combinedPEP
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
+            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
         db.header_mapping,
         "$params.results/1-First_pass")
 
@@ -110,11 +113,11 @@ workflow 'search' {
     from_first = /.*metamorpheus.*|.*maxquant.*/
     combine_searches_SECOND(
         PERCOLATOR.out.prot2intersect.filter( ~from_first )
-            .mix(tide_percolator, bk_decoys.out.prot2intersect).collect(),
+            .mix(tide_percolator, bk_decoys.out.prot2intersect),
         PERCOLATOR.out.psm2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP, bk_decoys.out.psm2combinedPEP).collect(),
+            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP, bk_decoys.out.psm2combinedPEP),
         PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP, bk_decoys.out.prot2combinedPEP).collect(),
+            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP, bk_decoys.out.prot2combinedPEP),
         db.header_mapping,
         "$params.results/2-Second_pass")
 }
