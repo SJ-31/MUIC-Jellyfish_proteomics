@@ -23,6 +23,10 @@ workflow 'preprocess' {
     DEISOTOPE(params.manifest_file)
 }
 
+def mcf (ch1, ch2) {
+    ch1.mix(ch2).collect()
+}
+
 Channel.fromPath(params.manifest_file)
     .splitCsv(header: true, sep: "\t")
     .map { it -> [ it.Prefix, it.Raw, it.mzML, it.mzXML, it.mgf ] }
@@ -33,11 +37,10 @@ Channel.fromPath(params.manifest_file)
         raw: it =~ /.raw/
     }.set { manifest }
 
-Channel.fromPath(params.databases)
-    .splitText()
-    .set { database_listing }
-
 workflow 'make_db' {
+    Channel.fromPath(params.to_construct)
+        .splitText()
+        .set { database_listing }
     if ( params.denovo ) {
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
     CASANOVO(manifest.mzML,"$params.results/Casanovo")
@@ -55,34 +58,35 @@ workflow 'make_db' {
 }
 
 workflow 'search' {
-    Channel.fromPath(params.db_spec)
-        .splitText()
-        .flatten().branch {
-            normal: it =~ /all_normal/
-            plusdecoys: it =~ /decoysWnormal.fasta/
-            seq_mapping : it =~ /decoysWnormal_mapping/
-            header_mapping : it =~ /header_mappings/
+    // Channel.fromPath("$params.db_spec/*")
+    Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
+        .view()
+        .branch {
+            normal: it ==~ /.*all_normal.fasta/
+            plusdecoys: it ==~ /.*decoysWnormal.fasta/
+            seq_mapping : it ==~ /.*decoysWnormal_mapping/
+            header_mapping : it ==~ /.*header_mappings.tsv/
         }.set { db }
     empty = Channel.empty()
     // MaxQuant seems to only work with .raw files
-    MAXQUANT(manifest.raw, "$params.results/MaxQuant", db.normal)
-    COMET(manifest.mzXML.collect(), "$params.results/First_pass/Comet",
+    MAXQUANT(manifest.raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
+    COMET(manifest.mzXML.collect(), "$params.results/1-First_pass/Comet",
     db.plusdecoys)
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
-    "$params.results/First_pass/MsFragger", db.plusdecoys)
-    IDENTIPY(manifest.mzML.collect(), "$params.results/First_pass/Identipy", db.plusdecoys)
-    METAMORPHEUS(manifest.mzML.collect(), "$params.results/First_pass/Metamorpheus", db.normal)
-    // MSGF(manifest.mzML, "$params.results/First_pass/msgf", db.normal) No longer used,
+    "$params.results/1-First_pass/MsFragger", db.plusdecoys)
+    IDENTIPY(manifest.mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
+    METAMORPHEUS(manifest.mzML.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
+    // MSGF(manifest.mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
-    TIDE(manifest.mzXML.collect(), "$params.results/First_pass/Tide", "$params.results/First_pass/Percolator",
+    TIDE(manifest.mzXML.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
-    TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/First_pass/Percolator")
-    TIDE.out.percolator.flatten().filter( ~/.*_target_proteins\.tsv/ )
+    TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
+    TIDE.out.percolator.flatten().filter( ~/.*_percolator_proteins\.tsv/ )
         .set { tide_percolator }
     MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
         .map { it -> ["maxquant", it] }
         .set { maxqms2rescore }
-    MS2RESCORE(maxqms2rescore, "$params.results/First_pass/MaxQuant",
+    MS2RESCORE(maxqms2rescore, "$params.results/1-First_pass/MaxQuant",
     manifest.mgf.collect())
     empty.mix(
         METAMORPHEUS.out.percolator,
@@ -91,28 +95,33 @@ workflow 'search' {
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(to_percolator, "$params.results/First_pass/Percolator", db.plusdecoys)
-    combine_searches_FIRST(PERCOLATOR.out.prot2intersect.mix(tide_percolator),
-                           PERCOLATOR.out.psm2combinedPEP
-                                .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
-                           PERCOLATOR.out.prot2combinedPEP
-                                .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
-                        "$params.results/First_pass")
+    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys)
 
-    // Second pass with Bern and Kil decoy database
-    compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
-    bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), db.seq_mapping,
-              db.header_mapping, manifest.mzXML, manifest.mzML)
-    from_first = /.*metamorpheus.*|.*maxquant.*/
-    combine_searches_SECOND(
-        PERCOLATOR.out.prot2intersect.filter( ~from_first )
-            .mix(tide_percolator, bk_decoys.out.prot2intersect),
-        PERCOLATOR.out.psm2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP,
-                 bk_decoys.out.psm2combinedPEP),
-        PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP,
-                bk_decoys.out.prot2combinedPEP),
-        db.header_mapping,
-        "$params.results/Second_pass")
+    mcf(PERCOLATOR.out.prot2intersect, tide_percolator).view()
+
+    // combine_searches_FIRST(PERCOLATOR.out.prot2intersect
+    //                        .mix(tide_percolator).collect(),
+    //                        PERCOLATOR.out.psm2combinedPEP.collect()
+    //                             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
+    //                        PERCOLATOR.out.prot2combinedPEP.collect()
+    //                             .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
+    //                        db.header_mapping,
+    //                     "$params.results/1-First_pass")
+
+    // // Second pass with Bern and Kil decoy database
+    // compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
+    // bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), db.seq_mapping,
+    //           db.header_mapping, manifest.mzXML, manifest.mzML)
+    // from_first = /.*metamorpheus.*|.*maxquant.*/
+    // combine_searches_SECOND(
+    //     PERCOLATOR.out.prot2intersect.filter( ~from_first ).collect()
+    //         .mix(tide_percolator, bk_decoys.out.prot2intersect),
+    //     PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ).collect()
+    //         .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP,
+    //              bk_decoys.out.psm2combinedPEP),
+    //     PERCOLATOR.out.prot2combinedPEP.filter( ~from_first ).collect()
+    //         .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP,
+    //             bk_decoys.out.prot2combinedPEP),
+    //     db.header_mapping,
+    //     "$params.results/2-Second_pass")
 }

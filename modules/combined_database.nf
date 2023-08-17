@@ -16,18 +16,16 @@ process COMBINED_DATABASE {
     path("${params.pref}.DB.txt")
     //
 
-    script:
-    """
-    make_combined_db.sh $other_fasta $denovo_peptides
+    shell:
+    '''
+    outdir=!{outdir}
+    make_combined_db.sh !{other_fasta} !{denovo_peptides}
 
     fasta_table.py decoysWnormal.fasta decoysWnormal_mapping.tsv
     fasta_table.py all_decoys.fasta all_decoys_mapping.tsv
     fasta_table.py all_normal.fasta all_normal_mapping.tsv
-
-    echo "${outdir}/all_normal.fasta" >> ${params.pref}.DB.txt
-    echo "${outdir}/decoysWnormal.fasta" >> ${params.pref}.DB.txt
-    echo "${outdir}/decoysWnormal_mapping.tsv" >> ${params.pref}.DB.txt
-    echo "${outdir}/header_mappings.tsv" >> ${params.pref}.DB.txt
-    """
+    find . -name "*[fasta,tsv]" -type f > temp_list.txt
+    cat temp_list.txt | sed 's;./;${outdir}/;' > !{params.pref}.DB.txt
+    '''
     //
 }

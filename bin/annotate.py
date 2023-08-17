@@ -186,8 +186,9 @@ def id_from_header(header):
         return find.groups()[0]
     elif "." in header:
         return header.split(" ")[0]
+    elif "-DENOVO" in header or "-TRANSCRIPTOME" in header:
+        return None
     return None
-
 
 to_map = pd.read_csv(sys.argv[1], sep="\t")["header"]
 output = sys.argv[2]
