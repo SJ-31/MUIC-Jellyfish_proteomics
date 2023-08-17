@@ -1,4 +1,5 @@
 process MAXQUANT {
+
     stageInMode "copy"
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"

@@ -11,7 +11,8 @@ process MS2RESCORE {
     //
 
     output:
-    tuple val(engine), path("${engine}_all_pins.temp")
+    tuple val(engine), path("${engine}_all_pins.temp"), emit: pin
+    path("*.log")
     //
 
     shell:
@@ -30,6 +31,13 @@ process MS2RESCORE {
     merge_tables.sh -r "${pin_header}" \
         -o !{engine}_all_pins.temp \
         -p pin
+
+    case !{engine} in
+        maxquant)
+            add_flanks.py !{engine}_all_pins.temp ;;
+        *)
+            echo default ;;
+    esac
     '''
     //
 }

@@ -88,7 +88,7 @@ workflow 'search' {
     // Post-processing with Percolator
     empty.mix( // Perhaps you need to start with ms2rescore
         METAMORPHEUS.out.percolator,
-        MS2RESCORE.out,
+        MS2RESCORE.out.pin,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
         IDENTIPY.out.percolator
