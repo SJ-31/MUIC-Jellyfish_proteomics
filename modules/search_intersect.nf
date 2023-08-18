@@ -1,5 +1,6 @@
 process SEARCH_INTERSECT {
     publishDir "$outdir", mode: "copy"
+    tag "Intersecting protein identifications: $percolator_protein"
 
     input:
     path(percolator_protein)

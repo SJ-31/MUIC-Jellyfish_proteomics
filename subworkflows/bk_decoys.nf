@@ -15,7 +15,7 @@ workflow bk_decoys {
     mzML_ch
 
     main:
-    MAKE_BK_DB(percolator_out, header_mapping, seq_mapping,
+    MAKE_BK_DB(percolator_out, header_mapping.first(), seq_mapping.first(),
                "$params.results/2-Second_pass/BK_databases")
     .flatten().filter( ~/.*\.fasta/ )
     .branch {

@@ -13,11 +13,11 @@ workflow 'combine_searches' {
     header_mappings
 
     main:
-    SEARCH_INTERSECT(prot2intersect.collect(),
+    SEARCH_INTERSECT(prot2intersect,
                      "$outdir/Combined", header_mappings)
-    COMBINE_PEP_PSM(psm2combinedPEP.collect(), true,
+    COMBINE_PEP_PSM(psm2combinedPEP, true,
                     "$outdir/Combined")
-    COMBINE_PEP_PROT(prot2combinedPEP.collect(), false,
+    COMBINE_PEP_PROT(prot2combinedPEP, false,
                     "$outdir/Combined")
     ANNOTATE(SEARCH_INTERSECT.out.unsorted, "$outdir")
 

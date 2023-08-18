@@ -59,7 +59,7 @@ workflow 'search' {
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
-            seq_mapping : it ==~ /.*decoysWnormal_mapping/
+            seq_mapping : it ==~ /.*decoysWnormal_mapping.tsv/
             header_mapping : it ==~ /.*header_mappings.tsv/
         }.set { db }
     empty = Channel.empty()
@@ -98,26 +98,30 @@ workflow 'search' {
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
-            .mix(tide_percolator),
+            .mix(tide_percolator).collect(),
         PERCOLATOR.out.psm2combinedPEP
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
+            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
         PERCOLATOR.out.prot2combinedPEP
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP),
-        db.header_mapping,
-        "$params.results/1-First_pass")
+            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
+        "$params.results/1-First_pass",
+        db.header_mapping)
 
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
-    bk_decoys(PERCOLATOR.out.prot.filter( ~compatible), db.seq_mapping,
-              db.header_mapping, manifest.mzXML, manifest.mzML)
+    bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
+              db.seq_mapping, db.header_mapping, manifest.mzXML, manifest.mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
     combine_searches_SECOND(
-        PERCOLATOR.out.prot2intersect.filter( ~from_first )
-            .mix(tide_percolator, bk_decoys.out.prot2intersect),
-        PERCOLATOR.out.psm2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP, bk_decoys.out.psm2combinedPEP),
-        PERCOLATOR.out.prot2combinedPEP.filter( ~from_first )
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP, bk_decoys.out.prot2combinedPEP),
-        db.header_mapping,
-        "$params.results/2-Second_pass")
+        bk_decoys.out.prot2intersect.mix(
+            PERCOLATOR.out.prot2intersect.filter( ~from_first ),
+            tide_percolator).collect(),
+        bk_decoys.out.psm2combinedPEP.mix(
+            PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
+            TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
+        bk_decoys.out.prot2combinedPEP.mix(
+            PERCOLATOR.out.prot2combinedPEP.filter( ~from_first ),
+            TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
+        "$params.results/2-Second_pass",
+        db.header_mapping
+        )
 }

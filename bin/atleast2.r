@@ -50,7 +50,7 @@ filter_pep <- function(percolator_out, thresh) {
 get_matches <- function(file_name, target) {
   engine <- gsub("_.*", "", file_name)
   results <- sort_duplicates(file_name) %>%
-    mutate(ProteinGroupId = paste(ProteinGroupId, engine))
+    mutate(ProteinGroupId = paste0(ProteinGroupId, engine)) %>% as_tibble()
   ## results <- filter_pep(results, 0.1)
   matches <- results[[target]]
   engine_results <- list(matches)
