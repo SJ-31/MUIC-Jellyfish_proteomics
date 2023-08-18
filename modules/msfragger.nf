@@ -13,6 +13,7 @@ process MSFRAGGER {
     path("${params.pref}_msfragger.tsv")
     path("*.tsv")
     tuple val("msfragger"), path("fragger_all_pins.temp"), emit: percolator
+    path("*.log")
 
     shell:
     '''

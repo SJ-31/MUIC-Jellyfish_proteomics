@@ -11,6 +11,7 @@ process COMET {
     output:
     path ("${params.pref}_comet.tsv")
     tuple val("comet"), path("comet_all_pins.temp"), emit: percolator
+    path("*.log")
     //
 
     shell:

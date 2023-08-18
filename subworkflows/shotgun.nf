@@ -40,7 +40,7 @@ workflow 'make_db' {
     if ( params.denovo ) {
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
     CASANOVO(manifest.mzML,"$params.results/Casanovo")
-    EXTRACT_CASANOVO(CASANOVO.out.collect(), "$params.results/Casanovo")
+    EXTRACT_CASANOVO(CASANOVO.out.peps.collect(), "$params.results/Casanovo")
     PEPNET(manifest.mgf, "$params.results/PepNet")
     EXTRACT_PEPNET(PEPNET.out.collect(), "$params.results/PepNet")
 

@@ -11,6 +11,7 @@ process IDENTIPY {
     output:
     path("${params.pref}_identipy.tsv")
     tuple val("identipy"), path("identipy_all_pins.temp"), emit: percolator
+    path("*.log")
     //
     shell:
     '''

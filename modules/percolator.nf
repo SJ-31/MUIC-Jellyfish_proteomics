@@ -14,6 +14,7 @@ process PERCOLATOR {
     path("${engine}_percolator_proteins.tsv"), emit: prot2intersect
     path("${engine}_psm2combined_PEP.tsv"), emit: psm2combinedPEP
     path("${engine}_prot2combined_PEP.tsv"), emit: prot2combinedPEP
+    path("*.log")
     //
 
     script:

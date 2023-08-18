@@ -8,7 +8,8 @@ process CASANOVO {
     val(outdir)
     //
     output:
-    path("${mzMLs.baseName}_casanovo.tsv")
+    path("${mzMLs.baseName}_casanovo.tsv"), emit: peps
+    path("*.log")
     //
 
     script:

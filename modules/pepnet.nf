@@ -10,6 +10,7 @@ process PEPNET {
 
     output:
     path("${mgf.baseName}_pepnet.tsv")
+    path("*.log")
     //
 
     script:

@@ -14,6 +14,7 @@ process TIDE {
     path("tide-search.target.txt")
     path("tide-search.decoy.txt")
     path("*percolator*"), emit: percolator
+    path("*.log")
     // ADd a special output channel for percolator
 
     script:
