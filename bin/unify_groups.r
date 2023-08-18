@@ -70,6 +70,7 @@ group_frame <- function(pId, combined_frame, p_record) {
   combined_row <- data.frame(
     ProteinId = collect_in_group("ProteinId", currentID),
     q.value = collect_in_group("q.value", currentID),
+    original_groups = collect_in_group("ProteinGroupId", currentID),
     posterior_error_prob = collect_in_group("posterior_error_prob", currentID),
     peptideIds = collect_in_group("peptideIds", currentID),
     header = collect_in_group("header", currentID)
@@ -84,6 +85,7 @@ all_groups <- names(protein_record) %>%
   ) %>%
   bind_rows() %>%
   mutate(num_proteins = unlist(lapply(ProteinId, num_prot))) %>%
-    mutate(ProteinGroups = names(protein_record))
+  mutate(num_peps = unlist(lapply(peptideIds, num_prot))) %>%
+  mutate(ProteinGroups = names(protein_record))
 
 write_delim(all_groups, output, delim = "\t")
