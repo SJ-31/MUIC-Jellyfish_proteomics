@@ -11,7 +11,6 @@ workflow bk_decoys {
     percolator_out
     seq_mapping
     header_mapping
-    mzXML_ch
     mzML_ch
 
     main:
@@ -23,7 +22,7 @@ workflow bk_decoys {
         identipy: it.baseName =~ /identipy*/
         msfragger: it.baseName =~ /msfragger*/
         }.set { bk_db }
-    COMET(mzXML_ch.collect(), "$params.results/2-Second_pass/Comet",
+    COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Comet",
           bk_db.comet)
     IDENTIPY(mzML_ch.collect(), "$params.results/2-Second_pass/Identipy",
              bk_db.identipy)

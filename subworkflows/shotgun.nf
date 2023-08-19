@@ -25,10 +25,9 @@ workflow 'preprocess' {
 
 Channel.fromPath(params.manifest_file)
     .splitCsv(header: true, sep: "\t")
-    .map { it -> [ it.Prefix, it.Raw, it.mzML, it.mzXML, it.mgf ] }
+    .map { it -> [ it.Prefix, it.Raw, it.indexed_mzML, it.mzXML, it.mgf ] }
     .flatten().branch {
         mzML: it =~ /.mzML/
-        mzXML: it =~ /.mzXML/
         mgf: it =~ /.mgf/
         raw: it =~ /.raw/
     }.set { manifest }
@@ -66,7 +65,7 @@ workflow 'search' {
 
     // All searches
     MAXQUANT(manifest.raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
-    COMET(manifest.mzXML.collect(), "$params.results/1-First_pass/Comet",
+    COMET(manifest.mzML.collect(), "$params.results/1-First_pass/Comet",
     db.plusdecoys)
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/MsFragger", db.plusdecoys)
@@ -74,7 +73,7 @@ workflow 'search' {
     METAMORPHEUS(manifest.mzML.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
     // MSGF(manifest.mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
-    TIDE(manifest.mzXML.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
+    TIDE(manifest.mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
     TIDE.out.percolator.flatten().filter( ~/.*_percolator_proteins\.tsv/ )
@@ -109,7 +108,7 @@ workflow 'search' {
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
-              db.seq_mapping, db.header_mapping, manifest.mzXML, manifest.mzML)
+              db.seq_mapping, db.header_mapping, manifest.mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(

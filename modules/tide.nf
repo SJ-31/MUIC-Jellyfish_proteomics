@@ -4,7 +4,7 @@ process TIDE {
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
-    path(mzXMLs)
+    path(mgf)
     val(outdir)
     val(percolatordir)
     val(database)
@@ -26,7 +26,7 @@ process TIDE {
         --nterm-protein-mods-spec 1X+42.010565 \
         --mods-spec 3M+15.994915
 
-    crux tide-search ${mzXMLs} ./db \
+    crux tide-search ${mgf} ./db \
         --auto-precursor-window warn \
         --spectrum-parser mstoolkit \
         --output-dir . > tide.log

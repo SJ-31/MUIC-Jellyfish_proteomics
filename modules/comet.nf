@@ -3,7 +3,7 @@ process COMET {
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
-    path(mzXMLs)
+    path(indexed_mzMLs)
     val(outdir)
     val(database)
     //
@@ -23,7 +23,7 @@ process COMET {
     cp !{params.config}/default_comet.params .
     cat default_comet.params | sed "s;database.*;database_name = $database;" > comet.params
     philosopher workspace --init
-    philosopher comet --param comet.params !{mzXMLs} > comet.log
+    philosopher comet --param comet.params !{indexed_mzMLs} > comet.log
     echo "$tsv_header" > "!{params.pref}_comet.tsv"
     find . -maxdepth 1 -name "*txt" -exec sed -se 2d {} + >> \
         "!{params.pref}_comet.tsv"
