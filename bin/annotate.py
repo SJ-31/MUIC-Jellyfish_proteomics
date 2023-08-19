@@ -123,7 +123,6 @@ def decode_results(response, file_format, compressed):
         return [response.text]
     return response.text
 
-
 def print_progress_batches(batch_index, size, total):
     n_fetched = min((batch_index + 1) * size, total)
     print(f"Fetched: {n_fetched} / {total}")
@@ -181,23 +180,6 @@ def from_db(name, database_list) -> str:
     return "None"
 
 
-def id_from_header(header):
-    if "|" in header and (find := re.search(r'\|(.*)\|', header)):
-        return find.groups()[0]
-    elif "." in header:
-        return header.split(" ")[0]
-    elif "-DENOVO" in header or "-TRANSCRIPTOME" in header:
-        return None
-    return None
-
-to_map = pd.read_csv(sys.argv[1], sep="\t")["header"]
-output = sys.argv[2]
-# to_map = pd.read_csv("", sep="\t")["header"]
-ids = to_map.apply(id_from_header).dropna()
-ncbi_ids = ids.where(ids.str.contains("\\.")).dropna()
-# Use RefSeq_Protein
-uniprot_ids = ids[~(ids.isin(ncbi_ids))]
-# Use UniProtKB
 
 def map_list(id_list, origin_db: str):
     job_id = submit_id_mapping(from_db=origin_db, to_db="UniProtKB", ids=id_list)
@@ -237,6 +219,46 @@ def map_list(id_list, origin_db: str):
     mapping = pd.DataFrame(anno_dict)
     return mapping
 
+def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
+    header = row["header"]
+    id = row["ProteinId"]
+    if "|" in header and (find := re.search(r'\|(.*)\|', header)):
+        return find.groups()[0]
+    elif "." in header:
+        return header.split(" ")[0]
+    elif "-DENOVO" in header:
+        lookup = seq_mapping.query("id == @id")
+        denovo_list.append(f'>{header}\n{lookup["seq"]}')
+    elif "-TRANSCRIPTOME" in header:
+        lookup = seq_mapping.query("id == @id")
+        transcriptome_list.append(f'>{header}\n{lookup["seq"]}')
+    return None
+
+# Main
+input = sys.argv[1]
+output = sys.argv[2]
+
+input = "testing.tsv"
+output = "sort_requests"
+seq_mapfile = "../ref/all_normal_mapping.tsv"
+
+denovo_hits = []
+transcriptome_hits = []
+to_map = pd.read_csv(input, sep="\t")
+seq_map = pd.read_csv(seq_mapfile, sep="\t")
+ids = to_map.apply(id_from_header, denovo_list=denovo_hits,
+                   transcriptome_list=transcriptome_hits,
+                   seq_mapping=seq_map,
+                   axis=1).dropna()
+ncbi_ids = ids.where(ids.str.contains("\\.")).dropna()
+# Use RefSeq_Protein
+uniprot_ids = ids[~(ids.isin(ncbi_ids))]
+# Use UniProtKB
+
 final = pd.concat([map_list(ncbi_ids, "RefSeq_Protein"),
-           map_list(uniprot_ids, "UniProtKB")])
+           up.map_list(uniprot_ids, "UniProtKB")])
 final.to_csv(output, index=False)
+for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
+                      [denovo_hits, transcriptome_hits]):
+    with open(f"{fasta}.fasta", "w", "utf-8") as f:
+        f.write("".join(lst))

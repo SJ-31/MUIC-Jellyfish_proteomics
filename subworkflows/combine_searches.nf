@@ -2,6 +2,7 @@ include { SEARCH_INTERSECT } from '../modules/search_intersect'
 include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
 include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { ANNOTATE } from '../modules/annotate'
+include { INTERPROSCAN } from '../modules/interpro'
 
 workflow 'combine_searches' {
 
@@ -20,6 +21,8 @@ workflow 'combine_searches' {
     COMBINE_PEP_PROT(prot2combinedPEP, false,
                     "$outdir/Combined")
     ANNOTATE(SEARCH_INTERSECT.out.unsorted, "$outdir")
+    INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
+                 "$outdir")
 
     emit:
     intersected_searches = SEARCH_INTERSECT.out.unsorted
