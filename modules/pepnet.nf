@@ -1,6 +1,7 @@
 process PEPNET {
     publishDir "$outdir", mode: "copy"
     conda "/home/shannc/anaconda3/envs/PepNet"
+    memory "10 GB"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
@@ -9,8 +10,8 @@ process PEPNET {
     //
 
     output:
-    path("${mgf.baseName}_pepnet.tsv")
-    path("*.log")
+    path("${mgf.baseName}_pepnet.tsv"), emit: peps
+    path("*.log"), emit: log
     //
 
     script:

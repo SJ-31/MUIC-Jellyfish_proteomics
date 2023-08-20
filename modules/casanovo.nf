@@ -1,6 +1,7 @@
 process CASANOVO {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    memory "10 GB"
     conda "/home/shannc/anaconda3/envs/casanovo"
 
     input:
@@ -9,7 +10,7 @@ process CASANOVO {
     //
     output:
     path("${mzMLs.baseName}_casanovo.tsv"), emit: peps
-    path("*.log")
+    path("*.log"), emit: log
     //
 
     script:
