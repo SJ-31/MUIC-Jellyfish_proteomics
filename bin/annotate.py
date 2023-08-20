@@ -237,10 +237,11 @@ def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
 # Main
 input = sys.argv[1]
 output = sys.argv[2]
+seq_mapfile = sys.argv[3]
 
-input = "testing.tsv"
-output = "sort_requests"
-seq_mapfile = "../ref/all_normal_mapping.tsv"
+# input = "testing.tsv"
+# output = "sort_requests"
+# seq_mapfile = "../ref/all_normal_mapping.tsv"
 
 denovo_hits = []
 transcriptome_hits = []
@@ -256,7 +257,7 @@ uniprot_ids = ids[~(ids.isin(ncbi_ids))]
 # Use UniProtKB
 
 final = pd.concat([map_list(ncbi_ids, "RefSeq_Protein"),
-           up.map_list(uniprot_ids, "UniProtKB")])
+           map_list(uniprot_ids, "UniProtKB")])
 final.to_csv(output, index=False)
 for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
                       [denovo_hits, transcriptome_hits]):
