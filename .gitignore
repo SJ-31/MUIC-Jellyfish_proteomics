@@ -1,4 +1,5 @@
 work/*
+metrics/*
 *.tsv
 .nextflow*
 *temp*
