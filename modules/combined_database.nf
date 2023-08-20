@@ -13,7 +13,7 @@ process COMBINED_DATABASE {
     path("all_normal.fasta")
     path("all_decoys.fasta")
     path("*tsv")
-    path("${params.pref}.DB.txt")
+    path("${params.pref}.DB.txt"), emit: listing
     //
 
     shell:
@@ -24,8 +24,8 @@ process COMBINED_DATABASE {
     fasta_table.py decoysWnormal.fasta decoysWnormal_mapping.tsv
     fasta_table.py all_decoys.fasta all_decoys_mapping.tsv
     fasta_table.py all_normal.fasta all_normal_mapping.tsv
-    find . -name "*[fasta,tsv]" -type f > temp_list.txt
-    cat temp_list.txt | sed 's;./;${outdir}/;' > !{params.pref}.DB.txt
+    find . \\( -name "*fasta" -o -name "*tsv" \\) -type f > temp_list.txt
+    cat temp_list.txt | sed 's;./;!{outdir}/;' > !{params.pref}.DB.txt
     '''
     //
 }
