@@ -29,19 +29,22 @@ Channel.fromPath(params.manifest_file)
     .flatten().branch {
         mzML: it =~ /.mzML/
         mgf: it =~ /.mgf/
+        mzXML: it =~ /.mzXML/
         raw: it =~ /.raw/
     }.set { manifest }
 
 workflow 'make_db' {
+
+    main:
     Channel.fromPath(params.to_construct)
         .splitText()
         .set { database_listing }
     if ( params.denovo ) {
     // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
     CASANOVO(manifest.mzML,"$params.results/Casanovo")
-    EXTRACT_CASANOVO(CASANOVO.out.peps.collect(), "$params.results/Casanovo")
+        EXTRACT_CASANOVO(CASANOVO.out.peps.collect(), "$params.results/Casanovo")
     PEPNET(manifest.mgf, "$params.results/PepNet")
-    EXTRACT_PEPNET(PEPNET.out.collect(), "$params.results/PepNet")
+    EXTRACT_PEPNET(PEPNET.out.peps.collect(), "$params.results/PepNet")
 
     EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out)
      .set { denovo }
@@ -50,17 +53,30 @@ workflow 'make_db' {
     }
     COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
                       "$params.results/databases")
+
+    emit:
+    COMBINED_DATABASE.out.listing
 }
 
 workflow 'search' {
-    // Channel.fromPath("$params.db_spec/*")
-    Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
+
+    take:
+    db_list
+
+    main:
+    if ( params.with_db ) {
+        databases = db_list
+    } else {
+        databases = params.db_spec
+    }
+    Channel.fromPath(databases).splitText() { it.replaceAll("\n", "") }
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
             seq_mapping : it ==~ /.*decoysWnormal_mapping.tsv/
             header_mapping : it ==~ /.*header_mappings.tsv/
         }.set { db }
+    db.normal.view()
     empty = Channel.empty()
 
     // All searches
@@ -70,7 +86,7 @@ workflow 'search' {
     MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/MsFragger", db.plusdecoys)
     IDENTIPY(manifest.mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
-    METAMORPHEUS(manifest.mzML.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
+    METAMORPHEUS(manifest.mgf.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
     // MSGF(manifest.mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
     TIDE(manifest.mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
@@ -103,7 +119,8 @@ workflow 'search' {
         PERCOLATOR.out.prot2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
         "$params.results/1-First_pass",
-        db.header_mapping)
+        db.header_mapping,
+        db.seq_mapping)
 
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
@@ -121,6 +138,7 @@ workflow 'search' {
             PERCOLATOR.out.prot2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
         "$params.results/2-Second_pass",
-        db.header_mapping
+        db.header_mapping,
+        db.seq_mapping
         )
 }

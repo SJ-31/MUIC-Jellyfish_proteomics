@@ -7,9 +7,13 @@ workflow rnaseq {
 }
 
 workflow identify {
-    search()
+    search(Channel.from("placeholder"))
 }
 
 workflow combine_databases {
     make_db()
+}
+
+workflow full_pipeline {
+    make_db() | search()
 }
