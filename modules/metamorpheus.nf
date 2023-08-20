@@ -1,6 +1,8 @@
 process METAMORPHEUS {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "${params.pref}_results*"
+    memory "10 GB"
+    stageInMode "copy"
     // debug true
     conda "/home/shannc/anaconda3/envs/metamorpheus"
 

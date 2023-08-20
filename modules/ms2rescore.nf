@@ -1,5 +1,6 @@
 process MS2RESCORE {
     publishDir "$outdir", mode: "copy"
+    memory "10 GB"
     stageInMode "copy"
     conda "/home/shannc/anaconda3/envs/ms2rescore"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
