@@ -2,7 +2,6 @@ library(tidyverse)
 library(optparse)
 ## Renames headers and formats percolator output files for use with Ursgal's combine_pep_1_0_0.py script
 ## The ursgal script needs decoys as well as regular matches
-args <- commandArgs(trailingOnly = TRUE)
 parser <- OptionParser()
 parser <- add_option(parser, c("-m", "--matches"), type="character",
                 help="File containing non-decoy matches only")
@@ -15,6 +14,11 @@ parser <- add_option(parser, c("-p", "--protein_matches"), default = FALSE,
 parser <- add_option(parser, c("-o", "--output"), type="character",
                      help = "Output file name")
 
+clean_peptide <- function(modified_pep) {
+  return(str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
+         paste0(collapse = ""))
+}
+
 read_percolator <- function(filename, header, col_select, is_decoy) {
   percolator_output <- read.table(filename, sep = "\t", fill = TRUE,
                                   skip = 1,
@@ -26,12 +30,7 @@ read_percolator <- function(filename, header, col_select, is_decoy) {
     filter(V2 != "") %>%
     `colnames<-`(header) %>%
     mutate("Is_decoy" = is_decoy) %>%
-    mutate(peptide = unlist(lapply(peptide, gsub, pattern = "\\[.*\\]",
-                                   replacement = ""))) %>%
-    mutate(peptide = unlist(lapply(peptide, gsub, pattern = "\\.",
-                                   replacement = ""))) %>%
-    mutate(peptide = unlist(lapply(peptide, gsub, pattern = "-",
-                                   replacement = "")))
+    mutate(peptide = unlist(lapply(peptide, clean_peptide)))
   return(percolator_output)
 }
 
