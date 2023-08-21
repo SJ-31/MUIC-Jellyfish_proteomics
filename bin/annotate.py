@@ -65,6 +65,7 @@ def check_id_mapping_results_ready(job_id):
             else:
                 raise Exception(j["jobStatus"])
         else:
+            print(j)
             return bool(j["results"] or j["failedIds"])
 
 
