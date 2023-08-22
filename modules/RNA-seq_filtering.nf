@@ -76,25 +76,3 @@ process BLAST {
     """
     //
 }
-
-process ORNA {
-    publishDir "$params.normalized_seqs/$loc", pattern: "*_N*"
-    publishDir "$params.logs", mode: 'copy', pattern: ".log"
-    publishDir "$params.normalized/$loc", pattern: "*.txt", mode: 'copy'
-
-    input:
-    tuple val(loc), path(reads)
-    //
-    output:
-    tuple val(loc), path("*") // YOUR TUPLES MUST HAVE COMMAS
-
-    exec:
-    def formatted = reads[0].baseName.replaceAll(/[12].*/, '') // .* Matches all characters
-    def descriptor = loc + 'normalized'
-    //
-    script:
-    """
-    ORNA -pair1 ${reads[0]} -pair2 ${reads[1]} -type fastq -output ${formatted}_N 2> ORNA.log
-    """
-    //
-}

@@ -7,9 +7,10 @@ params.rnadata = "../resources/RNA-seq"
 process FASTQCREPORT {
     // tag "Report in $params.reports"
 
-    publishDir "$params.reports/$loc", mode: 'copy'  // Only files matching the declaration in output: get published
+    publishDir "$outdir", mode: 'copy'  // Only files matching the declaration in output: get published
     input:
     tuple val(loc), path(fastq)
+    val(outdir)
     //
     output:
     tuple val("0-initial_checks"), path("fastqc")
@@ -58,23 +59,6 @@ process TRIM {
     fastp -i ${reads[0]} -I ${reads[1]} --detect_adapter_for_pe -c \
     -o ${reads[0].baseName}_T.fastq.gz -O ${reads[1].baseName}_T.fastq.gz -R ${sample_id}_trimming \
     -l 50 -z 4 -h ${sample_id}_trim.html -j ${sample_id}fastp.json
-    """
-    //
-}
-
-process TODIR {
-    input:
-    tuple val(id), path('*')
-    //
-    output:
-    tuple val(id), path('*')
-    //
-    exec:
-
-    script:
-    """
-    mkdir $id
-    find . -type f | xargs -I{} mv {} $id
     """
     //
 }
