@@ -1,19 +1,22 @@
-process FLASHFLQ {
+process FLASHLFQ {
     publishDir "$outdir", mode: "copy"
+    publishDir "$params.logs", mode: "copy", pattern: "*{txt,toml}"
 
     input:
     path(comet)
     path(identipy)
     path(msfragger)
-    path(maxquant)
-    path(metamorpheus)
-    path(tide)
+    path(maxquant_pin_file)
+    path(metamorpheus_AllPSMs)
+    path(tide_target_search)
     path(msms_mapping)
     path(mzmls)
     val(outdir)
     //
 
     output:
+    path("Quantified*")
+    path("*.{txt,toml}")
     //
 
     script:
@@ -21,11 +24,11 @@ process FLASHFLQ {
     mkdir mzml; mv *.mzml mzml
     Rscript $params.bin/flashlfq_format.r \
         -o flashlfq.tsv \
-        --metamorpheus $metamorpheus \
-        --maxquant $maxquant \
+        --metamorpheus $metamorpheus_AllPSMs \
+        --maxquant $maxquant_pin_file \
         --comet $comet \
         --identipy $identipy \
-        --tide $tide \
+        --tide $tide_target_search \
         --msfragger $msfragger \
         -m $msms_mapping
 

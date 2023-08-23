@@ -13,9 +13,9 @@ process MS_MAPPING {
     shell:
     '''
     metric_header="scanNum	retensionTime	precursorCharge	precursorIntensity"
-    for file in *.mzml
+    for file in *.mzML
         do
-            Rscript !{params.bin}/ms_metrics.r $file ${file}_metrics.temp
+            Rscript !{params.bin}/ms_mapping.r $file ${file}_metrics.temp
     done
 
     merge_tables.sh -r "$metric_header" \
