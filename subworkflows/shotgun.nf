@@ -7,21 +7,18 @@ include { IDENTIPY } from '../modules/identipy'
 include { METAMORPHEUS } from '../modules/metamorpheus'
 include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
-include { CASANOVO } from '../modules/casanovo'
 include { PERCOLATOR } from '../modules/percolator'
 include { MS2RESCORE } from '../modules/ms2rescore'
-include { COMBINED_DATABASE } from '../modules/combined_database'
-include { EXTRACT_CASANOVO } from '../modules/casanovo'
 include { DEISOTOPE } from '../modules/deisotope'
-include { PEPNET } from '../modules/pepnet'
-include { EXTRACT_PEPNET } from '../modules/pepnet'
+include { MS_MAPPING } from '../modules/ms_mapping'
+include { QUANDENSER } from '../modules/quandenser'
 include { bk_decoys } from './bk_decoys.nf'
-include { combine_searches as combine_searches_FIRST } from './combine_searches.nf'
-include { combine_searches as combine_searches_SECOND } from './combine_searches.nf'
+include { combine_searches as combine_searches_FIRST } from './combine_searches'
+include { combine_searches as combine_searches_SECOND } from './combine_searches'
+include { quantify as quantify_FIRST } from './quantify'
+include { quantify as quantify_SECOND } from './quantify'
+include { make_db } from './make_db'
 
-workflow 'preprocess' {
-    DEISOTOPE(params.manifest_file)
-}
 
 Channel.fromPath(params.manifest_file)
     .splitCsv(header: true, sep: "\t")
@@ -33,30 +30,17 @@ Channel.fromPath(params.manifest_file)
         raw: it =~ /.raw/
     }.set { manifest }
 
-workflow 'make_db' {
 
-    main:
-    Channel.fromPath(params.to_construct)
-        .splitText()
-        .set { database_listing }
-    if ( params.denovo ) {
-    // SMSNET(manifest.mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
-    CASANOVO(manifest.mzML,"$params.results/Casanovo")
-        EXTRACT_CASANOVO(CASANOVO.out.peps.collect(), "$params.results/Casanovo")
-    PEPNET(manifest.mgf, "$params.results/PepNet")
-    EXTRACT_PEPNET(PEPNET.out.peps.collect(), "$params.results/PepNet")
-
-    EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out)
-     .set { denovo }
-    } else {
-        denovo = Channel.empty()
-    }
-    COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
-                      "$params.results/databases")
-
-    emit:
-    COMBINED_DATABASE.out.listing
+workflow 'preprocess' {
+    manifest.mzML.collectFile("$params.results/Preprocessed/manifest.txt",
+                              newLine: true)
+        .set { mzML_spec }
+    DEISOTOPE(mzML_spec,
+              "$params.results/Preprocessed/Proteowizard")
+    QUANDENSER(mzML_spec,
+              "$params.results/Preprocessed/Quandenser")
 }
+
 
 workflow 'search' {
 
@@ -65,7 +49,7 @@ workflow 'search' {
 
     main:
     if ( params.with_db ) {
-        databases = db_list
+        databases = make_db().out
     } else {
         databases = params.db_spec
     }
@@ -76,8 +60,9 @@ workflow 'search' {
             seq_mapping : it ==~ /.*decoysWnormal_mapping.tsv/
             header_mapping : it ==~ /.*header_mappings.tsv/
         }.set { db }
-    db.normal.view()
     empty = Channel.empty()
+
+    MS_MAPPING(manifest.mzML.collect(), "$params.results")
 
     // All searches
     MAXQUANT(manifest.raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
@@ -92,9 +77,10 @@ workflow 'search' {
     TIDE(manifest.mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
+    TIDE.out.perc_protein.view()
     TIDE.out.percolator.flatten().filter( ~/.*_percolator_proteins\.tsv/ )
         .set { tide_percolator }
-    MAXQUANT.out.ms2rescore.flatten().filter( ~/.*txt/ ).collect()
+    MAXQUANT.out.ms2rescore.collect()
         .map { it -> ["maxquant", it] }
         .set { maxqms2rescore }
     MS2RESCORE(maxqms2rescore, "$params.results/1-First_pass/MaxQuant",
@@ -109,7 +95,14 @@ workflow 'search' {
         IDENTIPY.out.percolator
     ).set { to_percolator }
     PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys.first())
+    PERCOLATOR.out.psms.view()
 
+    quantify_FIRST(MS_MAPPING.out, manifest.mzML,
+                   PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
+                   METAMORPHEUS.out.psms,
+                   MS2RESCORE.out.pin.flatten.filter(~/.*pin.*/),
+                   TIDE.out.target,
+                   "$params.results/1-First_pass/Quantify")
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
@@ -127,6 +120,16 @@ workflow 'search' {
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
               db.seq_mapping, db.header_mapping, manifest.mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
+
+    quantify_SECOND(MS_MAPPING.out, manifest.mzML,
+                    bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
+                                               .filter( ~from_first ),
+                                               TIDE.out.perc_psms),
+                   METAMORPHEUS.out.psms,
+                   MS2RESCORE.out.pin.flatten.filter(~/.*pin.*/),
+                   TIDE.out.target,
+                   "$params.results/2-Second_pass/Quantify")
+
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(
             PERCOLATOR.out.prot2intersect.filter( ~from_first ),
@@ -139,6 +142,5 @@ workflow 'search' {
             TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
         "$params.results/2-Second_pass",
         db.header_mapping,
-        db.seq_mapping
-        )
+        db.seq_mapping)
 }

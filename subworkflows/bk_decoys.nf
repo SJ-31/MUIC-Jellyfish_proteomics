@@ -37,6 +37,8 @@ workflow bk_decoys {
             "$params.results/2-Second_pass/Percolator", bk_db.msfragger)
 
     emit:
+    all_psms = P_COMET.out.psms.mix(P_IPY.out.psms,
+                                          P_FRAGGER.out.psms)
     prot2intersect = P_COMET.out.prot2intersect.mix(P_IPY.out.prot2intersect,
                                    P_FRAGGER.out.prot2intersect)
     psm2combinedPEP = P_COMET.out.psm2combinedPEP.mix(P_IPY.out.psm2combinedPEP,
