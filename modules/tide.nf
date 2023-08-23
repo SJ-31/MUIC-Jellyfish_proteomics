@@ -11,9 +11,11 @@ process TIDE {
     //
 
     output:
-    path("tide-search.target.txt")
-    path("tide-search.decoy.txt")
+    path("tide-search.target.txt"), emit: target
+    path("tide-search.decoy.txt"), emit: decoy
     path("*percolator*"), emit: percolator
+    path("tide_percolator_proteins.tsv"), emit: perc_protein
+    path("tide_percolator_psms.tsv"), emit: perc_psms
     path("*.log")
     // ADd a special output channel for percolator
 

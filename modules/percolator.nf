@@ -11,6 +11,7 @@ process PERCOLATOR {
     output:
     tuple val(engine), path("${engine}_percolator_proteins.tsv"), path("${engine}_percolator_decoy_proteins.tsv"), emit: prot
     path("${engine}*.tsv")
+    path("${engine}_percolator_psms.tsv"), emit: psms
     path("${engine}_percolator_proteins.tsv"), emit: prot2intersect
     path("${engine}_psm2combined_PEP.tsv"), emit: psm2combinedPEP
     path("${engine}_prot2combined_PEP.tsv"), emit: prot2combinedPEP

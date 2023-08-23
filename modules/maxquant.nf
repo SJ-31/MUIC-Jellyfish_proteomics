@@ -11,7 +11,7 @@ process MAXQUANT {
     //
     output:
     path("${raw_file.baseName}_combined")
-    tuple val("maxquant"), path("${raw_file.baseName}_msms.txt"), emit: ms2rescore
+    path("${raw_file.baseName}_msms.txt"), emit: ms2rescore
     path("*.log")
 
     shell:
