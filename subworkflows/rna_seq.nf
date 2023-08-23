@@ -3,7 +3,7 @@
 */
 include { MULTIQC; TRIM; FASTQCREPORT; STATS } from '../modules/RNA-seq_initial_checks'
 include { BBDUK; BLAST; SORTMERNA } from '../modules/RNA-seq_filtering'
-include { GETFROMDIR; GRP_SEQKIT } from '../modules/Get_stats' addParams(ext: '.log', report_name: 'preprocessing_stats.txt' )
+include { GRP_SEQKIT } from '../modules/Get_stats' addParams(ext: '.log', report_name: 'preprocessing_stats.txt' )
 
 workflow clean {
     main:

@@ -45,6 +45,7 @@ get_maxquant_row <- function(row_index, maxquant_lines) {
 }
 
 read_maxquant <- function(maxquant_file) {
+  # Needs maxquant_all_pins
   lines <- read_lines(maxquant_file)
   q_tibble <- lapply(seq_along(lines)[-1], get_maxquant_row,
     maxquant_lines = lines
@@ -87,6 +88,7 @@ sort_ambiguous <- function(mm) {
 }
 
 read_metamorpheus <- function(metamorpheus_file) {
+  # Needs metamorpheus AllPSMS.psmtsv
   old_names <- c(
     "File.Name", "Precursor.Charge",
     "Base.Sequence",

@@ -28,8 +28,8 @@ group_prot <- function(prot_vec) {
 }
 
 merge_with_msms <- function(table, mapping) {
-return(table %>%
-       mutate(`Peptide Monoisotopic Mass` = unlist(
+  return(table %>%
+         mutate(`Peptide Monoisotopic Mass` = unlist(
       lapply(`Base Sequence`, mw, monoisotopic = TRUE)
     )) %>%
     inner_join(., mapping, by = join_by(scan == scanNum)) %>%
@@ -73,6 +73,7 @@ get_maxquant_row <- function(row_index, maxquant_lines) {
 }
 
 read_maxquant <- function(maxquant_file, mapping) {
+  # Needs maxquant_all_pins
   lines <- read_lines(maxquant_file)
   q_tibble <- lapply(seq_along(lines)[-1], get_maxquant_row,
     maxquant_lines = lines
@@ -120,7 +121,7 @@ sort_ambiguous <- function(mm) {
 }
 
 read_metamorpheus <- function(metamorpheus_file) {
-  # Needs
+  # Needs metamorpheus AllPSMs.psmtsv
   old_names <- c(
     "File.Name", "Scan.Retention.Time", "Precursor.Charge",
     "Base.Sequence", "Full.Sequence", "Peptide.Monoisotopic.Mass",
