@@ -1,6 +1,6 @@
-include { search } from "./subworkflows/shotgun.nf"
-include { assemble } from "./subworkflows/rna_seq.nf"
-include { make_db } from "./subworkflows/shotgun.nf"
+include { search } from "./subworkflows/shotgun"
+include { assemble } from "./subworkflows/rna_seq"
+include { make_db } from "./subworkflows/make_db"
 
 workflow rnaseq {
     assemble()

@@ -29,16 +29,14 @@ process TRANSDECODE {
     output:
     path("*")
     //
-    exec:
+    script:
     formatted = "${assembly.baseName}_TR"
-    script: // The minimum length has been lowered to 35 from the default of 100 despite the fact that this greatly increases false positive rate. Lowering it to this level is necessary though because venom peptides can be this small
     """
     TransDecoder.LongOrfs -t $assembly \
     -m 35 \
     -O $formatted
     """
+    // The minimum length has been lowered to 35 from the default of 100 despite the fact that this greatly increases false positive rate. Lowering it to this level is necessary though because venom peptides can be this small
     // Although the false positive rate increases with a lower minimum peptide
     // length, venom peptides
-}
-
 }
