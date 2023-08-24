@@ -97,13 +97,13 @@ read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
     "File.Name", "Precursor.Charge",
     "Base.Sequence",
     "Protein.Accession",
-    "Precursor.Scan.Number",
+    "Precursor.Scan.Number"
   )
   new_names <- c("file", "precursorCharge", "peptide", "protein", "scan")
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
     as_tibble() %>%
     filter(Decoy == "N") %>%
-    filter(PEP <= pep_threshold)
+    filter(PEP <= pep_threshold) %>%
     select(all_of(old_names))
   mm <- sort_ambiguous(mm) %>%
     distinct(`Base.Sequence`, .keep_all = TRUE) %>%

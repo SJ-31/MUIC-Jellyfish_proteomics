@@ -13,13 +13,13 @@ process DIRECTLFQ {
     //
 
     output:
-    path("*")
+    path("directlfq_prot.tsv")
     //
 
     script:
     """
     Rscript $params.bin/directlfq_format.r \
-        -o directlfq.tsv \
+        -o directlfq.aq_reformat.tsv \
         --metamorpheus $metamorpheus_AllPSMs \
         --maxquant $maxquant_pin_file \
         --comet $comet \
@@ -28,7 +28,8 @@ process DIRECTLFQ {
         --msfragger $msfragger \
         -m $msms_mapping \
         -t 0.05
+    directlfq lfq -i directlfq.aq_reformat.tsv
+    mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
     """
     //
-    // directlfq lfq -i directlfq.tsv
 }
