@@ -188,9 +188,8 @@ file_list <- list(
 ##   identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
 ##   metamorpheus = "../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv", tide = "../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
 ## )
+## mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
 
-
-mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
 
 
 all_engines <- lapply(seq_along(file_list), function(x) {
@@ -204,7 +203,6 @@ unmatched_msms <- mapping %>% filter(!(scanNum %in% matched_psms)) %>%
 
 unmatched_df <- seq_along(unmatched_msms[[1]]) %>% lapply(., function(x) {
     split <- strsplit(unmatched_msms[x, ], "\\.")[[1]]
-    print(split)
     return(data.frame(file = split[1], scan = split[2]))
   }) %>%
   bind_rows() %>%
@@ -219,9 +217,9 @@ msms_files <- as.list(list.files(path,
 
 filter_unmatched_msms <- function(file_name, msms_path, df) {
   df <- filter(df, file == file_name)
-  mzml <- readMSData(msms)
+  mzml <- readMSData(msms_path)
   sp <- spectra(mzml)
-  unmatched_mzml <- mzml[names(sp) %in% file_scans$scan]
+  unmatched_mzml <- mzml[names(sp) %in% df$scan]
   rm(mzml)
   return(unmatched_mzml)
 }

@@ -40,11 +40,11 @@ process UNMATCHED_MSMS {
     script:
     """
     Rscript $params.bin/unmatched_msms.r \
-        --metamorpheus $metamorpheus \
-        --maxquant $maxquant \
+        --metamorpheus $metamorpheus_all_psms \
+        --maxquant $maxquant_all_pin \
         --comet $comet \
         --identipy $identipy \
-        --tide $tide \
+        --tide $tide_target_search \
         --msfragger $msfragger \
         -m $msms_mapping \
         --mzML_path .

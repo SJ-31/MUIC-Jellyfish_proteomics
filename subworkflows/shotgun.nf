@@ -77,9 +77,6 @@ workflow 'search' {
     TIDE(manifest.mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
-    TIDE.out.perc_protein.view()
-    TIDE.out.percolator.flatten().filter( ~/.*_percolator_proteins\.tsv/ )
-        .set { tide_percolator }
     MAXQUANT.out.ms2rescore.collect()
         .map { it -> ["maxquant", it] }
         .set { maxqms2rescore }
@@ -95,18 +92,17 @@ workflow 'search' {
         IDENTIPY.out.percolator
     ).set { to_percolator }
     PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys.first())
-    PERCOLATOR.out.psms.view()
 
     quantify_FIRST(MS_MAPPING.out, manifest.mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
-                   MS2RESCORE.out.pin.flatten.filter(~/.*pin.*/),
+                   MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
                    "$params.results/1-First_pass/Quantify")
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
-            .mix(tide_percolator).collect(),
+            .mix(TIDE.out.perc_protein).collect(),
         PERCOLATOR.out.psm2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
         PERCOLATOR.out.prot2combinedPEP
@@ -126,14 +122,14 @@ workflow 'search' {
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
-                   MS2RESCORE.out.pin.flatten.filter(~/.*pin.*/),
+                    MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
                    "$params.results/2-Second_pass/Quantify")
 
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(
             PERCOLATOR.out.prot2intersect.filter( ~from_first ),
-            tide_percolator).collect(),
+            TIDE.out.perc_protein).collect(),
         bk_decoys.out.psm2combinedPEP.mix(
             PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),

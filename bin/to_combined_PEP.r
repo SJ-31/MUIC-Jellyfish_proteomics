@@ -19,7 +19,7 @@ clean_peptide <- function(modified_pep) {
          paste0(collapse = ""))
 }
 
-read_percolator <- function(filename, header, col_select, is_decoy) {
+read_percolator <- function(filename, header, col_select, is_decoy, is_pep) {
   percolator_output <- read.table(filename, sep = "\t", fill = TRUE,
                                   skip = 1,
                                   header = FALSE) %>%
@@ -29,8 +29,11 @@ read_percolator <- function(filename, header, col_select, is_decoy) {
     filter(!(grepl("[A-Za-z]", V2))) %>%
     filter(V2 != "") %>%
     `colnames<-`(header) %>%
-    mutate("Is_decoy" = is_decoy) %>%
-    mutate(peptide = unlist(lapply(peptide, clean_peptide)))
+    mutate("Is_decoy" = is_decoy)
+  if (is_pep) {
+  percolator_output <- mutate(percolator_output,
+                              peptide = unlist(lapply(peptide, clean_peptide)))
+   }
   return(percolator_output)
 }
 
@@ -49,14 +52,14 @@ percolator_protein_header <- c("ProteinId", "ProteinGroupID", "q-value", "PEP")
 
 if (args$protein_matches) {
   valid <- read_percolator(args$matches, percolator_protein_header,
-                           protein_cols, FALSE)
+                           protein_cols, FALSE, FALSE)
   decoys <- read_percolator(args$decoys, percolator_protein_header,
-                            protein_cols, TRUE)
+                            protein_cols, TRUE, FALSE)
 } else {
   valid <- read_percolator(args$matches, psm_header,
-                           peptide_cols, FALSE)
+                           peptide_cols, FALSE, TRUE)
   decoys <- read_percolator(args$decoys, psm_header,
-                            peptide_cols, TRUE)
+                            peptide_cols, TRUE, TRUE)
 }
 
 combined <- rbind(valid, decoys)

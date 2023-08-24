@@ -1,6 +1,7 @@
 process FLASHLFQ {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "*{txt,toml}"
+    errorStrategy 'ignore'
 
     input:
     path(comet)
@@ -21,7 +22,7 @@ process FLASHLFQ {
 
     script:
     """
-    mkdir mzml; mv *.mzml mzml
+    mkdir mzML; mv *.mzML mzML
     Rscript $params.bin/flashlfq_format.r \
         -o flashlfq.tsv \
         --metamorpheus $metamorpheus_AllPSMs \
@@ -35,7 +36,7 @@ process FLASHLFQ {
     $params.dotnet6 $params.flashlfq \
         --idt flashlfq.tsv \
         --out . \
-        --rep mzml \
+        --rep mzML \
         --ppm 5 \
     """
     //

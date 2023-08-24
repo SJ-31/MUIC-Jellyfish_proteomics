@@ -22,7 +22,6 @@ workflow 'quantify'{
         tide: it =~ /tide/
         metamorpheus: it =~ /metamorpheus/
     }.set { per }
-    per.maxquant.view()
 
     FLASHLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
@@ -31,5 +30,5 @@ workflow 'quantify'{
     UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
                    msms_mappings, mzmls, "$outdir/Unmatched")
-    UNMATCHED_PSMS(engine_percolator_output, "$outdir/Unmatched")
+    UNMATCHED_PSMS(engine_percolator_output.collect(), "$outdir/Unmatched")
 }
