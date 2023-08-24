@@ -16,11 +16,11 @@ workflow 'combine_searches' {
 
     main:
     SEARCH_INTERSECT(prot2intersect,
-                     "$outdir/Combined", header_mappings)
+                     "$outdir/1-Combined", header_mappings)
     COMBINE_PEP_PSM(psm2combinedPEP, true,
-                    "$outdir/Combined")
+                    "$outdir/1-Combined")
     COMBINE_PEP_PROT(prot2combinedPEP, false,
-                    "$outdir/Combined")
+                    "$outdir/1-Combined")
     ANNOTATE(SEARCH_INTERSECT.out.unsorted, seq_mappings, "$outdir")
     INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
                  "$outdir")

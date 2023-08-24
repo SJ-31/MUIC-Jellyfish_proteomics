@@ -12,6 +12,7 @@ include { MS2RESCORE } from '../modules/ms2rescore'
 include { DEISOTOPE } from '../modules/deisotope'
 include { MS_MAPPING } from '../modules/ms_mapping'
 include { QUANDENSER } from '../modules/quandenser'
+include { FALCON } from '../modules/falcon'
 include { bk_decoys } from './bk_decoys.nf'
 include { combine_searches as combine_searches_FIRST } from './combine_searches'
 include { combine_searches as combine_searches_SECOND } from './combine_searches'
@@ -39,6 +40,7 @@ workflow 'preprocess' {
               "$params.results/Preprocessed/Proteowizard")
     QUANDENSER(mzML_spec,
               "$params.results/Preprocessed/Quandenser")
+    FALCON(manifest.mzML, "$params.results/Preprocessed/Falcon")
 }
 
 
@@ -98,7 +100,7 @@ workflow 'search' {
                    METAMORPHEUS.out.psms,
                    MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
-                   "$params.results/1-First_pass/Quantify")
+                   "$params.results/1-First_pass/1-Quantify")
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
@@ -124,7 +126,7 @@ workflow 'search' {
                    METAMORPHEUS.out.psms,
                     MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
-                   "$params.results/2-Second_pass/Quantify")
+                   "$params.results/2-Second_pass/1-Quantify")
 
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(

@@ -65,8 +65,7 @@ def check_id_mapping_results_ready(job_id):
             else:
                 raise Exception(j["jobStatus"])
         else:
-            print(j)
-            return bool(j["results"] or j["failedIds"])
+            return bool(j.get("results") or j.get("failedIds"))
 
 
 def get_batch(batch_response, file_format, compressed):

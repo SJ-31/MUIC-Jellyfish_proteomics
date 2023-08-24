@@ -26,7 +26,9 @@ workflow 'quantify'{
     FLASHLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
              msms_mappings, mzmls, "$outdir")
-    // DIRECTLFQ(per.) TODO: Run this first
+    DIRECTLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
+             metamorpheus_AllPSMs, tide_target_search,
+             msms_mappings, "$outdir")
     UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
                    msms_mappings, mzmls, "$outdir/Unmatched")
