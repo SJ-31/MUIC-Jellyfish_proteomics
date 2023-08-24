@@ -18,16 +18,20 @@ get_percolator_row <- function(row_index, percolator_lines) {
     unlist()
   return(tibble(
     PSMId = splits[1],
+    pep = splits[4],
     peptide = splits[5],
     protein = group_prot(splits[6:length(splits)])
   ))
 }
 
-read_percolator <- function(percolator_file) {
+read_percolator <- function(percolator_file, pep_threshold) {
   lines <- read_lines(percolator_file)
   p_tibble <- lapply(seq_along(lines)[-1], get_percolator_row,
     percolator_lines = lines
-  ) %>% bind_rows()
+  ) %>%
+    bind_rows() %>%
+    filter(pep <= pep_threshold) %>%
+    select(-pep)
   return(p_tibble)
 }
 
@@ -87,18 +91,19 @@ sort_ambiguous <- function(mm) {
   return(bound)
 }
 
-read_metamorpheus <- function(metamorpheus_file) {
+read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
   # Needs metamorpheus AllPSMS.psmtsv
   old_names <- c(
     "File.Name", "Precursor.Charge",
     "Base.Sequence",
     "Protein.Accession",
-    "Precursor.Scan.Number"
+    "Precursor.Scan.Number",
   )
   new_names <- c("file", "precursorCharge", "peptide", "protein", "scan")
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
     as_tibble() %>%
     filter(Decoy == "N") %>%
+    filter(PEP <= pep_threshold)
     select(all_of(old_names))
   mm <- sort_ambiguous(mm) %>%
     distinct(`Base.Sequence`, .keep_all = TRUE) %>%
@@ -184,13 +189,13 @@ file_pivot <- function(psm_df) {
 
 read_engine_psms <- function(percolator_input, engine, mapping) {
   if (engine == "metamorpheus") {
-    psms <- read_metamorpheus(percolator_input)
+    psms <- read_metamorpheus(percolator_input, args$pep_threshold)
   } else if (engine == "tide") {
     psms <- read_tide(percolator_input, mapping)
   } else if (engine == "maxquant") {
     psms <- read_maxquant(percolator_input)
   } else {
-    psms <- read_percolator(percolator_input)
+    psms <- read_percolator(percolator_input, args$pep_threshold)
     if (engine == "comet") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
     } else if (engine == "maxquant") {
@@ -248,6 +253,10 @@ parser <- add_option(parser, c("-m", "--msms_mapping"),
   type = "character",
   help = "MsMs mapping file"
 )
+parser <- add_option(parser, c("-t", "--pep_threshold"),
+  type = "character",
+  help = "MsMs mapping file"
+)
 args <- parse_args(parser)
 mapping <- read.delim(args$msms_mapping, sep = "\t")
 
@@ -272,10 +281,10 @@ file_names <- mapping$scanNum %>%
 all_engines <- lapply(seq_along(file_list), function(x) {
   return(read_engine_psms(file_list[[x]], names(file_list)[x], mapping))
 })
-rm(all_engines)
 
 # Merge matches between engines
 joined <- Reduce(function(x, y) { full_join(x, y, by = "ion") }, all_engines)
+rm(all_engines)
 
 # Group up proteins that share an ion
 prot <- joined %>% select(grep("protein", colnames(joined)))

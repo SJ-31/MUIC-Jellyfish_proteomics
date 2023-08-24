@@ -45,16 +45,20 @@ get_percolator_row <- function(row_index, percolator_lines) {
     unlist()
   return(tibble(
     PSMId = splits[1],
+    pep = splits[4],
     peptide = splits[5],
     `Protein Accession` = group_prot(splits[6:length(splits)])
   ))
 }
 
-read_percolator <- function(percolator_file) {
+read_percolator <- function(percolator_file, pep_threshold) {
   lines <- read_lines(percolator_file)
   p_tibble <- lapply(seq_along(lines)[-1], get_percolator_row,
     percolator_lines = lines
-  ) %>% bind_rows()
+  ) %>%
+    bind_rows() %>%
+    filter(pep <= pep_threshold) %>%
+    select(-pep)
   return(p_tibble)
 }
 
@@ -120,7 +124,7 @@ sort_ambiguous <- function(mm) {
   return(bound)
 }
 
-read_metamorpheus <- function(metamorpheus_file) {
+read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
   # Needs metamorpheus AllPSMs.psmtsv
   old_names <- c(
     "File.Name", "Scan.Retention.Time", "Precursor.Charge",
@@ -134,6 +138,7 @@ read_metamorpheus <- function(metamorpheus_file) {
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
     as_tibble() %>%
     filter(Decoy == "N") %>%
+    filter(PEP <= pep_threshold) %>%
     select(all_of(old_names)) %>%
     mutate(
       `Peptide.Monoisotopic.Mass` =
@@ -211,7 +216,7 @@ get_file_name <- function(scan) {
 
 read_engine_psms <- function(percolator_input, engine, mapping) {
   if (engine == "metamorpheus") {
-    return(read_metamorpheus(percolator_input))
+    return(read_metamorpheus(percolator_input, args$pep_threshold))
   } else if (engine == "tide") {
     return(read_tide(percolator_input, mapping))
   } else if (engine == "maxquant") {
@@ -220,7 +225,7 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
   # Read the percolator psm file from <engine> and format the
   #     the output according to flashlfq
   #     This relies on all functions defined above
-  psms <- read_percolator(percolator_input)
+  psms <- read_percolator(percolator_input, args$pep_threshold)
   if (engine == "comet") {
     psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
   } else if (engine == "maxquant") {
@@ -280,6 +285,10 @@ parser <- add_option(parser, c("-o", "--output"),
   help = "Output file name"
 )
 parser <- add_option(parser, c("-m", "--msms_mapping"),
+  type = "character",
+  help = "MsMs mapping file"
+)
+parser <- add_option(parser, c("-t", "--pep_threshold"),
   type = "character",
   help = "MsMs mapping file"
 )

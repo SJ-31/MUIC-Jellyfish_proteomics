@@ -31,7 +31,8 @@ process FLASHLFQ {
         --identipy $identipy \
         --tide $tide_target_search \
         --msfragger $msfragger \
-        -m $msms_mapping
+        -m $msms_mapping \
+        -t 0.05
 
     $params.dotnet6 $params.flashlfq \
         --idt flashlfq.tsv \
