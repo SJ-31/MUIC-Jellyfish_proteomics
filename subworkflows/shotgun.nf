@@ -38,8 +38,6 @@ workflow 'preprocess' {
         .set { mzML_spec }
     DEISOTOPE(mzML_spec,
               "$params.results/Preprocessed/Proteowizard")
-    QUANDENSER(mzML_spec,
-              "$params.results/Preprocessed/Quandenser")
     FALCON(manifest.mzML, "$params.results/Preprocessed/Falcon")
 }
 
