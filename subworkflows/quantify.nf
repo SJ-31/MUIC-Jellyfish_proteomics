@@ -1,5 +1,5 @@
 include { FLASHLFQ } from '../modules/flashlfq'
-include { DIRECTLFQ } from '../modules/directlfq'
+include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
 include { UNMATCHED_MSMS; UNMATCHED_PSMS } from '../modules/unmatched'
 
 
@@ -26,9 +26,10 @@ workflow 'quantify'{
     FLASHLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
              msms_mappings, mzmls, "$outdir")
-    DIRECTLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
+    DIRECTLFQ_FORMAT(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
              msms_mappings, "$outdir")
+    DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
     UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
                    msms_mappings, mzmls, "$outdir/Unmatched")
