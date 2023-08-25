@@ -1,5 +1,6 @@
 process ANNOTATE {
     publishDir "$outdir", mode: "copy", pattern: "*.tsv"
+    errorStrategy 'ignore'
 
     input:
     path(combined_tsv)

@@ -1,4 +1,4 @@
-process DIRECTLFQ {
+process DIRECTLFQ_FORMAT {
     publishDir "$outdir", mode: "copy"
 
     input:
@@ -13,7 +13,7 @@ process DIRECTLFQ {
     //
 
     output:
-    path("directlfq_prot.tsv")
+    path("directlfq.aq_reformat.tsv")
     //
 
     script:
@@ -28,7 +28,26 @@ process DIRECTLFQ {
         --msfragger $msfragger \
         -m $msms_mapping \
         -t 0.05
-    directlfq lfq -i directlfq.aq_reformat.tsv
+    """
+    //
+}
+
+process DIRECTLFQ {
+    conda '/home/shannc/anaconda3/envs/directlfq'
+    publishDir "$outdir", mode: "copy"
+
+    input:
+    path(aqreformat)
+    val(outdir)
+    //
+
+    output:
+    path("directlfq_prot.tsv")
+    //
+
+    script:
+    """
+    directlfq lfq -i $aqreformat
     mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
     """
     //
