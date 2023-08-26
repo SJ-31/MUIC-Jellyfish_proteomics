@@ -72,6 +72,7 @@ group_frame <- function(pId, combined_frame, p_record) {
     q.value = collect_in_group("q.value", currentID),
     original_groups = collect_in_group("ProteinGroupId", currentID),
     posterior_error_prob = collect_in_group("posterior_error_prob", currentID),
+    coverage = collect_in_group("coverage", currentID),
     peptideIds = collect_in_group("peptideIds", currentID),
     header = collect_in_group("header", currentID)
   )

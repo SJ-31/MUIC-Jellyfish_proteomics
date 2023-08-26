@@ -16,7 +16,7 @@ workflow 'combine_searches' {
 
     main:
     SEARCH_INTERSECT(prot2intersect,
-                     "$outdir/1-Combined", header_mappings)
+                     "$outdir/1-Combined", header_mappings, seq_mappings)
     COMBINE_PEP_PSM(psm2combinedPEP, true,
                     "$outdir/1-Combined")
     COMBINE_PEP_PROT(prot2combinedPEP, false,
