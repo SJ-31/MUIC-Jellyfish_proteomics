@@ -1,7 +1,7 @@
 library(tidyverse)
+library(Peptides)
 library(optparse)
 library(glue)
-
 
 group_prot <- function(prot_vec) {
   grouped <- paste0(prot_vec, collapse = ";")
@@ -18,20 +18,17 @@ get_percolator_row <- function(row_index, percolator_lines) {
     unlist()
   return(tibble(
     PSMId = splits[1],
-    pep = splits[4],
     peptide = splits[5],
     protein = group_prot(splits[6:length(splits)])
   ))
 }
 
-read_percolator <- function(percolator_file, pep_threshold) {
+read_percolator <- function(percolator_file) {
   lines <- read_lines(percolator_file)
   p_tibble <- lapply(seq_along(lines)[-1], get_percolator_row,
     percolator_lines = lines
   ) %>%
-    bind_rows() %>%
-    filter(pep <= pep_threshold) %>%
-    select(-pep)
+    bind_rows()
   return(p_tibble)
 }
 
@@ -91,7 +88,7 @@ sort_ambiguous <- function(mm) {
   return(bound)
 }
 
-read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
+read_metamorpheus <- function(metamorpheus_file) {
   # Needs metamorpheus AllPSMS.psmtsv
   old_names <- c(
     "File.Name", "Precursor.Charge",
@@ -103,7 +100,6 @@ read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
     as_tibble() %>%
     filter(Decoy == "N") %>%
-    filter(PEP <= pep_threshold) %>%
     select(all_of(old_names))
   mm <- sort_ambiguous(mm) %>%
     distinct(`Base.Sequence`, .keep_all = TRUE) %>%
@@ -177,7 +173,7 @@ get_file_name <- function(scan) {
 clean_peptide <- function(modified_pep) {
   clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
     paste0(collapse = "")
-  return(glue("_{clean_pep}_"))
+  return(clean_pep)
 }
 
 file_pivot <- function(psm_df) {
@@ -189,18 +185,17 @@ file_pivot <- function(psm_df) {
 
 read_engine_psms <- function(percolator_input, engine, mapping) {
   if (engine == "metamorpheus") {
-    psms <- read_metamorpheus(percolator_input, args$pep_threshold)
+    psms <- read_metamorpheus(percolator_input)
   } else if (engine == "tide") {
     psms <- read_tide(percolator_input, mapping)
   } else if (engine == "maxquant") {
     psms <- read_maxquant(percolator_input)
   } else {
-    psms <- read_percolator(percolator_input, args$pep_threshold)
+    psms <- read_percolator(percolator_input)
     if (engine == "comet") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
     } else if (engine == "maxquant") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, maxquant_scans)))
-      # id != scan number fix it
     } else if (engine == "msfragger") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {
@@ -209,110 +204,46 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
   }
   psms <- psms %>%
     mutate(file = unlist(lapply(scan, get_file_name))) %>%
-    mutate(ion = unlist(lapply(peptide, clean_peptide))) %>%
+    mutate(base_peptide = unlist(lapply(peptide, clean_peptide))) %>%
     select(c(
-      "file", "scan", "ion",
+      "file", "scan", "base_peptide", "peptide",
       "protein"
-    ))
+    )) %>%
+    mutate(mw = unlist(lapply(base_peptide, mw, monoisotopic = TRUE)))
   psms <- inner_join(psms, mapping, by = join_by(scan == scanNum)) %>%
-    mutate(ion = paste0(ion, precursorCharge)) %>%
-    file_pivot()
+    mutate(engine = engine)
   return(psms)
 }
 
-parser <- OptionParser()
-parser <- add_option(parser, c("--metamorpheus"),
-  type = "character",
-  help = "metamorpheus psms"
-)
-parser <- add_option(parser, c("--identipy"),
-  type = "character",
-  help = "identipy psms"
-)
-parser <- add_option(parser, c("--maxquant"),
-  type = "character",
-  help = "maxquant psms"
-)
-parser <- add_option(parser, c("--msfragger"),
-  type = "character",
-  help = "msfragger psms"
-)
-parser <- add_option(parser, c("--comet"),
-  type = "character",
-  help = "comet psms"
-)
-parser <- add_option(parser, c("--tide"),
-  type = "character",
-  help = "tide psms"
-)
-parser <- add_option(parser, c("-o", "--output"),
-  type = "character",
-  help = "Output file name"
-)
-parser <- add_option(parser, c("-m", "--msms_mapping"),
-  type = "character",
-  help = "MsMs mapping file"
-)
-parser <- add_option(parser, c("-t", "--pep_threshold"),
-  type = "character",
-  help = "MsMs mapping file"
-)
-args <- parse_args(parser)
-mapping <- read.delim(args$msms_mapping, sep = "\t")
-
-file_list <- list(
-  comet = args$comet, identipy = args$identipy,
-  tide = args$tide, metamorpheus = args$metamorpheus,
-  msfragger = args$msfragger, maxquant = args$maxquant
-)
-
-## file_list <- list(
-##   comet = "../results/test_manifest/1-First_pass/Percolator/comet_percolator_psms.tsv",
-##   identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
-##   metamorpheus = "../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv", tide = "../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
+## parser <- OptionParser()
+## parser <- add_option(parser, c("-o", "--output"),
+##   type = "character",
+##   help = "Output file name"
 ## )
-## mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
+## parser <- add_option(parser, c("-m", "--msms_mapping"),
+##   type = "character",
+##   help = "MsMs mapping file"
+## )
+## parser <- add_option(parser, c("-i", "--input"),
+##   type = "character",
+##   help = "Psm file"
+## )
+## parser <- add_option(parser, c("-e", "Engine"),
+##   type = "character",
+##   help = "Engine psm file was obtained from"
+## )
+## args <- parse_args(parser)
+## mapping <- read.delim(args$mapping, sep = "\t")
+## final <- read_engine_psms(args$input, args$engine, mapping)
+## write_delim(final, args$output, delim = "\t")
 
-file_names <- mapping$scanNum %>%
-  lapply(., gsub, pattern = "\\..*", replacement = "") %>%
-  unlist(use.names = FALSE) %>%
-  unique()
-
-all_engines <- lapply(seq_along(file_list), function(x) {
-  return(read_engine_psms(file_list[[x]], names(file_list)[x], mapping))
-})
-
-# Merge matches between engines
-joined <- Reduce(function(x, y) { full_join(x, y, by = "ion") }, all_engines)
-rm(all_engines)
-
-# Group up proteins that share an ion
-prot <- joined %>% select(grep("protein", colnames(joined)))
-prot_col <- lapply(seq_along(1:dim(prot)[1]), function(x) {
-  filtered <- prot[x, ][grepl("[a-zA-Z1-9]+", prot[1, ])]
-  return(paste0(filtered, collapse = ";"))
-}) %>%
-  unlist()
-joined <- joined %>% mutate(protein = prot_col)
-
-# Resolve differing intensities
-Mode <- function(x) {
-  ux <- unique(x)
-  ux[which.max(tabulate(match(x, ux)))]
-}
-
-unify_intensity <- function(index, intensity_frame) {
-  possible <- intensity_frame[index, ][!is.na(intensity_frame[index, ])]
-  return(Mode(possible))
-}
-
-intensities <- lapply(file_names, function(x) {
-  current <- joined %>% select(grep(x, colnames(.)))
-  return(lapply(seq_along(1:dim(current)[1]), unify_intensity,
-                intensity_frame = current) %>% unlist())
-  }) %>% `names<-`(file_names)
-
-final_frame <- tibble(protein = prot_col, ion = joined$ion) %>%
-  bind_cols(as_tibble(intensities))
-
-write_delim(final_frame, args$output, delim = "\t")
+file_list <- list( # For tests
+  comet = "../results/test_manifest/1-First_pass/Percolator/comet_percolator_psms.tsv",
+  identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
+  metamorpheus = "../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv", tide = "../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
+)
+chosen <- "metamorpheus" # for testing
+mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
+final <- read_engine_psms(file_list[[chosen]], chosen, mapping)
+testing <- glue("/home/sc31/peps/{chosen}.tsv")
+write_delim(final, testing, delim = "\t")

@@ -2,12 +2,7 @@ process DIRECTLFQ_FORMAT {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(comet)
-    path(identipy)
-    path(msfragger)
-    path(maxquant_pin_file)
-    path(metamorpheus_AllPSMs)
-    path(tide_target_search)
+    path(scan_prot_mappings)
     path(msms_mapping)
     val(outdir)
     //
@@ -18,16 +13,10 @@ process DIRECTLFQ_FORMAT {
 
     script:
     """
-    Rscript $params.bin/directlfq_format.r \
-        -o directlfq.aq_reformat.tsv \
-        --metamorpheus $metamorpheus_AllPSMs \
-        --maxquant $maxquant_pin_file \
-        --comet $comet \
-        --identipy $identipy \
-        --tide $tide_target_search \
-        --msfragger $msfragger \
-        -m $msms_mapping \
-        -t 0.05
+    mkdir paths; mv $scan_prot_mappings paths
+    Rscript $params.bin/directlfq_format2.r \
+        -p paths
+        -o directlfq.aq_reformat.tsv
     """
     //
 }

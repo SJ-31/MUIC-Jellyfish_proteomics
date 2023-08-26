@@ -1,4 +1,5 @@
 include { FLASHLFQ } from '../modules/flashlfq'
+include { MAP_SCANS } from '../modules/map_scans'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
 include { UNMATCHED_MSMS; UNMATCHED_PSMS } from '../modules/unmatched'
 
@@ -22,13 +23,13 @@ workflow 'quantify'{
         tide: it =~ /tide/
         metamorpheus: it =~ /metamorpheus/
     }.set { per }
-
+    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, maxquant_pin_file,
+                            metamorpheus_AllPSMs, tide_target_search),
+              msms_mappings, "$outdir/mapped_scans")
     FLASHLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,
              msms_mappings, mzmls, "$outdir")
-    DIRECTLFQ_FORMAT(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
-             metamorpheus_AllPSMs, tide_target_search,
-             msms_mappings, "$outdir")
+    DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
     UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
              metamorpheus_AllPSMs, tide_target_search,

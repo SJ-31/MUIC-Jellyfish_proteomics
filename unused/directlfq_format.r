@@ -1,18 +1,7 @@
 library(tidyverse)
-library(Peptides)
 library(optparse)
 library(glue)
 
-flashlfq_header <- c(
-  "File Name", "Scan Retention Time", "Precursor Charge",
-  "Base Sequence", "Full Sequence", "Peptide Monoisotopic Mass",
-  "Protein Accession"
-)
-
-clean_peptide <- function(modified_pep) {
-  return(str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
-    paste0(collapse = ""))
-}
 
 group_prot <- function(prot_vec) {
   grouped <- paste0(prot_vec, collapse = ";")
@@ -20,19 +9,7 @@ group_prot <- function(prot_vec) {
     strsplit(";") %>%
     unlist(use.names = FALSE) %>%
     unique()
-  return(paste0(split_groups, collapse = "|"))
-}
-
-merge_with_msms <- function(table, mapping) {
-  return(table %>%
-         mutate(`Peptide Monoisotopic Mass` = unlist(
-      lapply(`Base Sequence`, mw, monoisotopic = TRUE)
-    )) %>%
-    inner_join(., mapping, by = join_by(scan == scanNum)) %>%
-    rename("Scan Retention Time" = "retensionTime") %>%
-    rename("Precursor Charge" = "precursorCharge") %>%
-    select(all_of(flashlfq_header)) %>%
-    as_tibble())
+  return(paste0(split_groups, collapse = ";"))
 }
 
 get_percolator_row <- function(row_index, percolator_lines) {
@@ -43,7 +20,7 @@ get_percolator_row <- function(row_index, percolator_lines) {
     PSMId = splits[1],
     pep = splits[4],
     peptide = splits[5],
-    `Protein Accession` = group_prot(splits[6:length(splits)])
+    protein = group_prot(splits[6:length(splits)])
   ))
 }
 
@@ -63,16 +40,15 @@ get_maxquant_row <- function(row_index, maxquant_lines) {
     str_split("\t") %>%
     unlist()
   return(tibble(
-    `File Name` = str_match(splits[1], "(.*)\\..*\\..*")[, 2],
+    file = str_match(splits[1], "(.*)\\..*\\..*")[, 2],
     label = splits[2],
     scan = splits[3],
-    `Full Sequence` = splits[104],
-    `Base Sequence` = clean_peptide(splits[104]),
-    `Protein Accession` = group_prot(splits[105:length(splits)])
+    peptide = splits[104],
+    protein = group_prot(splits[105:length(splits)])
   ))
 }
 
-read_maxquant <- function(maxquant_file, mapping) {
+read_maxquant <- function(maxquant_file) {
   # Needs maxquant_all_pins
   lines <- read_lines(maxquant_file)
   q_tibble <- lapply(seq_along(lines)[-1], get_maxquant_row,
@@ -80,26 +56,21 @@ read_maxquant <- function(maxquant_file, mapping) {
   ) %>%
     bind_rows() %>%
     filter(label == 1) %>%
-    filter(!(grepl("REV__", `Protein Accession`, ))) %>%
+    filter(!(grepl("REV__", protein, ))) %>%
     select(-label) %>%
-    mutate(scan = paste0(`File Name`, ".", scan)) %>%
-    merge_with_msms(mapping)
+    mutate(scan = paste0(file, ".", scan))
   return(q_tibble)
 }
 
 split_ambiguous <- function(table, index) {
   base <- strsplit(table[index, ]$`Base.Sequence`, "\\|")[[1]]
-  mods <- strsplit(table[index, ]$`Full.Sequence`, "\\|")[[1]]
-  mass <- table[index, ]$`Peptide.Monoisotopic.Mass` %>% gsub("\\|.*", "", .)
   row <- lapply(seq_along(base), function(x) {
     return(data.frame(
       `File.Name` = table[index, ]$`File.Name`,
-      `Scan.Retention Time` = table[index, ]$`Scan.Retention.Time`,
       `Precursor.Charge` = table[index, ]$`Precursor.Charge`,
       `Base.Sequence` = base[x],
-      `Full.Sequence` = mods[x],
-      `Peptide.Monoisotopic.Mass` = as.double(mass),
-      `Protein.Accession` = table$`Protein.Accession`
+      `Protein.Accession` = table$`Protein.Accession`,
+      `Precursor.Scan.Number` = table$`Precursor.Scan.Number`
     ))
   })[[1]]
   return(row)
@@ -121,69 +92,63 @@ sort_ambiguous <- function(mm) {
 }
 
 read_metamorpheus <- function(metamorpheus_file, pep_threshold) {
-  # Needs metamorpheus AllPSMs.psmtsv
+  # Needs metamorpheus AllPSMS.psmtsv
   old_names <- c(
-    "File.Name", "Scan.Retention.Time", "Precursor.Charge",
-    "Base.Sequence", "Full.Sequence", "Peptide.Monoisotopic.Mass",
-    "Protein.Accession"
+    "File.Name", "Precursor.Charge",
+    "Base.Sequence",
+    "Protein.Accession",
+    "Precursor.Scan.Number"
   )
-  new_names <- lapply(old_names, gsub,
-    pattern = "\\.",
-    replacement = " "
-  ) %>% unlist(use.names = FALSE)
+  new_names <- c("file", "precursorCharge", "peptide", "protein", "scan")
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
     as_tibble() %>%
     filter(Decoy == "N") %>%
     filter(PEP <= pep_threshold) %>%
-    select(all_of(old_names)) %>%
-    mutate(
-      `Peptide.Monoisotopic.Mass` =
-        as.double(`Peptide.Monoisotopic.Mass`)
-    )
+    select(all_of(old_names))
   mm <- sort_ambiguous(mm) %>%
+    distinct(`Base.Sequence`, .keep_all = TRUE) %>%
+    mutate(`Precursor.Scan.Number` = paste0(
+      `File.Name`, ".",
+      `Precursor.Scan.Number`
+    )) %>%
     rename_with(~new_names, all_of(old_names)) %>%
-    distinct(`Base Sequence`, .keep_all = TRUE)
+    mutate(protein = unlist(lapply(protein, gsub,
+      pattern = "\\|",
+      replacement = ";"
+    )))
   return(mm)
 }
 
 
 read_tide <- function(tide_file, mapping) {
   # Needs tide-search.target.txt
-  old_cols <- c("file", "scan", "sequence", "protein.id")
-  new_cols <- c(
-    "File Name", "scan",
-    "Full Sequence", "Protein Accession"
-  )
+  selection <- c("file", "scan", "charge", "sequence", "protein.id")
   tide <- read.delim(tide_file, sep = "\t")
   t <- tide %>%
-    select(all_of(old_cols)) %>%
-    rename_with(~new_cols, all_of(old_cols)) %>%
-    mutate(`File Name` = unlist(lapply(`File Name`,
+    select(all_of(selection)) %>%
+    mutate(file = unlist(lapply(file,
       gsub,
       pattern = "\\..*",
       replacement = ""
     ))) %>%
     mutate(scan = unlist(lapply(seq_along(scan), function(x) {
-      return(paste0(.[x, ]$`File Name`, ".", .[x, ]$scan))
+      return(paste0(.[x, ]$file, ".", .[x, ]$scan))
     }))) %>%
-    mutate(`Protein Accession` = unlist(lapply(
+    mutate(protein = unlist(lapply(
       seq_along(scan),
       function(x) {
-        grouped <- .[x, ]$`Protein Accession` %>%
+        grouped <- .[x, ]$`protein.id` %>%
           str_split(",", simplify = TRUE) %>%
           lapply(., gsub, pattern = "\\(.*\\)", replacement = "") %>%
-          paste0(collapse = "|")
+          paste0(collapse = ";")
         return(grouped)
       }
     ))) %>%
-    mutate(`Base Sequence` = unlist(lapply(
-      `Full Sequence`,
-      clean_peptide
-    ))) %>%
-  merge_with_msms(mapping = mapping)
+    rename(peptide = sequence) %>%
+    inner_join(., mapping, by = join_by(scan == scanNum)) %>%
+    as_tibble()
   return(t)
 }
-
 
 ##  Functions for formatting scan number
 ##    The scan number will let you match retension time
@@ -209,45 +174,48 @@ get_file_name <- function(scan) {
   return(gsub("\\..*", "", scan))
 }
 
+clean_peptide <- function(modified_pep) {
+  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
+    paste0(collapse = "")
+  return(glue("_{clean_pep}_"))
+}
+
+file_pivot <- function(psm_df) {
+  return(psm_df %>%
+    select(c("file", "protein", "ion", "precursorIntensity")) %>%
+    distinct(ion, .keep_all = TRUE) %>%
+    pivot_wider(names_from = file, values_from = precursorIntensity))
+}
 
 read_engine_psms <- function(percolator_input, engine, mapping) {
   if (engine == "metamorpheus") {
-    return(read_metamorpheus(percolator_input, args$pep_threshold))
+    psms <- read_metamorpheus(percolator_input, args$pep_threshold)
   } else if (engine == "tide") {
-    return(read_tide(percolator_input, mapping))
+    psms <- read_tide(percolator_input, mapping)
   } else if (engine == "maxquant") {
-    return(read_maxquant(percolator_input, mapping))
-  }
-  # Read the percolator psm file from <engine> and format the
-  #     the output according to flashlfq
-  #     This relies on all functions defined above
-  psms <- read_percolator(percolator_input, args$pep_threshold)
-  if (engine == "comet") {
-    psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
-  } else if (engine == "maxquant") {
-    psms <- psms %>% mutate(scan = unlist(lapply(PSMId, maxquant_scans)))
-  } else if (engine == "msfragger") {
-    psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
-  } else if (engine == "identipy") {
-    psms <- psms %>% mutate(scan = PSMId)
+    psms <- read_maxquant(percolator_input)
+  } else {
+    psms <- read_percolator(percolator_input, args$pep_threshold)
+    if (engine == "comet") {
+      psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
+    } else if (engine == "maxquant") {
+      psms <- psms %>% mutate(scan = unlist(lapply(PSMId, maxquant_scans)))
+    } else if (engine == "msfragger") {
+      psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
+    } else if (engine == "identipy") {
+      psms <- psms %>% rename(scan = PSMId)
+    }
   }
   psms <- psms %>%
-    mutate(`File Name` = unlist(lapply(scan, get_file_name))) %>%
-    mutate(`Full Sequence` = peptide) %>%
-    mutate(`Base Sequence` = unlist(lapply(peptide, clean_peptide))) %>%
-    mutate(`Peptide Monoisotopic Mass` = unlist(
-      lapply(`Base Sequence`, mw, monoisotopic = TRUE)
-    )) %>%
+    mutate(file = unlist(lapply(scan, get_file_name))) %>%
+    mutate(ion = unlist(lapply(peptide, clean_peptide))) %>%
     select(c(
-      "File Name", "scan", "Base Sequence", "Full Sequence",
-      "Peptide Monoisotopic Mass",
-      "Protein Accession"
+      "file", "scan", "ion",
+      "protein"
     ))
-  new_cols <- c("Scan Retention Time", "Precursor Charge")
-  old_cols <- c("retensionTime", "precursorCharge")
   psms <- inner_join(psms, mapping, by = join_by(scan == scanNum)) %>%
-    rename_with(~new_cols, all_of(old_cols)) %>%
-    select(all_of(flashlfq_header))
+    mutate(ion = paste0(ion, precursorCharge)) %>%
+    file_pivot()
   return(psms)
 }
 
@@ -286,12 +254,10 @@ parser <- add_option(parser, c("-m", "--msms_mapping"),
 )
 parser <- add_option(parser, c("-t", "--pep_threshold"),
   type = "character",
-  help = "pep_threshold"
+  help = "MsMs mapping file"
 )
 args <- parse_args(parser)
-
 mapping <- read.delim(args$msms_mapping, sep = "\t")
-
 
 file_list <- list(
   comet = args$comet, identipy = args$identipy,
@@ -299,34 +265,53 @@ file_list <- list(
   msfragger = args$msfragger, maxquant = args$maxquant
 )
 
-# for testing
 ## file_list <- list(
 ##   comet = "../results/test_manifest/1-First_pass/Percolator/comet_percolator_psms.tsv",
-##   identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/Percolator/maxquant_percolator_psms.tsv", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
+##   identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
 ##   metamorpheus = "../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv", tide = "../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
 ## )
 ## mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
 
+file_names <- mapping$scanNum %>%
+  lapply(., gsub, pattern = "\\..*", replacement = "") %>%
+  unlist(use.names = FALSE) %>%
+  unique()
 
-flashlfq <- read_engine_psms(file_list[[1]], names(file_list)[1], mapping)
-# Set up the first set of psms
-unique_peps <- flashlfq$`Base Sequence`
-#
-# Add only new psms to the first set
-for (n in seq_along(file_list)[-1]) {
-  current <- read_engine_psms(file_list[[n]], names(file_list)[n], mapping)
-  current_peps <- current$`Base Sequence`
-  new_rows <- current %>% filter(!(`Base Sequence` %in% unique_peps))
-  flashlfq <- bind_rows(flashlfq, new_rows)
-  unique_peps <- c(
-    unique_peps,
-    current_peps[!(current_peps %in% unique_peps)]
-  )
-  rm(current, current_peps, new_rows)
+all_engines <- lapply(seq_along(file_list), function(x) {
+  return(read_engine_psms(file_list[[x]], names(file_list)[x], mapping))
+})
+
+# Merge matches between engines
+joined <- Reduce(function(x, y) { full_join(x, y, by = "ion") }, all_engines)
+rm(all_engines)
+
+# Group up proteins that share an ion
+prot <- joined %>% select(grep("protein", colnames(joined)))
+prot_col <- lapply(seq_along(1:dim(prot)[1]), function(x) {
+  filtered <- prot[x, ][grepl("[a-zA-Z1-9]+", prot[1, ])]
+  return(paste0(filtered, collapse = ";"))
+}) %>%
+  unlist()
+joined <- joined %>% mutate(protein = prot_col)
+
+# Resolve differing intensities
+Mode <- function(x) {
+  ux <- unique(x)
+  ux[which.max(tabulate(match(x, ux)))]
 }
 
-flashlfq <- flashlfq %>%
-  filter(!(is.na(`Peptide Monoisotopic Mass`))) %>%
-  mutate(`Base Sequence` = unlist(lapply(`Base Sequence`, gsub, pattern = "X", replacement = "")))
+unify_intensity <- function(index, intensity_frame) {
+  possible <- intensity_frame[index, ][!is.na(intensity_frame[index, ])]
+  return(Mode(possible))
+}
 
-write_delim(flashlfq, args$output, delim = "\t")
+intensities <- lapply(file_names, function(x) {
+  current <- joined %>% select(grep(x, colnames(.)))
+  return(lapply(seq_along(1:dim(current)[1]), unify_intensity,
+                intensity_frame = current) %>% unlist())
+  }) %>% `names<-`(file_names)
+
+final_frame <- tibble(protein = prot_col, ion = joined$ion) %>%
+  bind_cols(as_tibble(intensities))
+
+write_delim(final_frame, args$output, delim = "\t")
