@@ -20,7 +20,6 @@ workflow 'make_db' {
         .splitText()
         .set { database_listing }
     if ( params.denovo ) {
-    // SMSNET(mgf.collect(), "$params.results/SMSNET") // TODO: Fixthis
     CASANOVO(manifest.mzML,"$params.results/Denovo/Casanovo")
         EXTRACT_CASANOVO(CASANOVO.out.peps.collect(), "$params.results/Denovo/Casanovo")
     PEPNET(manifest.mgf, "$params.results/Denovo/PepNet")
