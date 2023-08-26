@@ -4,13 +4,7 @@ process FLASHLFQ {
     errorStrategy 'ignore'
 
     input:
-    path(comet)
-    path(identipy)
-    path(msfragger)
-    path(maxquant_pin_file)
-    path(metamorpheus_AllPSMs)
-    path(tide_target_search)
-    path(msms_mapping)
+    path(scan_prot_mappings)
     path(mzmls)
     val(outdir)
     //
@@ -22,17 +16,11 @@ process FLASHLFQ {
 
     script:
     """
+    mkdir scan_path; mv $scan_prot_mappings scan_path
     mkdir mzML; mv *.mzML mzML
     Rscript $params.bin/flashlfq_format.r \
+        -p scan_path
         -o flashlfq.tsv \
-        --metamorpheus $metamorpheus_AllPSMs \
-        --maxquant $maxquant_pin_file \
-        --comet $comet \
-        --identipy $identipy \
-        --tide $tide_target_search \
-        --msfragger $msfragger \
-        -m $msms_mapping \
-        -t 0.05
 
     $params.dotnet6 $params.flashlfq \
         --idt flashlfq.tsv \
