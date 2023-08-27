@@ -3,27 +3,27 @@ process DEISOTOPE {
 
     input:
     path(mzMLs)
-    path(outdir)
+    val(outdir)
     //
 
     output:
-    path("*")
+    path("Proteowizard")
+    path("*msconvert.txt")
     //
 
     shell:
     '''
-    mkdir mzML; mv *mzML mzML
-    find $(pwd)/mzML -name "*.mzML" > convert.txt
+    mkdir files; mv *mzML files
+    find . -name "*.mzML" > convert.txt
     for format in {mzML,mgf}
     do
         msconvert -f convert.txt \
-            -o . \
+            -o Proteowizard \
             --"${format}" \
             --filter "peakPicking true MS2Deisotope true MS2Denoise true"
     done
-    find . \\( -name "*.mzML" -o -name "*.mgf" \\) \
-        -type f > temp_list.txt
-    cat temp_list.txt | sed 's;./;!{outdir}/;' > !{params.pref}.msconvert.txt
+    make_manifest.py -f . -t !{params.manifest_file} \
+    -o !{params.pref}.msconvert.txt
     '''
     //
 }
