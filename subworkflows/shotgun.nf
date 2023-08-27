@@ -19,31 +19,23 @@ include { quantify as quantify_FIRST } from './quantify'
 include { quantify as quantify_SECOND } from './quantify'
 include { make_db } from './make_db'
 
+workflow 'pre' {
+    take:
+    mzML
 
-Channel.fromPath(params.manifest_file)
-    .splitCsv(header: true, sep: "\t")
-    .map { it -> [ it.Prefix, it.Raw, it.indexed_mzML, it.mzXML, it.mgf ] }
-    .flatten().branch {
-        mzML: it =~ /.mzML/
-        mgf: it =~ /.mgf/
-        mzXML: it =~ /.mzXML/
-        raw: it =~ /.raw/
-    }.set { manifest }
-
-
-workflow 'preprocess' {
-    manifest.mzML.collectFile("$params.results/Preprocessed/manifest.txt",
-                              newLine: true)
-        .set { mzML_spec }
-    DEISOTOPE(mzML_spec,
-              "$params.results/Preprocessed/Proteowizard")
-    FALCON(manifest.mzML, "$params.results/Preprocessed/Falcon")
+    main:
+    DEISOTOPE(mzML.collect(),"$params.results/Preprocessed")
+    FALCON(mzML.collect(), "$params.results/Preprocessed/Falcon")
 }
 
 
 workflow 'search' {
 
     take:
+    mzML
+    mgf
+    mzXML
+    raw
     db_list
 
     main:
@@ -61,26 +53,26 @@ workflow 'search' {
         }.set { db }
     empty = Channel.empty()
 
-    MS_MAPPING(manifest.mzML.collect(), "$params.results")
+    MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    MAXQUANT(manifest.raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
-    COMET(manifest.mzML.collect(), "$params.results/1-First_pass/Comet",
+    MAXQUANT(raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
+    COMET(mzML.collect(), "$params.results/1-First_pass/Comet",
     db.plusdecoys)
-    MSFRAGGER(manifest.mzML.collect(), "$params.config/MSFragger_params.params",
+    MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/MsFragger", db.plusdecoys)
-    IDENTIPY(manifest.mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
-    METAMORPHEUS(manifest.mgf.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
-    // MSGF(manifest.mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
+    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
+    METAMORPHEUS(mgf.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
+    // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
-    TIDE(manifest.mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
+    TIDE(mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
     MAXQUANT.out.ms2rescore.collect()
         .map { it -> ["maxquant", it] }
         .set { maxqms2rescore }
     MS2RESCORE(maxqms2rescore, "$params.results/1-First_pass/MaxQuant",
-    manifest.mgf.collect())
+    mgf.collect())
 
     // Post-processing with Percolator
     empty.mix( // Perhaps you need to start with ms2rescore
@@ -92,7 +84,7 @@ workflow 'search' {
     ).set { to_percolator }
     PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys.first())
 
-    quantify_FIRST(MS_MAPPING.out, manifest.mzML,
+    quantify_FIRST(MS_MAPPING.out, mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
                    MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
@@ -113,10 +105,10 @@ workflow 'search' {
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
-              db.seq_mapping, db.header_mapping, manifest.mzML)
+              db.seq_mapping, db.header_mapping, mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
 
-    quantify_SECOND(MS_MAPPING.out, manifest.mzML,
+    quantify_SECOND(MS_MAPPING.out, mzML,
                     bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
