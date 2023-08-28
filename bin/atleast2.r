@@ -48,11 +48,6 @@ sort_duplicates <- function(file_path) {
   return(bound)
 }
 
-filter_pep <- function(percolator_out, thresh) {
-  filtered <- percolator_out[percolator_out$posterior_error_prob <= thresh, ]
-  return(filtered)
-}
-
 get_matches <- function(file_name, target) {
   engine <- gsub("_.*", "", file_name)
   results <- sort_duplicates(file_name)
@@ -100,17 +95,6 @@ merge_column <- function(column_name, dataframe) {
   return(all_vals)
 }
 
-mappings <- read.delim(map_file, sep = "\t", col.names = c("id", "header"))
-mapped <- mappings[mappings$id %in% master_list, ]
-rm(mappings)
-
-merged_tables <- reduce(matched_tables, full_join, by = target)
-merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
-  `names<-`(headers) %>%
-  as_tibble() %>%
-  inner_join(mapped, by = join_by(x$ProteinId == y$id))
-
-write_delim(merged_tables, args$output, delim = "\t")
 mappings <- read.delim(map_file, sep = "\t", col.names = c("id", "header"))
 mapped <- mappings[mappings$id %in% master_list, ]
 rm(mappings)

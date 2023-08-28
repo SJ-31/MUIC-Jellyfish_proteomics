@@ -1,153 +1,124 @@
 library(tidyverse)
 library(ggplot2)
 library(ggridges)
+library(venn)
 library(Peptides)
 library(glue)
 
+get_percolator_row <- function(row_index, percolator_lines,
+                               names) {
+  splits <- percolator_lines[row_index] %>%
+    str_split("\t") %>%
+    unlist()
+  return(tibble(
+    pep = splits[4],
+    peptide = splits[5],
+  ))
+}
 
-map_file <- "~/mapping.csv"
-decoy_prefix <- "rev_"
-file_path <- "../results/test_manifest/First_pass/Percolator/"
+clean_peptide <- function(modified_pep) {
+  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
+    paste0(collapse = "")
+  return(clean_pep)
+}
 
-psm_header <- c("PSMId", "score", "q-value", "posterior_error_prob", "peptide", "proteinIds")
-engine_list <- c("comet", "msfragger", "metamorpheus", "identipy")
-prot_header <- c("ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob")
-# TODO Add "maxquant" to the engine list
+read_tide <- function(tide_file) {
+  tide <- read.delim(tide_file, sep = "\t") %>%
+    select(c("percolator.PEP", "sequence")) %>%
+    rename(pep = percolator.PEP) %>%
+    rename(peptide = sequence)
+  return(tide)
+}
 
-
-read_psms <- function(psm_file) {
-  psms <- read.table(psm_file,
-    sep = "\t", fill = TRUE, skip = 1,
-    header = FALSE
+read_percolator_psms <- function(percolator_file) {
+  engine <- gsub("_.*", "", percolator_file)
+  percolator_file <- glue("{file_path}/{percolator_file}")
+  if (engine == "tide") {
+    p_tibble <- read_tide(percolator_file)
+  } else {
+  lines <- read_lines(percolator_file)
+  p_tibble <- lapply(seq_along(lines)[-1], get_percolator_row,
+    percolator_lines = lines
   ) %>%
-    select(c(1, 2, 3, 4, 5)) %>%
-    as_tibble() %>%
-    `colnames<-`(psm_header)
-  return(psms)
+    bind_rows()
+  }
+  p_tibble <- p_tibble %>%
+    mutate(engine = engine) %>%
+    mutate(peptide = unlist(lapply(peptide, clean_peptide), use.names = FALSE)) %>%
+    mutate(mw = mw(peptide)) %>%
+    mutate(pep = as.numeric(pep)) %>%
+    as_tibble()
+  return(p_tibble)
+}
+
+get_psms <- function(psm_list, pep_threshold) {
+  all <- lapply(psm_list, read_percolator_psms) %>%
+    bind_rows() %>%
+    mutate(length = nchar(peptide)) %>%
+    filter(pep <= pep_threshold)
 }
 
 clear_decoys <- function(protein_list) {
+  decoy_prefix <- "rev_"
   return(gsub(glue(",*{decoy_prefix}.*($|,)"), "", protein_list))
 }
 
 read_prot <- function(prot_file) {
+  engine <- gsub("_.*", "", prot_file)
+  prot_file <- glue("{file_path}/{prot_file}")
+  prot_header <- c("id", "pep")
   prot <- read.table(prot_file,
     sep = "\t", fill = TRUE, skip = 1,
     header = FALSE
   ) %>%
     as_tibble() %>%
-    select(c(1, 2, 3, 4)) %>%
+    select(c(1, 4)) %>%
     `colnames<-`(prot_header) %>%
-    mutate(ProteinId = unlist(ProteinId %>% lapply(., clear_decoys)))
+    mutate(id = unlist(id %>% lapply(., clear_decoys))) %>%
+    mutate(engine = engine)
   return(prot)
 }
 
-read_tide <- function(path, is_psm) {
-  if (is_psm) {
-    tide <- paste0(path, "tide_percolator_psms.tsv")
-    tide_table <- read.table(tide,
-      sep = "\t", fill = TRUE, skip = 1,
-      header = FALSE
-    ) %>%
-      select(c(2, 7, 8, 9, 11)) %>%
-      as_tibble() %>%
-      `colnames<-`(psm_header)
-    return(tide_table)
-  }
-}
-
-format_psms <- function(psm_table) {
-  psm_table <- psm_table %>%
-    filter(!grepl(".*[A-Za-z]+.*", psm_table$score)) %>%
-    mutate(peptide = unlist(peptide %>% lapply(., gsub,
-      pattern = "[^A-Z]*",
-      replacement = ""
-    ))) %>%
-    mutate(mw = unlist(lapply(peptide, mw))) %>%
-    mutate(score = as.numeric(score)) %>%
-    mutate(`q-value` = as.numeric(`q-value`)) %>%
-    mutate(PSMId = as.character(PSMId)) %>%
-    mutate(`posterior_error_prob` = as.numeric(`posterior_error_prob`)) %>%
-    mutate(length = unlist(lapply(peptide, nchar)))
-  return(psm_table)
-}
-
-
 split_duplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
-  dupes <- dupe_table[index, ]$ProteinId %>% strsplit(",")
-  split_dupes <- lapply(seq_along(dupes), function(x) {
-    return(data.frame(
-      ProteinId = dupes[x],
-      ProteinGroupId = dupe_table[index, ]$ProteinGroupId,
-      q.value = dupe_table[index, ]$q.value,
-      posterior_error_prob = dupe_table[index, ]$posterior_error_prob
-    ))
-  })[[1]]
-  colnames(split_dupes)[1] <- c("ProteinId")
-  return(split_dupes)
+  dupes <- dupe_table[index, ]$id %>% strsplit(",") %>% unlist(use.names = FALSE)
+  others <- select(dupe_table[index, ], -id)
+  return(tibble(id = dupes, others))
 }
 
 sort_duplicates <- function(file_path) {
   # Read in a Percolator protein output file and sort duplicates
   table <- read_prot(file_path)
-  duplicates <- table %>% filter(grepl(",", ProteinId))
+  duplicates <- table %>% filter(grepl(",", id))
   if (dim(duplicates)[1] == 0) {
     return(table)
   }
-  table <- table %>% filter(!grepl(",", ProteinId))
+  table <- table %>% filter(!grepl(",", id))
   duplicates <- lapply(1:dim(duplicates)[1], split_duplicates, dupe_table = duplicates) %>%
     bind_rows()
   bound <- bind_rows(list(duplicates, table)) %>%
-    as_tibble()
+    as_tibble() %>%
+    mutate(pep = as.numeric(pep))
   return(bound)
 }
 
-get_tables <- function(path, is_psm) {
+get_prot <- function(prot_list, pep_threshold, mapping) {
+  mapping <- read.delim(mapping, sep = "\t") %>%
+    select(c(id, mass, length))
+  all <- lapply(prot_list, sort_duplicates) %>%
+    bind_rows() %>%
+    filter(pep <= pep_threshold)
+  joined <- inner_join(mapping, all, by = join_by(id)) %>%
+                                       rename(mw = mass)
+  return(as_tibble(joined))
+}
+
+get_tables <- function(path, is_psm, thresh, mapping) {
   if (is_psm == TRUE) {
-    files <- paste0(path, paste0(engine_list, "_percolator_psms.tsv"))
-    tables <- lapply(files, read_psms) %>%
-      lapply(., format_psms) %>%
-      `names<-`(engine_list)
-    return(tables)
+    paths <- list.files(path, pattern = "*percolator_psms.tsv")
+    return(get_psms(paths, thresh))
   } else {
-    files <- paste0(path, paste0(engine_list, "_percolator_proteins.tsv"))
-    tables <- lapply(files, sort_duplicates) %>% `names<-`(engine_list)
-    return(tables)
+    paths <- list.files(path, pattern = "*percolator_proteins.tsv")
+    return(get_prot(paths, thresh, mapping))
   }
-}
-
-protein_mappings <- read.delim(map_file, sep = "\t") %>% as_tibble()
-prot_metrics <- function(protein_id, mode) {
-  mapped <- protein_mappings %>% filter(id == protein_id)
-  if (dim(mapped)[1] == 0) {
-    return(NA)
-  }
-  if (mode == "length") {
-    return(nchar(mapped$seq))
-  } else if (mode == "mw") {
-    return(mw(mapped$seq))
-  }
-}
-
-## Completed
-## all_psms <- get_tables(file_path, TRUE)
-## tide_psms <- format_psms(read_tide(file_path, TRUE))
-## all_psms$tide <- tide_psms
-## all_psms <- seq_along(all_psms) %>% lapply(., function(x) {
-##   return(all_psms[[x]] %>% mutate(engine = names(all_psms[x])))
-## }) %>% bind_rows()
-
-all_prot <- get_tables(file_path, FALSE)
-all_prot <- seq_along(all_prot) %>%
-  lapply(., function(x) {
-    return(all_prot[[x]] %>% mutate(engine = names(all_prot[x])))
-  }) %>%
-  bind_rows() %>%
-    mutate(mw = unlist(lapply(ProteinId, prot_metrics, mode = "mw"))) %>%
-    mutate(length = unlist(lapply(ProteinId, prot_metrics, mode = "length")))
-
-plot_mw_dist <- function(combined_table) {
-  combined_table %>% ggplot(aes(x = mw, y = engine, fill = engine)) +
-    ggridges::geom_density_ridges2()
 }
