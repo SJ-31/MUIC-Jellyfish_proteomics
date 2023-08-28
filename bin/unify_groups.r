@@ -7,11 +7,13 @@ library(glue)
 check_group <- function(group_list, group_record) {
   group_list <- as.character(group_list)
   split <- strsplit(group_list, split = ",") %>% unlist()
-  for (index in seq_along(group_record)) {
-    try <- intersect(group_record[[index]], split)
-    if (length(try) > 0) {
-      return(names(group_record[index]))
-    }
+  try <- intersect(names(group_record), split)
+  if (length(try) > 0) {
+    not_in <- setdiff(split, names(group_record))
+    existing_group <- group_record[[names(group_record)[1]]]
+    addition <- as.list(rep(existing_group, length(not_in))) %>%
+      `names<-`(not_in)
+    return(addition)
   }
   return(0)
 }
@@ -21,7 +23,6 @@ check_group <- function(group_list, group_record) {
 #   else, create a new unified group
 unify_groups <- function(combined_tib) {
   protein_record <- list()
-  group_record <- list()
   counter <- 1
   for (index in seq_along(combined_tib$ProteinId)) {
     current <- combined_tib[index, ]
@@ -29,21 +30,15 @@ unify_groups <- function(combined_tib) {
     current_groups <- current_groups[grep("NA", current_groups,
       invert = TRUE
     )]
-    checked <- check_group(current_groups, group_record)
-    if (checked == 0) {
+    checked <- check_group(current_groups, protein_record)
+    if (!is.list(checked)) {
       name <- glue("G{counter}")
-      group_record[[name]] <- current_groups
-      protein_record[[name]] <- current$ProteinId
+      new_group <- rep(name, length(current_groups)) %>%
+        `names<-`(current_groups)
+      protein_record <- append(protein_record, new_group)
       counter <- counter + 1
     } else {
-      group_record[[checked]] <- append(
-        group_record[[checked]],
-        current_groups
-      ) %>% unique()
-      protein_record[[checked]] <- append(
-        protein_record[[checked]],
-        current$ProteinId
-      )
+      protein_record <- append(protein_record, checked)
     }
   }
   return(protein_record)
@@ -66,17 +61,14 @@ group_frame <- function(pId, combined_frame, p_record) {
   return(as_tibble(new))
 }
 
-resolve_records <- function(combined_tib, record) {
-  all_groups <- names(record) %>%
-    lapply(., group_frame,
-      combined_frame = combined_tib,
-      p_record = record
-    ) %>%
-    bind_rows() %>%
-    mutate(num_proteins = unlist(lapply(ProteinId, num_prot))) %>%
-    mutate(num_peps = unlist(lapply(peptideIds, num_prot))) %>%
-    mutate(ProteinGroups = names(record))
-  return(all_groups)
+resolve_records <- function(combined_tib, records) {
+  new <- combined_tib %>%
+    mutate(Group = unlist(lapply(ProteinGroupId, function (x) {
+    groups <- strsplit(x, ",")[[1]]
+    found <- intersect(groups, names(records))[1]
+    return(records[[found]])
+  })))
+  return(new)
 }
 
 if (sys.nframe() == 0) {
@@ -86,6 +78,6 @@ if (sys.nframe() == 0) {
   combined <- read.delim(combined_file, sep = "\t") %>%
     as_tibble()
   group_records <- unify_groups(combined)
-  all_groups <- count_ids(combined, group_records)
+  all_groups <- resolve_records(combined, group_records)
   write_delim(all_groups, output, delim = "\t")
 }
