@@ -1,0 +1,110 @@
+---
+title: "Jellyfish venome"
+author: "Shann Chongwattananukul"
+output:
+  html_document:
+    theme: cerulean
+    higlight: tango
+    fig_width: 20
+    fig_height: 10
+    fig_caption: true
+    df_print: paged
+---
+
+```{r echo=FALSE, results='hide', message=FALSE, comment=NA}
+source("../bin/get_metrics.r")
+library(MSnbase)
+library(Spectra)
+library(DiagrammeR)
+```
+
+## Graphing functions
+```{r}
+plot_mw_dist <- function(combined_table) {
+  combined_table %>% ggplot(aes(x = mw, y = engine, fill = engine)) +
+    ggridges::geom_density_ridges2()
+}
+plot_len_dist <- function(combined_table) {
+  combined_table %>% ggplot(aes(x = length, y = engine, fill = engine)) +
+    ggridges::geom_density_ridges2()
+}
+```
+
+## Overview of shotgun proteomics
+```{r}
+args <- c("../results/CiCs1.mzML", "../results/CiCs_metrics.tsv")
+input <- args[1]
+all_data <- openMSfile(input) # This reads all information from the mzml
+#   file by default
+all_headers <- all_data %>%
+  header() %>%
+  as_tibble()
+tic <- chromatogram(readMSData(input, mode = "onDisk"))
+ms1_all$retentionTime
+```
+
+### Spectrum acquisition
+```{r}
+ms1 <- which(all_headers$msLevel == 1)
+selected_rt <- all_headers$retentionTime[ms1] / 60 > 40 & all_headers$retentionTime[ms1] / 60 < 45
+ms1_all <- all_headers %>%
+  filter(msLevel == 1) %>%
+  as_tibble()
+M <- MSmap(all_data, ms1[selected_rt], 500, 503, 0.05, all_headers, zeroIsNA = TRUE)
+plot3D(M) %>%
+```
+
+```{r}
+# Plot spectra
+ms2 <- Spectra(input) %>% filterMsLevel(2)
+sample <- ms2[1:4]
+names <- paste0("Precursor m/z: ", sample$precursorMz)
+plotSpectra(sample, main = names, col = "blue")
+# sample_spec <- spectra$F1.S07563
+# compare_seq <- calculateFragments("YPLLNPNQKPYPAATSPGAQPPSTLPLEK")
+# spectra(compare_seq)
+# sample_spec %>% str
+# plot(sample_spec, full = TRUE)
+```
+
+## Pipeline implementation
+![workflow](flow.svg)
+
+## Search engine results
+```{r}
+map <- "../tests/toy_results/all_normal_mapping.tsv"
+file_path <- "../results/test_manifest/1-First_pass/Percolator"
+all_psms <- get_tables(file_path, TRUE, 0.05, map)
+all_proteins <- get_tables(file_path, FALSE, 0.05, map)
+```
+
+### Distribution of identification results
+```{r}
+# Is the difference between distributions statistically significant?
+engines <- unique(all_proteins$engine)
+engine_combos <- engines %>% combn(2)
+for (comb in seq_len(dim(engine_combos)[2])) {
+  first <- engine_combos[, comb][1]
+  second <- engine_combos[, comb][2]
+  first_df <- all_proteins %>% filter(engine == first)
+  second_df <- all_proteins %>% filter(engine == second)
+  try <- ks.test(first_df$mw, second_df$mw)
+  if (try$p.value < 0.05) {
+    print(glue("SSD found! {first} & {second}, p = {try$p.value}"))
+  }
+}
+```
+
+## Visualization of intersections
+```{r}
+id_list <- lapply(engines, function(x) {
+  return(filter(all_proteins, engine == x)$id)
+}) %>% `names<-`(engines)
+big_venn <- venn(id_list,
+  plotsize = 35, borders = FALSE, box = FALSE,
+  ilcs = 1.5, sncs = 2,
+  zcolor = "red, blue, green, white, orange, yellow"
+)
+# A visualization of your search integration strategy
+# The central number are the union of all identifications
+```
