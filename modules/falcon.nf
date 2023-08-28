@@ -15,16 +15,14 @@ process FALCON {
 
     shell:
     '''
-    falcon !{mzMLs}  \
-        --export_representatives \
-        falcon_cluster.csv
+    mkdir files; mv !{mzMLs} files
+    falcon files/*.mzML  falcon \
+        --export_representatives
 
     find $(pwd) -name "*.mgf" > convert.txt
     msconvert -f convert.txt -o . --mzML
-    find . \\( -name "*.mzML" -o -name "*.mgf" \\) \
-        -type f > temp_list.txt
-    make_manifest.py -f . -t !{params.manifest_file} \
-    -o !{params.pref}.falcon.txt
+    make_manifest.py -f . -t !{projectDir}/!{params.manifest_file} \
+        -o !{params.pref}.falcon.txt -p !{outdir}
     '''
     //
 }
