@@ -25,18 +25,11 @@ headers <- c(
 
 split_duplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
-  dupes <- dupe_table[index, ]$ProteinId %>% strsplit(",")
-  split_dupes <- lapply(seq_along(dupes), function(x) {
-    return(data.frame(
-      ProteinId = dupes[x],
-      ProteinGroupId = dupe_table[index, ]$ProteinGroupId,
-      q.value = dupe_table[index, ]$q.value,
-      posterior_error_prob = dupe_table[index, ]$posterior_error_prob,
-      peptideIds = dupe_table[index, ]$peptideIds
-    ))
-  })[[1]]
-  colnames(split_dupes)[1] <- c("ProteinId")
-  return(split_dupes)
+  dupes <- dupe_table[index, ]$ProteinId %>%
+    strsplit(",") %>%
+    unlist(use.names = FALSE)
+  others <- select(dupe_table[index, ], -ProteinId)
+  return(tibble(ProteinId = dupes, others))
 }
 sort_duplicates <- function(file_path) {
   # Read in a Percolator protein output file and sort duplicates
