@@ -34,7 +34,6 @@ workflow 'search' {
     take:
     mzML
     mgf
-    mzXML
     raw
     db_list
 

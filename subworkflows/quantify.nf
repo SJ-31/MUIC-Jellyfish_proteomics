@@ -25,10 +25,8 @@ workflow 'quantify'{
     }.set { per }
     MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, maxquant_pin_file,
                             metamorpheus_AllPSMs, tide_target_search),
-              msms_mappings, "$outdir/mapped_scans")
-    FLASHLFQ(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
-             metamorpheus_AllPSMs, tide_target_search,
-             msms_mappings, mzmls, "$outdir")
+              "$outdir/mapped_scans")
+    FLASHLFQ(MAP_SCANS.out.collect(), mzmls, "$outdir")
     DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
     UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,

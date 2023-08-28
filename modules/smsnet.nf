@@ -1,5 +1,6 @@
 process SMSNET {
     publishDir "$outdir", mode: 'copy'
+    memory "10 GB"
     conda "/mnt/data/sirasris/miniconda3/envs/smsnet"
 
     input:

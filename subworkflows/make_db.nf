@@ -8,8 +8,6 @@ workflow 'make_db' {
     take:
     mzML
     mgf
-    mzXML
-    raw
 
     main:
     Channel.fromPath(params.to_construct)
