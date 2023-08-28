@@ -6,8 +6,8 @@ flashlfq_header <- c(
   "Base Sequence", "Full Sequence", "Peptide Monoisotopic Mass",
   "Protein Accession"
 )
-old_names <- c("file", "retensionTime","precursorCharge",
-             "base_peptide", "peptide", "mw", "protein")
+old_names <- c("file", "retensionTime", "precursorCharge",
+               "base_peptide", "peptide", "mw", "protein")
 parser <- OptionParser()
 parser <- add_option(parser, c("-p, --path"),
   type = "character",
