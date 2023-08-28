@@ -123,6 +123,7 @@ def decode_results(response, file_format, compressed):
         return [response.text]
     return response.text
 
+
 def print_progress_batches(batch_index, size, total):
     n_fetched = min((batch_index + 1) * size, total)
     print(f"Fetched: {n_fetched} / {total}")
@@ -180,9 +181,10 @@ def from_db(name, database_list) -> str:
     return "None"
 
 
-
 def map_list(id_list, origin_db: str):
-    job_id = submit_id_mapping(from_db=origin_db, to_db="UniProtKB", ids=id_list)
+    job_id = submit_id_mapping(from_db=origin_db,
+                               to_db="UniProtKB",
+                               ids=id_list)
     anno_dict: dict = {
         "Gene_Name": [],
         "UniProtKB_ID": [],
@@ -206,8 +208,7 @@ def map_list(id_list, origin_db: str):
         current = result["to"]
         anno_dict["UniProtKB_ID"].append(current["uniProtkbId"])
         anno_dict["organism"].append(current["organism"]["scientificName"])
-        anno_dict["lineage"].append(
-            ';'.join(current["organism"]["lineage"]))
+        anno_dict["lineage"].append(';'.join(current["organism"]["lineage"]))
         anno_dict["length"].append(current["sequence"]["length"])
         anno_dict["molWeight"].append(current["sequence"]["molWeight"])
         anno_dict["sequence"].append(current["sequence"]["value"])
@@ -218,6 +219,7 @@ def map_list(id_list, origin_db: str):
         anno_dict["OrthoDb"].append(from_db("OrthoDb", databases))
     mapping = pd.DataFrame(anno_dict)
     return mapping
+
 
 def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
     header = row["header"]
@@ -234,6 +236,7 @@ def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
         transcriptome_list.append(f'>{header}\n{lookup["seq"]}')
     return None
 
+
 # Main
 input = sys.argv[1]
 output = sys.argv[2]
@@ -247,7 +250,8 @@ denovo_hits = []
 transcriptome_hits = []
 to_map = pd.read_csv(input, sep="\t")
 seq_map = pd.read_csv(seq_mapfile, sep="\t")
-ids = to_map.apply(id_from_header, denovo_list=denovo_hits,
+ids = to_map.apply(id_from_header,
+                   denovo_list=denovo_hits,
                    transcriptome_list=transcriptome_hits,
                    seq_mapping=seq_map,
                    axis=1).dropna()
@@ -257,9 +261,10 @@ uniprot_ids = ids[~(ids.isin(ncbi_ids))]
 # Use UniProtKB
 
 final = pd.concat([map_list(ncbi_ids, "RefSeq_Protein"),
-           map_list(uniprot_ids, "UniProtKB")])
+                   map_list(uniprot_ids, "UniProtKB")])
+
 final.to_csv(output, index=False)
 for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
                       [denovo_hits, transcriptome_hits]):
-    with open(f"{fasta}.fasta", "w", "utf-8") as f:
+    with open(f"{fasta}.fasta", "w") as f:
         f.write("".join(lst))

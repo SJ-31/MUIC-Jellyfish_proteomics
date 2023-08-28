@@ -414,4 +414,3 @@ def parse_args(verbose=True):
 if __name__ == '__main__':
     command_line_args = parse_args()
     main(**command_line_args)
-

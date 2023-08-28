@@ -33,3 +33,6 @@ process METAMORPHEUS {
         done
     '''
 }
+
+    // cat metamorpheus_AllPSMs_FormattedForPercolator.tab | sed \
+    //     -e 's/\[Common Variable:Oxidation on M\]/[15.9949]/' \
