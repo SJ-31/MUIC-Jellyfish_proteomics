@@ -176,13 +176,6 @@ clean_peptide <- function(modified_pep) {
   return(clean_pep)
 }
 
-file_pivot <- function(psm_df) {
-  return(psm_df %>%
-    select(c("file", "protein", "ion", "precursorIntensity")) %>%
-    distinct(ion, .keep_all = TRUE) %>%
-    pivot_wider(names_from = file, values_from = precursorIntensity))
-}
-
 read_engine_psms <- function(percolator_input, engine, mapping) {
   if (engine == "metamorpheus") {
     psms <- read_metamorpheus(percolator_input)
@@ -215,35 +208,27 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
   return(psms)
 }
 
-parser <- OptionParser()
-parser <- add_option(parser, c("-o", "--output"),
-  type = "character",
-  help = "Output file name"
-)
-parser <- add_option(parser, c("-m", "--msms_mapping"),
-  type = "character",
-  help = "MsMs mapping file"
-)
-parser <- add_option(parser, c("-i", "--input"),
-  type = "character",
-  help = "Psm file"
-)
-parser <- add_option(parser, c("-e", "Engine"),
-  type = "character",
-  help = "Engine psm file was obtained from"
-)
-args <- parse_args(parser)
-mapping <- read.delim(args$mapping, sep = "\t")
-final <- read_engine_psms(args$input, args$engine, mapping)
-write_delim(final, args$output, delim = "\t")
 
-## file_list <- list( # For tests
-##   comet = "../results/test_manifest/1-First_pass/Percolator/comet_percolator_psms.tsv",
-##   identipy = "../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv", maxquant = "../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp", msfragger = "../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
-##   metamorpheus = "../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv", tide = "../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
-## )
-## chosen <- "metamorpheus" # for testing
-## mapping <- read.delim("../results/CiCs_metrics.tsv", sep = "\t")
-## final <- read_engine_psms(file_list[[chosen]], chosen, mapping)
-## testing <- glue("/home/sc31/peps/{chosen}.tsv")
-## write_delim(final, testing, delim = "\t")
+if (sys.nframe() == 0) {
+  parser <- OptionParser()
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
+  parser <- add_option(parser, c("-m", "--msms_mapping"),
+    type = "character",
+    help = "MsMs mapping file"
+  )
+  parser <- add_option(parser, c("-i", "--input"),
+    type = "character",
+    help = "Psm file"
+  )
+  parser <- add_option(parser, c("-e", "Engine"),
+    type = "character",
+    help = "Engine psm file was obtained from"
+  )
+  args <- parse_args(parser)
+  mapping <- read.delim(args$mapping, sep = "\t")
+  final <- read_engine_psms(args$input, args$engine, mapping)
+  write_delim(final, args$output, delim = "\t")
+}
