@@ -15,6 +15,7 @@ process CASANOVO {
 
     script:
     """
+    export CUDA_VISIBLE_DEVICES=0
     casanovo \
         --mode=denovo \
         --peak_path=$mzMLs \

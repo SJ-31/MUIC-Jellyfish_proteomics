@@ -28,6 +28,12 @@ workflow 'pre' {
     FALCON(mzML.collect(), "$params.results/Preprocessed/Falcon")
 }
 
+println """
+Searching spectra...
+    Prefix: $params.pref
+    Manifest file: $params.manifest_file
+    Results path: $params.results
+"""
 
 workflow 'search' {
 

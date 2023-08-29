@@ -9,7 +9,6 @@ Channel.fromPath(params.manifest_file)
     .flatten().branch {
         mzML: it =~ /.mzML/
         mgf: it =~ /.mgf/
-        mzXML: it =~ /.mzXML/
         raw: it =~ /.raw/
     }.set { manifest }
 
@@ -18,7 +17,7 @@ workflow rnaseq {
 }
 
 workflow identify {
-    search(manifest.mzML, manifest.mgf, manifest.mzXML, manifest.raw,
+    search(manifest.mzML, manifest.mgf, manifest.raw,
            Channel.from("placeholder"))
 }
 
@@ -27,7 +26,7 @@ workflow preprocess {
 }
 
 workflow combine_databases {
-    make_db(manifest.mzML, manifest.mgf, manifest.mzXML, manifest.raw)
+    make_db(manifest.mzML, manifest.mgf)
 }
 
 workflow full_pipeline {

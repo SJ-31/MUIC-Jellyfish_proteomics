@@ -3,6 +3,14 @@ include { COMBINED_DATABASE } from '../modules/combined_database'
 include { PEPNET; EXTRACT_PEPNET } from '../modules/pepnet'
 include { SMSNET; EXTRACT_SMSNET } from '../modules/smsnet'
 
+println """
+Combining databases...
+    Prefix: $params.pref
+    Database file: $params.to_construct
+    Manifest file: $params.manifest_file
+    Results path: $params.results
+"""
+
 workflow 'make_db' {
 
     take:
@@ -27,7 +35,7 @@ workflow 'make_db' {
         denovo = Channel.empty()
     }
     COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
-                      "$params.results/databases")
+                      "$params.results/Databases")
 
     emit:
     COMBINED_DATABASE.out.listing
