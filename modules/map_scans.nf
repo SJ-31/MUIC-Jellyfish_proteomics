@@ -3,6 +3,7 @@ process MAP_SCANS {
 
     input:
     path(psm_file)
+    val(mapping)
     val(outdir)
     //
 
@@ -12,9 +13,10 @@ process MAP_SCANS {
 
     shell:
     '''
-    engine=$(echo !{psm_file.baseName} | sed 's/[-_]//')
+    engine=$(echo !{psm_file.baseName} | sed 's/[-_].*//')
     Rscript !{params.bin}/get_scan_num.r \
         -i !{psm_file} \
+        -m !{mapping}   \
         -e $engine \
         -o ${engine}_scans.tsv
     '''

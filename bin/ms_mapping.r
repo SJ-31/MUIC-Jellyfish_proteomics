@@ -9,10 +9,10 @@ args <- commandArgs(trailingOnly = TRUE)
 ## args <- c("../results/CiCs1.mzML", "../results/CiCs_metrics.tsv") # Testing
 input <- args[1]
 output <- args[2]
+run_name <- gsub("\\..*", "", input)
 
 mzml <- readMSData(input)
 spectra_list <- spectra(mzml)
-run_name <- str_match(input, "(.*)\\..*")
 format_scan <- function(spectra_name) {
   return(str_match(
     spectra_name,

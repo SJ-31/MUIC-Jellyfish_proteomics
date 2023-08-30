@@ -1,5 +1,8 @@
 process MS_MAPPING {
     publishDir "$outdir", mode: "copy"
+    // Produces tsv file of MS/MS scans with precursor charge, retensionTime and
+    //  intensity
+    // Required by quantification scripts
 
     input:
     path(mzmls)

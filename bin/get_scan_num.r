@@ -67,7 +67,7 @@ split_ambiguous <- function(table, index) {
       `Precursor.Charge` = table[index, ]$`Precursor.Charge`,
       `Base.Sequence` = base[x],
       `Protein.Accession` = table$`Protein.Accession`,
-      `Precursor.Scan.Number` = table$`Precursor.Scan.Number`
+      `Scan.Number` = table$`Scan.Number`
     ))
   })[[1]]
   return(row)
@@ -94,7 +94,7 @@ read_metamorpheus <- function(metamorpheus_file) {
     "File.Name", "Precursor.Charge",
     "Base.Sequence",
     "Protein.Accession",
-    "Precursor.Scan.Number"
+    "Scan.Number"
   )
   new_names <- c("file", "precursorCharge", "peptide", "protein", "scan")
   mm <- read.delim(metamorpheus_file, sep = "\t") %>%
@@ -103,9 +103,9 @@ read_metamorpheus <- function(metamorpheus_file) {
     select(all_of(old_names))
   mm <- sort_ambiguous(mm) %>%
     distinct(`Base.Sequence`, .keep_all = TRUE) %>%
-    mutate(`Precursor.Scan.Number` = paste0(
+    mutate(`Scan.Number` = paste0(
       `File.Name`, ".",
-      `Precursor.Scan.Number`
+      `Scan.Number`
     )) %>%
     rename_with(~new_names, all_of(old_names)) %>%
     mutate(protein = unlist(lapply(protein, gsub,
@@ -223,12 +223,12 @@ if (sys.nframe() == 0) {
     type = "character",
     help = "Psm file"
   )
-  parser <- add_option(parser, c("-e", "Engine"),
+  parser <- add_option(parser, c("-e", "--engine"),
     type = "character",
     help = "Engine psm file was obtained from"
   )
   args <- parse_args(parser)
-  mapping <- read.delim(args$mapping, sep = "\t")
+  mapping <- read.delim(args$msms_mapping, sep = "\t")
   final <- read_engine_psms(args$input, args$engine, mapping)
   write_delim(final, args$output, delim = "\t")
 }
