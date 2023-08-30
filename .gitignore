@@ -4,6 +4,7 @@ metrics/*
 .nextflow*
 *temp*
 data/*
+bin/__*
 results/*
 reports/*
 resources/*
