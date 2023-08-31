@@ -9,7 +9,7 @@ process MERGE_QUANT {
     //
 
     output:
-    path("final_protein_groups.tsv")
+    path("unified_groups_with_quant.tsv")
     //
 
     script:
@@ -17,7 +17,8 @@ process MERGE_QUANT {
     merge_quantifications.py -d $directlfq \
         -i $search_intersections \
         -m $seq_mapping \
-        -o final_protein_groups.tsv
+        -p 0.05 \
+        -o unified_groups_with_quant.tsv
     """
     //
 }

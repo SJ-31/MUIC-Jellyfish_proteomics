@@ -2,6 +2,7 @@ include { SEARCH_INTERSECT } from '../modules/search_intersect'
 include { COMBINE_PEP as COMBINE_PEP_PSM } from '../modules/combine_pep'
 include { COMBINE_PEP as COMBINE_PEP_PROT } from '../modules/combine_pep'
 include { ANNOTATE } from '../modules/annotate'
+include { MERGE_QUANT } from '../modules/merge_quantifications'
 include { INTERPROSCAN } from '../modules/interpro'
 
 workflow 'combine_searches' {
@@ -10,6 +11,7 @@ workflow 'combine_searches' {
     prot2intersect
     psm2combinedPEP
     prot2combinedPEP
+    directlfq
     outdir
     header_mappings
     seq_mappings
@@ -24,6 +26,9 @@ workflow 'combine_searches' {
     ANNOTATE(SEARCH_INTERSECT.out.unsorted, seq_mappings, "$outdir")
     INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
                  "$outdir")
+    MERGE_QUANT(directlfq, SEARCH_INTERSECT.out.sorted, seq_mappings,
+        "$outdir/1-Combined")
+
 
     emit:
     intersected_searches = SEARCH_INTERSECT.out.unsorted

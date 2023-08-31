@@ -10,7 +10,7 @@ process SEARCH_INTERSECT {
     //
 
     output:
-    path("unified_groups.tsv")
+    path("unified_groups.tsv"), emit: sorted
     path("intersected_searches.tsv"), emit: unsorted
     //
 
@@ -22,6 +22,7 @@ process SEARCH_INTERSECT {
 
     Rscript $params.bin/protein_coverage.r \
         -m $seq_mappings \
+        --intersected_searches temp.tsv \
         -o intersected_searches.tsv
 
     Rscript $params.bin/unify_groups.r \

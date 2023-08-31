@@ -9,7 +9,6 @@ include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { FORMAT_MQ } from '../modules/format_mq'
 include { PERCOLATOR } from '../modules/percolator'
-include { MS2RESCORE } from '../modules/ms2rescore'
 include { DEISOTOPE } from '../modules/deisotope'
 include { MS_MAPPING } from '../modules/ms_mapping'
 include { FALCON } from '../modules/falcon'
@@ -76,7 +75,6 @@ workflow 'search' {
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
     FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/MaxQuant")
 
-
     // MAXQUANT.out.msms.collect()
     //     .map { it -> ["maxquant", it] }
     //     .set { maxqms2rescore }
@@ -84,7 +82,7 @@ workflow 'search' {
     // mgf.collect())
 
     // Post-processing with Percolator
-    empty.mix( // Perhaps you need to start with ms2rescore
+    empty.mix(
         METAMORPHEUS.out.percolator,
         // MS2RESCORE.out.pin,
         FORMAT_MQ.out,
@@ -97,8 +95,6 @@ workflow 'search' {
     quantify_FIRST(MS_MAPPING.out, mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
-                   FORMAT_MQ.out.flatten().filter(~/.*pin.*/),
-                   // MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
                    "$params.results/1-First_pass/1-Quantify")
     // First combining
@@ -109,6 +105,7 @@ workflow 'search' {
             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
         PERCOLATOR.out.prot2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
+        quantify_FIRST.out.directlfq,
         "$params.results/1-First_pass",
         db.header_mapping,
         db.seq_mapping)
@@ -124,8 +121,6 @@ workflow 'search' {
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
-                    FORMAT_MQ.out.flatten().filter(~/.*pin.*/),
-                    // MS2RESCORE.out.pin.flatten().filter(~/.*pin.*/),
                    TIDE.out.target,
                    "$params.results/2-Second_pass/1-Quantify")
 
@@ -139,6 +134,7 @@ workflow 'search' {
         bk_decoys.out.prot2combinedPEP.mix(
             PERCOLATOR.out.prot2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
+        quantify_SECOND.out.directlfq,
         "$params.results/2-Second_pass",
         db.header_mapping,
         db.seq_mapping)

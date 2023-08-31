@@ -10,7 +10,6 @@ workflow 'quantify'{
     mzmls
     engine_percolator_output
     metamorpheus_AllPSMs
-    maxquant_pin_file
     tide_target_search
     outdir
 
@@ -41,4 +40,9 @@ workflow 'quantify'{
         .set { scans_psms }
     FILTER_MSMS(scans_psms, msms_mappings, mzmls, "$outdir/Unmatched")
     UNMATCHED_PSMS(engine_percolator_output.collect(), "$outdir/Unmatched")
+
+    emit:
+    directlfq = DIRECTLFQ.out
+
+
 }
