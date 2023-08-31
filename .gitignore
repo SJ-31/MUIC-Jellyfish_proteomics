@@ -12,5 +12,7 @@ rna-seq/work/*
 testzone*
 shotgun/work/*
 tools/*
-*.sh
 *.txt
+/*.sh
+
+
