@@ -18,34 +18,27 @@ process UNMATCHED_PSMS {
 }
 
 
-process UNMATCHED_MSMS {
+process FILTER_MSMS {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(comet)
-    path(identipy)
-    path(msfragger)
-    path(maxquant_all_pin)
-    path(metamorpheus_all_psms)
-    path(tide_target_search)
+    tuple val(engine), path(scan_file), path(percolator_file)
     path(msms_mapping)
     path(mzmls)
     val(outdir)
     //
 
     output:
-    path("unmatched_*.mzML")
+    path("filtered_*.mzML")
     //
 
     script:
     """
     Rscript $params.bin/unmatched_msms.r \
-        --metamorpheus $metamorpheus_all_psms \
-        --maxquant $maxquant_all_pin \
-        --comet $comet \
-        --identipy $identipy \
-        --tide $tide_target_search \
-        --msfragger $msfragger \
+        --engine $engine \
+        --scan_file $scan_file \
+        --percolator_file $percolator_file \
+        --pep_thresh 1 \
         -m $msms_mapping \
         --mzML_path .
     """

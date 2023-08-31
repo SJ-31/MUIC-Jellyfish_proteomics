@@ -1,7 +1,7 @@
 include { FLASHLFQ } from '../modules/flashlfq'
 include { MAP_SCANS } from '../modules/map_scans'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
-include { UNMATCHED_MSMS; UNMATCHED_PSMS } from '../modules/unmatched'
+include { FILTER_MSMS; UNMATCHED_PSMS } from '../modules/unmatched'
 
 
 workflow 'quantify'{
@@ -23,15 +23,22 @@ workflow 'quantify'{
         tide: it =~ /tide/
         metamorpheus: it =~ /metamorpheus/
     }.set { per }
-    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, maxquant_pin_file,
+    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.maxquant,
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
               "$outdir/mapped_scans")
     FLASHLFQ(MAP_SCANS.out.collect(), mzmls, "$outdir")
     DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
-    UNMATCHED_MSMS(per.comet, per.identipy, per.msfragger, maxquant_pin_file,
-             metamorpheus_AllPSMs, tide_target_search,
-                   msms_mappings, mzmls, "$outdir/Unmatched")
+
+    MAP_SCANS.out
+        .map { it -> [ it.baseName.replaceAll("_.*", ""), it ] }
+        .set { mapped_scans }
+    engine_percolator_output
+        .map { it -> [ it.baseName.replaceAll("_.*", ""), it ] }
+        .set { perc_psms }
+    mapped_scans.join(perc_psms)
+        .set { scans_psms }
+    FILTER_MSMS(scans_psms, msms_mappings, mzmls, "$outdir/Unmatched")
     UNMATCHED_PSMS(engine_percolator_output.collect(), "$outdir/Unmatched")
 }
