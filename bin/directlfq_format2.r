@@ -30,8 +30,7 @@ file_names <- mapping$scanNum %>%
   unique()
 rm(mapping)
 
-files <- paste0(args$path, list.files(args$path))
-
+files <- paste0(args$path, "/", list.files(args$path))
 all_engines <- lapply(files, function(x) {
   df <- read.delim(x, sep = "\t")  %>%
     as_tibble() %>%

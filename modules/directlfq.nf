@@ -16,7 +16,7 @@ process DIRECTLFQ_FORMAT {
     mkdir paths; mv $scan_prot_mappings paths
     Rscript $params.bin/directlfq_format2.r \
         -p paths \
-        -m msms_mapping \
+        -m $msms_mapping \
         -o directlfq.aq_reformat.tsv
     """
     //

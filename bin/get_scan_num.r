@@ -32,33 +32,6 @@ read_percolator <- function(percolator_file) {
   return(p_tibble)
 }
 
-get_maxquant_row <- function(row_index, maxquant_lines) {
-  splits <- maxquant_lines[row_index] %>%
-    str_split("\t") %>%
-    unlist()
-  return(tibble(
-    file = str_match(splits[1], "(.*)\\..*\\..*")[, 2],
-    label = splits[2],
-    scan = splits[3],
-    peptide = splits[104],
-    protein = group_prot(splits[105:length(splits)])
-  ))
-}
-
-read_maxquant <- function(maxquant_file) {
-  # Needs maxquant_all_pins
-  lines <- read_lines(maxquant_file)
-  q_tibble <- lapply(seq_along(lines)[-1], get_maxquant_row,
-    maxquant_lines = lines
-  ) %>%
-    bind_rows() %>%
-    filter(label == 1) %>%
-    filter(!(grepl("rev_", protein, ))) %>%
-    select(-label) %>%
-    mutate(scan = paste0(file, ".", scan))
-  return(q_tibble)
-}
-
 split_ambiguous <- function(table, index) {
   base <- strsplit(table[index, ]$`Base.Sequence`, "\\|")[[1]]
   row <- lapply(seq_along(base), function(x) {
@@ -154,12 +127,6 @@ comet_scans <- function(comet_id_str) {
   return(glue("{name_cleared[1]}.{name_cleared[2]}"))
 }
 
-maxquant_scans <- function(mq_id_str) {
-  match_result <- regexec("(.*\\..*)\\..*", mq_id_str)
-  groups <- regmatches(mq_id_str, match_result)[[1]]
-  return(groups[2])
-}
-
 msfragger_scans <- function(msfragger_id_str) {
   match_result <- regexec("(.*\\..*)\\..*\\..*", msfragger_id_str)
   groups <- regmatches(msfragger_id_str, match_result)[[1]]
@@ -181,14 +148,12 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
     psms <- read_metamorpheus(percolator_input)
   } else if (engine == "tide") {
     psms <- read_tide(percolator_input, mapping)
-  } else if (engine == "maxquant") {
-    psms <- read_maxquant(percolator_input)
   } else {
     psms <- read_percolator(percolator_input)
     if (engine == "comet") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
     } else if (engine == "maxquant") {
-      psms <- psms %>% mutate(scan = unlist(lapply(PSMId, maxquant_scans)))
+      psms <- psms %>% rename(scan = PSMId)
     } else if (engine == "msfragger") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {
