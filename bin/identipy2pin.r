@@ -1,4 +1,5 @@
 library(tidyverse)
+library(glue)
 files <- commandArgs(trailingOnly = TRUE)
 input <- files[1]
 pin_file <- files[2]
@@ -27,8 +28,9 @@ split_to_tab <- function(identipy_proteins) {
 }
 
 add_flanks <- function(identipy_seq) {
-  seq <- sub("(\\w{1})(.*)", "\\1.\\2", identipy_seq)
-  seq <- sub("(.*)(\\w{1})", "\\1.\\2", seq)
+  ## seq <- sub("(\\w{1})(.*)", "\\1.\\2", identipy_seq)
+  ## seq <- sub("(.*)(\\w{1})", "\\1.\\2", seq)
+  seq <- glue("-.{identipy_seq}.-")
   return(seq)
 }
 
