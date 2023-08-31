@@ -9,7 +9,7 @@ file_pivot <- function(psm_df) {
 }
 
 parser <- OptionParser()
-parser <- add_option(parser, c("-p, --path"),
+parser <- add_option(parser, c("-p", "--path"),
   type = "character",
   help = "Path to formatted files"
 )
