@@ -9,7 +9,7 @@ flashlfq_header <- c(
 old_names <- c("file", "retensionTime", "precursorCharge",
                "base_peptide", "peptide", "mw", "protein")
 parser <- OptionParser()
-parser <- add_option(parser, c("-p, --path"),
+parser <- add_option(parser, c("-p", "--path"),
   type = "character",
   help = "Path to formatted files"
 )
@@ -17,17 +17,12 @@ parser <- add_option(parser, c("-o", "--output"),
   type = "character",
   help = "Output file name"
 )
-mapping <- read.delim(args$mapping, sep = "\t")
 args <- parse_args(parser)
-files <- paste0(args$path, list.files(args$path))
-
-# for testing
-## path <- "/home/sc31/peps/"
-## files <- paste0(path, list.files(path))
+files <- paste0(args$path, "/", list.files(args$path))
 
 all_engines <- lapply(files, function(x) {
   current <- read.delim(x, sep = "\t") %>%
-    select(old_names) %>%
+    select(all_of(old_names)) %>%
     rename_with(~flashlfq_header, all_of(old_names)) %>%
     as_tibble()
 }) %>% bind_rows()

@@ -27,7 +27,7 @@ workflow 'quantify'{
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
               "$outdir/mapped_scans")
-    FLASHLFQ(MAP_SCANS.out.collect(), mzmls, "$outdir")
+    FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir")
     DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
 
