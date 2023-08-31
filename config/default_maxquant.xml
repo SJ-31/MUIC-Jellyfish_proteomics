@@ -46,7 +46,7 @@
    <dependentPeptidesWithinParameterGroup>False</dependentPeptidesWithinParameterGroup>
    <dependentPeptidesRestrictFractions>False</dependentPeptidesRestrictFractions>
    <dependentPeptidesFractionDifference>0</dependentPeptidesFractionDifference>
-   <ibaq>True</ibaq>
+   <ibaq>False</ibaq>
    <top3>False</top3>
    <independentEnzymes>False</independentEnzymes>
    <useDeltaScore>False</useDeltaScore>
