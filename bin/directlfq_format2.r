@@ -21,8 +21,8 @@ parser <- add_option(parser, c("-m", "--mapping"),
   type = "character",
   help = "Mapping file name"
 )
-mapping <- read.delim(args$mapping, sep = "\t")
 args <- parse_args(parser)
+mapping <- read.delim(args$mapping, sep = "\t")
 
 file_names <- mapping$scanNum %>%
   lapply(., gsub, pattern = "\\..*", replacement = "") %>%

@@ -53,7 +53,7 @@ read_maxquant <- function(maxquant_file) {
   ) %>%
     bind_rows() %>%
     filter(label == 1) %>%
-    filter(!(grepl("REV__", protein, ))) %>%
+    filter(!(grepl("rev_", protein, ))) %>%
     select(-label) %>%
     mutate(scan = paste0(file, ".", scan))
   return(q_tibble)
