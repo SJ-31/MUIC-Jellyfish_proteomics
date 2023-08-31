@@ -23,11 +23,12 @@ workflow 'combine_searches' {
                     "$outdir/1-Combined")
     COMBINE_PEP_PROT(prot2combinedPEP, false,
                     "$outdir/1-Combined")
-    ANNOTATE(SEARCH_INTERSECT.out.unsorted, seq_mappings, "$outdir")
-    INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
-                 "$outdir")
     MERGE_QUANT(directlfq, SEARCH_INTERSECT.out.sorted, seq_mappings,
         "$outdir/1-Combined")
+    ANNOTATE(MERGE_QUANT.out, seq_mappings, "$outdir")
+    INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
+                 "$outdir")
+
 
 
     emit:

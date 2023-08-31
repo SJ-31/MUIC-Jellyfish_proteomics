@@ -230,41 +230,53 @@ def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
         return header.split(" ")[0]
     elif "-DENOVO" in header:
         lookup = seq_mapping.query("id == @id")
-        denovo_list.append(f'>{header}\n{lookup["seq"]}')
+        denovo_list.append(f'>{header}\n{lookup["seq"].item()}')
     elif "-TRANSCRIPTOME" in header:
         lookup = seq_mapping.query("id == @id")
-        transcriptome_list.append(f'>{header}\n{lookup["seq"]}')
+        transcriptome_list.append(f'>{header}\n{lookup["seq"].item()}')
     return None
 
 
 # Main
-input = sys.argv[1]
-output = sys.argv[2]
-seq_mapfile = sys.argv[3]
+#
+def parse_args():
+    import argparse
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input")
+    parser.add_argument("-o", "--output")
+    parser.add_argument("-s", "--seq_mapfile")
+    args = vars(parser.parse_args())  # convert to dict
+    return args
 
-# input = "testing.tsv"
-# output = "sort_requests"
-# seq_mapfile = "../ref/all_normal_mapping.tsv"
+if __name__ == '__main__':
+    args = parse_args()
+    denovo_hits = []
+    transcriptome_hits = []
+    to_map = pd.read_csv(args["input"], sep="\t")
+    seq_map = pd.read_csv(args["seq_mapfile"], sep="\t")
+    ids = to_map.apply(id_from_header,
+                       denovo_list=denovo_hits,
+                       transcriptome_list=transcriptome_hits,
+                       seq_mapping=seq_map,
+                       axis=1).dropna()
+    to_map["id"] = ids
+    for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
+                          [denovo_hits, transcriptome_hits]):
+        with open(f"{fasta}.fasta", "w") as f:
+            f.write("".join(lst))
+    ncbi_ids = ids.where(ids.str.contains("\\.")).dropna()
+    # Use RefSeq_Protein
+    to_map[to_map["id"].isin(ncbi_ids)].to_csv("NCBI_unannotated.tsv",
+                                            sep="\t", index=False)
 
-denovo_hits = []
-transcriptome_hits = []
-to_map = pd.read_csv(input, sep="\t")
-seq_map = pd.read_csv(seq_mapfile, sep="\t")
-ids = to_map.apply(id_from_header,
-                   denovo_list=denovo_hits,
-                   transcriptome_list=transcriptome_hits,
-                   seq_mapping=seq_map,
-                   axis=1).dropna()
-ncbi_ids = ids.where(ids.str.contains("\\.")).dropna()
-# Use RefSeq_Protein
-uniprot_ids = ids[~(ids.isin(ncbi_ids))]
-# Use UniProtKB
+    uniprot_ids = ids[~(ids.isin(ncbi_ids))]
+    to_map[to_map["id"].isin(uniprot_ids)].to_csv("UniProt_unannotated.tsv",
+                                               sep="\t", index=False)
+    # Use UniProtKB
 
-final = pd.concat([map_list(ncbi_ids, "RefSeq_Protein"),
-                   map_list(uniprot_ids, "UniProtKB")])
+    final = pd.concat([
+        map_list(ncbi_ids, "RefSeq_Protein"),
+        map_list(uniprot_ids, "UniProtKB")
+    ])
 
-final.to_csv(output, index=False)
-for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
-                      [denovo_hits, transcriptome_hits]):
-    with open(f"{fasta}.fasta", "w") as f:
-        f.write("".join(lst))
+    final.to_csv(args["output"], sep="\t", index=False)

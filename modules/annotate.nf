@@ -16,7 +16,9 @@ process ANNOTATE {
 
     script:
     """
-    annotate.py $combined_tsv annotated_proteins.tsv $map_file
+    annotate.py -i $combined_tsv \
+    -o annotated_proteins.tsv \
+    -s $map_file
     """
     //
 }
