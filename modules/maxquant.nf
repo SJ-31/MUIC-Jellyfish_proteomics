@@ -11,18 +11,22 @@ process MAXQUANT {
     //
     output:
     path("${raw_file.baseName}_combined")
-    path("${raw_file.baseName}_msms.txt"), emit: ms2rescore
+    path("${raw_file.baseName}_msms.txt"), emit: msms
+    path("${raw_file.baseName}_msmsScans.txt"), emit: msmsScans
     path("*.log")
 
     shell:
     '''
-    cp !{params.config}/maxquant_ms2rescore.xml template.xml
+    cp !{params.config}/default_maxquant.xml template.xml
     maxquant_wrapper.py !{raw_file} template.xml !{database}
     rm template.xml
     dotnet /home/shannc/tools/MaxQuant_2.4.2.0/bin/MaxQuantCmd.exe mqconfig.xml \
         > maxquant_!{raw_file.baseName}.log
     mv combined/txt ./!{raw_file.baseName}_combined
     cp !{raw_file.baseName}_combined/msms.txt !{raw_file.baseName}_msms.txt
+    cp !{raw_file.baseName}_combined/msmsScans.txt !{raw_file.baseName}_msmsScans.txt
     '''
     //
+    //
+    // cp !{params.config}/maxquant_ms2rescore.xml template.xml Use this for ms2rescore
 }

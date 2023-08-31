@@ -40,5 +40,5 @@ process MS2RESCORE {
             echo default ;;
     esac
     '''
-    //
+    // MS2RESCORE can fail, so you need a way to format maxquant file into a pin file
 }
