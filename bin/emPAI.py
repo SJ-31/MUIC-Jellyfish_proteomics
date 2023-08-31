@@ -1,20 +1,7 @@
-#!/usr/bin/env ipython
-#
-
 import pandas as pd
 import re
 from pyteomics import parser
 from pyteomics import mass
-
-# from argparse import ArgumentParser
-# parser = ArgumentParser()
-# parser.add_argument("-m", "--seq_mapping")
-# parser.add_argument("-i", "--intersected_searches")
-# parser.add_argument("-r", "--mass_range")  # e.g. 350-1600
-# args = parser.parse_args()
-# prot_df = pd.read_csv(args.intersected_searches, sep="\t")
-# mapping = pd.read_csv(args.seq_mapping, sep="\t")
-# mass_range = (int(m) for m in parser.mass_range.split("-"))
 
 # Testing
 # prot_df = pd.read_csv("../results/ref/intersected_searches.tsv", sep="\t")
