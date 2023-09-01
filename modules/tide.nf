@@ -30,7 +30,7 @@ process TIDE {
 
     crux tide-search ${mgf} ./db \
         --auto-precursor-window warn \
-        --spectrum-parser mstoolkit \
+        --spectrum-parser pwiz \
         --output-dir . > tide.log
 
     crux percolator ./tide-search.target.txt \
