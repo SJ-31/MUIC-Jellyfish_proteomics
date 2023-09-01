@@ -3,22 +3,6 @@ library(optparse)
 library(Biostrings)
 
 
-parser <- OptionParser()
-parser <- add_option(parser, c("--intersected_searches"),
-  type = "character",
-  help = "intersected_searches"
-)
-parser <- add_option(parser, c("-o", "--output"),
-  type = "character",
-  help = "Output file name"
-)
-parser <- add_option(parser, c("-m", "--mapping_file"),
-  type = "character",
-  help = "header-sequence mapping file"
-)
-prot_df <- read.delim(args$intersected_searches, sep = "\t") %>% as_tibble()
-mapping <- read.delim(args$mapping_file, sep = "\t") %>% as_tibble()
-mapping <- setNames(as.list(mapping$seq), mapping$id)
 
 exact_coverage <- function(protein, peps) {
   # Based on pyteomics' implementation of coverage
@@ -77,34 +61,55 @@ coverage <- function(protein, peps) {
 }
 
 clean_split_peps <- function(pep_list) {
-  splits <- pep_list %>%
-    str_split(",") %>%
-    unlist(use.names = FALSE)
+  splits <- unlist(str_split(pep_list, ","), use.names = FALSE)
   splits <- splits[!(grepl("^NA$", splits))] %>% unique()
-  cleaned <- splits %>%
-    lapply(., function(x) {
-      paste0(str_extract_all(x, "[A-Z]+")[[1]], collapse = "") %>% return()
-    }) %>%
-    unlist(use.names = FALSE)
+  cleaned <- unlist(lapply(splits, function(x) {
+      return(paste0(str_extract_all(x, "[A-Z]+")[[1]], collapse = ""))
+    }))
   return(cleaned)
 }
 
 
-covered_df <- prot_df %>%
-  mutate(sequence = unlist(sapply(ProteinId, function(x) {
-    return(mapping[[x]])
-  })), use.names = FALSE) %>%
-  mutate(coverage = unlist(lapply(seq_along(prot_df$peptideIds), function(x) {
-    peps <- clean_split_peps(.[x, ]$peptideIds)
-    if (length(peps) > 1) {
-      pairs <- combn(peps, 2)
-      peps <- lapply(seq_len(dim(pairs)[2]), function(x) {
-        remove_substr(pairs[, x])
-      }) %>% unlist(use.names = FALSE)
-    }
-    prot <- .[x, ]$sequence
-    return(coverage(prot, peps))
-  })))
+coverage_calc <- function(prot_df, mapping) {
+  covered_df <- prot_df %>%
+    mutate(sequence = unlist(sapply(ProteinId, function(x) {
+      return(mapping[[x]])
+    }))) %>%
+    mutate(coverage = unlist(lapply(seq_along(prot_df$peptideIds), function(x) {
+      peps <- clean_split_peps(.[x, ]$peptideIds)
+      if (length(peps) > 1) {
+        pairs <- combn(peps, 2)
+        peps <- unlist(lapply(seq_len(dim(pairs)[2]), function(x) {
+          remove_substr(pairs[, x])
+        }), use.names = FALSE)
+      }
+      prot <- .[x, ]$sequence
+      return(coverage(prot, peps))
+    })))
+  return(covered_df)
+}
 
 
-write_delim(covered_df, args$output, delim = "\t")
+if (sys.nframe() == 0) { # Won't run if the script is being sourced
+  library("optparse")
+  parser <- OptionParser()
+  parser <- add_option(parser, c("--intersected_searches"),
+    type = "character",
+    help = "intersected_searches"
+  )
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
+  parser <- add_option(parser, c("-m", "--mapping_file"),
+    type = "character",
+    help = "header-sequence mapping file"
+  )
+  args <- parse_args(parser)
+  prot_df <- read.delim(args$intersected_searches, sep = "\t") %>% as_tibble()
+  mapping <- read.delim(args$mapping_file, sep = "\t") %>% as_tibble()
+  mapping <- setNames(as.list(mapping$seq), mapping$id)
+  covered <- coverage_calc(prot_df, mapping)
+  write_delim(covered, args$output, delim = "\t")
+}
+
