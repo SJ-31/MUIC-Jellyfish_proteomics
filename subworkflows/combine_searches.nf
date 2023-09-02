@@ -18,16 +18,19 @@ workflow 'combine_searches' {
 
     main:
     SEARCH_INTERSECT(prot2intersect,
-                     "$outdir/1-Combined", header_mappings, seq_mappings)
+                     "$outdir/Combined", header_mappings, seq_mappings)
     COMBINE_PEP_PSM(psm2combinedPEP, true,
-                    "$outdir/1-Combined")
+                    "$outdir/Combined")
     COMBINE_PEP_PROT(prot2combinedPEP, false,
-                    "$outdir/1-Combined")
+                    "$outdir/Combined")
     MERGE_QUANT(directlfq, SEARCH_INTERSECT.out.sorted, seq_mappings,
-        "$outdir/1-Combined")
+        "$outdir/Combined")
     ANNOTATE(MERGE_QUANT.out, seq_mappings, "$outdir")
-    INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
-                 "$outdir")
+    if ( params.denovo ) {
+        INTERPROSCAN(ANNOTATE.out.denovo.mix(ANNOTATE.out.transcriptome),
+                    "$outdir")
+    }
+
 
 
 

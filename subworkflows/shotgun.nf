@@ -63,12 +63,12 @@ workflow 'search' {
     MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    MAXQUANT(raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
+    MAXQUANT(raw, "$params.results/1-First_pass/Engines/MaxQuant", db.normal.first())
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
     db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
-    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
+    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy", db.plusdecoys)
     METAMORPHEUS(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
@@ -91,7 +91,7 @@ workflow 'search' {
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
                    TIDE.out.target,
-                   "$params.results/1-First_pass/1-Quantify")
+                   "$params.results/1-First_pass/Quantify")
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
@@ -117,7 +117,7 @@ workflow 'search' {
                                                TIDE.out.perc_psms),
                    METAMORPHEUS.out.psms,
                    TIDE.out.target,
-                   "$params.results/2-Second_pass/1-Quantify")
+                   "$params.results/2-Second_pass/Quantify")
 
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(

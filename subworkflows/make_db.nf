@@ -32,7 +32,7 @@ workflow 'make_db' {
     EXTRACT_CASANOVO.out.mix(EXTRACT_PEPNET.out, EXTRACT_SMSNET.out)
      .set { denovo }
     } else {
-        denovo = Channel.empty()
+        denovo = Channel.fromPath("$params.config/empty.fasta")
     }
     COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
                       "$params.results/Databases", params.db_loc)

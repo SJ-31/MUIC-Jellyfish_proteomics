@@ -10,7 +10,7 @@ def write_lines(file: str, line_list: list) -> None:
             a.write(line)
 
 
-input = sys.arv[1]
+input = sys.argv[1]
 mapping_name = sys.argv[2]
 # input = "./all.fasta"
 # mapping_name = "./headers.tsv"
