@@ -64,18 +64,18 @@ workflow 'search' {
 
     // All searches
     MAXQUANT(raw, "$params.results/1-First_pass/MaxQuant", db.normal.first())
-    COMET(mzML.collect(), "$params.results/1-First_pass/Comet",
+    COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
     db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
-    "$params.results/1-First_pass/MsFragger", db.plusdecoys)
+    "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
     IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Identipy", db.plusdecoys)
-    METAMORPHEUS(mgf.collect(), "$params.results/1-First_pass/Metamorpheus", db.normal)
+    METAMORPHEUS(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
-    TIDE(mgf.collect(), "$params.results/1-First_pass/Tide", "$params.results/1-First_pass/Percolator",
+    TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
-    FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/MaxQuant")
+    FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
 
     // Post-processing with Percolator
     empty.mix(

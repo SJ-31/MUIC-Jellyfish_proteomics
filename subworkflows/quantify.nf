@@ -25,7 +25,7 @@ workflow 'quantify'{
     MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.maxquant,
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
-              "$outdir/mapped_scans")
+              "../$outdir/Mapped_scans")
     FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir")
     DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
@@ -38,8 +38,8 @@ workflow 'quantify'{
         .set { perc_psms }
     mapped_scans.join(perc_psms)
         .set { scans_psms }
-    FILTER_MSMS(scans_psms, msms_mappings, mzmls, "$outdir/Unmatched")
-    UNMATCHED_PSMS(engine_percolator_output.collect(), "$outdir/Unmatched")
+    FILTER_MSMS(scans_psms, msms_mappings, mzmls, "../$outdir/Unmatched")
+    UNMATCHED_PSMS(engine_percolator_output.collect(), "../$outdir/Unmatched")
 
     emit:
     directlfq = DIRECTLFQ.out

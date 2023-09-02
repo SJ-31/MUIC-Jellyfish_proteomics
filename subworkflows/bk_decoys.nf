@@ -22,12 +22,12 @@ workflow bk_decoys {
         identipy: it.baseName =~ /identipy*/
         msfragger: it.baseName =~ /msfragger*/
         }.set { bk_db }
-    COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Comet",
+    COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Comet",
           bk_db.comet)
-    IDENTIPY(mzML_ch.collect(), "$params.results/2-Second_pass/Identipy",
+    IDENTIPY(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Identipy",
              bk_db.identipy)
     MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params",
-    "$params.results/2-Second_pass/MsFragger",
+    "$params.results/2-Second_pass/Engines/MsFragger",
               bk_db.msfragger)
     P_COMET(COMET.out.percolator,
             "$params.results/2-Second_pass/Percolator", bk_db.comet)
