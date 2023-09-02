@@ -32,6 +32,7 @@ println """
 Searching spectra...
     Prefix: $params.pref
     Manifest file: $params.manifest_file
+    Database file: $params.db_spec
     Results path: $params.results
 """
 
