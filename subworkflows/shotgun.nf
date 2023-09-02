@@ -55,6 +55,7 @@ workflow 'search' {
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
             seq_mapping : it ==~ /.*decoysWnormal_mapping.tsv/
             header_mapping : it ==~ /.*header_mappings.tsv/
+            downloaded : it ==~ /.*downloaded.fasta/
         }.set { db }
     empty = Channel.empty()
 
@@ -75,16 +76,9 @@ workflow 'search' {
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
     FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/MaxQuant")
 
-    // MAXQUANT.out.msms.collect()
-    //     .map { it -> ["maxquant", it] }
-    //     .set { maxqms2rescore }
-    // MS2RESCORE(maxqms2rescore, "$params.results/1-First_pass/MaxQuant",
-    // mgf.collect())
-
     // Post-processing with Percolator
     empty.mix(
         METAMORPHEUS.out.percolator,
-        // MS2RESCORE.out.pin,
         FORMAT_MQ.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,

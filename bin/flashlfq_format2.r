@@ -22,6 +22,7 @@ files <- paste0(args$path, "/", list.files(args$path))
 
 all_engines <- lapply(files, function(x) {
   current <- read.delim(x, sep = "\t") %>%
+    mutate(retensionTime = retensionTime / 60) %>%
     select(all_of(old_names)) %>%
     rename_with(~flashlfq_header, all_of(old_names)) %>%
     as_tibble()

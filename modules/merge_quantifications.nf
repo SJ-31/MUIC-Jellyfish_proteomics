@@ -17,7 +17,7 @@ process MERGE_QUANT {
     merge_quantifications.py -d $directlfq \
         -i $search_intersections \
         -m $seq_mapping \
-        -p 0.05 \
+        -p $params.pep_thresh \
         -o unified_groups_with_quant.tsv
     """
     //
