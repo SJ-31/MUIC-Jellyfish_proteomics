@@ -1,7 +1,7 @@
 process TIDE {
     publishDir "$outdir", mode: "copy", pattern: "tide-search*"
     publishDir "$percolatordir", mode: "copy", pattern: "*percolator*"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    publishDir "$params.logs", mode: "copy", pattern: "*.log.txt"
 
     input:
     path(mgf)
@@ -16,36 +16,14 @@ process TIDE {
     path("*percolator*"), emit: percolator
     path("tide_percolator_proteins.tsv"), emit: perc_protein
     path("tide_percolator_psms.tsv"), emit: perc_psms
-    path("*.log")
-    // ADd a special output channel for percolator
+    path("*.log.txt")
+    //
 
     script:
-    """
-    cp ${database} database.fasta
-    crux tide-index database.fasta db \
-         --decoy-format peptide-reverse \
-         --decoy-prefix rev_ \
-        --nterm-protein-mods-spec 1X+42.010565 \
-        --mods-spec 3M+15.994915
-
-    crux tide-search ${mgf} ./db \
-        --auto-precursor-window warn \
-        --spectrum-parser pwiz \
-        --output-dir . > tide.log
-
-    crux percolator ./tide-search.target.txt \
-    --overwrite T \
-    --decoy-prefix rev_ \
-    --picked-protein database.fasta \
-    --output-dir . \
-    --protein-report-duplicates T \
-    --search-input concatenated \
-    --fileroot tide > percolator_tide.log
-
-    rename_tide.sh
-    """
+    template 'tide.sh'
     //
 }
+
 
 process TIDE_COMBINED_PEP {
     publishDir "$outdir", mode: "copy"
