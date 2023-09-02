@@ -15,13 +15,14 @@ process MS_MAPPING {
 
     shell:
     '''
-    metric_header="scanNum	retensionTime	precursorCharge	precursorIntensity"
+   header="scanNum	msLevel	retentionTime	precursorCharge	precursorIntensity	precursorMZ	totIonCurrent	peaksCount	basePeakMZ"
+
     for file in *.mzML
         do
-            Rscript !{params.bin}/ms_mapping.r $file ${file}_metrics.temp
+            Rscript !{params.bin}/ms_mapping.r $file ${file}.temp
     done
 
-    merge_tables.sh -r "$metric_header" \
+    merge_tables.sh -r "$header" \
         -o  msms_scans.tsv \
         -p  temp
     '''

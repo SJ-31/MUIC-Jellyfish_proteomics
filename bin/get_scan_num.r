@@ -120,7 +120,7 @@ read_tide <- function(tide_file, mapping) {
 }
 
 ##  Functions for formatting scan number
-##    The scan number will let you match retension time
+##    The scan number will let you match retention time
 comet_scans <- function(comet_id_str) {
   path_removed <- gsub(".*/", "", comet_id_str)
   name_cleared <- strsplit(path_removed, "_") %>% unlist(use.names = FALSE)
