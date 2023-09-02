@@ -230,10 +230,10 @@ def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
         return header.split(" ")[0]
     elif "-DENOVO" in header:
         lookup = seq_mapping.query("id == @id")
-        denovo_list.append(f'>{header}\n{lookup["seq"].item()}')
+        denovo_list.append(f'>{header}\n{lookup["seq"].item()}\n')
     elif "-TRANSCRIPTOME" in header:
         lookup = seq_mapping.query("id == @id")
-        transcriptome_list.append(f'>{header}\n{lookup["seq"].item()}')
+        transcriptome_list.append(f'>{header}\n{lookup["seq"].item()}\n')
     return None
 
 

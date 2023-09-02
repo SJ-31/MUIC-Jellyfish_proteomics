@@ -10,8 +10,8 @@ process ANNOTATE {
 
     output:
     path("annotated_proteins.tsv"), emit: annotations
-    path("denovo_matches.fasta"), emit: denovo
-    path("transcriptome_matches.fasta"), emit: transcriptome
+    path("denovo_hits.fasta"), emit: denovo
+    path("transcriptome_hits.fasta"), emit: transcriptome
     //
 
     script:
