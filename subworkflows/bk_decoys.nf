@@ -43,6 +43,4 @@ workflow bk_decoys {
                                    P_FRAGGER.out.prot2intersect)
     psm2combinedPEP = P_COMET.out.psm2combinedPEP.mix(P_IPY.out.psm2combinedPEP,
                                    P_FRAGGER.out.psm2combinedPEP)
-    prot2combinedPEP = P_COMET.out.prot2combinedPEP.mix(P_IPY.out.prot2combinedPEP,
-                                   P_FRAGGER.out.prot2combinedPEP)
 }

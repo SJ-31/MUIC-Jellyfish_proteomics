@@ -14,7 +14,6 @@ process PERCOLATOR {
     path("${engine}_percolator_psms.tsv"), emit: psms
     path("${engine}_percolator_proteins.tsv"), emit: prot2intersect
     path("${engine}_psm2combined_PEP.tsv"), emit: psm2combinedPEP
-    path("${engine}_prot2combined_PEP.tsv"), emit: prot2combinedPEP
     path("*.log")
     //
 
@@ -25,16 +24,17 @@ process PERCOLATOR {
         -i $pin_file \
         -f $database > percolator_${engine}.log
 
-    Rscript $params.bin/to_combined_PEP.r \
+    Rscript $params.bin/2combinedPEP.r \
+        -e $engine \
         -m ${engine}_percolator_psms.tsv \
         -d ${engine}_percolator_decoy_psms.tsv \
         -o ${engine}_psm2combined_PEP.tsv
-
-    Rscript $params.bin/to_combined_PEP.r \
-        -m ${engine}_percolator_proteins.tsv \
-        -d ${engine}_percolator_decoy_proteins.tsv \
-        --protein_matches \
-        -o ${engine}_prot2combined_PEP.tsv
     """
     //
 }
+
+    // Rscript $params.bin/to_combined_PEP.r \
+    //     -m ${engine}_percolator_proteins.tsv \
+    //     -d ${engine}_percolator_decoy_proteins.tsv \
+    //     --protein_matches \
+    //     -o ${engine}_prot2combined_PEP.tsv

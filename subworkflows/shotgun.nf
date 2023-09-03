@@ -98,8 +98,6 @@ workflow 'search' {
             .mix(TIDE.out.perc_protein).collect(),
         PERCOLATOR.out.psm2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
-        PERCOLATOR.out.prot2combinedPEP
-            .mix(TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
         quantify_FIRST.out.directlfq,
         "$params.results/1-First_pass",
         db.header_mapping,
@@ -126,10 +124,7 @@ workflow 'search' {
         bk_decoys.out.psm2combinedPEP.mix(
             PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
-        bk_decoys.out.prot2combinedPEP.mix(
-            PERCOLATOR.out.prot2combinedPEP.filter( ~from_first ),
-            TIDE_COMBINED_PEP.out.prot2combinedPEP).collect(),
-        quantify_SECOND.out.directlfq,
+       quantify_SECOND.out.directlfq,
         "$params.results/2-Second_pass",
         db.header_mapping,
         db.seq_mapping)

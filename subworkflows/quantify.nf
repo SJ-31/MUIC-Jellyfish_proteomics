@@ -38,7 +38,7 @@ workflow 'quantify'{
         .set { perc_psms }
     mapped_scans.join(perc_psms)
         .set { scans_psms }
-    FILTER_MSMS(scans_psms, msms_mappings, mzmls, "../$outdir/Unmatched")
+    // FILTER_MSMS(scans_psms, msms_mappings, mzmls, "../$outdir/Unmatched")
     UNMATCHED_PSMS(engine_percolator_output.collect(), "../$outdir/Unmatched")
 
     emit:
