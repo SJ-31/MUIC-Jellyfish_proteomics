@@ -17,7 +17,7 @@ process MAXQUANT {
 
     shell:
     '''
-    cp !{params.config}/default_maxquant.xml template.xml
+    cp !{params.config}/maxquant_ms2rescore.xml template.xml
     maxquant_wrapper.py !{raw_file} template.xml !{database}
     rm template.xml
     dotnet /home/shannc/tools/MaxQuant_2.4.2.0/bin/MaxQuantCmd.exe mqconfig.xml \

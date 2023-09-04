@@ -79,7 +79,7 @@
    <peptideFdr>1</peptideFdr>
    <proteinFdr>1</proteinFdr>
    <siteFdr>1</siteFdr>
-   <minPeptideLengthForUnspecificSearch>8</minPeptideLengthForUnspecificSearch>
+   <minPeptideLengthForUnspecificSearch>7</minPeptideLengthForUnspecificSearch>
    <maxPeptideLengthForUnspecificSearch>25</maxPeptideLengthForUnspecificSearch>
    <useNormRatiosForOccupancy>True</useNormRatiosForOccupancy>
    <minPeptides>1</minPeptides>

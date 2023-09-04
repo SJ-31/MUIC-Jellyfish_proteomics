@@ -5,10 +5,10 @@ pin_header="SpecId	Label	ScanNr	Retention time	Charge	Score	Mass	Mass error [ppm
 for file in *txt
 do
     name=$(echo $file | sed 's/\..*//')
-    format_mq.py -i $file -o $name.tsv
-    sed 's/;/\t/g' $name.tsv > $name.pin
+    Rscript ../bin/msmstxt2percolatortab.R -i $file -o $name.pin
+    # sed 's/;/\t/g' $name.tsv > $name.pin
 done
 
 merge_tables.sh -r "${pin_header}" \
--o maxquant_all_pins.temp \
--p pin
+    -o maxquant_all_pins.temp \
+    -p pin
