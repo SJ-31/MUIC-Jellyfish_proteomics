@@ -4,7 +4,8 @@ include { MSFRAGGER } from '../modules/msfragger'
 include { SMSNET } from '../modules/smsnet'
 include { COMET } from '../modules/comet'
 include { IDENTIPY } from '../modules/identipy'
-include { METAMORPHEUS } from '../modules/metamorpheus'
+include { METAMORPHEUS as METAMORPHEUS_DEFAULT } from '../modules/metamorpheus'
+include { METAMORPHEUS as METAMORPHEUS_GLYCO } from '../modules/metamorpheus'
 include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { FORMAT_MQ } from '../modules/format_mq'
@@ -69,7 +70,8 @@ workflow 'search' {
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
     IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy", db.plusdecoys)
-    METAMORPHEUS(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", db.normal)
+    METAMORPHEUS_DEFAULT(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", "Default", db.normal)
+    METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
     TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
@@ -79,7 +81,7 @@ workflow 'search' {
 
     // Post-processing with Percolator
     empty.mix(
-        METAMORPHEUS.out.percolator,
+        METAMORPHEUS_DEFAULT.out.percolator,
         FORMAT_MQ.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
@@ -89,7 +91,7 @@ workflow 'search' {
 
     quantify_FIRST(MS_MAPPING.out, mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
-                   METAMORPHEUS.out.psms,
+                   METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
                    "$params.results/1-First_pass/Quantify")
     // First combining
@@ -113,7 +115,7 @@ workflow 'search' {
                     bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
-                   METAMORPHEUS.out.psms,
+                   METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
                    "$params.results/2-Second_pass/Quantify")
 
