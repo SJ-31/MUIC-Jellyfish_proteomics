@@ -1,27 +1,11 @@
 library(tidyverse)
 library(optparse)
-parser <- OptionParser()
-parser <- add_option(parser, c("-m", "--map_file"),
-  type = "character",
-  help = "Path to header mapping"
-)
-parser <- add_option(parser, c("-o", "--output"),
-  type = "character",
-  help = "Output file name"
-)
-args <- parse_args(parser)
-
-files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
-# all the results files have been dumped
-# into the directory
-map_file <- args$map_file
 # Merge all percolator protein results into a single file
 target <- "ProteinId"
 headers <- c(
   "ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
   "peptideIds"
 )
-
 
 split_duplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
@@ -31,12 +15,14 @@ split_duplicates <- function(dupe_table, index) {
   others <- select(dupe_table[index, ], -ProteinId)
   return(tibble(ProteinId = dupes, others))
 }
+
 sort_duplicates <- function(file_path) {
   # Read in a Percolator protein output file and sort duplicates
   table <- read.delim(file_path, sep = "\t")
   engine <- gsub("_.*", "", file_path)
   duplicates <- table %>% filter(grepl(",", ProteinId))
   if (dim(duplicates)[1] == 0) {
+    table <- table %>% mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
     return(table)
   }
   table <- table %>% filter(!grepl(",", ProteinId))
@@ -57,27 +43,30 @@ get_matches <- function(file_name, target) {
   return(engine_results)
 }
 
-engi <- lapply(files, get_matches, target = target) %>%
-  unlist(recursive = FALSE)
-
-tables <- lapply(files, sort_duplicates)
-
-combos <- combn(names(engi), 2)
-master_list <- lapply(1:ncol(combos), function(x) {
-  # Obtain the intersection between every possible pair of engine searches
-  engine_pair <- combos[, x]
-  intersection <- intersect(
-    engi[[engine_pair[1]]],
-    engi[[engine_pair[2]]]
-  )
-  return(intersection)
-}) %>%
-  unlist(use.names = FALSE) %>%
-  unique()
-
-matched_tables <- lapply(tables, function(x) {
-  return(x[x[[target]] %in% master_list, ])
-})
+intersect_engines <- function(files, mapping) {
+  mappings <- read.delim(map_file, sep = "\t", col.names = c("id", "header"))
+  engi <- lapply(files, get_matches, target = target) %>%
+    unlist(recursive = FALSE)
+  tables <- lapply(files, sort_duplicates)
+  combos <- combn(names(engi), 2)
+  master_list <- lapply(1:ncol(combos), function(x) {
+    # Obtain the intersection between every possible pair of engine searches
+    engine_pair <- combos[, x]
+    intersection <- intersect(
+      engi[[engine_pair[1]]],
+      engi[[engine_pair[2]]]
+    )
+    return(intersection)
+  }) %>%
+    unlist(use.names = FALSE) %>%
+    unique()
+  matched_tables <- lapply(tables, function(x) {
+    return(x[x[[target]] %in% master_list, ])
+  })
+  mapped <- mappings[mappings$id %in% master_list, ]
+  rm(mappings)
+  return(list("tables" = matched_tables, "map_list" = mapped))
+}
 
 merge_column <- function(column_name, dataframe) {
   # Combines information from all searches for a given match
@@ -88,21 +77,38 @@ merge_column <- function(column_name, dataframe) {
   cols <- grep(column_name, colnames(dataframe))
   selected <- select(dataframe, all_of(cols))
   all_vals <- lapply(1:dim(selected)[1], function(x) {
-    collapsed <- paste0(selected[x, ], collapse = ",")
+    keep <- selected[x, ] %>% discard(~all(is.na(.)))
+    collapsed <- paste0(keep, collapse = ",")
     return(gsub(" ", "", collapsed))
   }) %>%
     unlist()
   return(all_vals)
 }
 
-mappings <- read.delim(map_file, sep = "\t", col.names = c("id", "header"))
-mapped <- mappings[mappings$id %in% master_list, ]
-rm(mappings)
-
-merged_tables <- reduce(matched_tables, full_join, by = target)
-merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
-  `names<-`(headers) %>%
-  as_tibble() %>%
-  inner_join(mapped, by = join_by(x$ProteinId == y$id))
-
-write_delim(merged_tables, args$output, delim = "\t")
+if (sys.nframe() == 0) { # Won't run if the script is being sourced
+  library("optparse")
+  parser <- OptionParser()
+  parser <- add_option(parser, c("-m", "--map_file"),
+    type = "character",
+    help = "Path to header mapping"
+  )
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
+  ## args <- parse_args(parser)
+  args <- list(map_file = "../workflow/results/ND_jellyfish/Databases/header_mappings.tsv", output = "~/intersect_test.tsv")
+  files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
+  # all the results files have been dumped
+  # into the directory
+  map_file <- args$map_file
+  matched <- intersect_engines(files, mapping)
+  matched_tables <- matched$tables
+  mapped <- matched$map_list
+  merged_tables <- reduce(matched_tables, full_join, by = target)
+  merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
+    `names<-`(headers) %>%
+    as_tibble() %>%
+    inner_join(mapped, by = join_by(x$ProteinId == y$id))
+  write_delim(merged_tables, args$output, delim = "\t")
+}
