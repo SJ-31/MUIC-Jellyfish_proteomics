@@ -12,6 +12,7 @@ include { FORMAT_MQ } from '../modules/format_mq'
 include { PERCOLATOR } from '../modules/percolator'
 include { DEISOTOPE } from '../modules/deisotope'
 include { MS_MAPPING } from '../modules/ms_mapping'
+include { CALIBRATE } from '../modules/calibrate'
 include { FALCON } from '../modules/falcon'
 include { bk_decoys } from './bk_decoys.nf'
 include { combine_searches as combine_searches_FIRST } from './combine_searches'
@@ -23,10 +24,14 @@ include { make_db } from './make_db'
 workflow 'pre' {
     take:
     mzML
+    raw
+    normal_database
 
     main:
     DEISOTOPE(mzML.collect(),"$params.results/Preprocessed")
     FALCON(mzML.collect(), "$params.results/Preprocessed/Falcon")
+    CALIBRATE(raw.collect(), normal_database,
+              "$params.results/Preprocessed/Falcon")
 }
 
 println """
@@ -43,15 +48,11 @@ workflow 'search' {
     mzML
     mgf
     raw
-    db_list
+    db_normal
 
     main:
-    if ( params.with_db ) {
-        databases = make_db().out
-    } else {
-        databases = params.db_spec
-    }
-    Channel.fromPath(databases).splitText() { it.replaceAll("\n", "") }
+    db_normal.view()
+    Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
@@ -59,7 +60,6 @@ workflow 'search' {
             header_mapping : it ==~ /.*header_mappings.tsv/
             downloaded : it ==~ /.*downloaded.fasta/
         }.set { db }
-    empty = Channel.empty()
 
     MS_MAPPING(mzML.collect(), "$params.results")
 
@@ -71,7 +71,7 @@ workflow 'search' {
     "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
     IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy", db.plusdecoys)
     METAMORPHEUS_DEFAULT(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", "Default", db.normal)
-    METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
+    // METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
     TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
@@ -80,6 +80,7 @@ workflow 'search' {
     FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
 
     // Post-processing with Percolator
+    empty = Channel.empty()
     empty.mix(
         METAMORPHEUS_DEFAULT.out.percolator,
         FORMAT_MQ.out,
