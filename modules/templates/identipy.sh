@@ -7,7 +7,7 @@ cat identipy.cfg | sed "s;^database:.*;database: $database;" > config.cfg
 for mzML in *mzML
 do
     identipy $mzML \
-        -cfg ${config} \
+        -cfg config.cfg \
         -at \
         -out .
 done

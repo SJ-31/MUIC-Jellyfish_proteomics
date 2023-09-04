@@ -1,8 +1,8 @@
-type = !{type}
+type=!{type}
 case ${type} in
-    default)
+    "Default")
         config="metamorpheus_params.toml" ;;
-    glyco)
+    "Glyco")
         config="metamorpheus_glyco_params.toml" ;;
     *)
       exit 1 ;;
@@ -16,7 +16,7 @@ mv Task1SearchTask/[Aa]ll* .
 for i in [Aa]ll*
     do
     mv $i metamorpheus${type}_${i}
-    done
+done
 mv metamorpheus${type}_AllPSMs_FormattedForPercolator.tab edits.tab
 cat edits.tab | sed \
     -e "s/DECOY_/rev_/g" \

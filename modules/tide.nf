@@ -2,6 +2,7 @@ process TIDE {
     publishDir "$outdir", mode: "copy", pattern: "tide-search*"
     publishDir "$percolatordir", mode: "copy", pattern: "*percolator*"
     publishDir "$params.logs", mode: "copy", pattern: "*.log.txt"
+    memory "10 GB"
 
     input:
     path(mgf)
@@ -35,21 +36,15 @@ process TIDE_COMBINED_PEP {
 
     output:
     path("tide_psm2combined_PEP.tsv"), emit: psm2combinedPEP
-    path("tide_prot2combined_PEP.tsv"), emit: prot2combinedPEP
     //
 
     script:
     """
-    Rscript $params.bin/to_combined_PEP.r \
+    Rscript $params.bin/2combinedPEP.r \
+        -e tide \
         -m tide_percolator_psms.tsv \
         -d tide_percolator_decoy_psms.tsv \
         -o tide_psm2combined_PEP.tsv
-
-    Rscript $params.bin/to_combined_PEP.r \
-        -m tide_percolator_proteins.tsv \
-        -d tide_percolator_decoy_proteins.tsv \
-        --protein_matches \
-        -o tide_prot2combined_PEP.tsv
     """
     //
 }
