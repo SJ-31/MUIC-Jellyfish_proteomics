@@ -3,33 +3,14 @@ library(Peptides)
 library(optparse)
 library(glue)
 
-group_prot <- function(prot_vec) {
-  grouped <- paste0(prot_vec, collapse = ";")
-  split_groups <- grouped %>%
-    strsplit(";") %>%
-    unlist(use.names = FALSE) %>%
-    unique()
-  return(paste0(split_groups, collapse = ";"))
-}
-
-get_percolator_row <- function(row_index, percolator_lines) {
-  splits <- percolator_lines[row_index] %>%
-    str_split("\t") %>%
-    unlist()
-  return(tibble(
-    PSMId = splits[1],
-    peptide = splits[5],
-    protein = group_prot(splits[6:length(splits)])
-  ))
-}
-
-read_percolator <- function(percolator_file) {
-  lines <- read_lines(percolator_file)
-  p_tibble <- lapply(seq_along(lines)[-1], get_percolator_row,
-    percolator_lines = lines
-  ) %>%
-    bind_rows()
-  return(p_tibble)
+read_percolator <- function(file) {
+  t <- read_tsv(file, col_names = FALSE) %>%
+    mutate(X6 = unlist(lapply(X6, gsub, pattern = "\t", replacement = ";"))) %>%
+    `colnames<-`(.[1, ]) %>%
+    slice(-1) %>%
+    select(c(PSMId, peptide, proteinIds)) %>%
+    rename(protein = proteinIds)
+  return(t)
 }
 
 split_ambiguous <- function(table, index) {
@@ -144,7 +125,7 @@ clean_peptide <- function(modified_pep) {
 }
 
 read_engine_psms <- function(percolator_input, engine, mapping) {
-  if (engine == "metamorpheus") {
+  if (grepl("metamorpheus", engine)) {
     psms <- read_metamorpheus(percolator_input)
   } else if (engine == "tide") {
     psms <- read_tide(percolator_input, mapping)
@@ -154,7 +135,7 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
     } else if (engine == "maxquant") {
       psms <- psms %>% rename(scan = PSMId)
-    } else if (engine == "msfragger") {
+    } else if (grepl("msfragger", engine)) {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {
       psms <- psms %>% rename(scan = PSMId)
