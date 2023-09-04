@@ -5,9 +5,9 @@ digraph boxes_and_circles {
 
     node [shape=folder; color=lightcyan4; fillcolor=lightcyan]; rawRNA1; rawRNA2; mtdna; raw; unip; ncbi
 
-    node [shape=component; color=honeydew4; fillcolor=honeydew1]; fp; bbduk; spades; tdc; busco; sms; pepnet; csnv; ursgal; intersect; api; interpro; flcn; wiz; meta; tide; mq; idpy; msfrag; comet; dlfq; empai; flfq; bk_decoy; cov
+    node [shape=component; color=honeydew4; fillcolor=honeydew1]; fp; bbduk; spades; tdc; busco; sms; pepnet; csnv; ursgal; intersect; api; interpro; flcn; wiz; meta; tide; mq; idpy; msfrag; comet; dlfq; empai; flfq; bk_decoy; cov; blast
 
-    node[shape=tab;color=lightslateblue; fillcolor=lightsteelblue1]; denovo; mgf; mzML; rand; conf; decoy_db
+    node[shape=tab;color=lightslateblue; fillcolor=lightsteelblue1]; denovo; mgf; mzML; rand; conf; decoy_db; other; unmatched; u_other
 
     node[shape=octagon;color=indigo;fillcolor=ivory]; quant; func
 
@@ -108,16 +108,22 @@ digraph boxes_and_circles {
 
     subgraph cluster_combine {
         { rank=same; ursgal; intersect }
-        perc->{ursgal,intersect}->{conf,rand}
+        perc->{ursgal,intersect}->{conf,other,unmatched}
         conf [label=<Confident database protein matches>]
         conf -> api
         api [label=<<b>UniProt Mapping API</b><br/>GO, Panther classifications>]
-        rand [label=<Unmatched, denovo and transcriptome peptides>]
+        unmatched [label=<Unmatched peptides>]
+        other [label=<Denovo &amp; transcriptome peptides>]
+        unmatched -> interpro
+        other -> blast -> u_other
+
+        blast [label=<<b>BLAST</b><br/>BLAST against downloaded database>]
+        u_other [label=<Unmatched denovo &amp; transcriptome peptides>]
+        u_other -> interpro
         { rank=min; ursgal;intersect }
         { rank=same; api; interpro }
         intersect [label=<<b>Intersect protein identifications</b>>]
         ursgal [label=<<b>Ursgal</b><br/>Combined PEP calculation>]
-        rand -> interpro
         interpro [label=<<b>InterproScan</b><br/>Homology-based functional prediction>]
         {interpro;api} -> func
         func[label=<Venome functional characteristics>]
