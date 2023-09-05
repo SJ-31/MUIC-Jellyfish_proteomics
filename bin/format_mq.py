@@ -32,15 +32,21 @@ def format_mq(file):
     pin["ScanNr"] = sample["Scan number"]
     selection = sample.loc[:, [
         "Retention time", "Charge", "Score", "Mass",
-        "Collision energy", "m/z", "Total ion current",
-        "PEP", "Precursor intensity",
-        "Precursor apex fraction", "AGC Fill"
+        "m/z", "Score diff",
+        "Precursor Intensity", "Length", "Intensity coverage",
+        "Peak coverage", "Number of matches", "Delta score",
+        "Missed cleavages",
+        "Precursor apex fraction",
     ]].reset_index(drop=True)
     pin = pd.concat([pin, selection], axis=1)
+    pin["Mass error [ppm]"] = sample["Mass error [ppm]"].fillna(0)
+    pin["Score diff"] = pin["Score diff"].fillna(0)
     pin["Peptide"] = sample["Modified sequence"].apply(unify_mods)
     pin["Proteins"] = sample["Proteins"].apply(split_prot)
-    # pin = pin.replace("EMPTY", np.NaN)
-    return pin.dropna(axis="index").reset_index(drop=True)
+    pin = pin.replace("EMPTY", np.NaN)
+    return pin.dropna(subset=["Proteins",
+                              "Precursor Intensity", "Precursor apex fraction"
+                              ], axis="index").reset_index(drop=True)
 
 
 def parse_args():
@@ -54,8 +60,7 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    # args = {'input': "../results/test_manifest/1-First_pass/MaxQuant/CiCs2_combined/msmsScans.txt",
+    # args = {'input': "../results/ND_jellyfish/1-First_pass/Engines/MaxQuant/CiCs2_combined/msms.txt",
     #         'output': "~/test.pin"}
     pin = format_mq(args["input"])
-    ids = pin["SpecId"]
     pin.to_csv(args["output"], sep="\t", index=None)

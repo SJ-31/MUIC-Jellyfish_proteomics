@@ -145,7 +145,7 @@
    <filePaths>
    </filePaths>
    <experiments>
-      <string>experiment.example</string>
+      <string></string>
    </experiments>
    <fractions>
       <short>32767</short>

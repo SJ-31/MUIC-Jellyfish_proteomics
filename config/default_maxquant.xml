@@ -145,19 +145,14 @@
    <filePaths>
    </filePaths>
    <experiments>
-      <string>experiment.example</string>
    </experiments>
    <fractions>
-      <short>32767</short>
    </fractions>
    <ptms>
-      <boolean>False</boolean>
    </ptms>
    <paramGroupIndices>
-      <int>0</int>
    </paramGroupIndices>
    <referenceChannel>
-      <string></string>
    </referenceChannel>
    <lfqTopNPeptides>0</lfqTopNPeptides>
    <diaJoinPrecChargesForLfq>False</diaJoinPrecChargesForLfq>
