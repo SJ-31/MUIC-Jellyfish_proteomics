@@ -11,8 +11,6 @@ process FORMAT_MQ {
     //
 
     shell:
-    '''
-    format_mq.sh
-    '''
+    template 'format_mq.sh'
     //
 }
