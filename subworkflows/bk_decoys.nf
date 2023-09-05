@@ -3,7 +3,7 @@ include { MSFRAGGER } from '../modules/msfragger'
 include { PERCOLATOR as P_COMET } from '../modules/percolator'
 include { PERCOLATOR as P_IPY} from '../modules/percolator'
 include { PERCOLATOR as P_FRAGGER } from '../modules/percolator'
-include { IDENTIPY } from '../modules/identipy'
+include { IDENTIPY; FORMAT_IDPY } from '../modules/identipy'
 include { MAKE_BK_DB } from '../modules/make_bk_db'
 
 workflow bk_decoys {
@@ -24,14 +24,15 @@ workflow bk_decoys {
         }.set { bk_db }
     COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Comet",
           bk_db.comet)
-    IDENTIPY(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Identipy",
-             bk_db.identipy)
+    IDENTIPY(mzML_ch, "$params.results/2-Second_pass/Engines/Identipy",
+             bk_db.identipy.first())
+    FORMAT_IDPY(IDENTIPY.out.pepxml)
     MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params",
     "$params.results/2-Second_pass/Engines/MsFragger",
               bk_db.msfragger)
     P_COMET(COMET.out.percolator,
             "$params.results/2-Second_pass/Percolator", bk_db.comet)
-    P_IPY(IDENTIPY.out.percolator,
+    P_IPY(FORMAT_IDPY.out.percolator,
             "$params.results/2-Second_pass/Percolator", bk_db.identipy)
     P_FRAGGER(MSFRAGGER.out.percolator,
             "$params.results/2-Second_pass/Percolator", bk_db.msfragger)

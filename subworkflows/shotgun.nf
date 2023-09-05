@@ -3,7 +3,7 @@ include { MAXQUANT } from '../modules/maxquant'
 include { MSFRAGGER } from '../modules/msfragger'
 include { SMSNET } from '../modules/smsnet'
 include { COMET } from '../modules/comet'
-include { IDENTIPY } from '../modules/identipy'
+include { IDENTIPY; FORMAT_IDPY } from '../modules/identipy'
 include { METAMORPHEUS as METAMORPHEUS_DEFAULT } from '../modules/metamorpheus'
 include { METAMORPHEUS as METAMORPHEUS_GLYCO } from '../modules/metamorpheus'
 include { TIDE } from '../modules/tide'
@@ -64,12 +64,16 @@ workflow 'search' {
     MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    MAXQUANT(raw, "$params.results/1-First_pass/Engines/MaxQuant", db.normal.first())
+    MAXQUANT(raw.collect(), "default_maxquant.xml",
+             "$params.results/1-First_pass/Engines/MaxQuant", db.normal.first())
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
     db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
     "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
-    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy", db.plusdecoys)
+    IDENTIPY(mzML, "$params.results/1-First_pass/Engines/Identipy",
+             db.plusdecoys.first())
+    FORMAT_IDPY(IDENTIPY.out.pepxml,
+                "$params.results/1-First_pass/Engines/Identipy")
     METAMORPHEUS_DEFAULT(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", "Default", db.normal)
     // METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
@@ -77,7 +81,7 @@ workflow 'search' {
     TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
-    FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
+    FORMAT_MQ(MAXQUANT.out.msms.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
 
     // Post-processing with Percolator
     empty = Channel.empty()
@@ -86,14 +90,18 @@ workflow 'search' {
         FORMAT_MQ.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
-        IDENTIPY.out.percolator
+        FORMAT_IDPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator", db.plusdecoys.first())
+    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator",
+               db.plusdecoys.first())
 
+    // First pass quantification
     quantify_FIRST(MS_MAPPING.out, mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
+                   PERCOLATOR.out.psm2combinedPEP
+                       .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/1-First_pass/Quantify")
     // First combining
     combine_searches_FIRST(
@@ -112,14 +120,19 @@ workflow 'search' {
               db.seq_mapping, db.header_mapping, mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
 
+    // Second pass quantification
     quantify_SECOND(MS_MAPPING.out, mzML,
                     bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
                    METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
+                   bk_decoys.out.psm2combinedPEP.mix(
+                       PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
+                       TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/2-Second_pass/Quantify")
 
+    // Second combining
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(
             PERCOLATOR.out.prot2intersect.filter( ~from_first ),
@@ -128,7 +141,7 @@ workflow 'search' {
             PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
        quantify_SECOND.out.directlfq,
-        "$params.results/2-Second_pass",
-        db.header_mapping,
-        db.seq_mapping)
+       "$params.results/2-Second_pass",
+       db.header_mapping,
+       db.seq_mapping)
 }

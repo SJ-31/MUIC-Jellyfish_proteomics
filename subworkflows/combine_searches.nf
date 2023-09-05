@@ -28,8 +28,6 @@ workflow 'combine_searches' {
     }
 
 
-
-
     emit:
     intersected_searches = SEARCH_INTERSECT.out.unsorted
     combinedPEP_psm = COMBINE_PEP.out
