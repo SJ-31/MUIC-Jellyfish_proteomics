@@ -4,13 +4,12 @@ process IDENTIPY {
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
 
     input:
-    path(mzMLs)
+    path(mzML)
     val(outdir)
     val(database)
     //
     output:
-    path("*.pepxml")
-    tuple val("identipy"), path("identipy_all_pins.temp"), emit: percolator
+    path("*.pep.xml"), emit: pepxml
     path("*.log")
     //
     shell:
@@ -19,4 +18,21 @@ process IDENTIPY {
     // -mc Number of missed cleavages
     // -method {reverse,shuffle} for decoy generation
     // -prefix decoy prefix
+}
+
+process FORMAT_IDPY {
+    publishDir "$outdir", mode: "copy"
+
+    input:
+    path(pepxmls)
+    val(outdir)
+    //
+
+    output:
+    tuple val("identipy"), path("identipy_all_pins.temp"), emit: percolator
+    //
+
+    shell:
+    template 'format_identipy.sh'
+    //
 }

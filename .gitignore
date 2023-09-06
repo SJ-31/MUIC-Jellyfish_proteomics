@@ -1,8 +1,9 @@
 work/*
+docs/__*
+.projectile
 metrics/*
 *.tsv
 .nextflow*
-*temp*
 data/*
 bin/__*
 results/*

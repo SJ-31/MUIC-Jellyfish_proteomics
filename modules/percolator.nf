@@ -1,6 +1,8 @@
 process PERCOLATOR {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    memory "10 GB"
+
 
     input:
     tuple val(engine), path(pin_file)
