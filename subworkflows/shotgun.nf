@@ -68,13 +68,15 @@ workflow 'search' {
              "$params.results/1-First_pass/Engines/MaxQuant", db.normal.first())
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
     db.plusdecoys)
-    MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params",
-    "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
+    MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params", "",
+              "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
     IDENTIPY(mzML, "$params.results/1-First_pass/Engines/Identipy",
              db.plusdecoys.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml,
                 "$params.results/1-First_pass/Engines/Identipy")
-    METAMORPHEUS_DEFAULT(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus", "Default", db.normal)
+    METAMORPHEUS_DEFAULT(mgf.collect(),
+                         "$params.results/1-First_pass/Engines/Metamorpheus", "",
+                         "$params.config/metamorpheus_params.toml", db.normal)
     // METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now

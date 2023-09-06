@@ -1,25 +1,18 @@
-type=!{type}
-case ${type} in
-    "Default")
-        config="metamorpheus_params.toml" ;;
-    "Glyco")
-        config="metamorpheus_glyco_params.toml" ;;
-    *)
-      exit 1 ;;
-esac
-
+mode=!{mode}
 metamorpheus -s !{mzmls} \
     -o . \
-    -t !{params.config}/${config} \
+    -t !{config} \
     -d !{database}
-mv Task1SearchTask/[Aa]ll* .
+
+mv Task1*/[Aa]ll* .
 for i in [Aa]ll*
     do
-    mv $i metamorpheus${type}_${i}
+    mv $i metamorpheus${mode}_${i}
 done
-mv metamorpheus${type}_AllPSMs_FormattedForPercolator.tab edits.tab
+
+mv metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab edits.tab
 cat edits.tab | sed \
     -e "s/DECOY_/rev_/g" \
     -e "s/\[Common Variable:Oxidation on M\]/[15.9949]/g" \
     -e "s/\[Common Fixed:Carbamidomethyl on C\]//g" \
-    > metamorpheus${type}_AllPSMs_FormattedForPercolator.tab
+    > metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab

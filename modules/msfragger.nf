@@ -6,11 +6,12 @@ process MSFRAGGER {
     input:
     path(mzmls)
     val(pars)
+    val(mode)
     val(outdir)
     val(database)
 
     output:
-    path("${params.pref}_msfragger.tsv")
+    path("${params.pref}${mode}_msfragger.tsv")
     path("*.tsv")
     tuple val("msfragger"), path("fragger_all_pins.temp"), emit: percolator
     path("*.log")
@@ -35,7 +36,7 @@ process MSFRAGGER {
         -o fragger_all_pins.temp \
         -p pin
 
-    mv !{params.pref}_msfragger.txt !{params.pref}_msfragger.tsv
+    mv !{params.pref}!{mode}_msfragger.txt !{params.pref}!{mode}_msfragger.tsv
     '''
     // The output pin files need to be merged into a single one before doing the percolator analysis
     // Calibrate mass

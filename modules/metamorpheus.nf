@@ -9,14 +9,15 @@ process METAMORPHEUS {
     input:
     path(mzmls)
     val(outdir)
-    val(type)
+    val(mode)
+    val(config)
     val(database)
     //
 
     output:
-    path("metamorpheus${type}*")
-    path("metamorpheus${type}_AllPSMs.psmtsv"), emit: psms
-    tuple val("metamorpheus${type}"), path("metamorpheus${type}_AllPSMs_FormattedForPercolator.tab"), emit: percolator
+    path("metamorpheus${mode}*")
+    path("metamorpheus${mode}_AllPSMs.psmtsv"), emit: psms
+    tuple val("metamorpheus${mode}"), path("metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab"), emit: percolator
     //
 
     shell:
