@@ -70,17 +70,16 @@ clear_decoys <- function(protein_list) {
 read_prot <- function(prot_file) {
   engine <- gsub("_.*", "", prot_file)
   prot_file <- glue("{file_path}/{prot_file}")
-  prot_header <- c("id", "pep")
-  prot <- read.table(prot_file,
-    sep = "\t", fill = TRUE, skip = 1,
-    header = FALSE
-  ) %>%
+  prot_header <- c("id", "PEP")
+  prot <- read_tsv(prot_file, col_names = FALSE) %>%
     as_tibble() %>%
-    select(c(1, 4)) %>%
+    select(c(X1, X4)) %>%
+    slice(-1) %>%
     `colnames<-`(prot_header) %>%
-    mutate(id = unlist(id %>% lapply(., clear_decoys))) %>%
-    mutate(engine = engine)
-  return(prot)
+    mutate(id = unlist(lapply(id, clear_decoys)),
+           engine = engine,
+           PEP = as.numeric(PEP)) %>%
+    return(prot)
 }
 
 split_duplicates <- function(dupe_table, index) {
@@ -101,8 +100,8 @@ sort_duplicates <- function(file_path) {
   duplicates <- lapply(1:dim(duplicates)[1], split_duplicates, dupe_table = duplicates) %>%
     bind_rows()
   bound <- bind_rows(list(duplicates, table)) %>%
-    as_tibble()
-    mutate(PEP = as.numeric(pep))
+    as_tibble() %>%
+    mutate(PEP = as.numeric(PEP))
   return(bound)
 }
 
@@ -120,7 +119,6 @@ get_prot <- function(prot_list, pep_threshold, mapping) {
 get_tables <- function(path, is_psm, thresh, mapping) {
   if (is_psm == TRUE) {
     paths <- list.files(path, pattern = "*percolator_psms.tsv")
-    print(paths)
     return(get_psms(paths, thresh))
   } else {
     paths <- list.files(path, pattern = "*percolator_proteins.tsv")

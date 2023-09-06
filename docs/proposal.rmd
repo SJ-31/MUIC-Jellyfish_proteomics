@@ -16,10 +16,6 @@ source("../bin/get_metrics.r")
 library(MSnbase)
 library(Spectra)
 library(DiagrammeR)
-```
-
-## Graphing functions
-```{r}
 plot_mw_dist <- function(combined_table) {
   combined_table %>% ggplot(aes(x = mw, y = engine, fill = engine)) +
     ggridges::geom_density_ridges2()
@@ -30,9 +26,17 @@ plot_len_dist <- function(combined_table) {
 }
 ```
 
+## Contents
+
+### Introduction and rationale
+
+#### 
+
 ## Overview of shotgun proteomics
-```{r}
-args <- c("../results/CiCs1.mzML", "../results/CiCs_metrics.tsv")
+
+
+```{r, echo=FALSE}
+args <- c("~/CiCs1.mzML", "../results/CiCs_metrics.tsv")
 input <- args[1]
 all_data <- openMSfile(input) # This reads all information from the mzml
 #   file by default
@@ -40,12 +44,11 @@ all_headers <- all_data %>%
   header() %>%
   as_tibble()
 tic <- chromatogram(readMSData(input, mode = "onDisk"))
-ms1_all$retentionTime
 ```
 
 
 ### Spectrum acquisition
-```{r}
+```{r, echo=FALSE}
 ms1 <- which(all_headers$msLevel == 1)
 selected_rt <- all_headers$retentionTime[ms1] / 60 > 40 & all_headers$retentionTime[ms1] / 60 < 45
 ms1_all <- all_headers %>%
@@ -55,7 +58,7 @@ M <- MSmap(all_data, ms1[selected_rt], 500, 503, 0.05, all_headers, zeroIsNA = T
 plot3D(M)
 ```
 
-```{r}
+```{r, echo=FALSE}
 # Plot spectra
 ms2 <- Spectra(input) %>% filterMsLevel(2)
 sample <- ms2[1:4]
@@ -73,13 +76,13 @@ file_path <- "../results/ND_jellyfish/1-First_pass/Percolator"
 all_psms <- get_tables(file_path, TRUE, 0.05, map)
 all_proteins <- get_tables(file_path, FALSE, 0.05, map)
 psm_mw_dist <- plot_mw_dist(all_psms)
-psm_len - dist <- plot_len_dist(all_psms)
+psm_len_dist <- plot_len_dist(all_psms)
 protein_mw_dist <- plot_mw_dist(all_proteins)
-protein_len - dist <- plot_len_dist(all_proteins)
+protein_len_dist <- plot_len_dist(all_proteins)
 ```
 
 ### Distribution of identification results
-```{r}
+```{r, echo=FALSE}
 # Is the difference between distributions statistically significant?
 engines <- unique(all_proteins$engine)
 engine_combos <- engines %>% combn(2)
@@ -96,7 +99,7 @@ for (comb in seq_len(dim(engine_combos)[2])) {
 ```
 
 ## Visualization of intersections
-```{r}
+```{r, echo=FALSE}
 id_list <- lapply(engines, function(x) {
   return(filter(all_proteins, engine == x)$id)
 }) %>% `names<-`(engines)
