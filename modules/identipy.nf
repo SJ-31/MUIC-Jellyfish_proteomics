@@ -10,7 +10,6 @@ process IDENTIPY {
     //
     output:
     path("*.pep.xml"), emit: pepxml
-    path("*.log")
     //
     shell:
     template 'identipy.sh'
@@ -22,6 +21,7 @@ process IDENTIPY {
 
 process FORMAT_IDPY {
     publishDir "$outdir", mode: "copy"
+    conda "/home/shannc/anaconda3/envs/identipy"
 
     input:
     path(pepxmls)
