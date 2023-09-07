@@ -221,19 +221,13 @@ def map_list(id_list, origin_db: str):
     return mapping
 
 
-def id_from_header(row, denovo_list, transcriptome_list, seq_mapping):
+def id_from_header(row):
     header = row["header"]
     id = row["ProteinId"]
     if "|" in header and (find := re.search(r'\|(.*)\|', header)):
         return find.groups()[0]
     elif "." in header:
         return header.split(" ")[0]
-    elif "-DENOVO" in header:
-        lookup = seq_mapping.query("id == @id")
-        denovo_list.append(f'>{header}\n{lookup["seq"].item()}\n')
-    elif "-TRANSCRIPTOME" in header:
-        lookup = seq_mapping.query("id == @id")
-        transcriptome_list.append(f'>{header}\n{lookup["seq"].item()}\n')
     return None
 
 
@@ -244,26 +238,15 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input")
     parser.add_argument("-o", "--output")
-    parser.add_argument("-s", "--seq_mapfile")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
 if __name__ == '__main__':
     args = parse_args()
-    denovo_hits = []
-    transcriptome_hits = []
     to_map = pd.read_csv(args["input"], sep="\t")
-    seq_map = pd.read_csv(args["seq_mapfile"], sep="\t")
     ids = to_map.apply(id_from_header,
-                       denovo_list=denovo_hits,
-                       transcriptome_list=transcriptome_hits,
-                       seq_mapping=seq_map,
                        axis=1).dropna()
     to_map["id"] = ids
-    for fasta, lst in zip(["denovo_hits", "transcriptome_hits"],
-                          [denovo_hits, transcriptome_hits]):
-        with open(f"{fasta}.fasta", "w") as f:
-            f.write("".join(lst))
     ncbi_ids = ids.where(ids.str.contains("\\.")).dropna()
     # Use RefSeq_Protein
     to_map[to_map["id"].isin(ncbi_ids)].to_csv("NCBI_unannotated.tsv",

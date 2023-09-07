@@ -5,8 +5,7 @@ process SEARCH_INTERSECT {
     input:
     path(percolator_protein)
     val(outdir)
-    val(header_mappings)
-    val(seq_mappings)
+    val(seq_header_mappings)
     //
 
     output:
@@ -17,12 +16,7 @@ process SEARCH_INTERSECT {
     script:
     """
     Rscript $params.bin/atleast2.r \
-        -m $header_mappings \
-        -o temp.tsv
-
-    Rscript $params.bin/protein_coverage.r \
-        -m $seq_mappings \
-        --intersected_searches temp.tsv \
+        -m ${seq_header_mappings} \
         -o intersected_searches.tsv
 
     Rscript $params.bin/unify_groups.r \

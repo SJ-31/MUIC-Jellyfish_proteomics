@@ -4,14 +4,11 @@ process ANNOTATE {
 
     input:
     path(combined_tsv)
-    path(map_file)
     val(outdir)
     //
 
     output:
     path("annotated_proteins.tsv"), emit: annotations
-    path("denovo_hits.fasta"), emit: denovo
-    path("transcriptome_hits.fasta"), emit: transcriptome
     //
 
     script:

@@ -14,7 +14,7 @@ process COMBINED_DATABASE {
     path("all_normal.fasta")
     path("all_decoys.fasta")
     path("blast_db")
-    path("*tsv")
+    path("seq-header_mappings.tsv")
     path("${params.pref}.DB.txt"), emit: listing
     //
 
@@ -23,9 +23,6 @@ process COMBINED_DATABASE {
     outdir=!{outdir}
     make_combined_db.sh !{other_fasta} !{denovo_peptides}
 
-    fasta_table.py decoysWnormal.fasta decoysWnormal_mapping.tsv
-    fasta_table.py all_decoys.fasta all_decoys_mapping.tsv
-    fasta_table.py all_normal.fasta all_normal_mapping.tsv
     find . \\( -name "*fasta" -o -name "*tsv" \\) -type f > temp_list.txt
     cat temp_list.txt | sed 's;./;!{outdir}/;' > !{params.pref}.DB.txt
 

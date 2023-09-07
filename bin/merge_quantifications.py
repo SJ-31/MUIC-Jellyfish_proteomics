@@ -2,7 +2,7 @@
 
 import numpy as np
 import pandas as pd
-from emPAI import calculate_emPAI
+# from emPAI import calculate_emPAI # Calculate once de novo peptides have been de
 
 
 def clean(target, string):
@@ -45,7 +45,7 @@ def split_proteins(row):
     return new_df
 
 
-def merge_dflq(direct_lfq, prot_df, pep_thresh):
+def merge_dlfq(direct_lfq, prot_df, pep_thresh):
     direct_lfq["protein"] = clean_list_col("protein", direct_lfq,
                                            ";").apply(list)
     direct_lfq = direct_lfq[direct_lfq["protein"].map(lambda x: len(x) > 0)]
@@ -65,13 +65,11 @@ def merge_dflq(direct_lfq, prot_df, pep_thresh):
     return (merged)
 
 
-
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--direct_lfq")
     parser.add_argument("-i", "--intersected_searches")
-    parser.add_argument("-m", "--seq_mapping")
     parser.add_argument("-p", "--pep_threshold")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
@@ -81,8 +79,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     dlfq = read_directlfq(args["direct_lfq"])
-    mapping = pd.read_csv(args["seq_mapping"], sep="\t")
     proteins = pd.read_csv(args["intersected_searches"], sep="\t")
-    merged = merge_dflq(dlfq, proteins, float(args["pep_threshold"]))
-    qdf = calculate_emPAI(merged, mapping, (350, 1600))
-    qdf.to_csv(args["output"], sep="\t", index=False)
+    merged = merge_dlfq(dlfq, proteins, float(args["pep_threshold"]))
+    # qdf = calculate_emPAI(merged, mapping, (350, 1600))
+    merged.to_csv(args["output"], sep="\t", index=False)

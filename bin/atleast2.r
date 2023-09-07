@@ -43,8 +43,8 @@ get_matches <- function(file_name, target) {
   return(engine_results)
 }
 
-intersect_engines <- function(files, mapping) {
-  mappings <- read.delim(map_file, sep = "\t", col.names = c("id", "header"))
+intersect_engines <- function(files, map_file) {
+  mappings <- read.delim(map_file, sep = "\t")
   engi <- lapply(files, get_matches, target = target) %>%
     unlist(recursive = FALSE)
   tables <- lapply(files, sort_duplicates)
@@ -64,7 +64,6 @@ intersect_engines <- function(files, mapping) {
     return(x[x[[target]] %in% master_list, ])
   })
   mapped <- mappings[mappings$id %in% master_list, ]
-  rm(mappings)
   return(list("tables" = matched_tables, "map_list" = mapped))
 }
 
@@ -88,21 +87,21 @@ merge_column <- function(column_name, dataframe) {
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
-  parser <- add_option(parser, c("-m", "--map_file"),
+  parser <- add_option(parser, c("-m", "--seq-header_file"),
     type = "character",
-    help = "Path to header mapping"
+    help = "Path to seq-header mapping"
   )
   parser <- add_option(parser, c("-o", "--output"),
     type = "character",
     help = "Output file name"
   )
-  ## args <- parse_args(parser)
-  args <- list(map_file = "../workflow/results/ND_jellyfish/Databases/header_mappings.tsv", output = "~/intersect_test.tsv")
+  args <- parse_args(parser)
+  ## args <- list(map_file = "../workflow/results/ND_jellyfish/Databases/header_mappings.tsv", output = "~/intersect_test.tsv")
   files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
   # all the results files have been dumped
   # into the directory
-  map_file <- args$map_file
-  matched <- intersect_engines(files, mapping)
+  matched <- intersect_engines(files, args$seq-header_file)
+  sequence_map <- read_tsv(args$seq_file)
   matched_tables <- matched$tables
   mapped <- matched$map_list
   merged_tables <- reduce(matched_tables, full_join, by = target)

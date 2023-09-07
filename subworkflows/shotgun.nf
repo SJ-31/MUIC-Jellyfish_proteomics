@@ -51,13 +51,11 @@ workflow 'search' {
     db_normal
 
     main:
-    db_normal.view()
     Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
-            seq_mapping : it ==~ /.*decoysWnormal_mapping.tsv/
-            header_mapping : it ==~ /.*header_mappings.tsv/
+            seq_header_mapping : it == ~ /.*seq-header_mappings.tsv/
             downloaded : it ==~ /.*downloaded.fasta/
         }.set { db }
 
@@ -70,9 +68,9 @@ workflow 'search' {
     db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params", "",
               "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
-    IDENTIPY(mzML, "$params.results/1-First_pass/Engines/Identipy",
+    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy",
              db.plusdecoys.first())
-    FORMAT_IDPY(IDENTIPY.out.pepxml,
+    FORMAT_IDPY(IDENTIPY.out.pepxml.collect(),
                 "$params.results/1-First_pass/Engines/Identipy")
     METAMORPHEUS_DEFAULT(mgf.collect(),
                          "$params.results/1-First_pass/Engines/Metamorpheus", "",
@@ -98,7 +96,8 @@ workflow 'search' {
                db.plusdecoys.first())
 
     // First pass quantification
-    quantify_FIRST(MS_MAPPING.out, mzML,
+    quantify_FIRST(MS_MAPPING.out,
+                   mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
                    METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
@@ -112,18 +111,19 @@ workflow 'search' {
         PERCOLATOR.out.psm2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
         quantify_FIRST.out.directlfq,
+        PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
         "$params.results/1-First_pass",
-        db.header_mapping,
-        db.seq_mapping)
+        db.seq_header_mapping)
 
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
-              db.seq_mapping, db.header_mapping, mzML)
+              db.seq_header_mapping, mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
 
     // Second pass quantification
-    quantify_SECOND(MS_MAPPING.out, mzML,
+    quantify_SECOND(MS_MAPPING.out,
+                    mzML,
                     bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
                                                .filter( ~from_first ),
                                                TIDE.out.perc_psms),
@@ -143,7 +143,9 @@ workflow 'search' {
             PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
        quantify_SECOND.out.directlfq,
+       bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
+                                  .filter( ~from_first ),
+                                  TIDE.out.perc_psms),
        "$params.results/2-Second_pass",
-       db.header_mapping,
-       db.seq_mapping)
+       db.seq_header_mapping)
 }

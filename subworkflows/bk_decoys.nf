@@ -9,12 +9,11 @@ include { MAKE_BK_DB } from '../modules/make_bk_db'
 workflow bk_decoys {
     take:
     percolator_out
-    seq_mapping
-    header_mapping
+    seq_header_mapping
     mzML_ch
 
     main:
-    MAKE_BK_DB(percolator_out, header_mapping.first(), seq_mapping.first(),
+    MAKE_BK_DB(percolator_out, seq_header_mapping.first(),
                "$params.results/2-Second_pass/BK_databases")
     .flatten().filter( ~/.*\.fasta/ )
     .branch {

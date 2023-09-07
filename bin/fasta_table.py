@@ -14,7 +14,6 @@ for record in SeqIO.parse(db, format="fasta"):
     fasta_frame["seq"].append(str(record.seq))
 fasta_frame = pd.DataFrame(fasta_frame)
 
-sample = fasta_frame["seq"][2]
 def mass_calc(seq) -> float:
     if (intersect := {"X","B", "Z"} & set(seq)):
         for i in intersect:

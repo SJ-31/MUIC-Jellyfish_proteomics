@@ -16,7 +16,7 @@ process INTERPROSCAN {
         -f tsv \
         -goterms \
         -pa \
-        -b ${unknown_fasta.baseName}_scanned \
+        -b ${unknown_fasta.baseName}_scanned
     """
     //
 }

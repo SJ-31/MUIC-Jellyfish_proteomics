@@ -1,7 +1,7 @@
 include { FLASHLFQ } from '../modules/flashlfq'
 include { MAP_SCANS } from '../modules/map_scans'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
-include { FILTER_MSMS; UNMATCHED_PSMS } from '../modules/unmatched'
+include { FILTER_MSMS } from '../modules/unmatched'
 
 
 workflow 'quantify'{
@@ -32,7 +32,6 @@ workflow 'quantify'{
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
     FILTER_MSMS(MAP_SCANS.out.collect(), psm2combinedPEP.collect(), mzmls,
                 "$outdir/Unmatched")
-    UNMATCHED_PSMS(engine_percolator_output.collect(), "$outdir/Unmatched")
 
     emit:
     directlfq = DIRECTLFQ.out

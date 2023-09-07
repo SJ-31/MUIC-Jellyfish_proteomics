@@ -12,6 +12,7 @@ process FLASHLFQ {
     output:
     path("Quantified*")
     path("*.{txt,toml}")
+    path("flashlfq.tsv")
     //
 
     script:
@@ -26,7 +27,7 @@ process FLASHLFQ {
         --idt flashlfq.tsv \
         --out . \
         --rep mzML \
-        --ppm 5 \
+        --ppm 5
     """
     //
 }

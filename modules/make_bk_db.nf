@@ -3,7 +3,6 @@ process MAKE_BK_DB {
 
     input:
     tuple val(engine), path(percolator_valid), path(percolator_decoys)
-    path(mapping_file)
     path(database)
     val(outdir)
     //

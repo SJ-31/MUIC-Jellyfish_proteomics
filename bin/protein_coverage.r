@@ -70,11 +70,8 @@ clean_split_peps <- function(pep_list) {
 }
 
 
-coverage_calc <- function(prot_df, mapping) {
+coverage_calc <- function(prot_df) {
   covered_df <- prot_df %>%
-    mutate(sequence = unlist(sapply(ProteinId, function(x) {
-      return(mapping[[x]])
-    }))) %>%
     mutate(coverage = unlist(lapply(seq_along(prot_df$peptideIds), function(x) {
       peps <- clean_split_peps(.[x, ]$peptideIds)
       if (length(peps) > 1) {
@@ -101,15 +98,9 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "Output file name"
   )
-  parser <- add_option(parser, c("-m", "--mapping_file"),
-    type = "character",
-    help = "header-sequence mapping file"
-  )
   args <- parse_args(parser)
   prot_df <- read.delim(args$intersected_searches, sep = "\t") %>% as_tibble()
-  mapping <- read.delim(args$mapping_file, sep = "\t") %>% as_tibble()
-  mapping <- setNames(as.list(mapping$seq), mapping$id)
-  covered <- coverage_calc(prot_df, mapping)
+  covered <- coverage_calc(prot_df)
   write_delim(covered, args$output, delim = "\t")
 }
 
