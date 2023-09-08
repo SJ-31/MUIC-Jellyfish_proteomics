@@ -11,7 +11,7 @@ process MAXQUANT {
     val(database)
     //
     output:
-    path("combined")
+    path("all_combined")
     path("msms.txt"), emit: msms
     path("msmsScans.txt"), emit: msmsScans
     path("*.log")
@@ -27,9 +27,9 @@ process MAXQUANT {
     rm template.xml
     dotnet /home/shannc/tools/MaxQuant_2.4.2.0/bin/MaxQuantCmd.exe mqconfig.xml \
         > maxquant.log
-    mv combined/txt ./combined
-    cp combined/msms.txt msms.txt
-    cp combined/msmsScans.txt msmsScans.txt
+    mv combined/txt ./all_combined
+    cp all_combined/msms.txt msms.txt
+    cp all_combined/msmsScans.txt msmsScans.txt
     rm -R combined/search
     '''
     //

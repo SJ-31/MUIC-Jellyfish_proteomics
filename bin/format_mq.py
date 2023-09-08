@@ -6,6 +6,8 @@ import numpy as np
 
 
 def unify_mods(peptide):
+    if peptide == " ":
+        return np.NaN
     peptide = peptide.replace("_", "")
     peptide = peptide.replace("(Oxidation (M))", "[15.9949]")
     if (get := re.search("\\(Acetyl \\(Protein N-term\\)\\)", peptide)):
@@ -16,8 +18,6 @@ def unify_mods(peptide):
 
 
 def split_prot(prot):
-    if prot is np.NAN:
-        return "EMPTY"
     individual = prot.split(";")
     prot = ';'.join([p.replace("REV__", "rev_") for p in individual])
     return prot
@@ -31,22 +31,17 @@ def format_mq(file):
     pin["Label"] = sample["Reverse"].apply(lambda x: -1 if x == "+" else 1)
     pin["ScanNr"] = sample["Scan number"]
     selection = sample.loc[:, [
-        "Retention time", "Charge", "Score", "Mass",
-        "m/z", "Score diff",
-        "Precursor Intensity", "Length", "Intensity coverage",
-        "Peak coverage", "Number of matches", "Delta score",
-        "Missed cleavages",
-        "Precursor apex fraction",
+        "Retention time", "Total ion current", "Base peak intensity",
+        "Precursor intensity", "Precursor apex fraction",
+        "Precursor apex offset", "m/z", "MS2 m/z", "Charge",
+        "Length", "Filtered peaks", "Intens Comp Factor",
+        "Precursor apex offset time", "CTCD Comp",
+        "RawOvFtT", "AGC Fill"
     ]].reset_index(drop=True)
     pin = pd.concat([pin, selection], axis=1)
-    pin["Mass error [ppm]"] = sample["Mass error [ppm]"].fillna(0)
-    pin["Score diff"] = pin["Score diff"].fillna(0)
     pin["Peptide"] = sample["Modified sequence"].apply(unify_mods)
     pin["Proteins"] = sample["Proteins"].apply(split_prot)
-    pin = pin.replace("EMPTY", np.NaN)
-    return pin.dropna(subset=["Proteins",
-                              "Precursor Intensity", "Precursor apex fraction"
-                              ], axis="index").reset_index(drop=True)
+    return pin.dropna(axis="index").reset_index(drop=True)
 
 
 def parse_args():
