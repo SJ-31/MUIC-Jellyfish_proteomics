@@ -22,8 +22,8 @@ process FILTER_MSMS {
     publishDir "$outdir", mode: "copy"
 
     input:
+    path(scan_mappings)
     path(psm2combinedPEP)
-    path(scan_mapping)
     path(mzmls)
     val(outdir)
     //
@@ -31,16 +31,16 @@ process FILTER_MSMS {
     output:
     path("filtered_*.mzML")
     //
-    // Use the prot2combinedPEP csv file for this
-    shell:
-    '''
-    Rscript !{params.bin}/unmatched_msms.r \
-        --engine !{engine} \
-        --scan_file all_scans.txt \
-        --percolator_file $percolator_file \
+    // Use the psm2combinedPEP csv file for this
+    script:
+    """
+    mkdir psms; mv $psm2combinedPEP psms
+    mkdir scans; mv $scan_mappings scans
+    Rscript ${params.bin}/unmatched_msms.r \
+        --psm_path psms  \
         --pep_thresh 1 \
-        -m $msms_mapping \
+        --scan_path scans \
         --mzML_path . > unmatched.txt
-    '''
+    """
     // The pep_thresh argument allows you to filter out msms spectra that gave rise to psms falling that fell below the given PEP threshold
 }

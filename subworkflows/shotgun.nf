@@ -55,7 +55,7 @@ workflow 'search' {
         .branch {
             normal: it ==~ /.*all_normal.fasta/
             plusdecoys: it ==~ /.*decoysWnormal.fasta/
-            seq_header_mapping : it == ~ /.*seq-header_mappings.tsv/
+            seq_header_mapping : it ==~ /.*mappings.tsv/
             downloaded : it ==~ /.*downloaded.fasta/
         }.set { db }
 
@@ -81,7 +81,7 @@ workflow 'search' {
     TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
-    FORMAT_MQ(MAXQUANT.out.msms.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
+    FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
 
     // Post-processing with Percolator
     empty = Channel.empty()

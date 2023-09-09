@@ -44,13 +44,13 @@ for record in SeqIO.parse(input, "fasta"):
         seq_id = f"P{num_download}"
         num_download += 1
         is_download = True
-    mapping["id"].append(seq_id)
-    mapping["header"].append(f"{record.description}")
+    mapping["id"].extend([seq_id, f"rev_{seq_id}"])
+    mapping["header"].extend([f"{record.description}", "DECOY"])
     if "J" in record.seq or "U" in record.seq:
         seq = str(record.seq).replace("J", "").replace("U", "")
     else:
         seq = str(record.seq)
-    mapping["seq"].append(seq)
+    mapping["seq"].extend([seq, str(seq[::-1])])
     norm_lines: list = [f">{seq_id}" + "\n", str(seq) + "\n"]
     decoy_lines: list = [f">rev_{seq_id}" + "\n", str(seq[::-1]) + "\n"]
     write_lines(normal, norm_lines)

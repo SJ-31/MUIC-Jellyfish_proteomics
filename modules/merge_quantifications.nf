@@ -18,13 +18,14 @@ process MERGE_QUANT {
     merge_quantifications.py -d !{directlfq} \
         -i !{search_intersections} \
         -p !{params.pep_thresh} \
-        -o database_hits.tsv
+        -o temp.tsv
 
-    awk -F "\t" '{if (FNR == 1) {print $0; next} else {$1 ~ /P/} {print $0}}' \
+    awk 'BEGIN {FS="\t";OFS="\t"} {if (FNR == 1) {print $0; next} else if($1 ~ /P/) {print $0}}' \
         temp.tsv > database_hits.tsv
-    awk -F "\t" '{if (FNR == 1) {print $0; next} else {$1 ~ /O/} {print $0}}' \
+    awk 'BEGIN {FS="\t";OFS="\t"} {if (FNR == 1) {print $0; next} else if($1 ~ /O/) {print $0}}' \
         temp.tsv > unknown_hits.tsv
-    awk -F "\t" '{printf ">%s\n%s\n",$1,$7}' unknown.fasta
+    awk -F "\t" '{if (FNR == 1) {next} else {printf ">%s\\n%s\\n",$1,$7}}' \
+        unknown_hits.tsv > unknown.fasta
     '''
     //
 }

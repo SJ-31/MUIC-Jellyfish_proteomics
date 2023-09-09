@@ -60,6 +60,7 @@ intersect_engines <- function(files, map_file) {
   }) %>%
     unlist(use.names = FALSE) %>%
     unique()
+  master_list <- master_list[!grepl("rev_", master_list)]
   matched_tables <- lapply(tables, function(x) {
     return(x[x[[target]] %in% master_list, ])
   })
@@ -87,7 +88,7 @@ merge_column <- function(column_name, dataframe) {
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
-  parser <- add_option(parser, c("-m", "--seq-header_file"),
+  parser <- add_option(parser, c("-m", "--seq_header_file"),
     type = "character",
     help = "Path to seq-header mapping"
   )
@@ -100,8 +101,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
   # all the results files have been dumped
   # into the directory
-  matched <- intersect_engines(files, args$seq-header_file)
-  sequence_map <- read_tsv(args$seq_file)
+  matched <- intersect_engines(files, args$seq_header_file)
   matched_tables <- matched$tables
   mapped <- matched$map_list
   merged_tables <- reduce(matched_tables, full_join, by = target)
