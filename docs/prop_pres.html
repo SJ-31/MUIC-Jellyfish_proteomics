@@ -1,0 +1,202 @@
+<!doctype html>
+<html class="no-js" lang="">
+  <head>
+    <meta charset="utf-8">
+    <meta http-equiv="x-ua-compatible" content="ie=edge">
+    <title>Proposal presentation</title>
+    <meta name="description" content="">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="./styles.css">
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+  </head>
+  <body>
+    <div class="title main">
+      <h1>Exploring the venome of <i>Chironex indrasaksajiae</i></h1>
+      <div class="content-wrap">
+        <h2>Contents
+          <ul>
+            <li>Introduction and rationale
+              <ul>
+                <li>About the dataset</li>
+                <li>Hypotheses</li>
+              </ul>
+            </li>
+            <li>Overview of shotgun proteomics</li>
+            <li>Methods: pipeline design choices</li>
+            <li>Expected results</li>
+            <li>Project timeline</li>
+          </ul>
+        </h2>
+        <img class="logo" src="./images/mu_logo.png">
+      </div>
+    </div>
+    <div class="sep">
+    </div>
+    <div class="intro-rationale main">
+      <h1>Introduction and rationale</h1>
+      <div class="jelly-info">
+        <div>
+          <h2>About the dataset</h2>
+          <p>MS/MS spectra of venom peptides from the jellyfish, <em>Chironex indrasaksajiae</em></p>
+          <ul>
+            <li><strong>Phylogeny</strong>
+              <ul>
+                <li>Phylum: Cnidaria</li>
+                <li>Class: Cubozoa</li>
+                <li>Other <em>Chironex</em> species: <em>Chironex fleckeri</em> (Austrialia), <em>Chironex yamaguchii</em> (Japan)</li>
+              </ul>
+            </li>
+            <li>A species of box jellyfish native to Thailand, described in 2017</li>
+            <li>Potentially lethal, haemolytic venom</li>
+            <li>Contains a porin protein found to be larger than any other porin in its genus</li>
+          </ul>
+        </div>
+        <img class="disc" src="./images/indra_disc.png">
+      </div>
+      <div class="advisor-info">
+        <figure>
+          <img class="cube" src="./images/Hartwick-Chironex-photo.jpg">
+          <figcaption><em>Chironex fleckeri</em>, Photo by Dr Robert Hartwick</figcaption>
+        </figure>
+        <div>
+          <ul>Acquired and prepared by Dr. Nuankanya Sathirapongsasuti's lab, Faculty of Medicine Ramathibodi Hospital
+            <ul>
+              <li>Part of research focus on <em>C. indrasaksajiae</em></li>
+              <li>Previous publications include...
+                <ul>
+                  <li>Development of PCR primers for <em>C. indrasaksajiae</em></li>
+                  <li>Demonstrating an accurate method of <em>Chironex</em> species identification via High Resolution Melting analysis</li>
+                </ul>
+              </li>
+            </ul>
+          </ul>
+          <ul><strong>Project advisor</strong>
+            <ul>
+              <li>Dr. Sira Sriswasdi, Faculty of Medicine Chulalongkorn University</li>
+              <li>An expert in Computational Biology and Bioinformatics</li>
+            </ul>
+          </ul>
+        </div>
+      </div>
+    </div>
+    <div class="sep">
+    </div>
+    <div class="overview-shotgun main">
+      <h1>Overview of shotgun proteomics</h1>
+      <h2>Data acquisition</h2>
+      <div class="prepare">
+        <div class="steps">
+          <h3>Sample preparation</h3>
+          <ul>
+            <li>Purify proteins from sample</li>
+            <li>Denature proteins and render inert</li>
+            <li>Digest proteins into peptides with an enzyme, typically trypsin</li>
+            <li>Wash to remove contaminants</li>
+            <li>Inject into High Performance Liquid Chromatography (HPLC) system</li>
+            <li>Peptides are ionized into gas-phase ions as they elute</li>
+          </ul>
+          <h3>Tandem mass spectrometry (MS/MS)</h3>
+          <ul>
+            <li>Peptide ions enter mass spectrometer</li>
+            <li>Ions in a wide m/z range are recorded, forming an <strong>MS1</strong> spectrum</li>
+            <li>An intense ion (called a <strong>precursor</strong> ion) is selected, then fragmented</li>
+            <li>m/z values of the fragment ions are recorded, forming an <strong>MS2</strong> spectrum</li>
+            <li>Steps 3-4 repeat for other intense ions in the MS1 spectrum (usually 10)</li>
+            <li>The entire process repeats with another m/z range to acquire more MS1 & MS2 spectra</li>
+        </div>
+        <img src="./images/purify.png">
+      </div>
+      <div class="show-data">
+        <div class="ms1">
+          <div class="ms1-info">
+            <h2>About shotgun MS data</h2>
+            <p>A list of m/z values, nested to show the relationships between spectra</p>
+            <p>Each MS1 peak is described by an m/z value and intensity</p>
+            <p>Metadata for each spectra, including HPLC retention time, precursor charge (for MS2 spectra) and ion intensity is also recorded</p>
+          </div>
+          <figure>
+            <img src="./images/3dimensional.svg">
+            <figcaption><strong>Figure 1:</strong> MS1 spectra in the 500-503 m/z range</figcaption>
+          </figure>
+        </div>
+        <figure>
+          <img src="./images/sample_msms.svg">
+          <figcaption><strong>Figure 2:</strong> MS2 spectra from fragmentation of four different precursors</figcaption>
+        </figure>
+      </div>
+      <div class="bioinfo">
+        <h2>Data processing</h2>
+        <p>Typical bioinformatics processing of shotgun MS data involves three steps</p>
+        <ul>
+          <li><strong>Peptide identification:</strong> what are the sequences of the precursor peptides that formed the MS2 spectra?
+            <ul>
+              <li>Database searching</li>
+              <li>De novo sequencing</li>
+              <li>Spectral library searching</li>
+            </ul>
+          </li>
+          <li>Protein inference: what proteins were present in the sample?</li>
+          <li>Quantification: what are the quantities of the proteins present?</li>
+        </ul>
+        <h3>Database search engines</h3>
+      </div>
+    </div>
+    <div class="sep">
+    </div>
+    <div class="pipeline main">
+      <div class="pipeline-head">
+        <div>
+          <h1>Complete pipeline</h1>
+          <p><strong>Aim:</strong> Maximize confident, identified proteins, minimize unmatched spectra</p>
+        </div>
+        <div>
+          <p><strong>Written with</strong></p>
+          <img class="logo" src="./images/nf-logo.png">
+        </div>
+      </div>
+      <div>
+        <img src="./images/flow.svg">
+      </div>
+      <p>*Changes may still be made</p>
+      <h2>Hypotheses</h2>
+      <ul>
+        <li>The optimization strategies will increase protein coverage by peptides</li>
+        <li>Open searching will resolve many of the unmatched spectra</li>
+        <li>An overall higher number of protein groups will be identified</li>
+        <ul>
+    </div>
+    <div class="sep">
+    </div>
+    <div class="expected main">
+      <h1>Expected results & Evaluation</h1>
+      <p>Each of the search engines should identify a different set</p>
+      <div class="prot-groups">
+        <h2>Anticipated protein</h2>
+        <p>Based on literature</p>
+        <ul>
+          <li><strong>Jellyfish Toxin family (JFTs):</strong> a family of Cnidarian-specific porin proteins</li>
+          <li><strong>Metalloproteases:</strong></li>
+          <li><strong>Minicollagens:</strong> structural components of the nematocyst wall</li>
+      </div>
+      <h2>Benchmarking</h2>
+      <h4>Assessment metrics</h4>
+      <ul>
+        <li>Protein coverage by peptides</li>
+        <li>Number of identified proteins</li>
+        <li>Number of unmatched MS/MS spectra</li>
+      </ul>
+      <h4>Combinations</h4>
+      <ul>
+        <li>Impact of mzML preprocessing: running pipeline searches on the mzML files prepared using different strategies</li>
+        <li>Contribution of de novo peptides: running pipeline searches with and without adding de novo peptides into database</li>
+        <li>Impact of second-pass search: compare the first- and second-pass searches within a given run</li>
+      </ul>
+      <p>The metric distributions for each iteration can be compared using standard statistical tests</p>
+    </div>
+    <div class="sep">
+    </div>
+    <div class="timeline main">
+      <h1>Project timeline</h1>
+    </div>
+  </body>
+</html>

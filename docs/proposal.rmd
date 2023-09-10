@@ -10,6 +10,13 @@ output:
     fig_caption: true
     df_print: paged
 ---
+```{r setup, include=FALSE, echo=FALSE}
+knitr::opts_chunk$set(
+  warning = FALSE, message = FALSE, echo = FALSE,
+  dev = "svg",
+  # eval = FALSE
+)
+```
 
 ```{r echo=FALSE, results='hide', message=FALSE, comment=NA}
 source("../bin/get_metrics.r")
@@ -26,15 +33,6 @@ plot_len_dist <- function(combined_table) {
 }
 ```
 
-## Contents
-
-### Introduction and rationale
-
-#### 
-
-## Overview of shotgun proteomics
-
-
 ```{r, echo=FALSE}
 args <- c("~/CiCs1.mzML", "../results/CiCs_metrics.tsv")
 input <- args[1]
@@ -46,8 +44,6 @@ all_headers <- all_data %>%
 tic <- chromatogram(readMSData(input, mode = "onDisk"))
 ```
 
-
-### Spectrum acquisition
 ```{r, echo=FALSE}
 ms1 <- which(all_headers$msLevel == 1)
 selected_rt <- all_headers$retentionTime[ms1] / 60 > 40 & all_headers$retentionTime[ms1] / 60 < 45
@@ -55,22 +51,34 @@ ms1_all <- all_headers %>%
   filter(msLevel == 1) %>%
   as_tibble()
 M <- MSmap(all_data, ms1[selected_rt], 500, 503, 0.05, all_headers, zeroIsNA = TRUE)
+svg("3dimensional.svg")
 plot3D(M)
+dev.off()
 ```
+
+#### MS/MS spectra
 
 ```{r, echo=FALSE}
 # Plot spectra
 ms2 <- Spectra(input) %>% filterMsLevel(2)
 sample <- ms2[1:4]
 names <- paste0("Precursor m/z: ", sample$precursorMz)
+svg("sample_msms.svg")
 plotSpectra(sample, main = names, col = "darkgreen")
+dev.off()
 ```
 
-## Pipeline implementation
-![workflow](flow.svg)
+#### Bioinformatics
+* **Three data processing procedures**
+  * Peptide identification: identifying the sequence of the peptide ion that gave rise to a given MS/MS spectra
+  *
 
-## Search engine results
-```{r}
+## Pipeline implementation
+![](./flow.svg)
+
+
+#### Distribution of identified proteins by engine
+```{r, echo=FALSE}
 map <- "../tests/toy_results/all_normal_mapping.tsv"
 file_path <- "../results/ND_jellyfish/1-First_pass/Percolator"
 all_psms <- get_tables(file_path, TRUE, 0.05, map)
@@ -81,7 +89,7 @@ protein_mw_dist <- plot_mw_dist(all_proteins)
 protein_len_dist <- plot_len_dist(all_proteins)
 ```
 
-### Distribution of identification results
+#### Distribution of identification results
 ```{r, echo=FALSE}
 # Is the difference between distributions statistically significant?
 engines <- unique(all_proteins$engine)
@@ -98,7 +106,7 @@ for (comb in seq_len(dim(engine_combos)[2])) {
 }
 ```
 
-## Visualization of intersections
+#### Overlap of engines' identified prteins
 ```{r, echo=FALSE}
 id_list <- lapply(engines, function(x) {
   return(filter(all_proteins, engine == x)$id)
@@ -108,6 +116,9 @@ big_venn <- venn(id_list,
   ilcs = 1.5, sncs = 2,
   zcolor = "red, blue, green, white, orange, yellow"
 )
-# A visualization of your search integration strategy
-# The central number are the union of all identifications
+svg("engine_intersections.svg")
+big_venn
+dev.off()
 ```
+
+

@@ -1,0 +1,157 @@
+html {
+    background-color: #88c0d0;
+    font-size: 24px
+}
+
+* {
+    box-sizing: border-box;
+    font-family: 'Ubuntu';
+    color: #434c5e;
+    list-style: none;
+}
+
+figcaption {
+    font-size: 0.7rem;
+}
+
+li {
+    padding: 4px;
+    list-style-type: "✦ "
+}
+
+body {
+    box-sizing: content-box;
+    background-color: white;
+    display: flex;
+    flex-direction: column;
+    margin: 2.5vw;
+}
+
+.main {
+    border: solid 5px #4c566a;
+}
+
+h1 {
+    text-align: center;
+    color: #4c566a;
+}
+
+h2 {
+    margin-left: 2vw;
+    color: #5e81ac
+}
+
+h4 {
+    color: #b48ead
+}
+
+strong {
+    color: #d08770
+}
+
+h3 {
+    color: #bf616a
+}
+
+.title h1 {
+    font-size: 2rem;
+    padding-top: 20px;
+    text-align: center;
+}
+
+img {
+    max-width: 100%;
+    max-height: 100%;
+}
+
+img.logo {
+    max-height: 400px;
+}
+
+img.cube {
+    max-height: 400px;
+}
+
+img.disc {
+    max-height: 400px;
+    border: solid 3px #5e81ac;
+}
+
+.title {
+    display: flex;
+    flex-direction: column;
+    gap: 5vw;
+    padding-bottom: 10vw;
+}
+
+.content-wrap {
+    display: flex;
+    justify-content: space-around;
+    font-size: 25px;
+}
+
+.content-wrap h2 ul {
+    font-weight: normal;
+    font-size: 23px;
+}
+
+.advisor-info {
+    display: flex;
+    justify-content: space-evenly;
+    margin-bottom: 2vw;
+    margin-left: 4vw;
+    margin-right: 4vw;
+    align-items: center;
+}
+
+.sep {
+    background-color: #88c0d0;
+    height: 10vw;
+    background-image: "./images/separator.jpg";
+}
+
+.jelly-info {
+    margin-top: 5vw;
+    display: flex;
+    justify-content: space-evenly;
+}
+
+.prepare {
+    display: flex;
+    align-items: center;
+    gap: 4vw
+}
+
+.prepare li {
+    list-style-type: decimal;
+}
+
+.prepare .steps {
+    margin-left: 5vw;
+    max-width: 500px;
+}
+
+.ms1 {
+    display: flex;
+}
+
+.ms1 .ms1-info {
+    margin-left: 5vw;
+}
+
+.pipeline-head {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5vw;
+    margin-bottom: 5vw;
+
+}
+
+.pipeline-head .logo {
+    max-height: 100px;
+}
+
+.pipeline p {
+    text-align: center;
+}
