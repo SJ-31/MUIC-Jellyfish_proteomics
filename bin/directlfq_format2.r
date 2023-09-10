@@ -8,6 +8,9 @@ file_pivot <- function(psm_df) {
     pivot_wider(names_from = file, values_from = precursorIntensity))
 }
 
+## args <- list(path = "paths", output = "new_format.tsv",
+##              mapping = "msms_scans.tsv")
+
 parser <- OptionParser()
 parser <- add_option(parser, c("-p", "--path"),
   type = "character",
@@ -23,6 +26,7 @@ parser <- add_option(parser, c("-m", "--mapping"),
 )
 args <- parse_args(parser)
 mapping <- read.delim(args$mapping, sep = "\t")
+
 
 file_names <- mapping$scanNum %>%
   lapply(., gsub, pattern = "\\..*", replacement = "") %>%
@@ -47,7 +51,7 @@ rm(all_engines)
 # Group up proteins that share an ion
 prot <- joined %>% select(grep("protein", colnames(joined)))
 prot_col <- lapply(seq_along(1:dim(prot)[1]), function(x) {
-  filtered <- prot[x, ][grepl("[a-zA-Z1-9]+", prot[1, ])]
+  filtered <- prot[x, ][grepl("[a-zA-Z1-9]+", prot[x, ])]
   return(paste0(filtered, collapse = ";"))
 }) %>%
   unlist()
@@ -71,6 +75,8 @@ intensities <- lapply(file_names, function(x) {
   }) %>% `names<-`(file_names)
 
 final_frame <- tibble(protein = prot_col, ion = joined$ion) %>%
-  bind_cols(as_tibble(intensities))
+  bind_cols(as_tibble(intensities)) %>%
+  filter(protein != "") %>%
+  mutate_all(~ replace(., is.na(.), 0))
 
 write_delim(final_frame, args$output, delim = "\t")

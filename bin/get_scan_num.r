@@ -150,7 +150,8 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
     )) %>%
     mutate(mw = unlist(lapply(base_peptide, mw, monoisotopic = TRUE)))
   psms <- inner_join(psms, mapping, by = join_by(scan == scanNum)) %>%
-    mutate(engine = engine)
+    mutate(engine = engine) %>%
+    mutate(protein = unlist(lapply(protein, gsub, pattern = '"', replacement = "")))
   return(psms)
 }
 
