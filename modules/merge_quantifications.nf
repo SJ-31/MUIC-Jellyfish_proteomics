@@ -18,6 +18,7 @@ process MERGE_QUANT {
     merge_quantifications.py -d !{directlfq} \
         -i !{search_intersections} \
         -p !{params.pep_thresh} \
+        -q !{params.fdr} \
         -o temp.tsv
 
     awk 'BEGIN {FS="\t";OFS="\t"} {if (FNR == 1) {print $0; next} else if($1 ~ /P/) {print $0}}' \

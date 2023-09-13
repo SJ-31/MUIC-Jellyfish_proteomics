@@ -16,7 +16,6 @@ process PERCOLATOR {
     path("${engine}_percolator_psms.tsv"), emit: psms
     path("${engine}_percolator_proteins.tsv"), emit: prot2intersect
     path("${engine}_psm2combined_PEP.tsv"), emit: psm2combinedPEP
-    path("*.log")
     //
 
     script:
@@ -24,7 +23,7 @@ process PERCOLATOR {
     percolator_wrapper_combined.sh \
         -p $engine \
         -i $pin_file \
-        -f $database > percolator_${engine}.log
+        -f $database
 
     Rscript $params.bin/2combinedPEP.r \
         -e $engine \

@@ -25,15 +25,15 @@ def clean_list_col(colname, frame, split):
         clean, string="").apply(clean, string="NA"))
 
 
-def sort_pep(peps):
-    if len(peps) > 1:
-        # Sort the PEPs and return the second smallest pep
-        # If BOTH engines have small peps for the protein,
+def sort_val(vals):
+    if len(vals) > 1:
+        # Sort the VALs and return the second smallest val
+        # If BOTH engines have small vals for the protein,
         #   then it will be accepted
-        peps = [float(peps) for peps in peps]
-        peps.sort()
-        return (peps[1])
-    return (float(peps[0]))
+        sorted_vals = [float(vals) for vals in vals]
+        sorted_vals.sort()
+        return (sorted_vals[1])
+    return (float(vals[0]))
 
 
 def split_proteins(row):
@@ -45,7 +45,7 @@ def split_proteins(row):
     return new_df
 
 
-def merge_dlfq(direct_lfq, prot_df, pep_thresh):
+def merge_dlfq(direct_lfq, prot_df, pep_thresh, fdr):
     direct_lfq["protein"] = clean_list_col("protein", direct_lfq,
                                            ";").apply(list)
     direct_lfq = direct_lfq[direct_lfq["protein"].map(lambda x: len(x) > 0)]
@@ -60,8 +60,11 @@ def merge_dlfq(direct_lfq, prot_df, pep_thresh):
                       right_on="protein")
     merged["posterior_error_prob"] = (clean_list_col("posterior_error_prob",
                                                      merged,
-                                                     ",").apply(sort_pep))
+                                                     ",").apply(sort_val))
+    merged["q.value"] = (clean_list_col("q.value", merged,
+                                        ",").apply(sort_val))
     merged = merged[merged["posterior_error_prob"] < pep_thresh]
+    merged = merged[merged["q.value"] < fdr]
     return (merged)
 
 
@@ -71,6 +74,7 @@ def parse_args():
     parser.add_argument("-d", "--direct_lfq")
     parser.add_argument("-i", "--intersected_searches")
     parser.add_argument("-p", "--pep_threshold")
+    parser.add_argument("-q", "--fdr_threshold")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
     return args
@@ -80,6 +84,7 @@ if __name__ == '__main__':
     args = parse_args()
     dlfq = read_directlfq(args["direct_lfq"])
     proteins = pd.read_csv(args["intersected_searches"], sep="\t")
-    merged = merge_dlfq(dlfq, proteins, float(args["pep_threshold"]))
+    merged = merge_dlfq(dlfq, proteins, float(args["pep_threshold"]),
+                        float(args["fdr_threshold"]))
     # qdf = calculate_emPAI(merged, mapping, (350, 1600))
     merged.to_csv(args["output"], sep="\t", index=False)
