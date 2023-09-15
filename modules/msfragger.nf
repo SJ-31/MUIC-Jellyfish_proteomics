@@ -1,13 +1,14 @@
 process MSFRAGGER {
     memory { 2.GB * task.attempt }
     publishDir "$outdir", mode: "copy"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(mzmls)
     val(pars)
     val(mode)
     val(outdir)
+    val(logdir)
     val(database)
 
     output:
@@ -26,15 +27,13 @@ process MSFRAGGER {
 
     java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
         config.cfg \
-        !{mzmls} > msfragger.log
+        !{mzmls} > !{params.pref}_msfragger.log
 
-    merge_tables.sh -r "$tsv_header" \
-        -o !{params.pref}_msfragger.txt \
-        -p tsv
+    awk 'BEGIN {OFS="\t"; FS="\t"} (NR == 1) || (FNR > 1)' \
+        *tsv > !{params.pref}_msfragger.txt
 
-    merge_tables.sh -r "$pin_header" \
-        -o fragger_all_pins.temp \
-        -p pin
+    awk 'BEGIN {OFS="\t"; FS="\t"} (NR == 1) || (FNR > 1)' \
+        *pin > fragger_all_pins.temp
 
     mv !{params.pref}!{mode}_msfragger.txt !{params.pref}!{mode}_msfragger.tsv
     '''
@@ -42,3 +41,11 @@ process MSFRAGGER {
     // Calibrate mass
 }
 
+// TODO: Delete this if the awk method works
+    // merge_tables.sh -r "$tsv_header" \
+    //     -o !{params.pref}_msfragger.txt \
+    //     -p tsv
+
+    // merge_tables.sh -r "$pin_header" \
+    //     -o fragger_all_pins.temp \
+    //     -p pin

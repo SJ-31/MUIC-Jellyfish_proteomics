@@ -1,6 +1,6 @@
 process METAMORPHEUS {
     publishDir "$outdir", mode: "copy"
-    publishDir "$params.logs", mode: "copy", pattern: "${params.pref}_results*"
+    publishDir "$logdir", mode: "copy", pattern: "${params.pref}_results*"
     memory "10 GB"
     stageInMode "copy"
     // debug true
@@ -9,6 +9,7 @@ process METAMORPHEUS {
     input:
     path(mzmls)
     val(outdir)
+    val(logdir)
     val(mode)
     val(config)
     val(database)

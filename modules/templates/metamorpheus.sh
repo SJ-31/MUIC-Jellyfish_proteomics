@@ -16,3 +16,5 @@ cat edits.tab | sed \
     -e "s/\[Common Variable:Oxidation on M\]/[15.9949]/g" \
     -e "s/\[Common Fixed:Carbamidomethyl on C\]//g" \
     > metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab
+
+cp .command.out metamorpheus${mode}.log

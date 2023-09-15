@@ -1,12 +1,13 @@
 process TIDE {
     publishDir "$outdir", mode: "copy", pattern: "tide-search*"
     publishDir "$percolatordir", mode: "copy", pattern: "*percolator*"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log.txt"
+    publishDir "$logdir", mode: "copy", pattern: "*.log.txt"
     memory "35 GB"
 
     input:
     path(mgf)
     val(outdir)
+    val(logdir)
     val(percolatordir)
     val(database)
     //

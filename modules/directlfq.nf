@@ -25,20 +25,24 @@ process DIRECTLFQ_FORMAT {
 process DIRECTLFQ {
     conda '/home/shannc/anaconda3/envs/directlfq'
     publishDir "$outdir", mode: "copy"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(aqreformat)
     val(outdir)
+    val(logdir)
     //
 
     output:
-    path("directlfq_prot.tsv")
+    path("directlfq_prot.tsv"), emit: quant
+    path("*.log")
     //
 
     script:
     """
     directlfq lfq -i $aqreformat
     mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
+    cp .command.out directlfq.log
     """
     //
 }

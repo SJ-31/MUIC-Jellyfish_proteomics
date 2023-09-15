@@ -31,4 +31,5 @@ percolator "$input" \
     -P rev_ \
     --protein-enzyme trypsin \
     --protein-report-duplicates
+cp .command.log "${prefix}"_percolator.log
 #        -J "${prefix}"_features.tsv \

@@ -1,11 +1,12 @@
 process IDENTIPY {
     publishDir "$outdir", mode: "copy"
     conda "/home/shannc/anaconda3/envs/identipy"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(mzML)
     val(outdir)
+    val(logdir)
     val(database)
     //
     output:

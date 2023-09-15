@@ -20,6 +20,8 @@ include { combine_searches as combine_searches_SECOND } from './combine_searches
 include { quantify as quantify_FIRST } from './quantify'
 include { quantify as quantify_SECOND } from './quantify'
 include { make_db } from './make_db'
+include { open_search as open_search_FIRST } from './open_search'
+include { open_search as open_search_SECOND } from './open_search'
 
 workflow 'pre' {
     take:
@@ -63,22 +65,26 @@ workflow 'search' {
 
     // All searches
     MAXQUANT(raw.collect(), "default_maxquant.xml",
-             "$params.results/1-First_pass/Engines/MaxQuant", db.normal.first())
+             "$params.results/1-First_pass/Engines/MaxQuant",
+             "$params.results/1-First_pass/Logs", db.normal.first())
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
-    db.plusdecoys)
+          "$params.results/1-First_pass/Logs", db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params", "",
-              "$params.results/1-First_pass/Engines/MsFragger", db.plusdecoys)
+              "$params.results/1-First_pass/Engines/MsFragger",
+              "$params.results/1-First_pass/Logs", db.plusdecoys)
     IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy",
-             db.plusdecoys.first())
+             "$params.results/1-First_pass/Logs", db.plusdecoys.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml.collect(),
                 "$params.results/1-First_pass/Engines/Identipy")
     METAMORPHEUS_DEFAULT(mgf.collect(),
-                         "$params.results/1-First_pass/Engines/Metamorpheus", "",
+                         "$params.results/1-First_pass/Engines/Metamorpheus",
+                         "$params.results/1-First_pass/Logs", "",
                          "$params.config/metamorpheus_params.toml", db.normal)
-    // METAMORPHEUS_GLYCO(mgf.collect(), "$params.results/1-First_pass/Engines/Metamorpheus_glyco", "Glyco", db.normal)
     // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
     //  no way to integrate with percolator for now
-    TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide", "$params.results/1-First_pass/Percolator",
+    TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide",
+         "$params.results/1-First_pass/Logs",
+         "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
     FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
@@ -93,6 +99,7 @@ workflow 'search' {
         FORMAT_IDPY.out.percolator
     ).set { to_percolator }
     PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator",
+               "$params.results/1-First_pass/Logs",
                db.plusdecoys.first())
 
     // First pass quantification
@@ -104,6 +111,13 @@ workflow 'search' {
                    PERCOLATOR.out.psm2combinedPEP
                        .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/1-First_pass/Quantify")
+
+    // First open search
+    open_search_FIRST(quantify_FIRST.out.unmatched_msms,
+                      db.plusdecoys,
+                      db.normal,
+                      "$params.results/1-First_pass/Open_search")
+
     // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
@@ -133,6 +147,12 @@ workflow 'search' {
                        PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
                        TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/2-Second_pass/Quantify")
+
+    // Second open search
+    open_search_SECOND(quantify_SECOND.out.unmatched_msms,
+                      db.plusdecoys,
+                      db.normal,
+                      "$params.results/1-Second_pass/Open_search")
 
     // Second combining
     combine_searches_SECOND(

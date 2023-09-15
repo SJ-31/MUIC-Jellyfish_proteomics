@@ -27,14 +27,16 @@ workflow 'quantify'{
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
               "$outdir/Mapped_scans")
-    FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir")
+    FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir", "$outdir/Logs")
     DIRECTLFQ_FORMAT(MAP_SCANS.out.collect(), msms_mappings, "$outdir")
-    DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir")
+    DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir", "$outdir/Logs")
     FILTER_MSMS(MAP_SCANS.out.collect(), psm2combinedPEP.collect(), mzmls,
                 "$outdir/Unmatched")
 
     emit:
-    directlfq = DIRECTLFQ.out
+    directlfq = DIRECTLFQ.out.quant
+    unmatched_msms = FILTER_MSMS.out
+
 
 
 }

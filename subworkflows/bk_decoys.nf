@@ -22,20 +22,23 @@ workflow bk_decoys {
         msfragger: it.baseName =~ /msfragger*/
         }.set { bk_db }
     COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Comet",
-          bk_db.comet)
+          "$params.results/2-Second_pass/Logs", bk_db.comet)
     IDENTIPY(mzML_ch, "$params.results/2-Second_pass/Engines/Identipy",
-             bk_db.identipy.first())
+          "$params.results/2-Second_pass/Logs", bk_db.identipy.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml,
                 "$params.results/2-Second_pass/Engines/Identipy")
     MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params", "",
     "$params.results/2-Second_pass/Engines/MsFragger",
-              bk_db.msfragger)
+              "$params.results/2-Second_pass/Logs", bk_db.msfragger)
     P_COMET(COMET.out.percolator,
-            "$params.results/2-Second_pass/Percolator", bk_db.comet)
+            "$params.results/2-Second_pass/Percolator",
+            "$params.results/2-Second_pass/Logs", bk_db.comet)
     P_IPY(FORMAT_IDPY.out.percolator,
-            "$params.results/2-Second_pass/Percolator", bk_db.identipy)
+          "$params.results/2-Second_pass/Percolator",
+          "$params.results/2-Second_pass/Logs", bk_db.identipy)
     P_FRAGGER(MSFRAGGER.out.percolator,
-            "$params.results/2-Second_pass/Percolator", bk_db.msfragger)
+              "$params.results/2-Second_pass/Percolator",
+              "$params.results/2-Second_pass/Logs", bk_db.msfragger)
 
     emit:
     all_psms = P_COMET.out.psms.mix(P_IPY.out.psms,

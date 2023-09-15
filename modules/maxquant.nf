@@ -2,12 +2,13 @@ process MAXQUANT {
 
     stageInMode "copy"
     publishDir "$outdir", mode: "copy"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(raw_files) // Maxquant seems to only work with .raw files
     val(mq_config)
     val(outdir)
+    val(logdir)
     val(database)
     //
     output:

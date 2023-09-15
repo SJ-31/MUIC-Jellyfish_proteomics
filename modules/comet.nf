@@ -1,10 +1,11 @@
 process COMET {
     publishDir "$outdir", mode: "copy"
-    publishDir "$params.logs", mode: "copy", pattern: "*.log"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(indexed_mzMLs)
     val(outdir)
+    val(logdir)
     val(database)
     //
 
