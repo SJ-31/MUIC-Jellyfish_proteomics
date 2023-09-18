@@ -14,16 +14,14 @@ workflow 'open_search' {
     outdir
 
     main:
-    MSFRAGGER_OPEN(mzML.collect(), "$params.config/open_params.params",
+    MSFRAGGER_OPEN(mzML.collect(), "$params.config/open_fragger.params",
                    "GPTMD", "$outdir/MsFragger_open", "$outdir/Logs", dbWdecoys)
-    MSFRAGGER_GLYCO(mzML.collect(), "$params.config/Nglyco_params.params",
+    MSFRAGGER_GLYCO(mzML.collect(), "$params.config/Nglyco_fragger.params",
                     "Glyco", "$outdir/MsFragger_glyco", "$outdir/Logs", dbWdecoys)
-    METAMORPHEUS_GLYCO(mzML.collect(), "$outdir/Metamorpheus_glyco",
-                       "$outdir/Logs",
-                       "$params.config/metamorpheus_glyo_params.toml", "Glyco",
-                       db)
+    // METAMORPHEUS_GLYCO(mzML.collect(), "$outdir/Metamorpheus_glyco",
+    //                    "$outdir/Logs", "Glyco",
+    //                    "$params.config/metamorpheus_glyco_params.toml", db)
     METAMORPHEUS_GPTMD(mzML.collect(), "$outdir/Metamorpheus_gptmd",
-                       "$outdir/Logs",
-                       "$params.config/metamorpheus_gptmd_params.toml", "GPTMD",
-                       db)
+                       "$outdir/Logs", "GPTMD",
+                       "$params.config/metamorpheus_gptmd_params.toml", db)
 }

@@ -30,7 +30,7 @@ process MSFRAGGER {
         !{mzmls} > !{params.pref}_msfragger.log
 
     awk 'BEGIN {OFS="\t"; FS="\t"} (NR == 1) || (FNR > 1)' \
-        *tsv > !{params.pref}_msfragger.txt
+        *tsv > !{params.pref}!{mode}_msfragger.txt
 
     awk 'BEGIN {OFS="\t"; FS="\t"} (NR == 1) || (FNR > 1)' \
         *pin > fragger_all_pins.temp

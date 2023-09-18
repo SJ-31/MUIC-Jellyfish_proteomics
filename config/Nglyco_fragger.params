@@ -61,7 +61,7 @@ max_variable_mods_per_peptide = 3           # Maximum total number of variable m
 max_variable_mods_combinations = 5000       # Maximum number of modified forms allowed for each peptide (up to 65534).
 mass_diff_to_variable_mod = 0               # Put mass diff as a variable modification. 0 for no; 1 for yes and remove delta mass; 2 for yes and keep delta mass.
 
-output_format = pepxml                      # File format of output files (tsv, pin, pepxml, tsv_pin, tsv_pepxml, pepxml_pin, or tsv_pepxml_pin).
+output_format = tsv_pin                      # File format of output files (tsv, pin, pepxml, tsv_pin, tsv_pepxml, pepxml_pin, or tsv_pepxml_pin).
 output_report_topN = 1                      # Reports top N PSMs per input spectrum.
 output_max_expect = 50                      # Suppresses reporting of PSM if top hit has expectation value greater than this threshold.
 report_alternative_proteins = 0             # Report alternative proteins for peptides that are found in multiple proteins (0 for no, 1 for yes).
@@ -96,9 +96,6 @@ remove_precursor_peak = 1                   # Remove precursor peaks from tandem
 remove_precursor_range = -1.5,1.5           # m/z range in removing precursor peaks. Only for DDA mode. Unit: Th.
 intensity_transform = 0                     # Transform peaks intensities with sqrt root. 0 = not transform; 1 = transform using sqrt root.
 activation_types =                       	 # Filter to only search scans of provided activation type(s). / separated. Allowed: all, HCD, CID, ETD, ECD.
-group_variable = 0                          # Specify the variable used to decide the PSM group in the group FDR estimation. 0 = no group FDR; 1 = num_enzyme_termini; 2 = PE from protein header.
-require_precursor = 0                       # If required, PSMs with no precursor peaks will be discarded. For DIA data type only. 0 = no, 1 = yes.
-reuse_dia_fragment_peaks = 0                # Allow the same peak matches to multiple peptides. For DIA data type only. 0 = no, 1 = yes.
 
 # Fixed modifications
 add_Cterm_peptide = 0.000000

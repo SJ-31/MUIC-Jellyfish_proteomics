@@ -10,11 +10,14 @@ for i in [Aa]ll*
     mv $i metamorpheus${mode}_${i}
 done
 
+if test -f metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab
+then
 mv metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab edits.tab
 cat edits.tab | sed \
     -e "s/DECOY_/rev_/g" \
     -e "s/\[Common Variable:Oxidation on M\]/[15.9949]/g" \
     -e "s/\[Common Fixed:Carbamidomethyl on C\]//g" \
     > metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab
+fi
 
 cp .command.out metamorpheus${mode}.log

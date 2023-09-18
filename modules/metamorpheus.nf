@@ -17,8 +17,8 @@ process METAMORPHEUS {
 
     output:
     path("metamorpheus${mode}*")
-    path("metamorpheus${mode}_AllPSMs.psmtsv"), emit: psms
-    tuple val("metamorpheus${mode}"), path("metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab"), emit: percolator
+    path("metamorpheus${mode}_AllPSMs.psmtsv"), emit: psms, optional: true
+    tuple val("metamorpheus${mode}"), path("metamorpheus${mode}_AllPSMs_FormattedForPercolator.tab"), emit: percolator, optional: true
     //
 
     shell:
