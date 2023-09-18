@@ -1,6 +1,10 @@
 include { SEARCH_INTERSECT } from '../modules/search_intersect'
 include { COMBINE_PEP } from '../modules/combine_pep'
 include { BLASTP } from '../modules/blastp'
+include { SORT_BLAST as SORT_BLAST_V1 } from '../modules/sort_blast'
+include { SORT_BLAST as SORT_BLAST_V2 } from '../modules/sort_blast'
+include { SORT_BLAST as SORT_BLAST_V3 } from '../modules/sort_blast'
+include { SORT_BLAST as SORT_BLAST_V4 } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_QUANT } from '../modules/merge_quantifications'
@@ -26,9 +30,21 @@ workflow 'combine_searches' {
         "$outdir/Combined")
     UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
 
-    ANNOTATE(MERGE_QUANT.out.database, "$outdir")
+    ANNOTATE(MERGE_QUANT.out.database_tsv, "$outdir")
     if ( params.denovo ) {
-        BLASTP(MERGE_QUANT.out.unknown_fasta, "$outdir")
+        BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db, "$outdir")
+        SORT_BLAST_V1(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
+                   BLASTP.out, seq_header_mappings, 0, 1, 80, 0.05, 0.00001,
+                   "no_one_hits_no_degenerates", "$outdir")
+        SORT_BLAST_V2(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
+                   BLASTP.out, seq_header_mappings, 1, 0, 80, 0.05, 0.00001,
+                   "one_hits_degenerates", "$outdir")
+        SORT_BLAST_V3(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
+                   BLASTP.out, seq_header_mappings, 0, 0, 80, 0.05, 0.00001,
+                   "no_one_hits_degenerates", "$outdir")
+        SORT_BLAST_V4(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
+                   BLASTP.out, seq_header_mappings, 1, 1, 80, 0.05, 0.00001,
+                   "one_hits_no_degenerates", "$outdir")
         // INTERPROSCAN(, TODO: Give this the fasta file of peptides that don't
         // have blast hits
         // "$outdir")
