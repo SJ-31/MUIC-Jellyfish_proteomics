@@ -7,7 +7,7 @@ process INTERPROSCAN {
     //
 
     output:
-    path("${unknown_fasta.baseName}_scanned.tsv")
+    path("${unknown_fasta.baseName}-SCAN.tsv")
     //
 
     script:
@@ -16,7 +16,7 @@ process INTERPROSCAN {
         -f tsv \
         -goterms \
         -pa \
-        -b ${unknown_fasta.baseName}_scanned
+        -b ${unknown_fasta.baseName}-SCAN
     """
     //
 }

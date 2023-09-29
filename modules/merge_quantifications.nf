@@ -10,7 +10,7 @@ process MERGE_QUANT {
     output:
     path("unknown_hits.tsv"), emit: unknown_tsv
     path("unknown.fasta"), emit: unknown_fasta
-    path("database_hits.tsv"), emit: database
+    path("database_hits.tsv"), emit: database_tsv
     //
 
     shell:

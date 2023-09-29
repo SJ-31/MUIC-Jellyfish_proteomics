@@ -1,14 +1,12 @@
 include { SEARCH_INTERSECT } from '../modules/search_intersect'
 include { COMBINE_PEP } from '../modules/combine_pep'
 include { BLASTP } from '../modules/blastp'
-include { SORT_BLAST as SORT_BLAST_V1 } from '../modules/sort_blast'
-include { SORT_BLAST as SORT_BLAST_V2 } from '../modules/sort_blast'
-include { SORT_BLAST as SORT_BLAST_V3 } from '../modules/sort_blast'
-include { SORT_BLAST as SORT_BLAST_V4 } from '../modules/sort_blast'
+include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_QUANT } from '../modules/merge_quantifications'
 include { INTERPROSCAN } from '../modules/interpro'
+include { EGGNOG } from '../modules/eggnog'
 include { UNMATCHED_PSMS } from '../modules/unmatched'
 
 workflow 'combine_searches' {
@@ -29,25 +27,19 @@ workflow 'combine_searches' {
     MERGE_QUANT(directlfq, SEARCH_INTERSECT.out.sorted,
         "$outdir/Combined")
     UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
-
     ANNOTATE(MERGE_QUANT.out.database_tsv, "$outdir")
     if ( params.denovo ) {
-        BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db, "$outdir")
-        SORT_BLAST_V1(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, 0, 1, 80, 0.05, 0.00001,
-                   "no_one_hits_no_degenerates", "$outdir")
-        SORT_BLAST_V2(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, 1, 0, 80, 0.05, 0.00001,
-                   "one_hits_degenerates", "$outdir")
-        SORT_BLAST_V3(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, 0, 0, 80, 0.05, 0.00001,
-                   "no_one_hits_degenerates", "$outdir")
-        SORT_BLAST_V4(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, 1, 1, 80, 0.05, 0.00001,
-                   "one_hits_no_degenerates", "$outdir")
-        // INTERPROSCAN(, TODO: Give this the fasta file of peptides that don't
-        // have blast hits
-        // "$outdir")
+        // Syntax is <prefix> <do_one_hit?> <do_best_only?> <identity_threshold> <pep_threshold> <evalue_threshold>
+        Channel.of("no_one_hits_no_degenerates 0 1 80 0.05 0.00001",
+                   "one_hits_degenerates 1 0 80 0.05 0.00001",
+                   "no_one_hits_degenerates 0 0 80 0.05 0.00001",
+                   "one_hits_no_degenerates 1 1 80 0.05 0.00001")
+            .set { blast_vars }
+        BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db, "$outdir/Unmatched/BLAST")
+        SORT_BLAST(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
+                   BLASTP.out, seq_header_mappings, blast_vars, "$outdir/Unmatched")
+        INTERPROSCAN(SORT_BLAST.out.unmatched, "$outdir/InterPro")
+        EGGNOG(SORT_BLAST.out.unmatched, "$outdir/Unmatched/eggNOG")
     } else {
         FINAL_METRICS(MERGE_QUANT.out.database)
     }

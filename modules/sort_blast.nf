@@ -6,21 +6,24 @@ process SORT_BLAST {
     path(database_hits)
     path(blast_results)
     path(mapping)
-    val(one_hit) // 0 Removes proteins identified by only one peptide
-    val(best) // 1 Keeps best hit only, no degenerate peptides allowed
-    val(identity_thresh)
-    val(pep_thresh)
-    val(evalue_thresh)
-    val(prefix)
+    each arg_string
     val(outdir)
     //
 
     output:
-    path("${prefix}_unmatched.fasta")
-    path("blast_matched-${prefix}.tsv")
+    path("${prefix}_unmatched.fasta"), emit: unmatched
+    path("blast_matched-${prefix}.tsv"), emit: matched
     //
 
     script:
+    // Syntax is <prefix> <do_one_hit?> <do_best_only?> <identity_threshold> <pep_threshold> <evalue_threshold>
+    arguments = arg_string.split(/ /)
+    prefix = arguments[0]
+    one_hit = arguments[1] // 0 Removes proteins identified by only one peptide
+    best = arguments[2] // 1 Keeps best hit only, no degenerate peptides allowed
+    identity_thresh = arguments[3]
+    p_thresh = arguments[4]
+    evalue_thresh = arguments[5]
     """
     sort_blast.py -b $blast_results \
         -u $unknown_hits \
@@ -29,7 +32,7 @@ process SORT_BLAST {
         -f ${prefix}_unmatched.fasta \
         -i $identity_thresh \
         -e $evalue_thresh \
-        -p $pep_thresh \
+        -p $p_thresh \
         --one_hit $one_hit \
         --keep_best $best \
         -o blast_matched-${prefix}.tsv

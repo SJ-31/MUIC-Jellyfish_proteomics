@@ -5,7 +5,6 @@ include { SMSNET } from '../modules/smsnet'
 include { COMET } from '../modules/comet'
 include { IDENTIPY; FORMAT_IDPY } from '../modules/identipy'
 include { METAMORPHEUS as METAMORPHEUS_DEFAULT } from '../modules/metamorpheus'
-include { METAMORPHEUS as METAMORPHEUS_GLYCO } from '../modules/metamorpheus'
 include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { FORMAT_MQ } from '../modules/format_mq'
@@ -152,7 +151,7 @@ workflow 'search' {
     open_search_SECOND(quantify_SECOND.out.unmatched_msms,
                       db.plusdecoys,
                       db.normal,
-                      "$params.results/1-Second_pass/Open_search")
+                      "$params.results/2-Second_pass/Open_search")
 
     // Second combining
     combine_searches_SECOND(

@@ -6,7 +6,7 @@ process FLASHLFQ {
     input:
     path(scan_prot_mappings)
     path(mzmls)
-    path(logdir)
+    val(logdir)
     val(outdir)
     //
 
