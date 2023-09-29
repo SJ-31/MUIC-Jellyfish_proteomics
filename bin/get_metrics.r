@@ -12,9 +12,10 @@ clean_peptide <- function(modified_pep) {
 }
 
 read_tide <- function(tide_file) {
-  tide <- read.delim(tide_file, sep = "\t") %>%
-    select(c("percolator.PEP", "sequence")) %>%
-    dplyr::rename(PEP = percolator.PEP) %>%
+  tide <- read_tsv(tide_file) %>%
+    select(c("percolator q-value", "percolator PEP", "sequence")) %>%
+    dplyr::rename(PEP = `percolator PEP`) %>%
+    dplyr::rename(q_value = `percolator q-value`) %>%
     dplyr::rename(peptide = sequence)
   return(tide)
 }
@@ -32,8 +33,9 @@ read_psms <- function(file) {
     mutate(X6 = unlist(lapply(X6, gsub, pattern = "\t", replacement = ","))) %>%
     `colnames<-`(.[1, ]) %>%
     slice(-1) %>%
-    select(c(posterior_error_prob, peptide)) %>%
-    dplyr::rename(PEP = posterior_error_prob)
+    select(c(`q-value`, posterior_error_prob, peptide)) %>%
+    dplyr::rename(PEP = posterior_error_prob) %>%
+    dplyr::rename(q_value = `q-value`)
   return(t)
 }
 
@@ -50,16 +52,18 @@ read_percolator_psms <- function(percolator_file) {
     mutate(peptide = unlist(lapply(peptide, clean_peptide),
                             use.names = FALSE)) %>%
     mutate(mw = mw(peptide)) %>%
-    mutate(PEP = as.numeric(PEP)) %>%
+    mutate(PEP = as.numeric(PEP),
+           q_value = as.numeric(q_value)) %>%
     as_tibble()
   return(p_tibble)
 }
 
-get_psms <- function(psm_list, pep_threshold) {
+get_psms <- function(psm_list, pep_threshold, fdr) {
   all <- lapply(psm_list, read_percolator_psms) %>%
     bind_rows() %>%
     mutate(length = nchar(peptide)) %>%
-    filter(PEP <= pep_threshold)
+    filter(PEP <= pep_threshold) %>%
+    filter(q_value <= fdr)
 }
 
 clear_decoys <- function(protein_list) {
@@ -70,15 +74,16 @@ clear_decoys <- function(protein_list) {
 read_prot <- function(prot_file) {
   engine <- gsub("_.*", "", prot_file)
   prot_file <- glue("{file_path}/{prot_file}")
-  prot_header <- c("id", "PEP")
+  prot_header <- c("id", "q_value", "PEP")
   prot <- read_tsv(prot_file, col_names = FALSE) %>%
     as_tibble() %>%
-    select(c(X1, X4)) %>%
+    select(c(X1, X3, X4)) %>%
     slice(-1) %>%
     `colnames<-`(prot_header) %>%
     mutate(id = unlist(lapply(id, clear_decoys)),
            engine = engine,
-           PEP = as.numeric(PEP)) %>%
+           PEP = as.numeric(PEP),
+           q_value = as.numeric(q_value))
     return(prot)
 }
 
@@ -105,23 +110,25 @@ sort_duplicates <- function(file_path) {
   return(bound)
 }
 
-get_prot <- function(prot_list, pep_threshold, mapping) {
-  mapping <- read.delim(mapping, sep = "\t") %>%
+get_prot <- function(prot_list, pep_threshold, fdr, mapping) {
+  mapping <- read_tsv(mapping) %>%
     select(c(id, mass, length))
   all <- lapply(prot_list, sort_duplicates) %>%
     bind_rows() %>%
-    filter(PEP <= pep_threshold)
+    filter(PEP <= pep_threshold) %>%
+    filter(q_value <= fdr)
   joined <- inner_join(mapping, all, by = join_by(id)) %>%
-                                       dplyr::rename(mw = mass)
+    dplyr::rename(mw = mass)
+  print(joined$mw)
   return(as_tibble(joined))
 }
 
-get_tables <- function(path, is_psm, thresh, mapping) {
+get_tables <- function(path, is_psm, pep_thresh, fdr, mapping) {
   if (is_psm == TRUE) {
     paths <- list.files(path, pattern = "*percolator_psms.tsv")
-    return(get_psms(paths, thresh))
+    return(get_psms(paths, pep_thresh, fdr))
   } else {
     paths <- list.files(path, pattern = "*percolator_proteins.tsv")
-    return(get_prot(paths, thresh, mapping))
+    return(get_prot(paths, pep_thresh, fdr, mapping))
   }
 }

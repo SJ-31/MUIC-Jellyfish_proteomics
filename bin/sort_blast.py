@@ -1,4 +1,4 @@
-#!/usr/bin/env ipython
+#!/usr/bin/env python
 #
 import re
 import pandas as pd
@@ -83,7 +83,9 @@ def known_from_database(blast_df, db_df):
     already_found = pd.merge(db_df,
                              blast_df.filter(["subjectID", "seq"]),
                              left_on="ProteinId",
-                             right_on="subjectID")
+                             right_on="subjectID",
+                             how="left"
+                             )
     already_found["peptideIds"] = (already_found["peptideIds"].str.cat(
         already_found["seq_y"].to_list(), sep=","))
     already_found = (already_found.drop(
