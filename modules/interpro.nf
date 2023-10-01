@@ -10,13 +10,16 @@ process INTERPROSCAN {
     path("${unknown_fasta.baseName}-SCAN.tsv")
     //
 
-    script:
-    """
-    interproscan.sh -i $unknown_fasta \
+    shell:
+    '''
+    header="query\tsequence_md5\tlength\tmember_db\tdb_accession\tdescription\tstart\tstop\tevalue\tstatus\tdate\tinterpro_accession\tinterpro_description\tGO\tpathways"
+    interproscan.sh -i !{unknown_fasta} \
         -f tsv \
         -goterms \
         -pa \
-        -b ${unknown_fasta.baseName}-SCAN
-    """
+        -b temp
+    echo -e "$header" > header.txt
+    cat header.txt temp.tsv > !{unknown_fasta.baseName}-SCAN
+    '''
     //
 }

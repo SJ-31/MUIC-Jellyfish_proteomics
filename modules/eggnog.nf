@@ -8,7 +8,9 @@ process EGGNOG {
     //
 
     output:
-    path("${unknown_fasta.baseName}*")
+    path("${unknown_fasta.baseName}.emapper.seed_orthologs")
+    path("${unknown_fasta.baseName}.emapper.orthologs")
+    path("${unknown_fasta.baseName}.emapper.annotations")
     //
 
     script:
