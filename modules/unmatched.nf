@@ -12,7 +12,7 @@ process UNMATCHED_PSMS {
 
     script:
     """
-    unmatched_peptides.py unmatched_peptides.fasta 0.05
+    unmatched_peptides.py unmatched_peptides.fasta 1 0.05
     """
     //
 }
