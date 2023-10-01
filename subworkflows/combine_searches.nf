@@ -35,11 +35,15 @@ workflow 'combine_searches' {
                    "no_one_hits_degenerates 0 0 80 0.05 0.00001",
                    "one_hits_no_degenerates 1 1 80 0.05 0.00001")
             .set { blast_vars }
-        BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db, "$outdir/Unmatched/BLAST")
+        BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db,
+               "$outdir/Unmatched/BLAST")
         SORT_BLAST(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, blast_vars, "$outdir/Unmatched")
-        INTERPROSCAN(SORT_BLAST.out.unmatched, "$outdir/InterPro")
-        EGGNOG(SORT_BLAST.out.unmatched, "$outdir/Unmatched/eggNOG")
+                   BLASTP.out, seq_header_mappings, UNMATCHED_PSMS.out,
+                   blast_vars, "$outdir/Unmatched")
+        INTERPROSCAN(SORT_BLAST.out.unmatched,
+                     "$outdir/Unmatched/InterPro")
+        EGGNOG(SORT_BLAST.out.unmatched,
+               "$outdir/Unmatched/eggNOG")
     } else {
         FINAL_METRICS(MERGE_QUANT.out.database)
     }
