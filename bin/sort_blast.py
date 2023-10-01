@@ -5,12 +5,13 @@ import pandas as pd
 import numpy as np
 
 
-def write_unmatched(blast_df, failed_filter, prot_df):
-    # Write the unmatched entries to a new fasta file
+def write_unmatched(blast_df, failed_filter, prot_df, tsv_name):
+    # Write the unmatched entries to a new fasta and tsv file
     # all_df = pd.concat([prot_df, failed_filter])
     unmatched_fasta = ""
     unmatched = (prot_df[~prot_df["ProteinId"].isin(blast_df["queryID"])])
     unmatched = pd.concat([prot_df, failed_filter])
+    unmatched.to_csv(tsv_name, sep="\t", index=False)
     for row in unmatched.iterrows():
         entry = f">{row[1]['ProteinId']}\n{row[1]['seq']}\n"
         unmatched_fasta = unmatched_fasta + entry
@@ -63,8 +64,8 @@ def merge_blast(b_df, prot_df, keep_best_only, ident_thresh, e_thresh,
         # is matched with
         joined = joined.groupby("ProteinId").apply(adjust_pep)
         joined = joined[joined["posterior_error_prob"] <= pep_thresh]
-    did_not_pass = (copy[~copy["queryID"].isin(joined["queryID"])]
-                    .groupby("queryID").nth(1)[["ProteinId", "seq"]])
+    did_not_pass = (copy[~copy["queryID"].isin(joined["queryID"])].groupby(
+        "queryID").nth(1)[["ProteinId", "seq"]])
     # Extract the psms that failed any filters
     joined = (joined.groupby(["subjectID"
                               ]).apply(group_peps).reset_index(drop=True))
@@ -84,8 +85,7 @@ def known_from_database(blast_df, db_df):
                              blast_df.filter(["subjectID", "seq"]),
                              left_on="ProteinId",
                              right_on="subjectID",
-                             how="left"
-                             )
+                             how="left")
     already_found["peptideIds"] = (already_found["peptideIds"].str.cat(
         already_found["seq_y"].to_list(), sep=","))
     already_found = (already_found.drop(
@@ -124,6 +124,7 @@ def parse_args():
     parser.add_argument("-d", "--database_hits")
     parser.add_argument("-m", "--mapping")
     parser.add_argument("-f", "--unmatched_fasta")
+    parser.add_argument("-t", "--unmatched_tsv")
     parser.add_argument("-o", "--output")
     parser.add_argument("-i", "--identity_threshold")
     parser.add_argument("-p", "--pep_threshold")
@@ -147,14 +148,14 @@ if __name__ == '__main__':
                          ident_thresh=float(args["identity_threshold"]),
                          pep_thresh=float(args["pep_threshold"]),
                          e_thresh=float(args["evalue_threshold"]))
-    unmatched = write_unmatched(blast_df, joined[1], unknown_df)
+    unmatched = write_unmatched(blast_df, joined[1], unknown_df,
+                                args["unmatched_tsv"])
     with open(args["unmatched_fasta"], "w") as f:
         f.write(unmatched)
     in_db = known_from_database(joined[0], group_df)
     from_blast = blast_id_only(joined[0], group_df, mapping)
     final = pd.concat([in_db, from_blast])
     final.to_csv(args["output"], sep="\t", index=False)
-
 
 # test command
 # %run ./sort_blast.py -b ../results/jellyfish/1-First_pass/unknown-blast.csv -u ../results/jellyfish/1-First_pass/Combined/unknown_hits.tsv -m ../results/jellyfish/Databases/seq-header_mappings.tsv -f "../tests/blast/unmatched.fasta" -o "../tests/blast/matched.tsv" -d ../results/jellyfish/1-First_pass/Combined/database_hits.tsv -i 70 -e 100 --keep_best 0 --one_hit 0 -p 0.05

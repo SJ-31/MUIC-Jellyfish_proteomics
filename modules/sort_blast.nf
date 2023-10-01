@@ -6,6 +6,7 @@ process SORT_BLAST {
     path(database_hits)
     path(blast_results)
     path(mapping)
+    path(unmatched_peptides)
     each arg_string
     val(outdir)
     //
@@ -29,13 +30,15 @@ process SORT_BLAST {
         -u $unknown_hits \
         -d $database_hits \
         -m $mapping \
-        -f ${prefix}_unmatched.fasta \
+        -f unmatched.fasta  \
+        -t ${prefix}_unmatched.tsv \
         -i $identity_thresh \
         -e $evalue_thresh \
         -p $p_thresh \
         --one_hit $one_hit \
         --keep_best $best \
         -o blast_matched-${prefix}.tsv
+    cat $unmatched_peptides unmatched.fasta > ${prefix}_unmatched.fasta
     """
     //
 }
