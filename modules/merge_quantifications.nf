@@ -26,7 +26,10 @@ process MERGE_QUANT {
     awk 'BEGIN {FS="\t";OFS="\t"} {if (FNR == 1) {print $0; next} else if($1 ~ /O/) {print $0}}' \
         temp.tsv > unknown_hits.tsv
     awk -F "\t" '{if (FNR == 1) {next} else {printf ">%s\\n%s\\n",$1,$7}}' \
-        unknown_hits.tsv > unknown.fasta
+        unknown_hits.tsv > temp.fasta
+    cd-hit -i temp.fasta -o unknown.fasta -c 1.0
     '''
+    // cd-hit at 1.0 identity will cluster sequences that are complete subsets
+    // of another
     //
 }

@@ -12,7 +12,7 @@ process SORT_BLAST {
     //
 
     output:
-    path("${prefix}_unmatched.fasta"), emit: unmatched
+    tuple path("${prefix}_unmatched.fasta"), path("${prefix}_unmatched.tsv"), emit: unmatched
     path("blast_matched-${prefix}.tsv"), emit: matched
     //
 
@@ -38,7 +38,8 @@ process SORT_BLAST {
         --one_hit $one_hit \
         --keep_best $best \
         -o blast_matched-${prefix}.tsv
-    cat $unmatched_peptides unmatched.fasta > ${prefix}_unmatched.fasta
+    cat $unmatched_peptides unmatched.fasta > temp.fasta
+    cd-hit -i temp.fasta -o ${prefix}_unmatched.fasta -c 1.0
     """
     //
 }

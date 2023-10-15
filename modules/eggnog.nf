@@ -3,7 +3,7 @@ process EGGNOG {
     conda "/home/shannc/anaconda3/envs/eggnog"
 
     input:
-    path(unknown_fasta)
+    tuple path(unknown_fasta), path(unknown_tsv)
     val(outdir)
     //
 

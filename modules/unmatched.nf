@@ -7,13 +7,14 @@ process UNMATCHED_PSMS {
     //
 
     output:
-    path("unmatched_peptides.fasta")
-    path("unmatched_peptides.tsv")
-    //
+    path("unmatched_peptides.fasta"), emit: fasta
+    path("unmatched_peptides.tsv"), emit: tsv
+    // Obtain the tsv for sorting between high- and low-confidence unmatched
+    // peptides
 
     script:
     """
-    unmatched_peptides.py  -i . \
+    unmatched_peptides.py -i "." \
         -o unmatched_peptides.fasta \
         -t unmatched_peptides.tsv \
         -p 1 \

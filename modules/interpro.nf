@@ -19,7 +19,7 @@ process INTERPROSCAN {
         -pa \
         -b temp
     echo -e "$header" > header.txt
-    cat header.txt temp.tsv > !{unknown_fasta.baseName}-SCAN
+    cat header.txt temp.tsv > !{unknown_fasta.baseName}-SCAN.tsv
     '''
     //
 }
