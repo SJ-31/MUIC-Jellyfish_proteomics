@@ -6,7 +6,7 @@ import numpy as np
 
 
 def write_unmatched(blast_df, failed_filter, prot_df, tsv_name):
-    # Write the unmatched entries to a new fasta and tsv file
+    # Write the entries unmatched by blast to a new fasta and tsv file
     # all_df = pd.concat([prot_df, failed_filter])
     unmatched_fasta = ""
     unmatched = (prot_df[~prot_df["ProteinId"].isin(blast_df["queryID"])])

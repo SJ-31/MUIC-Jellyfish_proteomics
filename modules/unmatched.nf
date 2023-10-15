@@ -8,11 +8,16 @@ process UNMATCHED_PSMS {
 
     output:
     path("unmatched_peptides.fasta")
+    path("unmatched_peptides.tsv")
     //
 
     script:
     """
-    unmatched_peptides.py unmatched_peptides.fasta 1 0.05
+    unmatched_peptides.py  -i . \
+        -o unmatched_peptides.fasta \
+        -t unmatched_peptides.tsv \
+        -p 1 \
+        -q 0.05
     """
     //
 }
