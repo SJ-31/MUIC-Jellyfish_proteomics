@@ -11,16 +11,16 @@ workflow 'open_search' {
     //
     take:
     mzML
-    dbWdecoys
+    dbPlusDecoys
     db
     outdir
 
     main:
     MSFRAGGER_OPEN(mzML.collect(), "$params.config/open_fragger.params",
-                   "GPTMD", "$outdir/MsFragger_open", "$outdir/Logs", dbWdecoys)
+                   "GPTMD", "$outdir/MsFragger_open", "$outdir/Logs", dbPlusDecoys)
     MSFRAGGER_GLYCO(mzML.collect(), "$params.config/Nglyco_fragger.params",
                     "Glyco", "$outdir/MsFragger_glyco", "$outdir/Logs",
-                    dbWdecoys)
+                    dbPlusDecoys)
     METAMORPHEUS_GET_GPTMD(mzML.collect(), "$outdir/Metamorpheus_gptmd",
                        "$outdir/Logs", "",
                        "$params.config/metamorpheus_gptmd_params.toml", db)
@@ -34,4 +34,6 @@ workflow 'open_search' {
         MSFRAGGER_OPEN.out.percolator,
         MSFRAGGER_GLYCO.out.percolator,
     ).set { to_percolator }
+    PERCOLATOR(to_percolator, "$outdir/Percolator",
+               "$outdir/Logs", dbPlusDecoys.first())
 }
