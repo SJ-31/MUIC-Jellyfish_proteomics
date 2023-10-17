@@ -5,7 +5,7 @@ html {
 
 * {
     box-sizing: border-box;
-    font-family: 'Ubuntu';
+    font-family: Ubuntu;
     color: #434c5e;
     list-style: none;
 }
@@ -14,7 +14,12 @@ figcaption {
     font-size: 0.7rem;
 }
 
-li {
+
+.steps > li {
+    list-style-type: decimal;
+}
+
+li, .normal-list li {
     padding: 4px;
     list-style-type: "✦ "
 }
@@ -29,6 +34,12 @@ body {
 
 .main {
     border: solid 5px #4c566a;
+    padding-left: 2vw;
+    padding-right: 2vw;
+}
+
+.main > p {
+    text-align: center;
 }
 
 h1 {
@@ -53,15 +64,25 @@ h3 {
     color: #bf616a
 }
 
+
+
 .title h1 {
     font-size: 2rem;
     padding-top: 20px;
     text-align: center;
 }
 
+img.screenshot {
+    border: solid 2px #4c566a
+}
+
 img {
     max-width: 100%;
     max-height: 100%;
+}
+
+img.cid {
+    max-height: 650px;
 }
 
 img.logo {
@@ -117,26 +138,73 @@ img.disc {
 }
 
 .prepare {
-    display: flex;
-    align-items: center;
     gap: 4vw
 }
 
-.prepare li {
-    list-style-type: decimal;
+
+.prepare .purify {
+    display: flex;
+    align-items: center;
 }
 
-.prepare .steps {
-    margin-left: 5vw;
-    max-width: 500px;
+hr {
+    color: #a3be8c;
+    height: 5px;
+    background-color: #5e81ac;
+    margin-top: 5vw;
+    margin-bottom: 5vw;
 }
 
-.ms1 {
+.prepare .msms {
     display: flex;
 }
 
-.ms1 .ms1-info {
+.prepare .msms img {
+    max-width: 1000px;
+}
+
+.show-data {
+    display: flex;
+    align-items: center;
+}
+
+
+.misc-methods {
+    display: flex;
+    justify-content: space-around;
+}
+
+.misc-methods {
+    text-align: center;
+    margin-right: 5vw;
     margin-left: 5vw;
+}
+
+.con, .pro {
+    font-size: 0.9rem;
+    margin-left: 1vw;
+    margin-right: 1vw;
+}
+
+.pro li {
+    list-style-type: "✔ ";
+}
+
+.con li {
+    list-style-type: "❌ ";
+}
+
+.misc-methods h3, .misc-methods h4 {
+    text-align: center;
+    margin-bottom: -10px;
+}
+
+.bioinfo .overview {
+    padding-bottom: 5vw;
+}
+
+.pros-cons {
+    display: flex;
 }
 
 .pipeline-head {
@@ -154,4 +222,25 @@ img.disc {
 
 .pipeline p {
     text-align: center;
+}
+
+.strs {
+    display: flex;
+    justify-content: space-around;
+}
+
+.strs img {
+    max-height: 300px;
+}
+
+.prot-groups {
+    display: flex;
+    align-items: center;
+}
+
+.dist {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
 }

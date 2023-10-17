@@ -1,6 +1,5 @@
 digraph boxes_and_circles {
     ranksep=2
-    rankdir=LR
     graph [style=invis; fontname="ubuntu"]
     newrank=true
     node [fontname="ubuntu"; fontsize=20;

@@ -85,60 +85,148 @@
       <h1>Overview of shotgun proteomics</h1>
       <h2>Data acquisition</h2>
       <div class="prepare">
-        <div class="steps">
-          <h3>Sample preparation</h3>
-          <ul>
-            <li>Purify proteins from sample</li>
-            <li>Denature proteins and render inert</li>
-            <li>Digest proteins into peptides with an enzyme, typically trypsin</li>
-            <li>Wash to remove contaminants</li>
-            <li>Inject into High Performance Liquid Chromatography (HPLC) system</li>
-            <li>Peptides are ionized into gas-phase ions as they elute</li>
-          </ul>
-          <h3>Tandem mass spectrometry (MS/MS)</h3>
-          <ul>
-            <li>Peptide ions enter mass spectrometer</li>
-            <li>Ions in a wide m/z range are recorded, forming an <strong>MS1</strong> spectrum</li>
-            <li>An intense ion (called a <strong>precursor</strong> ion) is selected, then fragmented</li>
-            <li>m/z values of the fragment ions are recorded, forming an <strong>MS2</strong> spectrum</li>
-            <li>Steps 3-4 repeat for other intense ions in the MS1 spectrum (usually 10)</li>
-            <li>The entire process repeats with another m/z range to acquire more MS1 & MS2 spectra</li>
+        <div class="purify">
+          <div><h3>Sample preparation</h3>
+            <ul class="steps">
+              <li>Purify proteins from sample</li>
+              <li>Denature proteins and render inert</li>
+              <li>Digest proteins into peptides with an enzyme, typically trypsin</li>
+              <li>Wash to remove contaminants</li>
+              <li>Inject into High Performance Liquid Chromatography (HPLC) system</li>
+              <li>Peptides are ionized into gas-phase ions as they elute</li>
+            </ul></div>
+          <img src="./images/purify.png">
         </div>
-        <img src="./images/purify.png">
-      </div>
-      <div class="show-data">
-        <div class="ms1">
-          <div class="ms1-info">
-            <h2>About shotgun MS data</h2>
-            <p>A list of m/z values, nested to show the relationships between spectra</p>
-            <p>Each MS1 peak is described by an m/z value and intensity</p>
-            <p>Metadata for each spectra, including HPLC retention time, precursor charge (for MS2 spectra) and ion intensity is also recorded</p>
-          </div>
+        <hr>
+        <div class="msms">
+          <div class="text"><h3>Tandem mass spectrometry (MS/MS)</h3>
+            <ul class="steps">
+              <li>Peptide ions enter mass spectrometer</li>
+              <li>Ions in a wide m/z range are recorded, forming an <strong>MS1</strong> spectrum</li>
+              <li>An intense ion (called a <strong>precursor</strong> ion) is selected, then fragmented</li>
+              <ul><li>In <strong>Collision Induced Dissociation (CID)</strong>, fragmentation occurs by collision with a neutral gas e.g. Helium</li></ul>
+              <li>m/z values of the fragment ions are recorded, forming an <strong>MS2</strong> spectrum</li>
+              <li>Steps 3-4 repeat for other intense ions in the MS1 spectrum (usually 10)</li>
+              <li>The entire process repeats with another m/z range to acquire more MS1 & MS2 spectra</li>
+            </ul>
+            <h4>Shotgun MS data</h4>
+            <ul class="normal-list">
+              <li>A list of m/z values, nested to show the relationships between spectra</li>
+              <li>Each MS1 peak is described by an m/z value and intensity</li>
+              <ul><li>MS1 spectra are 3-dimensional: ion intensity (y-axis), m/z (x-axis) and retention time (z-axis)</li></ul>
+              <li>Metadata for each spectra, including HPLC retention time, precursor charge (for MS2 spectra) and ion intensity is also recorded</li>
+            </ul></div>
           <figure>
             <img src="./images/3dimensional.svg">
             <figcaption><strong>Figure 1:</strong> MS1 spectra in the 500-503 m/z range</figcaption>
           </figure>
         </div>
         <figure>
-          <img src="./images/sample_msms.svg">
-          <figcaption><strong>Figure 2:</strong> MS2 spectra from fragmentation of four different precursors</figcaption>
+          <img src="./images/snippet.png" class="screenshot" >
+          <figcaption><strong>Figure 2:</strong> Snippet from an MS/MS file</figcaption>
         </figure>
       </div>
+      <hr>
+      <h2>MS2 spectra</h2>
+      <div class="show-data">
+        <img class="cid" src="./images/cid.png">
+        <figure>
+          <img src="./images/sample_msms.svg">
+          <figcaption><strong>Figure 3:</strong> MS2 spectra from fragmentation of four different precursors</figcaption>
+        </figure>
+      </div>
+      <hr>
       <div class="bioinfo">
-        <h2>Data processing</h2>
-        <p>Typical bioinformatics processing of shotgun MS data involves three steps</p>
-        <ul>
-          <li><strong>Peptide identification:</strong> what are the sequences of the precursor peptides that formed the MS2 spectra?
-            <ul>
-              <li>Database searching</li>
-              <li>De novo sequencing</li>
-              <li>Spectral library searching</li>
-            </ul>
-          </li>
-          <li>Protein inference: what proteins were present in the sample?</li>
-          <li>Quantification: what are the quantities of the proteins present?</li>
-        </ul>
-        <h3>Database search engines</h3>
+        <div class="overview">
+          <h2>Data processing</h2>
+          <p>Typical bioinformatics processing of shotgun MS data involves three steps:</p>
+          <ul>
+            <li><strong>Peptide identification:</strong> what are the sequences of the precursor peptides that formed the MS2 spectra?
+              <ul>
+                <li>Database searching</li>
+                <li>De novo sequencing</li>
+                <li>Spectral library searching</li>
+              </ul>
+            </li>
+            <li><strong>Protein inference:</strong> what proteins were present in the sample?</li>
+            <li><strong>Quantification:</strong> what are the quantities of the proteins present?
+              <ul>
+                <li>Label-free quantification (LfQ) <strong>(this dataset)</strong></li>
+                <li>Labeled methods
+                  <ul><li>Stable isotope labeling with amino acids in cell culture (SILAC)</li>
+                    <li>Isobaric labeling</li>
+                  </ul></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <hr>
+        <div class="explain-search">
+          <h3>Database search explained</h3>
+          <ul class="steps">
+            <li>Perform <em>in-silico</em> digest of proteins in FASTA file
+              <ul>
+                <li>This includes the target proteins in the database and <strong>decoy proteins</strong></li>
+                <li>Decoy proteins serve as a null distribution, proteins that <strong>aren't</strong> present in the database. They are generated either by randomly shuffling or reversing the sequences of target proteins</li>
+              </ul>
+            </li>
+            <li>Predict MS2 spectra each peptide could generate</li>
+            <li>Match experimental MS2 spectra against theoretical spectra from step 2</li>
+            <li>Score each match
+              <ul><li>Different engines use different scoring functions</li></ul>
+            </li>
+            <li><strong>False discovery rate (FDR) control:</strong> using the number of decoy and target matches, the false discovery rate at each PSM score is calculated from the data and used for quality control of PSMs
+              <ul><li>An FDR of 0.05 means that we can expect 5% of proteins to be false positives</li></ul>
+          </ul>
+          <figure>
+            <img src="./images/database_snip.png" class="screenshot">
+            <figcaption><strong>Figure 4:</strong> Two proteins in the database and their decoys</figcaption>
+        </div>
+        <hr>
+        <div class="misc-methods">
+          <div>
+            <h3>De novo sequencing</h3>
+            <p>Determines precursor peptide sequence using the m/z differences between adjacent peaks in MS2 spectra</p>
+            <div class="pros-cons">
+              <div class="pro"><h4>Advantages</h4>
+                <ul>
+                  <li>Only input data is the MS/MS files</li>
+                  <li>Can discover peptides unknown to online databases</li>
+                </ul>
+              </div>
+              <div class="con"><h4>Disadvantages</h4>
+                <ul>
+                  <li>Protein inference needs to be done manually</li>
+                  <li>No widely-accepted methods for quality control</li>
+                  <li>Less accurate compared to other two approaches</li>
+                </ul>
+              </div>
+            </div>
+            <figure>
+              <img src="./images/denovo.png" style="max-height: 400px">
+              <figcaption><strong>Figure 5:</strong> Basic premise of de novo peptide sequencing - the differences between peaks produces the peptide SCRGA</figcaption>
+          </div>
+          <div>
+            <h3>Spectral library searching</h3>
+            <p>Compares experimental MS2 spectra to high-quality, reference MS2 spectra generated in previous experiments</p>
+            <div class="pros-cons">
+              <div class="pro"><h4>Advantages</h4>
+                <ul>
+                  <li>Uses experimental data as reference, thus better reflects reality</li>
+                  <li>Higher sensitivity - identifies more spectra at the same confidence level</li>
+                </ul>
+              </div>
+              <div class="con"><h4>Disadvantages</h4>
+                <ul>
+                  <li>Spectral libraries are only available for model organisms</li>
+                </ul>
+              </div>
+            </div>
+            <figure>
+              <img src="./images/spectral_compare.png" style="max-height: 400px; margin-top: 4vw;">
+              <figcaption><strong>Figure 6:</strong> Main idea behind spectral library searhcing</figcaption>
+          </div>
+        </div>
       </div>
     </div>
     <div class="sep">
@@ -158,40 +246,91 @@
         <img src="./images/flow.svg">
       </div>
       <p>*Changes may still be made</p>
+      <hr>
       <h2>Hypotheses</h2>
       <ul>
-        <li>The optimization strategies will increase protein coverage by peptides</li>
-        <li>Open searching will resolve many of the unmatched spectra</li>
-        <li>An overall higher number of protein groups will be identified</li>
-        <ul>
+        <li>As different search engines may identify different peptides belonging to the same proteins, the pipeline will <strong>increase protein coverage by peptides</strong></li>
+        <li>The combined database search strategy and addition of de novo peptides will <strong>increase the number of identified protein groups</strong></li>
+        <li>By leveraging the fact that different PSM scoring functions have different properties, and open searching on unmatched spectra, <strong>more MS/MS spectra will be identified</strong></li>
+      </ul>
+            </li>
+          </ul>
+          <p>*How these will be quantified and compared is explained below</p>
     </div>
     <div class="sep">
     </div>
     <div class="expected main">
       <h1>Expected results & Evaluation</h1>
-      <p>Each of the search engines should identify a different set</p>
+      <p>Although some identifications will overlap, each of the search engines should also identify a different set of proteins</p>
       <div class="prot-groups">
-        <h2>Anticipated protein</h2>
-        <p>Based on literature</p>
-        <ul>
-          <li><strong>Jellyfish Toxin family (JFTs):</strong> a family of Cnidarian-specific porin proteins</li>
-          <li><strong>Metalloproteases:</strong></li>
-          <li><strong>Minicollagens:</strong> structural components of the nematocyst wall</li>
+        <div><h2>Anticipated proteins</h2>
+          <p>The following are a few of the expected protein families, based on the literature</p>
+          <ul>
+            <li><strong>Jellyfish Toxin family (JFTs):</strong> a family of Cnidarian-specific porin proteins</li>
+            <li><strong>Metalloproteases:</strong> family of protease enzymes that rely on a metal atom for catalytic action. Known to act as toxins</li>
+            <li><strong>Minicollagens:</strong> structural components of the nematocyst wall</li>
+          </ul></div>
+        <figure>
+          <img src="./images/cftx-2.png" style="max-height: 300px;">
+          <figcaption><strong>Figure 7:</strong> JFT CfTx-2, <em>C. fleckeri</em></figcaption>
+        </figure>
       </div>
+      <div class="strs">
+        <figure>
+          <img src="./images/metalloendopeptidase.png">
+          <figcaption><strong>Figure 8:</strong> Metalloendopeptidase, <em>Aurelia aurita</em></figcaption>
+        </figure>
+        <figure>
+          <img src="./images/minicollagen.png">
+          <figcaption><strong>Figure 9:</strong> Minicollagen 13, <em>Hydra vulgaris</em></figcaption>
+        </figure>
+      </div>
+      <p>Structures predicted by AlphaFold (Jumper et al., 2021; Varadi et al., 2022)</p>
+      <hr>
+      <h4>Preliminary results confirm that different engines identify different proteins and peptides</h4>
+      <div class="dist">
+        <figure>
+          <img src="./images/len_mw_dist.svg">
+          <figcaption><strong>Figure 10:</strong> Length & mw distribution of peptides from each engine</figcaption>
+        </figure>
+        <figure>
+          <figcaption><strong>Table 1:</strong> P-values from pairwise Komolgorov-Smirnov tests of the mw and length distributions above</figcaption>
+          <img src="./images/ks_results.png" style="border: solid 2px #4c566a;">
+        </figure>
+        <figure style="text-align: center;">
+          <img src="./images/engine_intersections.svg">
+          <figcaption><strong>Figure 11:</strong> Intersection of protein identifications from each engine, filtered at 0.05 FDR. *The high number of proteins is due to matches to de novo peptides, which will need to be sorted into proteins</figcaption>
+        </figure>
+      </div>
+      <hr>
       <h2>Benchmarking</h2>
-      <h4>Assessment metrics</h4>
-      <ul>
-        <li>Protein coverage by peptides</li>
-        <li>Number of identified proteins</li>
-        <li>Number of unmatched MS/MS spectra</li>
-      </ul>
-      <h4>Combinations</h4>
-      <ul>
-        <li>Impact of mzML preprocessing: running pipeline searches on the mzML files prepared using different strategies</li>
-        <li>Contribution of de novo peptides: running pipeline searches with and without adding de novo peptides into database</li>
-        <li>Impact of second-pass search: compare the first- and second-pass searches within a given run</li>
-      </ul>
-      <p>The metric distributions for each iteration can be compared using standard statistical tests</p>
+      <h4>Data to be evaluated</h4>
+      <p>To test the hypotheses, output from the following stages or iterations of the pipeline will be evaluated
+        <ul class="steps">
+          <li>Running searches on the mzML files prepared using different preprocessing strategies
+            <ul><li>To evaluate <strong>impact of mzML preprocessing</strong></li></ul>
+          </li>
+          <li>Running pipeline search step with and without adding de novo peptides into the database
+            <ul><li>To quantify <strong>contribution of de novo peptides</strong> to identifications</li></ul>
+          </li>
+          <li>Comparing the first- and second-pass searches within a given run
+            <ul><li>To determine the <strong>effect of the second-pass search</strong></li></ul>
+          </li>
+          <li>Running pipeline on benchmark dataset
+            <ul><li>To <strong>verify accuracy</strong> of quantification methods</li></ul>
+          </li>
+        </ul>
+        <p>After the most effective preprocessing strategy is selected, output from the full pipeline will be compared against the previous analysis</p>
+          </ul>
+          <h4>Assessment metrics</h4>
+          <ul class="steps">
+            <li>Protein coverage by peptides</li>
+            <li>Number of identified proteins & peptides</li>
+            <li>Number of unmatched MS/MS spectra (could not be confidently assigned a PSM)</li>
+            <li>Number of unmatched peptides (no matches to online database proteins or protein families)</li>
+            <li>GO/PANTHER terms</li>
+          </ul>
+          <p>The metric distributions can be compared using standard statistical tests, such as the Komolgorov-Smirnov test</p>
     </div>
     <div class="sep">
     </div>

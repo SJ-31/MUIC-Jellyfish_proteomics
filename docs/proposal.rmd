@@ -1,35 +1,30 @@
----
-title: "Jellyfish venome"
-author: "Shann Chongwattananukul"
-output:
-  html_document:
-    theme: cerulean
-    higlight: tango
-    fig_width: 20
-    fig_height: 10
-    fig_caption: true
-    df_print: paged
----
-```{r setup, include=FALSE, echo=FALSE}
-knitr::opts_chunk$set(
-  warning = FALSE, message = FALSE, echo = FALSE,
-  dev = "svg",
-  # eval = FALSE
-)
-```
-
 ```{r echo=FALSE, results='hide', message=FALSE, comment=NA}
 source("../bin/get_metrics.r")
 library(MSnbase)
+library(ggpubr)
 library(Spectra)
 library(DiagrammeR)
 plot_mw_dist <- function(combined_table) {
   combined_table %>% ggplot(aes(x = mw, y = engine, fill = engine)) +
-    ggridges::geom_density_ridges2()
+    geom_boxplot() +
+    theme(
+      axis.ticks.y = element_blank(),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      legend.title = element_text(size = rel(1.3)),
+      legend.text = element_text(size = rel(1.3))
+    )
 }
 plot_len_dist <- function(combined_table) {
   combined_table %>% ggplot(aes(x = length, y = engine, fill = engine)) +
-    ggridges::geom_density_ridges2()
+    ggridges::geom_density_ridges2() +
+    theme(
+      axis.ticks.y = element_blank(),
+      axis.text.y = element_blank(),
+      axis.title.y = element_blank(),
+      legend.title = element_text(size = rel(1.3)),
+      legend.text = element_text(size = rel(1.3))
+    )
 }
 ```
 
@@ -68,25 +63,33 @@ plotSpectra(sample, main = names, col = "darkgreen")
 dev.off()
 ```
 
-#### Bioinformatics
-* **Three data processing procedures**
-  * Peptide identification: identifying the sequence of the peptide ion that gave rise to a given MS/MS spectra
-  *
-
-## Pipeline implementation
-![](./flow.svg)
-
-
 #### Distribution of identified proteins by engine
 ```{r, echo=FALSE}
-map <- "../tests/toy_results/all_normal_mapping.tsv"
-file_path <- "../results/ND_jellyfish/1-First_pass/Percolator"
-all_psms <- get_tables(file_path, TRUE, 0.05, map)
-all_proteins <- get_tables(file_path, FALSE, 0.05, map)
-psm_mw_dist <- plot_mw_dist(all_psms)
-psm_len_dist <- plot_len_dist(all_psms)
-protein_mw_dist <- plot_mw_dist(all_proteins)
-protein_len_dist <- plot_len_dist(all_proteins)
+map <- "../results/jellyfish/Databases/seq-header_mappings.tsv"
+file_path <- "../results/jellyfish/1-First_pass/Percolator"
+all_psms <- get_tables(file_path, TRUE, 1, 0.05, map)
+all_proteins <- get_tables(file_path, FALSE, 1, 0.05, map)
+
+# psm_mw_dist <- plot_mw_dist(all_psms)
+# psm_len_dist <- plot_len_dist(all_psms)
+# psm_mw_len <- ggarrange(psm_len_dist, psm_mw_dist, ncol = 2, nrow = 1,
+#   common.legend = TRUE, legend = "right")
+# ggsave(
+#   plot = psm_mw_len, device = svg,
+#   scale = 1, width = 50, height = 20, units = "cm",
+#   filename = "./images/len_mw_dist.svg"
+# )
+#
+# protein_mw_dist <- plot_mw_dist(all_proteins)
+# ggsave(
+#   plot = protein_mw_dist, device = svg,
+#   filename = "./images/protein_mw_dist.svg"
+# )
+# protein_len_dist <- plot_len_dist(all_proteins)
+# ggsave(
+#   plot = protein_len_dist, device = svg,
+#   filename = "./images/protein_len_dist.svg"
+# )
 ```
 
 #### Distribution of identification results
@@ -94,31 +97,39 @@ protein_len_dist <- plot_len_dist(all_proteins)
 # Is the difference between distributions statistically significant?
 engines <- unique(all_proteins$engine)
 engine_combos <- engines %>% combn(2)
+engine1 <- vector()
+engine2 <- vector()
+mw_pvalue <- vector()
+len_pvalue <- vector()
 for (comb in seq_len(dim(engine_combos)[2])) {
   first <- engine_combos[, comb][1]
+  engine1 <- append(engine1, first)
   second <- engine_combos[, comb][2]
-  first_df <- all_proteins %>% filter(engine == first)
-  second_df <- all_proteins %>% filter(engine == second)
+  engine2 <- append(engine2, second)
+  first_df <- all_psms %>% filter(engine == first)
+  second_df <- all_psms %>% filter(engine == second)
   try <- ks.test(first_df$mw, second_df$mw)
-  if (try$p.value < 0.05) {
-    print(glue("SSD found! {first} & {second}, p = {try$p.value}"))
-  }
+  mw_pvalue <- append(mw_pvalue, try$p.value)
+  try <- ks.test(first_df$length, second_df$length)
+  len_pvalue <- append(len_pvalue, try$p.value)
 }
+p_df <- data.frame(
+  engine1 = engine1, engine2 = engine2,
+  mw_p_value = mw_pvalue,
+  length_p_value = len_pvalue
+)
 ```
 
-#### Overlap of engines' identified prteins
+#### Overlap of engines' identified proteins
 ```{r, echo=FALSE}
 id_list <- lapply(engines, function(x) {
   return(filter(all_proteins, engine == x)$id)
 }) %>% `names<-`(engines)
-big_venn <- venn(id_list,
-  plotsize = 35, borders = FALSE, box = FALSE,
-  ilcs = 1.5, sncs = 2,
+svg("engine_intersections.svg")
+venn(id_list,
+  plotsize = 100, borders = FALSE, box = FALSE,
+  ilcs = 1, sncs = 1.5,
   zcolor = "red, blue, green, white, orange, yellow"
 )
-svg("engine_intersections.svg")
-big_venn
 dev.off()
 ```
-
-
