@@ -19,6 +19,10 @@ process EGGNOG {
     emapper.py -i $unknown_fasta \
         --output ${unknown_fasta.baseName} \
         --report_orthologs
+
+    unmatched_eggnog.r -f ${unknown_fasta.baseName}_eggnog.fasta \
+        -b $unknown_tsv \
+        -a ${unknown_fasta.baseName}.emapper.annotations
     """
     //
 }

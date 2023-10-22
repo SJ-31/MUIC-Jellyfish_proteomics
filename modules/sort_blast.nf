@@ -41,5 +41,6 @@ process SORT_BLAST {
     cat $unmatched_peptides unmatched.fasta > temp.fasta
     cd-hit -i temp.fasta -o ${prefix}_unmatched.fasta -c 1.0
     """
-    //
+    // We want the tsv file for the unmatched peptides so that they their
+    // metadata (which engines matched them, PEP, evalue etc.) will not be lost
 }
