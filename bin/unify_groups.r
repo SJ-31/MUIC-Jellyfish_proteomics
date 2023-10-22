@@ -63,11 +63,11 @@ group_frame <- function(pId, combined_frame, p_record) {
 
 resolve_records <- function(combined_tib, records) {
   new <- combined_tib %>%
-    mutate(Group = unlist(lapply(ProteinGroupId, function (x) {
-    groups <- strsplit(x, ",")[[1]]
-    found <- intersect(groups, names(records))[1]
-    return(records[[found]])
-  })))
+    mutate(Group = unlist(lapply(ProteinGroupId, function(x) {
+      groups <- strsplit(x, ",")[[1]]
+      found <- intersect(groups, names(records))[1]
+      return(records[[found]])
+    })))
   return(new)
 }
 
@@ -78,6 +78,7 @@ if (sys.nframe() == 0) {
   combined <- read.delim(combined_file, sep = "\t") %>%
     as_tibble()
   group_records <- unify_groups(combined)
-  all_groups <- resolve_records(combined, group_records)
+  all_groups <- resolve_records(combined, group_records) %>%
+    mutate(Identification_method = "standard_search")
   write_delim(all_groups, output, delim = "\t")
 }
