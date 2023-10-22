@@ -1,22 +1,23 @@
 digraph boxes_and_circles {
     ranksep=2
-    graph [style=invis; fontname="ubuntu"]
+    graph [style=invis; fontname="Helvetica"]
     newrank=true
     node [fontname="ubuntu"; fontsize=20;
           style=filled]
 
     node [shape=folder; color=lightcyan4; fillcolor=lightcyan]; rawRNA1; rawRNA2; mtdna; raw; unip; ncbi
 
-    node [shape=component; color=honeydew4; fillcolor=honeydew1]; fp; bbduk; spades; tdc; busco; sms; pepnet; csnv; ursgal; intersect; api; interpro; flcn; wiz; meta; tide; mq; idpy; msfrag; comet; dlfq; empai; flfq; bk_decoy; cov; blast; glyco; ptm
+    node [shape=component; color=honeydew4; fillcolor=honeydew1]; fp; bbduk; spades; tdc; busco; sms; pepnet; csnv; intersect; api; interpro; flcn; wiz; meta; tide; mq; idpy; msfrag; comet; dlfq; empai; flfq; bk_decoy; cov; blast; glyco; ptm; eggnog; onto; meta_calibrate
 
-    node[shape=tab;color=lightslateblue; fillcolor=lightsteelblue1]; denovo; mgf; mzML; conf; decoy_db; other; unmatched; u_other; unmsms
+    node[shape=tab;color=lightslateblue; fillcolor=lightsteelblue1]; denovo; mgf; mzML; conf; decoy_db; other; unmatched; u_other; unmsms; unmatched_eggnog
 
-    node[shape=octagon;color=indigo;fillcolor=ivory]; quant; func
+    node[shape=octagon;color=indigo;fillcolor=ivory]; quant; func; final
 
     node [shape=plaintext; fillcolor=none;
-          ]; pre; thermoparse; d
+          ]; thermoparse
 
     subgraph cluster_rna {
+        fontsize="22"
         margin=50
         style=filled; fillcolor=seashell
         label=<<b>Transcriptome assembly</b>>
@@ -37,34 +38,46 @@ digraph boxes_and_circles {
     }
 
     subgraph cluster_db {
+        fontsize="22"
         decoy_db[label=<Concatenated target-decoy database>]
         ncbi [label=<<b>NCBI</b><br/>Cnidarian proteins>]
         unip [label=<<b>UniProt</b><br/>Cnidarian proteins>]
         {unip,ncbi,tdc}->decoy_db
     }
+        raw[label=<Mass spectrometer RAW files>]
+        thermoparse->mzML
 
     subgraph cluster_pre {
+        fontsize="22"
+        label=<<b>Preprocessing</b>>
+        style=filled; fillcolor=azure
         margin=50
-        raw->thermoparse->mgf->d->{csnv,sms,pepnet}->denovo
-        d[label=<Denovo peptide sequencing>]
-        d [shape=plaintext]
-        raw[label=<Mass spectrometer RAW files>]
+        mzML->{flcn,wiz,meta_calibrate} [color=webgreen]
+        {flcn,wiz,meta_calibrate} -> thermoparse [color=lightcoral]
+        meta_calibrate[label=<<b>Metamorpheus</b><br/>m/z peak calibration>]
+        wiz[label=<<b>Proteowizard</b><br/>Deisotoping, <br/>denoising, peak-picking>]
+        flcn[label=<<b>Falcon</b><br/>Spectral clustering>]
+    }
+    raw->thermoparse
+
+
+    subgraph cluster_denovo {
+        fontsize="22"
+        label=<<b>De-novo peptide sequencing</b>>
+        style=filled; fillcolor=aliceblue
         thermoparse [label=<File format conversion>]
         sms[label=<<b>SMSNet</b>>]
         pepnet[label=<<b>PepNet</b>>]
         csnv[label=<<b>Casanovo</b>>]
         denovo [label=<Denovo peptides>]
-        denovo->decoy_db
-        thermoparse->mzML
-        mzML->pre->{flcn,wiz} [color=webgreen]
-        {flcn,wiz} -> thermoparse [color=lightcoral]
-        wiz[label=<<b>Proteowizard</b><br/>Deisotoping, <br/>denoising, peak-picking>]
-        flcn[label=<<b>Falcon</b><br/>Spectral clustering>]
-        pre[label=<Preprocessing>]
+        thermoparse->mgf->{csnv,sms,pepnet}->denovo
     }
 
+    denovo->decoy_db
+
     subgraph cluster_search {
-        label=<<b>Database searches</b>>
+        fontsize="22"
+        label=<<b>Default database searches</b>>
         margin=40
         style=filled; fillcolor=whitesmoke
         {decoy_db,mzML}->search
@@ -77,72 +90,82 @@ digraph boxes_and_circles {
         mq[label=<<b>Maxquant</b>>]
         tide[label=<<b>Tide</b>>]
         msfrag[label=<<b>MSFragger</b>>]
-        {comet,idpy,msfrag,mq,meta,tide}->perc
-    }
-
-    subgraph cluster_bk {
+        {rank=same; mq; meta; tide; comet; idpy; msfrag}
+        {mq,meta,tide}->perc
         {comet,idpy,msfrag}->bk_decoy [color=webgreen]
-        bk_decoy [label=<<b>Construct Bern &amp; Kil decoy database</b>>]
-        bk_decoy -> two [color=webgreen]
-        bk_decoy -> lfq [style=invis]
-        two -> search [color=lightcoral]
-        // {rank=min; two}
-        two[label=<Second-pass search>; shape=plaintext]
-    }
-    perc [shape=cylinder;fillcolor=lightskyblue;label=<<b>Percolator</b><br/>Posterior error probability calculation>; color=skyblue4]
-    conf->{lfq,cov}
-
-
-        { rank=same; ursgal; intersect }
-        perc->{intersect;ursgal}
-        {intersect}->{other}
+        bk_decoy [label=<<b>Second-pass search</b><br/>Construct and search Bern &amp; Kil decoy database>]
+        perc [shape=cylinder;fillcolor=lightskyblue;label=<<b>Percolator</b><br/>FDR calculation, Protein inference>; color=skyblue4]
+        intersect [label=<<b>Intersect protein identifications</b><br/>To combine results from all engines>]
+        bk_decoy -> perc [color=lightcoral]
+        perc->unmatched
+        perc->intersect
+        intersect->other
         intersect->conf
-        ursgal->unmatched
+    }
 
 
     subgraph cluster_combine {
-        conf [label=<Confident <br/>database protein matches>]
+        fontsize="22"
+        margin=50
+        style=filled; fillcolor=ghostwhite
+        label=<<b>Protein annotation</b>>
+        conf [label=<Database protein matches>]
         blast->conf
         conf -> api
         api [label=<<b>UniProt Mapping API</b><br/>GO, Panther classifications>]
         unmatched [label=<Unmatched peptides>]
         other [label=<Denovo &amp; transcriptome peptides>]
-        unmatched -> interpro
+        eggnog [label=<<b>eggNOG-mapper</b><br/>Ortholog-based functional annotation>]
+        unmatched -> eggnog
         other -> blast -> u_other
 
         blast [label=<<b>BLAST</b><br/>BLAST against<br/> downloaded database>]
         u_other [label=<Unmatched denovo &amp; <br/>transcriptome peptides>]
-        u_other -> interpro
-        intersect [label=<<b>Intersect protein identifications</b>>]
-        ursgal [label=<<b>Ursgal</b><br/>Combined PEP calculation<br/>for PSMs>]
+        unmatched_eggnog [label=<Unmatched peptides>]
         interpro [label=<<b>InterproScan</b><br/>Homology-based<br/> functional prediction>]
-        {interpro;api} -> func
-        func[label=<Venome functional characteristics>]
-    }
+        func[label=<Annotated proteins>]
+        cov[label=<<b>Global-local alignment</b><br/>Calculate protein coverage by peptides>]
 
-    subgraph open_searches {
-        style=filled; fillcolor=black;
-        label=<<b>Open searches</b>>
-        unmsms -> interpro [style=invis]
-        {glyco,ptm}->perc [color=lightcoral]
+        u_other -> eggnog -> unmatched_eggnog
+        unmatched_eggnog -> interpro
+        {interpro;api} -> cov
+        eggnog -> cov
+        cov -> func
+
+    }
         perc->unmsms [color=webgreen; weight=2]
+
+    subgraph cluster_open {
+        fontsize="22"
+        margin=100
+        style=filled; fillcolor=mintcream;
+        label=<<b>Open searches</b>>
+        glyco[label=<<b>MSfragger</b><br/>N-,O-linked glycan search>]
+        ptm[label=<<b>MSfragger, Metamorpheus</b><br/>Global PTM search>]
+        {glyco,ptm}->perc [color=lightcoral]
         unmsms [label=<Unmatched MS/MS spectra>]
         unmsms -> {glyco,ptm} [color=webgreen]
-        glyco[label=<N-,O-linked glycan search>]
-        ptm[label=<Global PTM search>]
     }
 
     subgraph cluster_quant {
+        fontsize="22"
         style=filled; fillcolor=linen
-        label=<<b>Search metrics</b>>
-        margin=20
-        cov[label=<<b>Global-local alignment</b><br/>Calculate protein coverage by peptides>]
-        lfq->{empai,dlfq,flfq}
-        lfq[label=<Label-free quantification>]
+        label=<<b>Label-free quantification</b>>
+        margin=100
+        func->{empai,dlfq,flfq}
         {empai,dlfq,flfq}->quant
         empai[label=<<b>emPAI</b><br/>Exponentially <br/> modified protein abundance index>]
         dlfq[label=<<b>DirectLFQ</b>>]
         flfq[label=<<b>FlashLFQ</b>>]
         quant[label=<Estimations of protein abundance>]
+    }
+    subgraph final {
+        onto[label=<<b>Ontologizer</b><br/>GO enrichment analysis>]
+        final[label=<Venome characterization>]
+
+        style=invis
+        func -> onto -> final
+        func -> final
+        quant -> final
     }
 }

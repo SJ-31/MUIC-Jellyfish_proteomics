@@ -11,7 +11,7 @@
   </head>
   <body>
     <div class="title main">
-      <h1>Exploring the venome of <i>Chironex indrasaksajiae</i></h1>
+      <h1>Optimizing Search Strategies in Shotgun Proteomics: Application to <i>Chironex indrasaksajiae</i> Venom</h1>
       <div class="content-wrap">
         <h2>Contents
           <ul>
@@ -22,7 +22,7 @@
               </ul>
             </li>
             <li>Overview of shotgun proteomics</li>
-            <li>Methods: pipeline design choices</li>
+            <li><b>Methods:</b> pipeline design choices</li>
             <li>Expected results</li>
             <li>Project timeline</li>
           </ul>
@@ -204,7 +204,7 @@
             </div>
             <figure>
               <img src="./images/denovo.png" style="max-height: 400px">
-              <figcaption><strong>Figure 5:</strong> Basic premise of de novo peptide sequencing - the differences between peaks produces the peptide SCRGA</figcaption>
+              <figcaption><strong>Figure 5:</strong> Basic premise of de novo peptide sequencing - the differences between peaks produces the peptide SCRGA (for visualization only, not accurate m/z values)</figcaption>
           </div>
           <div>
             <h3>Spectral library searching</h3>
@@ -336,6 +336,25 @@
     </div>
     <div class="timeline main">
       <h1>Project timeline</h1>
+      <h3>Pipeline code</h3>
+      <ul class="steps">
+        <li>Integrate open search identifications into main search results</li>
+        <li>Complete protein metric calculation</li>
+        <li>Include GO enrichment analysis script</li>
+        <li>Write scripts for automated graphing, summary and performing statistical tests of pipeline output</li>
+      </ul>
+      <h3>Bug fixes</h3>
+      <ul>
+        <li>Replace MaxQuant with MSGF+</li>
+        <li>Correct missing output from quantification programs</li>
+        <li>Check whether or not preprocessed MS files are suitable pipeline input</li>
+      </ul>
+      <h3>Ground-truth benchmarking</h3>
+      <ul>
+        <li>Check accuracy of quantification strategies</li>
+        <li>Determine how many proteins the pipeline can recover when given MS/MS data generated from a sample of known proteins</li>
+      </ul>
+      <h3>Results analysis and writing manuscript</h3>
     </div>
   </body>
 </html>

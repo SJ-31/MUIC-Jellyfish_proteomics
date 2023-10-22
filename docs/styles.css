@@ -5,7 +5,7 @@ html {
 
 * {
     box-sizing: border-box;
-    font-family: Ubuntu;
+    font-family: Helvetica;
     color: #434c5e;
     list-style: none;
 }
@@ -29,7 +29,7 @@ body {
     background-color: white;
     display: flex;
     flex-direction: column;
-    margin: 2.5vw;
+    margin: 2vw;
 }
 
 .main {
