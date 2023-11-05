@@ -29,7 +29,7 @@ body {
     background-color: white;
     display: flex;
     flex-direction: column;
-    margin: 2vw;
+    margin: 1vw;
 }
 
 .main {
@@ -89,6 +89,22 @@ img.logo {
     max-height: 400px;
 }
 
+.header {
+    display: flex;
+    justify-content: space-between;
+}
+
+.header h1, .header h2 {
+    padding-top: 30px;
+    margin-left: 15vw;
+}
+
+img.logo-mini {
+    max-height: 100px;
+    padding-top: 1vw;
+    margin-left: 350px;
+}
+
 img.cube {
     max-height: 400px;
 }
@@ -101,8 +117,8 @@ img.disc {
 .title {
     display: flex;
     flex-direction: column;
-    gap: 5vw;
-    padding-bottom: 10vw;
+    gap: 3vw;
+    padding-bottom: 5vw;
 }
 
 .content-wrap {
@@ -113,7 +129,7 @@ img.disc {
 
 .content-wrap h2 ul {
     font-weight: normal;
-    font-size: 23px;
+    font-size: 25px;
 }
 
 .advisor-info {

@@ -11,19 +11,21 @@
   </head>
   <body>
     <div class="title main">
-      <h1>Optimizing Search Strategies in Shotgun Proteomics: Application to <i>Chironex indrasaksajiae</i> Venom</h1>
+      <h1>Investigating Bioinformatics Strategies for Maximizing Protein Discovery: Application to the Venom of <i>Chironex indrasaksajiae</i></h1>
       <div class="content-wrap">
         <h2>Contents
           <ul>
             <li>Introduction and rationale
               <ul>
                 <li>About the dataset</li>
-                <li>Hypotheses</li>
               </ul>
             </li>
             <li>Overview of shotgun proteomics</li>
-            <li><b>Methods:</b> pipeline design choices</li>
-            <li>Expected results</li>
+            <ul><li>Data acquisition</li></ul>
+            <ul><li>Data processing</li></ul>
+            <li><b>Methods:</b> pipeline overview</li>
+            <ul><li>Hypotheses</li></ul>
+            <li>Pipeline evaluation</li>
             <li>Project timeline</li>
           </ul>
         </h2>
@@ -33,7 +35,10 @@
     <div class="sep">
     </div>
     <div class="intro-rationale main">
-      <h1>Introduction and rationale</h1>
+      <div class="header">
+        <h1>Introduction and rationale</h1>
+        <img class="logo-mini" src="./images/mutransparent.png">
+      </div>
       <div class="jelly-info">
         <div>
           <h2>About the dataset</h2>
@@ -70,19 +75,17 @@
               </li>
             </ul>
           </ul>
-          <ul><strong>Project advisor</strong>
-            <ul>
-              <li>Dr. Sira Sriswasdi, Faculty of Medicine Chulalongkorn University</li>
-              <li>An expert in Computational Biology and Bioinformatics</li>
-            </ul>
-          </ul>
+          <ul><strong>Project advisor:</strong> Dr. Sira Sriswasdi, Faculty of Medicine Chulalongkorn University</ul>
         </div>
       </div>
     </div>
     <div class="sep">
     </div>
     <div class="overview-shotgun main">
-      <h1>Overview of shotgun proteomics</h1>
+      <div class="header">
+        <h1>Overview of shotgun proteomics</h1>
+        <img class="logo-mini" src="./images/mutransparent.png">
+      </div>
       <h2>Data acquisition</h2>
       <div class="prepare">
         <div class="purify">
@@ -162,7 +165,7 @@
         </div>
         <hr>
         <div class="explain-search">
-          <h3>Database search explained</h3>
+          <h3>Peptide identification: database search</h3>
           <ul class="steps">
             <li>Perform <em>in-silico</em> digest of proteins in FASTA file
               <ul>
@@ -236,6 +239,12 @@
         <div>
           <h1>Complete pipeline</h1>
           <p><strong>Aim:</strong> Maximize confident, identified proteins, minimize unmatched spectra</p>
+          <br/>
+          <ul><h4 style="display: inline">3 Phases</h4>
+            <li><b>[1]</b> Preprocessing &amp; Preparation</li>
+            <li><b>[2]</b> Searching</li>
+            <li><b>[3]</b> Annotation &amp; Quantification</li>
+          </ul>
         </div>
         <div>
           <p><strong>Written with</strong></p>
@@ -249,45 +258,23 @@
       <hr>
       <h2>Hypotheses</h2>
       <ul>
-        <li>As different search engines may identify different peptides belonging to the same proteins, the pipeline will <strong>increase protein coverage by peptides</strong></li>
-        <li>The combined database search strategy and addition of de novo peptides will <strong>increase the number of identified protein groups</strong></li>
-        <li>By leveraging the fact that different PSM scoring functions have different properties, and open searching on unmatched spectra, <strong>more MS/MS spectra will be identified</strong></li>
+        <li>As different search engines may identify different peptides belonging to the same proteins, the pipeline will <strong>increase¹ protein coverage by peptides</strong></li>
+        <li>The combined database search strategy and addition of de novo peptides will <strong>increase¹ the number of identified protein groups</strong></li>
+        <li>By leveraging the fact that different PSM scoring functions have different properties, and open searching on unmatched spectra, <strong>more¹ MS/MS spectra will be identified</strong></li>
       </ul>
             </li>
           </ul>
+          <p>¹All relative to previous single-engine analysis</p>
           <p>*How these will be quantified and compared is explained below</p>
     </div>
     <div class="sep">
     </div>
     <div class="expected main">
-      <h1>Expected results & Evaluation</h1>
-      <p>Although some identifications will overlap, each of the search engines should also identify a different set of proteins</p>
-      <div class="prot-groups">
-        <div><h2>Anticipated proteins</h2>
-          <p>The following are a few of the expected protein families, based on the literature</p>
-          <ul>
-            <li><strong>Jellyfish Toxin family (JFTs):</strong> a family of Cnidarian-specific porin proteins</li>
-            <li><strong>Metalloproteases:</strong> family of protease enzymes that rely on a metal atom for catalytic action. Known to act as toxins</li>
-            <li><strong>Minicollagens:</strong> structural components of the nematocyst wall</li>
-          </ul></div>
-        <figure>
-          <img src="./images/cftx-2.png" style="max-height: 300px;">
-          <figcaption><strong>Figure 7:</strong> JFT CfTx-2, <em>C. fleckeri</em></figcaption>
-        </figure>
+      <div class="header">
+        <h1>Initial results & Evaluation scheme</h1>
+        <img class="logo-mini" src="./images/mutransparent.png">
       </div>
-      <div class="strs">
-        <figure>
-          <img src="./images/metalloendopeptidase.png">
-          <figcaption><strong>Figure 8:</strong> Metalloendopeptidase, <em>Aurelia aurita</em></figcaption>
-        </figure>
-        <figure>
-          <img src="./images/minicollagen.png">
-          <figcaption><strong>Figure 9:</strong> Minicollagen 13, <em>Hydra vulgaris</em></figcaption>
-        </figure>
-      </div>
-      <p>Structures predicted by AlphaFold (Jumper et al., 2021; Varadi et al., 2022)</p>
-      <hr>
-      <h4>Preliminary results confirm that different engines identify different proteins and peptides</h4>
+      <p>Although some identifications will overlap, each of the search engines should identify a different set of proteins - <b>Confirmed by preliminary results</b></p>
       <div class="dist">
         <figure>
           <img src="./images/len_mw_dist.svg">
@@ -304,57 +291,93 @@
       </div>
       <hr>
       <h2>Benchmarking</h2>
-      <h4>Data to be evaluated</h4>
-      <p>To test the hypotheses, output from the following stages or iterations of the pipeline will be evaluated
-        <ul class="steps">
-          <li>Running searches on the mzML files prepared using different preprocessing strategies
-            <ul><li>To evaluate <strong>impact of mzML preprocessing</strong></li></ul>
-          </li>
-          <li>Running pipeline search step with and without adding de novo peptides into the database
-            <ul><li>To quantify <strong>contribution of de novo peptides</strong> to identifications</li></ul>
-          </li>
-          <li>Comparing the first- and second-pass searches within a given run
-            <ul><li>To determine the <strong>effect of the second-pass search</strong></li></ul>
-          </li>
-          <li>Running pipeline on benchmark dataset
-            <ul><li>To <strong>verify accuracy</strong> of quantification methods</li></ul>
-          </li>
-        </ul>
-        <p>After the most effective preprocessing strategy is selected, output from the full pipeline will be compared against the previous analysis</p>
-          </ul>
-          <h4>Assessment metrics</h4>
-          <ul class="steps">
-            <li>Protein coverage by peptides</li>
-            <li>Number of identified proteins & peptides</li>
-            <li>Number of unmatched MS/MS spectra (could not be confidently assigned a PSM)</li>
-            <li>Number of unmatched peptides (no matches to online database proteins or protein families)</li>
-            <li>GO/PANTHER terms</li>
-          </ul>
-          <p>The metric distributions can be compared using standard statistical tests, such as the Komolgorov-Smirnov test</p>
+      <h4>Assessment metrics</h4>
+      <ul class="steps">
+        <li>Protein coverage by peptides</li>
+        <li>Number of identified proteins & peptides</li>
+        <li>Number of unmatched MS/MS spectra (could not be confidently assigned a PSM)</li>
+        <li>Number of unmatched peptides (no matches to online database proteins or protein families)</li>
+        <li>GO/PANTHER terms</li>
+      </ul>
+      <p>The metric distributions can be compared using standard statistical tests, such as the Komolgorov-Smirnov test</p>
+      <h4>Data evaluation scheme</h4>
+      <p>To test the hypotheses, output from the following stages or iterations of the pipeline will be evaluated</p>
+      <ul class="steps">
+        <li>Running searches on the mzML files prepared using different preprocessing strategies
+          <ul><li>To evaluate <strong>impact of mzML preprocessing</strong></li></ul>
+        </li>
+        <li>Running pipeline search step with and without adding de novo peptides into the database
+          <ul><li>To quantify <strong>contribution of de novo peptides</strong> to identifications</li></ul>
+        </li>
+        <li>Comparing the first- and second-pass searches within a given run
+          <ul><li>To determine the <strong>effect of the second-pass search</strong></li></ul>
+        </li>
+        <li>Running pipeline on benchmark dataset
+          <ul><li>To <strong>verify accuracy</strong> of quantification methods</li></ul>
+        </li>
+      </ul>
+      <p>After the most effective preprocessing strategy is selected, output from the full pipeline will be compared against the previous analysis</p>
     </div>
     <div class="sep">
     </div>
     <div class="timeline main">
-      <h1>Project timeline</h1>
-      <h3>Pipeline code</h3>
+      <div class="header">
+        <h1>Project timeline</h1>
+        <img class="logo-mini" src="./images/mutransparent.png">
+      </div>
+      <h3>1) Implement remaining features</h3>
       <ul class="steps">
         <li>Integrate open search identifications into main search results</li>
         <li>Complete protein metric calculation</li>
         <li>Include GO enrichment analysis script</li>
         <li>Write scripts for automated graphing, summary and performing statistical tests of pipeline output</li>
       </ul>
-      <h3>Bug fixes</h3>
+      <h3>2) Fix bugs</h3>
       <ul>
         <li>Replace MaxQuant with MSGF+</li>
         <li>Correct missing output from quantification programs</li>
         <li>Check whether or not preprocessed MS files are suitable pipeline input</li>
       </ul>
-      <h3>Ground-truth benchmarking</h3>
+      <h3>3) Complete all pipeline runs &amp; ground-truth benchmarking</h3>
       <ul>
         <li>Check accuracy of quantification strategies</li>
         <li>Determine how many proteins the pipeline can recover when given MS/MS data generated from a sample of known proteins</li>
       </ul>
-      <h3>Results analysis and writing manuscript</h3>
+      <h3>4) Results analysis and writing manuscript</h3>
+    </div>
+    <div class="sep"></div>
+    <div class="ref main">
+      <h1>References</h1>
+      <div class="csl-bib-body" style="line-height: 2; margin-left: 2em; text-indent:-2em;">
+        <div class="csl-entry">Bern, M., &amp; Kil, Y. J. (2011). Comment on “Unbiased Statistical Analysis for Multi-Stage Proteomic Search Strategies.” <i>Journal of Proteome Research</i>, <i>10</i>(4), 2123–2127. <a href="https://doi.org/10.1021/pr101143m">https://doi.org/10.1021/pr101143m</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1021%2Fpr101143m&amp;rft_id=info%3Apmid%2F21288048&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Comment%20on%20%E2%80%9CUnbiased%20Statistical%20Analysis%20for%20Multi-Stage%20Proteomic%20Search%20Strategies%E2%80%9D&amp;rft.jtitle=Journal%20of%20proteome%20research&amp;rft.stitle=J%20Proteome%20Res&amp;rft.volume=10&amp;rft.issue=4&amp;rft.aufirst=Marshall&amp;rft.aulast=Bern&amp;rft.au=Marshall%20Bern&amp;rft.au=Yong%20J.%20Kil&amp;rft.date=2011-04-01&amp;rft.pages=2123-2127&amp;rft.spage=2123&amp;rft.epage=2127&amp;rft.issn=1535-3893"></span>
+        <div class="csl-entry">Blein-Nicolas, M., &amp; Zivy, M. (2016). Thousand and one ways to quantify and compare protein abundances in label-free bottom-up proteomics. <i>Biochimica et Biophysica Acta (BBA) - Proteins and Proteomics</i>, <i>1864</i>(8), 883–895. <a href="https://doi.org/10.1016/j.bbapap.2016.02.019">https://doi.org/10.1016/j.bbapap.2016.02.019</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1016%2Fj.bbapap.2016.02.019&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Thousand%20and%20one%20ways%20to%20quantify%20and%20compare%20protein%20abundances%20in%20label-free%20bottom-up%20proteomics&amp;rft.jtitle=Biochimica%20et%20Biophysica%20Acta%20(BBA)%20-%20Proteins%20and%20Proteomics&amp;rft.stitle=Biochimica%20et%20Biophysica%20Acta%20(BBA)%20-%20Proteins%20and%20Proteomics&amp;rft.volume=1864&amp;rft.issue=8&amp;rft.aufirst=M%C3%A9lisande&amp;rft.aulast=Blein-Nicolas&amp;rft.au=M%C3%A9lisande%20Blein-Nicolas&amp;rft.au=Michel%20Zivy&amp;rft.date=2016-08-01&amp;rft.pages=883-895&amp;rft.spage=883&amp;rft.epage=895&amp;rft.issn=1570-9639"></span>
+        <div class="csl-entry">Brinkman, D. L., Jia, X., Potriquet, J., Kumar, D., Dash, D., Kvaskoff, D., &amp; Mulvenna, J. (2015). Transcriptome and venom proteome of the box jellyfish Chironex fleckeri. <i>BMC Genomics</i>, <i>16</i>(1), 407. <a href="https://doi.org/10.1186/s12864-015-1568-3">https://doi.org/10.1186/s12864-015-1568-3</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1186%2Fs12864-015-1568-3&amp;rft_id=info%3Apmid%2F26014501&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Transcriptome%20and%20venom%20proteome%20of%20the%20box%20jellyfish%20Chironex%20fleckeri&amp;rft.jtitle=BMC%20Genomics&amp;rft.stitle=BMC%20Genomics&amp;rft.volume=16&amp;rft.issue=1&amp;rft.aufirst=Diane%20L&amp;rft.aulast=Brinkman&amp;rft.au=Diane%20L%20Brinkman&amp;rft.au=Xinying%20Jia&amp;rft.au=Jeremy%20Potriquet&amp;rft.au=Dhirendra%20Kumar&amp;rft.au=Debasis%20Dash&amp;rft.au=David%20Kvaskoff&amp;rft.au=Jason%20Mulvenna&amp;rft.date=2015-05-27&amp;rft.pages=407&amp;rft.issn=1471-2164"></span>
+        <div class="csl-entry">D’Ambra, I., &amp; Lauritano, C. (2020). A Review of Toxins from Cnidaria. <i>Marine Drugs</i>, <i>18</i>(10), Article 10. <a href="https://doi.org/10.3390/md18100507">https://doi.org/10.3390/md18100507</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.3390%2Fmd18100507&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20Review%20of%20Toxins%20from%20Cnidaria&amp;rft.jtitle=Marine%20Drugs&amp;rft.volume=18&amp;rft.issue=10&amp;rft.aufirst=Isabella&amp;rft.aulast=D%E2%80%99Ambra&amp;rft.au=Isabella%20D%E2%80%99Ambra&amp;rft.au=Chiara%20Lauritano&amp;rft.date=2020-10&amp;rft.pages=507&amp;rft.issn=1660-3397&amp;rft.language=en"></span>
+        <div class="csl-entry">Lee, S., Park, H., &amp; Kim, H. (2021). Comparison of false-discovery rates of various decoy databases. <i>Proteome Science</i>, <i>19</i>(1), 11. <a href="https://doi.org/10.1186/s12953-021-00179-7">https://doi.org/10.1186/s12953-021-00179-7</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1186%2Fs12953-021-00179-7&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Comparison%20of%20false-discovery%20rates%20of%20various%20decoy%20databases&amp;rft.jtitle=Proteome%20Science&amp;rft.stitle=Proteome%20Science&amp;rft.volume=19&amp;rft.issue=1&amp;rft.aufirst=Sangjeong&amp;rft.aulast=Lee&amp;rft.au=Sangjeong%20Lee&amp;rft.au=Heejin%20Park&amp;rft.au=Hyunwoo%20Kim&amp;rft.date=2021-09-18&amp;rft.pages=11&amp;rft.issn=1477-5956"></span>
+        <div class="csl-entry">Muth, T., Hartkopf, F., Vaudel, M., &amp; Renard, B. Y. (2018). A Potential Golden Age to Come—Current Tools, Recent Use Cases, and Future Avenues for De Novo Sequencing in Proteomics. <i>PROTEOMICS</i>, <i>18</i>(18), 1700150. <a href="https://doi.org/10.1002/pmic.201700150">https://doi.org/10.1002/pmic.201700150</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1002%2Fpmic.201700150&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20Potential%20Golden%20Age%20to%20Come%E2%80%94Current%20Tools%2C%20Recent%20Use%20Cases%2C%20and%20Future%20Avenues%20for%20De%20Novo%20Sequencing%20in%20Proteomics&amp;rft.jtitle=PROTEOMICS&amp;rft.volume=18&amp;rft.issue=18&amp;rft.aufirst=Thilo&amp;rft.aulast=Muth&amp;rft.au=Thilo%20Muth&amp;rft.au=Felix%20Hartkopf&amp;rft.au=Marc%20Vaudel&amp;rft.au=Bernhard%20Y.%20Renard&amp;rft.date=2018&amp;rft.pages=1700150&amp;rft.issn=1615-9861&amp;rft.language=en"></span>
+        <div class="csl-entry">Nesvizhskii, A. I., Keller, A., Kolker, E., &amp; Aebersold, R. (2003). A statistical model for identifying proteins by tandem mass spectrometry. <i>Analytical Chemistry</i>, <i>75</i>(17), 4646–4658. <a href="https://doi.org/10.1021/ac0341261">https://doi.org/10.1021/ac0341261</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1021%2Fac0341261&amp;rft_id=info%3Apmid%2F14632076&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20statistical%20model%20for%20identifying%20proteins%20by%20tandem%20mass%20spectrometry&amp;rft.jtitle=Analytical%20Chemistry&amp;rft.stitle=Anal%20Chem&amp;rft.volume=75&amp;rft.issue=17&amp;rft.aufirst=Alexey%20I.&amp;rft.aulast=Nesvizhskii&amp;rft.au=Alexey%20I.%20Nesvizhskii&amp;rft.au=Andrew%20Keller&amp;rft.au=Eugene%20Kolker&amp;rft.au=Ruedi%20Aebersold&amp;rft.date=2003-09-01&amp;rft.pages=4646-4658&amp;rft.spage=4646&amp;rft.epage=4658&amp;rft.issn=0003-2700&amp;rft.language=eng"></span>
+        <div class="csl-entry">O’Bryon, I., Jenson, S. C., &amp; Merkley, E. D. (2020). Flying blind, or just flying under the radar? The underappreciated power of de novo methods of mass spectrometric peptide identification. <i>Protein Science</i>, <i>29</i>(9), 1864–1878. <a href="https://doi.org/10.1002/pro.3919">https://doi.org/10.1002/pro.3919</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1002%2Fpro.3919&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Flying%20blind%2C%20or%20just%20flying%20under%20the%20radar%3F%20The%20underappreciated%20power%20of%20de%20novo%20methods%20of%20mass%20spectrometric%20peptide%20identification&amp;rft.jtitle=Protein%20Science&amp;rft.volume=29&amp;rft.issue=9&amp;rft.aufirst=Isabelle&amp;rft.aulast=O'Bryon&amp;rft.au=Isabelle%20O'Bryon&amp;rft.au=Sarah%20C.%20Jenson&amp;rft.au=Eric%20D.%20Merkley&amp;rft.date=2020&amp;rft.pages=1864-1878&amp;rft.spage=1864&amp;rft.epage=1878&amp;rft.issn=1469-896X&amp;rft.language=en"></span>
+        <div class="csl-entry">Polasky, D. A., Yu, F., Teo, G. C., &amp; Nesvizhskii, A. I. (2020). Fast and comprehensive N- and O-glycoproteomics analysis with MSFragger-Glyco. <i>Nature Methods</i>, <i>17</i>(11), Article 11. <a href="https://doi.org/10.1038/s41592-020-0967-9">https://doi.org/10.1038/s41592-020-0967-9</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1038%2Fs41592-020-0967-9&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Fast%20and%20comprehensive%20N-%20and%20O-glycoproteomics%20analysis%20with%20MSFragger-Glyco&amp;rft.jtitle=Nature%20Methods&amp;rft.stitle=Nat%20Methods&amp;rft.volume=17&amp;rft.issue=11&amp;rft.aufirst=Daniel%20A.&amp;rft.aulast=Polasky&amp;rft.au=Daniel%20A.%20Polasky&amp;rft.au=Fengchao%20Yu&amp;rft.au=Guo%20Ci%20Teo&amp;rft.au=Alexey%20I.%20Nesvizhskii&amp;rft.date=2020-11&amp;rft.pages=1125-1132&amp;rft.spage=1125&amp;rft.epage=1132&amp;rft.issn=1548-7105&amp;rft.language=en"></span>
+        <div class="csl-entry">Sathirapongsasuti, N., Khonchom, K., Poonsawat, T., Pransilpa, M., Ongsara, S., Detsri, U., Bungbai, S., Lawanangkoon, S., Pattanaporkrattana, W., &amp; Trakulsrichai, S. (2021). Rapid and Accurate Species-Specific PCR for the Identification of Lethal Chironex Box Jellyfish in Thailand. <i>International Journal of Environmental Research and Public Health</i>, <i>18</i>(1), Article 1. <a href="https://doi.org/10.3390/ijerph18010219">https://doi.org/10.3390/ijerph18010219</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.3390%2Fijerph18010219&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Rapid%20and%20Accurate%20Species-Specific%20PCR%20for%20the%20Identification%20of%20Lethal%20Chironex%20Box%20Jellyfish%20in%20Thailand&amp;rft.jtitle=International%20Journal%20of%20Environmental%20Research%20and%20Public%20Health&amp;rft.volume=18&amp;rft.issue=1&amp;rft.aufirst=Nuankanya&amp;rft.aulast=Sathirapongsasuti&amp;rft.au=Nuankanya%20Sathirapongsasuti&amp;rft.au=Kasetsin%20Khonchom&amp;rft.au=Thunyaporn%20Poonsawat&amp;rft.au=Mitila%20Pransilpa&amp;rft.au=Supaporn%20Ongsara&amp;rft.au=Usawadee%20Detsri&amp;rft.au=Suwimon%20Bungbai&amp;rft.au=Sam-ang%20Lawanangkoon&amp;rft.au=Worawut%20Pattanaporkrattana&amp;rft.au=Satariya%20Trakulsrichai&amp;rft.date=2021-01&amp;rft.pages=219&amp;rft.issn=1660-4601&amp;rft.language=en"></span>
+        <div class="csl-entry">Shuken, S. R. (2023). An Introduction to Mass Spectrometry-Based Proteomics. <i>Journal of Proteome Research</i>, <i>22</i>(7), 2151–2171. <a href="https://doi.org/10.1021/acs.jproteome.2c00838">https://doi.org/10.1021/acs.jproteome.2c00838</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1021%2Facs.jproteome.2c00838&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=An%20Introduction%20to%20Mass%20Spectrometry-Based%20Proteomics&amp;rft.jtitle=Journal%20of%20Proteome%20Research&amp;rft.stitle=J.%20Proteome%20Res.&amp;rft.volume=22&amp;rft.issue=7&amp;rft.aufirst=Steven%20R.&amp;rft.aulast=Shuken&amp;rft.au=Steven%20R.%20Shuken&amp;rft.date=2023-07-07&amp;rft.pages=2151-2171&amp;rft.spage=2151&amp;rft.epage=2171&amp;rft.issn=1535-3893%2C%201535-3907&amp;rft.language=en"></span>
+        <div class="csl-entry">Skinner, O. S., &amp; Kelleher, N. L. (2015). Illuminating the dark matter of shotgun proteomics. <i>Nature Biotechnology</i>, <i>33</i>(7), Article 7. <a href="https://doi.org/10.1038/nbt.3287">https://doi.org/10.1038/nbt.3287</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1038%2Fnbt.3287&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Illuminating%20the%20dark%20matter%20of%20shotgun%20proteomics&amp;rft.jtitle=Nature%20Biotechnology&amp;rft.stitle=Nat%20Biotechnol&amp;rft.volume=33&amp;rft.issue=7&amp;rft.aufirst=Owen%20S.&amp;rft.aulast=Skinner&amp;rft.au=Owen%20S.%20Skinner&amp;rft.au=Neil%20L.%20Kelleher&amp;rft.date=2015-07&amp;rft.pages=717-718&amp;rft.spage=717&amp;rft.epage=718&amp;rft.issn=1546-1696&amp;rft.language=en"></span>
+        <div class="csl-entry">Van Puyvelde, B., Daled, S., Willems, S., Gabriels, R., Gonzalez de Peredo, A., Chaoui, K., Mouton-Barbosa, E., Bouyssié, D., Boonen, K., Hughes, C. J., Gethings, L. A., Perez-Riverol, Y., Bloomfield, N., Tate, S., Schiltz, O., Martens, L., Deforce, D., &amp; Dhaenens, M. (2022). A comprehensive LFQ benchmark dataset on modern day acquisition strategies in proteomics. <i>Scientific Data</i>, <i>9</i>(1), Article 1. <a href="https://doi.org/10.1038/s41597-022-01216-6">https://doi.org/10.1038/s41597-022-01216-6</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1038%2Fs41597-022-01216-6&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=A%20comprehensive%20LFQ%20benchmark%20dataset%20on%20modern%20day%20acquisition%20strategies%20in%20proteomics&amp;rft.jtitle=Scientific%20Data&amp;rft.stitle=Sci%20Data&amp;rft.volume=9&amp;rft.issue=1&amp;rft.aufirst=Bart&amp;rft.aulast=Van%20Puyvelde&amp;rft.au=Bart%20Van%20Puyvelde&amp;rft.au=Simon%20Daled&amp;rft.au=Sander%20Willems&amp;rft.au=Ralf%20Gabriels&amp;rft.au=Anne%20Gonzalez%20de%20Peredo&amp;rft.au=Karima%20Chaoui&amp;rft.au=Emmanuelle%20Mouton-Barbosa&amp;rft.au=David%20Bouyssi%C3%A9&amp;rft.au=Kurt%20Boonen&amp;rft.au=Christopher%20J.%20Hughes&amp;rft.au=Lee%20A.%20Gethings&amp;rft.au=Yasset%20Perez-Riverol&amp;rft.au=Nic%20Bloomfield&amp;rft.au=Stephen%20Tate&amp;rft.au=Odile%20Schiltz&amp;rft.au=Lennart%20Martens&amp;rft.au=Dieter%20Deforce&amp;rft.au=Maarten%20Dhaenens&amp;rft.date=2022-03-30&amp;rft.pages=126&amp;rft.issn=2052-4463&amp;rft.language=en"></span>
+        <div class="csl-entry">Zhao, P., Zhong, J., Liu, W., Zhao, J., &amp; Zhang, G. (2017). Protein-Level Integration Strategy of Multiengine MS Spectra Search Results for Higher Confidence and Sequence Coverage. <i>Journal of Proteome Research</i>, <i>16</i>(12), 4446–4454. <a href="https://doi.org/10.1021/acs.jproteome.7b00463">https://doi.org/10.1021/acs.jproteome.7b00463</a></div>
+        <span class="Z3988" title="url_ver=Z39.88-2004&amp;ctx_ver=Z39.88-2004&amp;rfr_id=info%3Asid%2Fzotero.org%3A2&amp;rft_id=info%3Adoi%2F10.1021%2Facs.jproteome.7b00463&amp;rft_val_fmt=info%3Aofi%2Ffmt%3Akev%3Amtx%3Ajournal&amp;rft.genre=article&amp;rft.atitle=Protein-Level%20Integration%20Strategy%20of%20Multiengine%20MS%20Spectra%20Search%20Results%20for%20Higher%20Confidence%20and%20Sequence%20Coverage&amp;rft.jtitle=Journal%20of%20Proteome%20Research&amp;rft.stitle=J.%20Proteome%20Res.&amp;rft.volume=16&amp;rft.issue=12&amp;rft.aufirst=Panpan&amp;rft.aulast=Zhao&amp;rft.au=Panpan%20Zhao&amp;rft.au=Jiayong%20Zhong&amp;rft.au=Wanting%20Liu&amp;rft.au=Jing%20Zhao&amp;rft.au=Gong%20Zhang&amp;rft.date=2017-12-01&amp;rft.pages=4446-4454&amp;rft.spage=4446&amp;rft.epage=4454&amp;rft.issn=1535-3893%2C%201535-3907&amp;rft.language=en"></span>
+      </div>
     </div>
   </body>
 </html>
