@@ -6,7 +6,7 @@ include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_QUANT } from '../modules/merge_quantifications'
 include { INTERPROSCAN } from '../modules/interpro'
-include { EGGNOG } from '../modules/eggnog'
+include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
 include { UNMATCHED_PSMS } from '../modules/unmatched'
 
 workflow 'combine_searches' {
@@ -35,16 +35,20 @@ workflow 'combine_searches' {
                    "no_one_hits_degenerates 0 0 80 0.05 0.00001",
                    "one_hits_no_degenerates 1 1 80 0.05 0.00001")
             .set { blast_vars }
+
         BLASTP(MERGE_QUANT.out.unknown_fasta, params.blast_db,
                "$outdir/Unmatched/BLAST")
         SORT_BLAST(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
-                   BLASTP.out, seq_header_mappings, UNMATCHED_PSMS.out,
+                   BLASTP.out, seq_header_mappings, UNMATCHED_PSMS.out.fasta,
                    blast_vars, "$outdir/Unmatched")
-        INTERPROSCAN(SORT_BLAST.out.unmatched,
-                     "$outdir/Unmatched/InterPro")
         EGGNOG(SORT_BLAST.out.unmatched,
                "$outdir/Unmatched/eggNOG")
-    } else {
+        SORT_EGGNOG(EGGNOG.out.unmatched,
+               "$outdir/Unmatched/eggNOG")
+        INTERPROSCAN(SORT_EGGNOG.out,
+                     "$outdir/Unmatched/InterPro")
+        // FINAL_METRICS()
+    } else {5
         FINAL_METRICS(MERGE_QUANT.out.database)
     }
     //

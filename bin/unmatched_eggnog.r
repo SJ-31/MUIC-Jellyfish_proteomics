@@ -9,7 +9,7 @@ write_unmatched <- function(from_blast, eggnog_hits, output_fasta) {
     distinct(seq, .keep_all = TRUE)
   sequences <- as.list(not_matched_by_eggnog$seq)
   ids <- not_matched_by_eggnog$ProteinId
-  write.fasta(sequences, ids, output)
+  write.fasta(sequences, ids, output_fasta)
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
@@ -22,5 +22,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("-a", "--eggnog_annotations"), type = "character",
                        help = "emapper.annotations file")
   args <- parse_args(parser)
-  write_unmatched(args$blast_input, args$eggnog_annotations, args$output_fasta)
+  blast_tsv <- read_tsv(args$blast_input)
+  eggnog_annotations <- read_tsv(args$eggnog_annotations, skip = 4)
+  write_unmatched(blast_tsv, eggnog_annotations, args$output_fasta)
 }
