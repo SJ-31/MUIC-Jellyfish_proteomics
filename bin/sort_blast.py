@@ -155,6 +155,7 @@ if __name__ == '__main__':
     in_db = known_from_database(joined[0], group_df)
     from_blast = blast_id_only(joined[0], group_df, mapping)
     final = pd.concat([in_db, from_blast])
+    final["Annotation_method"] = "blast"
     final.to_csv(args["output"], sep="\t", index=False)
 
 # test command

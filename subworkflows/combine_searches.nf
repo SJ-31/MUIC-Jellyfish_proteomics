@@ -18,6 +18,7 @@ workflow 'combine_searches' {
     percolator_psms
     outdir
     seq_header_mappings
+    open_results
 
     main:
     SEARCH_INTERSECT(prot2intersect,
@@ -40,11 +41,12 @@ workflow 'combine_searches' {
                "$outdir/Unmatched/BLAST")
         SORT_BLAST(MERGE_QUANT.out.unknown_tsv, MERGE_QUANT.out.database_tsv,
                    BLASTP.out, seq_header_mappings, UNMATCHED_PSMS.out.fasta,
-                   blast_vars, "$outdir/Unmatched")
+                   blast_vars, "$outdir/Unmatched") // Extract proteins that
+                                                    // weren't matched by blast
         EGGNOG(SORT_BLAST.out.unmatched,
                "$outdir/Unmatched/eggNOG")
-        SORT_EGGNOG(EGGNOG.out.unmatched,
-               "$outdir/Unmatched/eggNOG")
+        SORT_EGGNOG(EGGNOG.out.unmatched, // Extract proteins that weren't matched
+               "$outdir/Unmatched/eggNOG") // by eggnog
         INTERPROSCAN(SORT_EGGNOG.out,
                      "$outdir/Unmatched/InterPro")
         // FINAL_METRICS()

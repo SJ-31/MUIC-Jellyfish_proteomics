@@ -1,5 +1,4 @@
 library(tidyverse)
-library(optparse)
 # Merge all percolator protein results into a single file
 target <- "ProteinId"
 headers <- c(
@@ -7,7 +6,7 @@ headers <- c(
   "peptideIds"
 )
 
-split_duplicates <- function(dupe_table, index) {
+splitDuplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
   dupes <- dupe_table[index, ]$ProteinId %>%
     strsplit(",") %>%
@@ -26,7 +25,7 @@ sort_duplicates <- function(file_path) {
     return(table)
   }
   table <- table %>% filter(!grepl(",", ProteinId))
-  duplicates <- lapply(1:dim(duplicates)[1], split_duplicates, dupe_table = duplicates) %>%
+  duplicates <- lapply(1:dim(duplicates)[1], splitDuplicates, dupe_table = duplicates) %>%
     bind_rows()
   bound <- bind_rows(list(duplicates, table)) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine)) %>%

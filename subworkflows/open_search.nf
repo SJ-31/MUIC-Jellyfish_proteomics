@@ -4,6 +4,7 @@ include { METAMORPHEUS as METAMORPHEUS_GET_GPTMD } from "../modules/metamorpheus
 include { PERCOLATOR } from "../modules/percolator"
 include { METAMORPHEUS as METAMORPHEUS_SEARCH_GPTMD } from "../modules/metamorpheus"
 include { METAMORPHEUS as METAMORPHEUS_GLYCO } from "../modules/metamorpheus"
+include { SORT_OPEN } from "../modules/sort_open_searches"
 
 
 workflow 'open_search' {
@@ -14,6 +15,7 @@ workflow 'open_search' {
     dbPlusDecoys
     db
     outdir
+    seq_header_mapping
 
     main:
     MSFRAGGER_OPEN(mzML.collect(), "$params.config/open_fragger.params",
@@ -36,4 +38,10 @@ workflow 'open_search' {
     ).set { to_percolator }
     PERCOLATOR(to_percolator, "$outdir/Percolator",
                "$outdir/Logs", dbPlusDecoys.first())
+    SORT_OPEN(PERCOLATOR.out.prot2intersect.collect(),
+              seq_header_mapping,
+              "$outdir")
+
+    emit:
+    open_results = SORT_OPEN.out
 }

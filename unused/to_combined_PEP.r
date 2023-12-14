@@ -1,3 +1,4 @@
+#!/usr/bin/Rscript
 library(tidyverse)
 library(optparse)
 ## Renames headers and formats percolator output files for use with Ursgal's combine_pep_1_0_0.py script

@@ -87,4 +87,5 @@ if __name__ == '__main__':
     merged = merge_dlfq(dlfq, proteins, float(args["pep_threshold"]),
                         float(args["fdr_threshold"]))
     # qdf = calculate_emPAI(merged, mapping, (350, 1600))
+    merged["Annotation_method"] = "initial_database"
     merged.to_csv(args["output"], sep="\t", index=False)

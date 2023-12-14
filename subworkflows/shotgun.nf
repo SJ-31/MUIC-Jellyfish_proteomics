@@ -115,7 +115,8 @@ workflow 'search' {
     open_search_FIRST(quantify_FIRST.out.unmatched_msms,
                       db.plusdecoys,
                       db.normal,
-                      "$params.results/1-First_pass/Open_search")
+                      "$params.results/1-First_pass/Open_search",
+                      db.seq_header_mapping)
 
     // First combining
     combine_searches_FIRST(
@@ -126,7 +127,8 @@ workflow 'search' {
         quantify_FIRST.out.directlfq,
         PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
         "$params.results/1-First_pass",
-        db.seq_header_mapping)
+        db.seq_header_mapping,
+        open_search_FIRST.out.open_results)
 
     // Second pass with Bern and Kil decoy database
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
@@ -151,7 +153,8 @@ workflow 'search' {
     open_search_SECOND(quantify_SECOND.out.unmatched_msms,
                       db.plusdecoys,
                       db.normal,
-                      "$params.results/2-Second_pass/Open_search")
+                      "$params.results/2-Second_pass/Open_search",
+                      db.seq_header_mapping)
 
     // Second combining
     combine_searches_SECOND(
@@ -166,5 +169,6 @@ workflow 'search' {
                                   .filter( ~from_first ),
                                   TIDE.out.perc_psms),
        "$params.results/2-Second_pass",
-       db.seq_header_mapping)
+        db.seq_header_mapping,
+        open_search_SECOND.out.open_results)
 }
