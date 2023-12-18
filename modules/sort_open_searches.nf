@@ -15,9 +15,15 @@ process SORT_OPEN {
     """
     Rscript $params.bin/sort_open_searches.r \
         -i . \
-        -o grouped_open_searches.tsv \
+        -o temp.tsv \
         -r $params.bin \
         -m $seq_header_mappings
+
+    Rscript $params.bin/unify_groups.r \
+        -i temp.tsv \
+        -o grouped_open_searches.tsv \
+        -s open \
+        -p O
     """
     //
 }

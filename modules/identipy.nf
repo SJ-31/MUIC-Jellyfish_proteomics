@@ -13,7 +13,14 @@ process IDENTIPY {
     path("*.pep.xml"), emit: pepxml
     //
     shell:
-    template 'identipy.sh'
+    def check = file("${outdir}/${mzML[0]}")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/*.pep.xml .
+        '''
+    } else {
+        template 'identipy.sh'
+    }
     // -at Auto-tune search parameters
     // -mc Number of missed cleavages
     // -method {reverse,shuffle} for decoy generation

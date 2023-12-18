@@ -20,8 +20,10 @@ process SEARCH_INTERSECT {
         -o intersected_searches.tsv
 
     Rscript $params.bin/unify_groups.r \
-        intersected_searches.tsv \
-        unified_groups.tsv
+        -i intersected_searches.tsv \
+        -o unified_groups.tsv \
+        -s standard \
+        -p G
     """
     //
 }

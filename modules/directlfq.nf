@@ -39,10 +39,18 @@ process DIRECTLFQ {
     //
 
     script:
-    """
-    directlfq lfq -i $aqreformat
-    mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
-    cp .command.out directlfq.log
-    """
+    def check = file("${outdir}/directlfq_prot.tsv")
+    if (check.exists()) {
+        """
+        cp ${outdir}/directlfq_prot.tsv .
+        cp ${outdir}/directlfq.log .
+        """
+    } else {
+        """
+        directlfq lfq -i $aqreformat
+        mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
+        cp .command.out directlfq.log
+        """
+    }
     //
 }

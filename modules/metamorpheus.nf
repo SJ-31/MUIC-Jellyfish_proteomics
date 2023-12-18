@@ -22,5 +22,12 @@ process METAMORPHEUS {
     //
 
     shell:
-    template 'metamorpheus.sh'
+    def check = file("${outdir}/metamorpheus${mode}_AllPSMs.psmtsv")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/* .
+        '''
+    } else {
+        template 'metamorpheus.sh'
+    }
 }

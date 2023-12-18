@@ -4,6 +4,7 @@ process MERGE_QUANT {
     input:
     path(directlfq)
     path(search_intersections)
+    path(open_searches) // Open searches need to be included as well, since they will map to de novo and transcriptome proteins
     val(outdir)
     //
 
@@ -17,6 +18,7 @@ process MERGE_QUANT {
     '''
     merge_quantifications.py -d !{directlfq} \
         -i !{search_intersections} \
+        -s !{open_searches} \
         -p !{params.pep_thresh} \
         -q !{params.fdr} \
         -o temp.tsv
@@ -33,3 +35,5 @@ process MERGE_QUANT {
     // of another
     //
 }
+
+    // awk 'BEGIN {FS="\t";OFS="\t"} {if (FNR == 1) {print $0; next} else if($1 ~ /[TD]/) {print $0}}' \

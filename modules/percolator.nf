@@ -20,18 +20,26 @@ process PERCOLATOR {
     //
 
     script:
-    """
-    percolator_wrapper_combined.sh \
-        -p $engine \
-        -i $pin_file \
-        -f $database
+    def check = file("${outdir}/${engine}_percolator_proteins.tsv")
+    if (check.exists()) {
+        """
+        cp ${outdir}/${engine}_percolator* .
+        cp ${outdir}/${engine}_psm2combined_PEP.tsv .
+        """
+    } else {
+        """
+        percolator_wrapper_combined.sh \
+            -p $engine \
+            -i $pin_file \
+            -f $database
 
-    Rscript $params.bin/2combinedPEP.r \
-        -e $engine \
-        -m ${engine}_percolator_psms.tsv \
-        -d ${engine}_percolator_decoy_psms.tsv \
-        -o ${engine}_psm2combined_PEP.tsv
-    """
+        Rscript $params.bin/2combinedPEP.r \
+            -e $engine \
+            -m ${engine}_percolator_psms.tsv \
+            -d ${engine}_percolator_decoy_psms.tsv \
+            -o ${engine}_psm2combined_PEP.tsv
+        """
+    }
     //
 }
 

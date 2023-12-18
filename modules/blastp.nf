@@ -18,13 +18,21 @@ process BLASTP {
     // qseqid, sseqid = query, subject seq id
     // sstart, send = start, end of alignment in subject
     // length = alignment length
-    '''
-    header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
-    blastp -query !{query} \
-        -db !{db} \
-        -outfmt "10 delim=, qseqid sseqid sstart send length bitscore evalue pident nident mismatch gaps" | \
-       sed "s;sp|\\(.*\\)|;\\1;" > temp.csv
-    echo $header | cat - temp.csv > !{query.baseName}-blast.csv
-    '''
+    def check = file("${outdir}/${query.baseName}-blast.csv")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/!{query.baseName}-blast.csv .
+        '''
+    } else {
+        '''
+        header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
+        blastp -query !{query} \
+            -db !{db} \
+            -outfmt "10 delim=, qseqid sseqid sstart send length bitscore evalue pident nident mismatch gaps" | \
+        sed "s;sp|\\(.*\\)|;\\1;" > temp.csv
+        echo $header | cat - temp.csv > !{query.baseName}-blast.csv
+        '''
+
+    }
     //
 }

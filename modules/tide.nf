@@ -22,7 +22,15 @@ process TIDE {
     //
 
     script:
-    template 'tide.sh'
+    def check = file("${outdir}/tide-search.target.txt")
+    if (check.exists()) {
+        """
+        cp ${outdir}/tide-search* .
+        cp ${percolatordir}/tide_percolator* .
+        """
+    } else {
+        template 'tide.sh'
+    }
     //
 }
 
