@@ -1,4 +1,5 @@
 work/*
+tests/*
 docs/__*
 .projectile
 metrics/*
@@ -15,4 +16,5 @@ shotgun/work/*
 tools/*
 *.txt
 /*.sh
+docs/flow.{png,svg}
 docs/images/*

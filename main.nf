@@ -36,3 +36,7 @@ workflow preprocess {
 workflow combine_databases {
     make_db(manifest.mzML, manifest.mgf)
 }
+
+workflow hidden {
+
+}

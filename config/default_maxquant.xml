@@ -75,10 +75,11 @@
    <massDifferenceSearch>False</massDifferenceSearch>
    <isotopeCalc>False</isotopeCalc>
    <minPepLen>7</minPepLen>
-   <psmFdrCrosslink>0.01</psmFdrCrosslink>
-   <peptideFdr>0.01</peptideFdr>
-   <proteinFdr>0.01</proteinFdr>
-   <siteFdr>0.01</siteFdr>
+   <!-- FDR needs to be disabled for Percolator to learn properly -->
+   <psmFdrCrosslink>1</psmFdrCrosslink>
+   <peptideFdr>1</peptideFdr>
+   <proteinFdr>1</proteinFdr>
+   <siteFdr>1</siteFdr>
    <minPeptideLengthForUnspecificSearch>8</minPeptideLengthForUnspecificSearch>
    <maxPeptideLengthForUnspecificSearch>25</maxPeptideLengthForUnspecificSearch>
    <useNormRatiosForOccupancy>True</useNormRatiosForOccupancy>
