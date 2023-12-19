@@ -36,8 +36,12 @@ num_download = 0
 num_other = 0
 is_download = True
 for record in SeqIO.parse(input, "fasta"):
-    if ("-DENOVO" in record.id or "-TRANSCRIPTOME" in record.id):
-        seq_id = f"O{num_other}"
+    if "-DENOVO" in record.id:
+        seq_id = f"D{num_other}"
+        num_other += 1
+        is_download = False
+    elif "-TRANSCRIPTOME" in record.id:
+        seq_id = f"T{num_other}"
         num_other += 1
         is_download = False
     else:
