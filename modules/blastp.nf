@@ -25,6 +25,7 @@ process BLASTP {
         '''
     } else {
         '''
+        cat !{query}
         header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
         blastp -query !{query} \
             -db !{db} \

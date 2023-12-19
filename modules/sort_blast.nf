@@ -2,12 +2,14 @@ process SORT_BLAST {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(unknown_hits) // Peptides known only from denovo peptides or from
+    path(unknown_tsv) // Peptides known only from denovo peptides or from
     // transcriptome peptides
-    path(database_hits)
+    path(unmatched_peptides_tsv) // Peptides not matched during database search
+    path(database_hits) // Combined database proteins to merge accepted blast
+    // results into
     path(blast_results)
     path(mapping)
-    path(unmatched_peptides) // Peptides not matched during database search
+    path(blast_query)
     each arg_string
     val(outdir)
     //
@@ -27,10 +29,13 @@ process SORT_BLAST {
     p_thresh = arguments[4]
     evalue_thresh = arguments[5]
     """
+    grep ">" ${blast_query} | sed 's/>//' > blast_query.txt
     sort_blast.py -b $blast_results \
-        --unknown_hits $unknown_hits \
+        --unknown_hits $unknown_tsv \
+        --unmatched_peptides $unmatched_peptides_tsv \
         -d $database_hits \
         -m $mapping \
+        -q blast_queries.txt \
         -f unmatched.fasta  \
         --unmatched_tsv ${prefix}_unmatched.tsv \
         -i $identity_thresh \
@@ -39,8 +44,6 @@ process SORT_BLAST {
         --one_hit $one_hit \
         --keep_best $best \
         -o db_hits-${prefix}.tsv
-    cat $unmatched_peptides unmatched.fasta > temp.fasta
-    cd-hit -i temp.fasta -o ${prefix}_unmatched.fasta -c 1.0
     """
     // We want the tsv file for the unmatched peptides so that they their
     // metadata (which engines matched them, PEP, evalue etc.) will not be lost

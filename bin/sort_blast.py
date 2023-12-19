@@ -1,16 +1,35 @@
 #!/usr/bin/env python
 #
+from IPython.core.debugger import set_trace
 import re
 import pandas as pd
 import numpy as np
 
 
-def write_unmatched(blast_df, failed_filter, prot_df, tsv_name):
-    # Write the entries unmatched by blast to a new fasta and tsv file
-    # all_df = pd.concat([prot_df, failed_filter])
+def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
+    '''
+    Combine the unknown tsv (containing de novo and transcriptome) psms, and
+    peptides that weren't matched to any proteins
+    Necessary because CD-hit removed redundant sequences prior to blast
+    searching
+    '''
+    with open(blast_query_path, "r") as q:
+        text = q.readlines()
+    queries = pd.Series(text).apply(lambda x: x.strip())
+    unknown_df = pd.read_csv(unknown_tsv_path, sep="\t")
+    peptide_df = pd.read_csv(peptide_tsv_path, sep="\t")
+    combined = pd.concat([unknown_df, peptide_df])
+    return combined[combined["ProteinId"].isin(queries)]
+
+
+def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
+    '''
+    Write the entries unmatched by blast to a new fasta and tsv file
+    '''
     unmatched_fasta = ""
-    unmatched = (prot_df[~prot_df["ProteinId"].isin(blast_df["queryID"])])
+    unmatched = (prot_df[~prot_df["ProteinId"].isin(queries_df["queryID"])])
     unmatched = pd.concat([prot_df, failed_filter])
+    unmatched["seq"] = np.NaN
     unmatched.to_csv(tsv_name, sep="\t", index=False)
     for row in unmatched.iterrows():
         entry = f">{row[1]['ProteinId']}\n{row[1]['seq']}\n"
@@ -96,8 +115,8 @@ def known_from_database(blast_df, db_df):
 
 def blast_id_only(blast_df, db_df, mapping_df):
     '''
-    Find proteins identified solely from blast hits and make
-    a identification dataframe out of them
+    Find proteins identified solely from blast hits, making them into an
+    identification dataframe
     '''
     not_found = blast_df[~blast_df["subjectID"].isin(db_df["ProteinId"])]
     blast_only = pd.merge(not_found,
@@ -109,6 +128,7 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["mass"] = blast_only["mass_y"]
     blast_only["length"] = blast_only["length_y"]
     blast_only["header"] = blast_only["header_y"]
+    blast_only["Anno_method"] = "blast"
     blast_only = (
         blast_only.loc[:,
                        ~blast_only.columns.str.contains("[xy]", regex=True)].
@@ -119,8 +139,10 @@ def blast_id_only(blast_df, db_df, mapping_df):
 def parse_args():
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("-b", "--blast_path")
+    parser.add_argument("-b", "--blast_results")
     parser.add_argument("-u", "--unknown_hits")
+    parser.add_argument("--unmatched_peptides")
+    parser.add_argument("-q", "--blast_query")
     parser.add_argument("-d", "--database_hits")
     parser.add_argument("-m", "--mapping")
     parser.add_argument("-f", "--unmatched_fasta")
@@ -135,28 +157,34 @@ def parse_args():
     return args
 
 
-if __name__ == '__main__':
-    args = parse_args()
-    blast_df = pd.read_csv(args["blast_path"]).dropna(axis="columns")
+def main(args: dict):
+    blast_df = pd.read_csv(args["blast_results"]).dropna(axis="columns")
     mapping = pd.read_csv(args["mapping"], sep="\t")
-    unknown_df = pd.read_csv(args["unknown_hits"], sep="\t")
     group_df = pd.read_csv(args["database_hits"], sep="\t")
+    query_df = prepare_unknown(args["unmatched_tsv"],
+                               args["unmatched_peptides"],
+                               args["blast_query"])
     joined = merge_blast(blast_df,
-                         unknown_df,
+                         query_df,
                          keep_best_only=bool(int(args["keep_best"])),
                          one_hit_wonders=bool(int(args["one_hit"])),
                          ident_thresh=float(args["identity_threshold"]),
                          pep_thresh=float(args["pep_threshold"]),
                          e_thresh=float(args["evalue_threshold"]))
-    unmatched = write_unmatched(blast_df, joined[1], unknown_df,
+    percent_accepted = joined[0].shape[0]/blast_df.shape[0]
+    print(f"Percent acccepted\n{percent_accepted}")
+    print(f"{(joined[0].shape[0] + joined[1].shape[0])/query_df.shape[0]}")
+    unmatched = write_unmatched(blast_df, joined[1], query_df,
                                 args["unmatched_tsv"])
     with open(args["unmatched_fasta"], "w") as f:
         f.write(unmatched)
     in_db = known_from_database(joined[0], group_df)
     from_blast = blast_id_only(joined[0], group_df, mapping)
-    final = pd.concat([in_db, from_blast])
-    final["Annotation_method"] = "blast"
+    filtered = group_df[~group_df["ProteinId"].isin(in_db["ProteinId"])]
+    final = pd.concat([filtered, in_db, from_blast])
     final.to_csv(args["output"], sep="\t", index=False)
 
-# test command
-# %run ./sort_blast.py -b ../results/jellyfish/1-First_pass/unknown-blast.csv -u ../results/jellyfish/1-First_pass/Combined/unknown_hits.tsv -m ../results/jellyfish/Databases/seq-header_mappings.tsv -f "../tests/blast/unmatched.fasta" -o "../tests/blast/matched.tsv" -d ../results/jellyfish/1-First_pass/Combined/database_hits.tsv -i 70 -e 100 --keep_best 0 --one_hit 0 -p 0.05
+
+if __name__ == '__main__':
+    args = parse_args()
+    main(args)
