@@ -21,10 +21,6 @@ matches = args.percolator_valid
 decoys = args.percolator_decoys
 old_db = args.database
 output = args.output_file
-# matches = "../results/test_manifest/First_pass/Percolator/comet_percolator_proteins.tsv"
-# old_db = "/home/sc31/mapping.csv"
-# decoys = "../results/test_manifest/First_pass/Percolator/comet_percolator_decoy_proteins.tsv"
-# output = "/home/sc31/test_bk.fasta"
 
 hits = []
 for fasta in [matches, decoys]:

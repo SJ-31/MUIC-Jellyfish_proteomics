@@ -1,12 +1,6 @@
 library(seqinr)
 library(tidyverse)
 library(glue)
-TEST <- TRUE
-if (TEST) {
-  dir <- "../results/jellyfish/1-First_pass/Unmatched"
-  interpro <- "../results/jellyfish/1-First_pass/Unmatched/InterPro/no_one_hits_degenerates_unmatched_eggnog-SCAN.tsv"
-  interpro_df <- read_tsv(interpro)
-}
 
 clean_interpro <- function(df) {
   # Reformat names for interpro member dbs and remove those that are not valid
@@ -122,16 +116,38 @@ clean_annotations <- function(df) {
   return(cleaned)
 }
 
-interpro_cleaned <- clean_annotations(interpro_df)
+main <- function(args) {
+  interpro_df <- read_tsv(args$interpro_results)
+  eggnog_df <- read_tsv(args$eggnog_unmatched) %>%
+    mutate(seq = "-", mass = "-", length = "-")
+                                        # The true sequence of the protein that
+  # the peptide has mapped to is unknown
+  cleaned <- clean_annotations(interpro_df)
+  joined <- inner_join(eggnog_df, cleaned,
+                       by = join_by(x$ProteinId == y$query)) %>%
+    mutate(Anno_method = "interpro") %>%
+    select(-c("member_db")) %>%
+    rename(., all_of(c("interpro_pathways" = "pathways")))
+  blanks_removed <- unlist(lapply(joined$interpro_accession, function(x) {
+    if (x == "") {
+      return ("-")
+    } else return(x)
+  }))
+  joined$interpro_accession <- blanks_removed
+  anno_cols <- c("interpro_accession", "interpro_description", "GO", "interpro_pathways", "interpro_db")
+  anno <- select(joined, all_of(c("ProteinId", "header", anno_cols)))
+  meta <- select(joined, -c(anno_cols))
+  write_tsv(meta, args$meta_output), sep = "\t")
+  write_tsv(anno, args$anno_output), sep = "\t")
+}
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--interpro_results"), type = "character")
-  parser <- add_option(parser, c("-o", "--output"), type = "character",
-                       help = "Output file name")
+  parser <- add_option(parser, c("-m", "--meta_output"), type = "character")
+  parser <- add_option(parser, c("-a", "--anno_output"), type = "character")
+  parser <- add_option(parser, c("-u", "--eggnog_unmatched"), type = "character")
   args <- parse_args(parser)
-  cleaned <- clean_annotations(args$interpro_results)
-  new_name <- gsub(".*/(.*)\\.tsv", "\\1", args$interpro_results)
-  write_tsv(cleaned, glue("{new_name}-SORTED.tsv"), sep = "\t")
+  main(args)
 }

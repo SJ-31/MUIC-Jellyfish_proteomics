@@ -3,10 +3,6 @@ import re
 from pyteomics import parser
 from pyteomics import mass
 
-# Testing
-# prot_df = pd.read_csv("../results/ref/intersected_searches.tsv", sep="\t")
-# mapping = pd.read_csv("../results/ref/all_normal_mapping.tsv", sep="\t")
-
 
 def clean_pep(peptide):
     peptide = peptide.upper()

@@ -64,8 +64,3 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   combined <- read_percolator(args$matches, args$decoys, args$engine)
   write.csv(combined, file = args$output, row.names = FALSE)
 }
-
-# Testzone
-## test <- "../results/jellyfish/1-First_pass/Percolator/comet_percolator_psms.tsv"
-## tide <- "../results/jellyfish/1-First_pass/Percolator/tide_percolator_psms.tsv"
-## p <- read_tide(tide, FALSE)

@@ -3,7 +3,6 @@ library(glue)
 
 # Sort proteins in the intersected searches output file into new groups
 
-
 check_group <- function(group_list, group_record) {
   group_list <- as.character(group_list)
   split <- strsplit(group_list, split = ",") %>% unlist()
@@ -71,14 +70,24 @@ resolve_records <- function(combined_tib, records) {
   return(new)
 }
 
-if (sys.nframe() == 0) {
-  args <- commandArgs(trailingOnly = TRUE)
-  combined_file <- args[1]
-  output <- args[2]
-  combined <- read.delim(combined_file, sep = "\t") %>%
+main <- function(search_type, group_prefix, output, input) {
+  combined <- read.delim(input, sep = "\t") %>%
     as_tibble()
   group_records <- unify_groups(combined)
   all_groups <- resolve_records(combined, group_records) %>%
-    mutate(Identification_method = "standard_search")
+    mutate(ID_method = search_type)
   write_delim(all_groups, output, delim = "\t")
+}
+
+if (sys.nframe() == 0) {
+   library("optparse")
+  parser <- OptionParser()
+  parser <- add_option(parser, c("-o", "--output"), type = "character",
+                      help = "Output file name")
+  parser <- add_option(parser, c("-i", "--input"), type = "character",
+                      help = "Input file name")
+  parser <- add_option(parser, c("-s", "--search_type"), type = "character")
+  parser <- add_option(parser, c("-p", "--group_prefix"), type = "character")
+  args <- parse_args(parser)
+  main(args$search_type, args$group_prefix, args$output, args$input)
 }

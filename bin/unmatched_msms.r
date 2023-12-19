@@ -2,10 +2,10 @@ library(MSnbase)
 library(tidyverse)
 library(optparse)
 library(glue)
+
 # Take psm2combined pep file from all engines, concatenate them,
 # Take all scans from all engines, concatenate to keep only scan and file, also
 # remove duplicates
-
 clean_peptide <- function(modified_pep) {
   clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
     paste0(collapse = "")
@@ -72,6 +72,16 @@ join_psms_scans <- function(psm_list, scan_list, pep_thresh) {
   return(join)
 }
 
+main <- function(args) {
+  ## Extract ms/ms spectra that haven't matched to anything
+  psms <- glue("{args$psm_path}/{list.files(path = args$psm_path)}")
+  scans <- glue("{args$scan_path}/{list.files(path = args$scan_path)}")
+  mzmls <- list.files(args$mzML_path, pattern = "*.mzML")
+  joined_psms <- join_psms_scans(psm_list = psms, scan_list = scans,
+                                 pep_thresh = args$pep_thresh)
+  metrics <- filter_from_mzML(mzmls, joined_psms)
+}
+
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- OptionParser()
   parser <- add_option(parser, c("-m", "--psm_path"))
@@ -79,12 +89,5 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("-p", "--pep_thresh"))
   parser <- add_option(parser, c("-z", "--mzML_path"))
   args <- parse_args(parser)
-  ## args <- list(psm_path = "psm2combined", scan_path = "scans",
-  ##              pep_thresh = "1", mzML_path = ".") # Testing
-  psms <- glue("{args$psm_path}/{list.files(path = args$psm_path)}")
-  scans <- glue("{args$scan_path}/{list.files(path = args$scan_path)}")
-  mzmls <- list.files(args$mzML_path, pattern = "*.mzML")
-  joined_psms <- join_psms_scans(psm_list = psms, scan_list = scans,
-                                 pep_thresh = args$pep_thresh)
-  metrics <- filter_from_mzML(mzmls, joined_psms)
+  main(args)
 }

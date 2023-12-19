@@ -84,6 +84,21 @@ merge_column <- function(column_name, dataframe) {
   return(all_vals)
 }
 
+main <- function(seq_header_file, output) {
+  files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
+  # all the results files have been dumped
+  # into the directory
+  matched <- intersect_engines(files, seq_header_file)
+  matched_tables <- matched$tables
+  mapped <- matched$map_list
+  merged_tables <- reduce(matched_tables, full_join, by = target)
+  merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
+    `names<-`(headers) %>%
+    as_tibble() %>%
+    inner_join(mapped, by = join_by(x$ProteinId == y$id))
+  write_delim(merged_tables, output, delim = "\t")
+}
+
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
@@ -96,17 +111,5 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     help = "Output file name"
   )
   args <- parse_args(parser)
-  ## args <- list(map_file = "../workflow/results/ND_jellyfish/Databases/header_mappings.tsv", output = "~/intersect_test.tsv")
-  files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
-  # all the results files have been dumped
-  # into the directory
-  matched <- intersect_engines(files, args$seq_header_file)
-  matched_tables <- matched$tables
-  mapped <- matched$map_list
-  merged_tables <- reduce(matched_tables, full_join, by = target)
-  merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
-    `names<-`(headers) %>%
-    as_tibble() %>%
-    inner_join(mapped, by = join_by(x$ProteinId == y$id))
-  write_delim(merged_tables, args$output, delim = "\t")
+  main(args$seq_header_file, args$output)
 }

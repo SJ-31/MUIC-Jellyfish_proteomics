@@ -6,7 +6,6 @@ library(MSnbase)
 
 args <- commandArgs(trailingOnly = TRUE)
 
-## args <- c("~/CiCs1.mzML", "~/CiCs_metrics.tsv") # Testing
 input <- args[1]
 output <- args[2]
 run_name <- gsub("\\..*", "", input)

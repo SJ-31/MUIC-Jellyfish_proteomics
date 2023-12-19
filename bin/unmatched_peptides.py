@@ -1,8 +1,15 @@
 #!/usr/bin/env python
+"""
+Obtain peptides that have not been matched to proteins in the database
+search/protein inference with percolator, but pass a q-value and pep
+threshold
+"""
 
 from pathlib import Path
+
 import re
 import pandas as pd
+import numpy as np
 
 
 def perc_row(series_row):
@@ -70,14 +77,7 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__":
-    # args = {
-    #     "pep_threshold": 1,
-    #     "q_threshold": 0.05,
-    #     "output": "unmatched_peptides.fasta",
-    #     "input_path": "../tests/percolator_psms"
-    # }
-    args = parse_args()
+def main(args: dict):
     all_unmatched = set()
     unmatched_df = []
     pep_threshold = float(args["pep_threshold"])
@@ -94,9 +94,26 @@ if __name__ == "__main__":
             current.where(current["proteinIds"] == '')["peptide"].unique())
         unmatched_df.append(current[current["peptide"].isin(unmatched)])
         all_unmatched = all_unmatched | set(unmatched)
-    all_unmatched = (pd.Series(list(all_unmatched)).reset_index().apply(
-        make_fasta, 1))
+    all_unmatched = pd.Series(list(all_unmatched)).reset_index()
+    all_unmatched_str = all_unmatched.apply(make_fasta, 1)
+    all_unmatched["ProteinId"] = all_unmatched["index"].apply(lambda x: f"U{x}")
+    all_unmatched.drop("index", axis="columns", inplace=True)
+    all_unmatched.rename({0: "seq"}, axis="columns", inplace=True)
     all_unmatched_df = pd.concat(unmatched_df).groupby("peptide").sample()
-    all_unmatched_df.to_csv(args["unmatched_tsv"])
+    all_unmatched_df.rename({"q-value": "q.value", "peptide": "peptideIds"},
+                            axis="columns", inplace=True)
+    df = all_unmatched.merge(all_unmatched_df, how="inner",
+                             left_on="seq", right_on="peptideIds")
+    df["ProteinGroupId"] = np.NaN
+    df["Group"] = np.NaN
+    df["header"] = "unknown"
+    df = df[["ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
+            "peptideIds", "header", "Group"]]
+    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep='-')
     with open(args["output"], "w") as f:
-        f.write(''.join(all_unmatched))
+        f.write(''.join(all_unmatched_str))
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)

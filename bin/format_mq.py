@@ -55,7 +55,5 @@ def parse_args():
 
 if __name__ == '__main__':
     args = parse_args()
-    # args = {'input': "../results/ND_jellyfish/1-First_pass/Engines/MaxQuant/CiCs2_combined/msms.txt",
-    #         'output': "~/test.pin"}
     pin = format_mq(args["input"])
     pin.to_csv(args["output"], sep="\t", index=None)

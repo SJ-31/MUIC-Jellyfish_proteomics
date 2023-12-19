@@ -1,12 +1,5 @@
 library(hash)
 library(tidyverse)
-TEST <- TRUE
-
-if (TEST) {
-  test <- ("../results/jellyfish/1-First_pass/Combined/unified_groups.tsv")
-  ms <- "../results/jellyfish/1-First_pass/Open_search/Percolator/msfraggerGPTMD_percolator_proteins.tsv" %>% read_tsv()
-  mm <- "../results/jellyfish/1-First_pass/Open_search/Percolator/metamorpheusGTPMD_percolator_proteins.tsv" %>% read_tsv()
-}
 
 # CA = Common Artifact
 # CB = Common Biological
@@ -78,19 +71,8 @@ getAllMods <- function(mod_df, row) {
   return(mod_string)
 }
 
-
-if (sys.nframe() == 0) { # Won't run if the script is being sourced
-  library("optparse")
-  parser <- OptionParser()
-  parser <- add_option(parser, c("-i", "--input"), action = "store_true",
-                       defaulta = TRUE, help = "Print extra output [default]")
-  parser <- add_option(parser, c("-o", "--output"), type = "character",
-                       help = "Output file name")
-  args <- parse_args(parser)
-  if (TEST) {
-    args$input <- test
-  }
-  df <- read_tsv(args$input)
+main <- function(input, output) {
+  df <- read_tsv(input)
   has_mods <- df %>% filter(grepl("[][]", df$peptideIds))
   no_mods <- df[!(df$ProteinId %in% has_mods$ProteinId), ] %>%
     mutate(Mods = NA)
@@ -100,4 +82,16 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     unlist(use.names = FALSE)
   has_mods <- has_mods %>% mutate(Mods = mod_col)
   df <- bind_rows(has_mods, no_mods)
+}
+
+
+if (sys.nframe() == 0) { # Won't run if the script is being sourced
+  library("optparse")
+  parser <- OptionParser()
+  parser <- add_option(parser, c("-i", "--input"), action = "store_true",
+                       defaulta = TRUE, help = "Print extra output [default]")
+  parser <- add_option(parser, c("-o", "--output"), type = "character",
+                       help = "Output file name")
+  args <- parse_args(parser)
+  main(args$input, args$output)
 }
