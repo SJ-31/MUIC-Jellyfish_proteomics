@@ -22,10 +22,15 @@ process METAMORPHEUS {
     //
 
     shell:
-    def check = file("${outdir}/metamorpheus${mode}_AllPSMs.psmtsv")
-    if (check.exists()) {
+    def check = file("${outdir}/{metamorpheus${mode}_AllPSMs*,*xml}")
+    if (check && config =~ /gptmd/) { // For the "GPTMD" option, which prepares
+        // an xml file
         '''
-        cp !{outdir}/* .
+        cp !{outdir}/*xml .
+        '''
+    } else if (check) {
+        '''
+        cp !{outdir}/*{tsv,tab,txt} .
         '''
     } else {
         template 'metamorpheus.sh'

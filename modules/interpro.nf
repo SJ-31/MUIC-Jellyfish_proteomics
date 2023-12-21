@@ -7,14 +7,15 @@ process INTERPROSCAN {
     //
 
     output:
-    path("${unknown_fasta.baseName}-SCAN.tsv")
+    path("${name}_interpro.tsv")
     //
 
     shell:
-    def check = file("${outdir}/${unknown_fasta.baseName}-SCAN.tsv")
+    name = unknown_fasta.baseName.replaceFirst(/_eggnog/, "")
+    check = file("${outdir}/${name}_interpro.tsv")
     if (check.exists()) {
         '''
-        cp !{outdir}/!{unknown_fasta.baseName}-SCAN.tsv .
+        cp !{outdir}/!{name}_interpro.tsv .
         '''
     } else {
         '''
@@ -25,33 +26,37 @@ process INTERPROSCAN {
             -pa \
             -b temp
         echo -e "$header" > header.txt
-        cat header.txt temp.tsv > !{unknown_fasta.baseName}-SCAN.tsv
+        cat header.txt temp.tsv > !{name}_interpro.tsv
         '''
     }
     //
 }
 
 process SORT_INTERPRO {
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "*{meta,anno}*"
+    publishDir "$outdir_unmatched", mode: "copy", pattern: "remaining_unmatched*"
 
     input:
     path(interpro_results)
     path(eggnog_unmatched)
     val(outdir)
+    val(outdir_unmatched)
     //
 
     output:
     tuple path("interpro_anno-${name}.tsv"), path("interpro_meta-${name}.tsv")
+    path("remaining_unmatched-${name}.tsv")
     //
 
     script:
-    name = interpro_results.baseName.replaceFirst(/-SCAN/, "")
+    name = interpro_results.baseName.replaceFirst(/_interpro/, "")
     """
     Rscript $params.bin/sort_interpro.r \
         -i $interpro_results \
         -u $eggnog_unmatched \
         -m interpro_meta-${name}.tsv \
         -a interpro_anno-${name}.tsv \
+        -f remaining_unmatched-${name}.tsv \
     """
     //
 }

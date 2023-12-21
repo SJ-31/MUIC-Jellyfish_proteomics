@@ -11,7 +11,9 @@ process EGGNOG {
     path("${name}.emapper.seed_orthologs"), emit: seed
     path("${name}.emapper.orthologs"), emit: orthologs
     path("${name}.emapper.annotations"), emit: annotations
-    tuple val("${name}"), path("${name}.emapper.annotations"), path(unknown_tsv), emit: unmatched
+    tuple val("${name}"), path("${name}.emapper.annotations"), \
+        path("${name}.emapper.seed_orthologs"), \
+        path(unknown_tsv), emit: unmatched
     //
 
     script:
@@ -19,7 +21,7 @@ process EGGNOG {
     check = file("${outdir}/${name}.emapper.seed_orthologs")
     if (check.exists()) {
         """
-        find ${outdir} -name "${name}.emapper*" -exec cp {} . \;
+        cp ${outdir}/${name}.emapper* .
         """
     } else {
         """
@@ -35,7 +37,8 @@ process SORT_EGGNOG {
     publishDir "$outdir", mode: "copy"
 
     input:
-    tuple val(run_name), path(eggnog_annotations), path(unknown_tsv)
+    tuple val(run_name), path(eggnog_annotations), path(eggnog_seeds),\
+        path(unknown_tsv)
     path(unmatched_peptides)
     val(outdir)
     //
@@ -47,20 +50,28 @@ process SORT_EGGNOG {
     //
 
     script:
-    """
-    Rscript $params.bin/sort_eggnog.r \
-        -u ${run_name}_eggnog_unmatched.tsv \
-        -f ${run_name}_eggnog.fasta \
-        --blast $unknown_tsv \
-        --annotations $eggnog_annotations \
-        --peptides $unmatched_peptides \
-        --output_meta "meta_temp" \
-        --output_anno "eggnog_anno-${run_name}.tsv"
+    def check = file("${outdir}/eggnog_anno-${run_name}.tsv")
+    if (check.exists()) {
+        """
+        cp ${outdir}/*${run_name}_eggnog* .
+        cp ${outdir}/eggnog_*${run_name}* .
+        """
+    } else {
+        """
+        Rscript $params.bin/sort_eggnog.r \
+            -u ${run_name}_eggnog_unmatched.tsv \
+            -f ${run_name}_eggnog.fasta \
+            --blast $unknown_tsv \
+            --annotations $eggnog_annotations \
+            --seeds $eggnog_seeds \
+            --output_meta meta_temp \
+            --output_anno "eggnog_anno-${run_name}.tsv"
 
-    eggnog_seq.py -e \
-        -m meta_temp \
-        -a "eggnog_anno-${run_name}.tsv" \
-        -o eggnog_meta-${run_name}.tsv
-    """
+        eggnog_seq.py -e $params.eggnog_db_fasta \
+            -m meta_temp \
+            -a eggnog_anno-${run_name}.tsv \
+            -o eggnog_meta-${run_name}.tsv
+        """
+    }
     //
 }
