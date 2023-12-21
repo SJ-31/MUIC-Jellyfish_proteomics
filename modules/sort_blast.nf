@@ -35,8 +35,8 @@ process SORT_BLAST {
         --unmatched_peptides $unmatched_peptides_tsv \
         -d $database_hits \
         -m $mapping \
-        -q blast_queries.txt \
-        -f unmatched.fasta  \
+        -q blast_query.txt \
+        -f "${prefix}_unmatched.fasta"  \
         --unmatched_tsv ${prefix}_unmatched.tsv \
         -i $identity_thresh \
         -e $evalue_thresh \
