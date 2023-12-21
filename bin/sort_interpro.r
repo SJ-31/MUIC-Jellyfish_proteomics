@@ -137,8 +137,12 @@ main <- function(args) {
   anno_cols <- c("interpro_accession", "interpro_description", "GO", "interpro_pathways", "interpro_db")
   anno <- select(joined, all_of(c("ProteinId", "header", anno_cols)))
   meta <- select(joined, -c(anno_cols))
-  write_tsv(meta, args$meta_output), sep = "\t")
-  write_tsv(anno, args$anno_output), sep = "\t")
+  still_unmatched <- eggnog_df[!(eggnog_df$ProteinId %in%
+                                 joined$ProteinId), ] %>%
+    select(., -c("seq", "Anno_method"))
+  write_tsv(still_unmatched, args$final_unmatched)
+  write_tsv(meta, args$meta_output)
+  write_tsv(anno, args$anno_output)
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
@@ -148,6 +152,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("-m", "--meta_output"), type = "character")
   parser <- add_option(parser, c("-a", "--anno_output"), type = "character")
   parser <- add_option(parser, c("-u", "--eggnog_unmatched"), type = "character")
+  parser <- add_option(parser, c("-f", "--final_unmatched"), type = "character")
   args <- parse_args(parser)
   main(args)
 }

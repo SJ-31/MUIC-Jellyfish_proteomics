@@ -25,6 +25,7 @@ main <- function(args) {
                       by = join_by(x$`#query` == y$`#qseqid`)) %>%
     select(-c("qstart", "qend", "sstart", "send", "sseqid")) %>%
     as_tibble()
+    # Import the eggnog data and merge together
   joined <- joined %>%
     lapply(., as.character) %>%
     as_tibble() %>%
@@ -35,10 +36,8 @@ main <- function(args) {
     ungroup()
   with_blast <- inner_join(unmatched_blast, joined,
                            by = join_by(x$ProteinId == y$`#query`))
-                                        # Get metadata for proteins given to
-                                        # eggnog
-  final <- bind_rows(with_blast, with_unmatched) %>%
-    mutate(Anno_method = "eggNOG")
+                          # Get metadata for eggnog-identified proteins
+  final <- mutate(with_blast, Anno_method = "eggNOG")
   anno_cols <- c("seed_ortholog", "eggNOG_OGs",
                 "max_annot_level", "COG_category", "Description",
                 "Preferred_name", "GOs", "EC", "KEGG_ko", "PFAMs",
@@ -69,8 +68,6 @@ if (sys.nframe() == 0) {
                        help = "eggNOG seed file")
   parser <- add_option(parser, c("-a", "--annotations"), type = "character",
                        help = "eggNOG annotations file")
-  parser <- add_option(parser, c("-p", "--peptides"), type = "character",
-                       help = "tsv containing unmatched peptide metadata")
   parser <- add_option(parser, c("-b", "--blast"), type = "character",
                        help = "tsv containing unmatched blast hits originally given to eggnog")
   ARGS <- parse_args(parser)
