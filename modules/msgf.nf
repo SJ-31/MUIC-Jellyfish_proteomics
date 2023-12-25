@@ -9,16 +9,18 @@ process MSGF {
     val(database)
     //
     output:
-    path("${params.pref}_msgf.pin").out.pin
+    path("${params.pref}-${file.baseName}_msgf.pin"), emit: pin
+    path("*.mzid")
     path("*.log")
     //
     shell: // -inst 3 specifies the Q-Exactive machine
     // You could change -tda to 1 to search the decoy database
-    def check = file("${outdir}/${params.pref}_msgf.pin")
+    name = "${params.pref}-${file.baseName}"
+    check = file("${outdir}/${name}_msgf.pin")
     if (check.exists()) {
         '''
-        cp !{outdir}/* .
-        cp !{logdir}/msgf* .
+        cp !{outdir}/*!{file.baseName}* .
+        cp !{logdir}/*!{file.baseName}* .
         '''
     } else {
         '''
@@ -27,8 +29,8 @@ process MSGF {
         seqkit grep wdecoys.fasta -n -r -p "rev_" > decoys.fasta
         names=("decoys" "normal")
         for n in ${names[@]}; do
-            java -jar !{params.msgf} -s $files \
-                -o ${n}.mzid \
+            java -jar !{params.msgf} -s !{file} \
+                -o ${n}-!{file.baseName}.mzid \
                 -d ${n}.fasta \
                 -inst 3 \
                 -decoy rev \
@@ -37,13 +39,13 @@ process MSGF {
                 -m 3 \
                 -addFeatures 1 \
                 -maxMissedCleavages 2 \
-            -tda 0 > msgf_${n}_search.log
+            -tda 0 > !{name}_search.log
         done
         rm *.fasta
         msgf2pin.py \
-            -d decoys.mzid \
-            -v normal.mzid \
-            -o !{params.pref}_msgf.pin
+            -d decoys-!{file.baseName}.mzid \
+            -v normal-!{file.baseName}.mzid \
+            -o !{name}_msgf.pin
         '''
     }
 }

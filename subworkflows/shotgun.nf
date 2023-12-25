@@ -1,5 +1,5 @@
 // CONVENTION: the final protein/PSMs output file will be prefixed with the engine that produced them
-include { MAXQUANT } from '../modules/maxquant'
+include { MSGF; MSGF_MERGE } from  '../modules/msgf'
 include { MSFRAGGER } from '../modules/msfragger'
 include { SMSNET } from '../modules/smsnet'
 include { COMET } from '../modules/comet'
@@ -63,9 +63,6 @@ workflow 'search' {
     MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    MAXQUANT(raw.collect(), "default_maxquant.xml",
-             "$params.results/1-First_pass/Engines/MaxQuant",
-             "$params.results/1-First_pass/Logs", db.normal.first())
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
           "$params.results/1-First_pass/Logs", db.plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params", "",
@@ -79,20 +76,21 @@ workflow 'search' {
                          "$params.results/1-First_pass/Engines/Metamorpheus",
                          "$params.results/1-First_pass/Logs", "",
                          "$params.config/metamorpheus_params.toml", db.normal)
-    // MSGF(mzML, "$params.results/1-First_pass/msgf", db.normal) No longer used,
-    //  no way to integrate with percolator for now
+    MSGF(mzML, "$params.results/1-First_pass/Engines/MSGF",
+         "$params.results/1-First_pass/Logs", db.plusdecoys.first())
+    MSGF_MERGE(MSGF.out.pin.collect(),
+               "$params.results/1-First_pass/Engines/MSGF")
     TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide",
          "$params.results/1-First_pass/Logs",
          "$params.results/1-First_pass/Percolator",
     db.normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
-    FORMAT_MQ(MAXQUANT.out.msmsScans.collect(), "$params.results/1-First_pass/Engines/MaxQuant")
 
     // Post-processing with Percolator
     empty = Channel.empty()
     empty.mix(
         METAMORPHEUS_DEFAULT.out.percolator,
-        FORMAT_MQ.out,
+        MSGF_MERGE.out, // TODO Replace maxquant with msgf
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
         FORMAT_IDPY.out.percolator
@@ -131,7 +129,7 @@ workflow 'search' {
         open_search_FIRST.out.open_results)
 
     // Second pass with Bern and Kil decoy database
-    compatible = /.*comet.*|.*identipy.*|.*msfragger.*/
+    compatible = /.*comet.*|.*identipy.*|.*msfragger.*|.*msgf.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
               db.seq_header_mapping, mzML)
     from_first = /.*metamorpheus.*|.*maxquant.*/
