@@ -114,6 +114,10 @@ msfragger_scans <- function(msfragger_id_str) {
   return(groups[2])
 }
 
+msgf_scans <- function(msgf_id_str) {
+  return(gsub("_SII", ".", msgf_id_str))
+}
+
 get_file_name <- function(scan) {
   return(gsub("\\..*", "", scan))
 }
@@ -133,8 +137,8 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
     psms <- read_percolator(percolator_input)
     if (engine == "comet") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
-    } else if (engine == "maxquant") {
-      psms <- psms %>% rename(scan = PSMId)
+    } else if (engine == "msgf") {
+      psms <- psms %>% rename(scan = unlist(lapply(PSMId, msgf_scans)))
     } else if (grepl("msfragger", engine)) {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {
