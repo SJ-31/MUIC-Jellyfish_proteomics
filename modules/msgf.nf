@@ -1,5 +1,5 @@
 process MSGF {
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "{*.pin,*.mzid}"
     publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:

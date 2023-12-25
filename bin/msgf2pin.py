@@ -31,12 +31,15 @@ def cleave(peptide: str, enzyme: str, side: str):
 
 def get_mods(row):
     pep = row["PeptideSequence"]
+    pep_list = list(pep)
     modifications = row["Modification"]
     if isinstance(modifications, list) and len(modifications) > 0:
-        for mod in modifications:
+        for index, mod in enumerate(modifications):
             mass = mod["monoisotopicMassDelta"]
-            loc = mod["location"] - 1
-            pep = pep[: loc + 1] + f"[{mass}]" + pep[loc + 1 :]
+            loc = mod["location"]
+            mod_string = f"{pep[loc - 1]}[{mass}]"
+            pep_list[loc - 1] = mod_string
+    pep = ''.join(pep_list)
     return pep
 
 
