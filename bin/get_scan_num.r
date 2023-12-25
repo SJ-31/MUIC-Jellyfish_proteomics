@@ -138,7 +138,7 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
     if (engine == "comet") {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, comet_scans)))
     } else if (engine == "msgf") {
-      psms <- psms %>% rename(scan = unlist(lapply(PSMId, msgf_scans)))
+      psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msgf_scans)))
     } else if (grepl("msfragger", engine)) {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {

@@ -7,17 +7,24 @@ clean_interpro <- function(df) {
   ip_df <- df %>%
     filter(evalue < 0.001) %>%
     ## filter(GO != "NA", GO != "-", pathways != "NA", pathways != ",") %>% # Too extreme?
-    mutate(interpro_db = paste0(member_db, ": ", db_accession),
-           interpro_db = recode(interpro_db,
-                                "Coils: Coil" = "Coil",
-                                "MobiDBLite: mobidb-lite" = "MobiDBLite"),
-           interpro_description = paste0(description, ", ",
-                                         interpro_description),
-           interpro_evalue = evalue,
-           GO = str_replace(GO, "NA", ""),
-           pathways = str_replace(pathways, "NA", "")) %>%
-    select(-c("sequence_md5", "length", "status", "date", "evalue",
-              "db_accession", "description")) %>%
+    mutate(
+      interpro_db = paste0(member_db, ": ", db_accession),
+      interpro_db = recode(interpro_db,
+        "Coils: Coil" = "Coil",
+        "MobiDBLite: mobidb-lite" = "MobiDBLite"
+      ),
+      interpro_description = paste0(
+        description, ", ",
+        interpro_description
+      ),
+      interpro_evalue = evalue,
+      GO = str_replace(GO, "NA", ""),
+      pathways = str_replace(pathways, "NA", "")
+    ) %>%
+    select(-c(
+      "sequence_md5", "length", "status", "date", "evalue",
+      "db_accession", "description"
+    )) %>%
     group_by(query) %>%
     ungroup()
   return(ip_df)
@@ -42,11 +49,15 @@ get_overlaps <- function(df, query_id) {
   num_overlaps <- 1
   m <- 1
   n <- 1
-  if (num_searches == 1) return(list(OVERLAP1 = 1))
+  if (num_searches == 1) {
+    return(list(OVERLAP1 = 1))
+  }
   while (m <= num_searches) {
     current <- query_df[m, ]
     while (n <= num_searches) {
-      if (m == n && num_searches == 1) return(list(OVERLAP1 = 1))
+      if (m == n && num_searches == 1) {
+        return(list(OVERLAP1 = 1))
+      }
       if (m == n) {
         n <- n + 1
         next
@@ -54,7 +65,7 @@ get_overlaps <- function(df, query_id) {
       compare <- query_df[n, ]
       key <- paste0("OVERLAP", num_overlaps)
       if (compare$start <= current$stop) {
-        overlapping[[key]] <- c(overlapping[[key]],m, n)
+        overlapping[[key]] <- c(overlapping[[key]], m, n)
       } else if (compare$start > current$stop) {
         num_overlaps <- num_overlaps + 1
         key <- paste0("OVERLAP", num_overlaps)
@@ -76,11 +87,15 @@ resolve_overlaps <- function(overlapping_indices, df) {
   current <- df[overlapping_indices, ]
   current <- distinct(current, interpro_db, .keep_all = TRUE) # interpro_db is
   # the column to consider for distinct
-  predictive <- c("Coils", "MobiDBLite", "SUPERFAMILY", "PIRSF", "Gene3D",
-                  "FunFam")
-  curated <- c("Hamap", "PANTHER", "Pfam", "ProSiteProfiles", "CDD",
-               "ProSitePatterns", "ProSiteProfiles", "SMART", "PRINTS",
-               "SFLD", "NCBIfam")
+  predictive <- c(
+    "Coils", "MobiDBLite", "SUPERFAMILY", "PIRSF", "Gene3D",
+    "FunFam"
+  )
+  curated <- c(
+    "Hamap", "PANTHER", "Pfam", "ProSiteProfiles", "CDD",
+    "ProSitePatterns", "ProSiteProfiles", "SMART", "PRINTS",
+    "SFLD", "NCBIfam"
+  )
   if (any(current$member_db %in% predictive) && any(current$member_db %in% curated)) {
     current <- current %>% filter(current$member_db %in% curated)
   }
@@ -98,10 +113,14 @@ clean_annotations <- function(df) {
   ip_df <- clean_interpro(df)
   queries <- ip_df$query %>% unique()
   cleaned <- lapply(queries, function(x) {
-    current_query <- ip_df %>% filter(query == x) %>% arrange(start)
+    current_query <- ip_df %>%
+      filter(query == x) %>%
+      arrange(start)
     current_overlaps <- get_overlaps(ip_df, x)
     current_sorted <- lapply(current_overlaps,
-                             resolve_overlaps, df = current_query) %>%
+      resolve_overlaps,
+      df = current_query
+    ) %>%
       bind_rows() %>%
       distinct(., interpro_description, .keep_all = TRUE) %>%
       group_by(query) %>%
@@ -120,25 +139,28 @@ main <- function(args) {
   interpro_df <- read_tsv(args$interpro_results)
   eggnog_df <- read_tsv(args$eggnog_unmatched) %>%
     mutate(seq = "-", mass = "-", length = "-")
-                                        # The true sequence of the protein that
+  # The true sequence of the protein that
   # the peptide has mapped to is unknown
   cleaned <- clean_annotations(interpro_df)
   joined <- inner_join(eggnog_df, cleaned,
-                       by = join_by(x$ProteinId == y$query)) %>%
+    by = join_by(x$ProteinId == y$query)
+  ) %>%
     mutate(Anno_method = "interpro") %>%
     select(-c("member_db")) %>%
     rename(., all_of(c("interpro_pathways" = "pathways")))
   blanks_removed <- unlist(lapply(joined$interpro_accession, function(x) {
     if (x == "") {
-      return ("-")
-    } else return(x)
+      return("-")
+    } else {
+      return(x)
+    }
   }))
   joined$interpro_accession <- blanks_removed
   anno_cols <- c("interpro_accession", "interpro_description", "GO", "interpro_pathways", "interpro_db")
   anno <- select(joined, all_of(c("ProteinId", "header", anno_cols)))
-  meta <- select(joined, -c(anno_cols))
+  meta <- select(joined, -c("header", anno_cols))
   still_unmatched <- eggnog_df[!(eggnog_df$ProteinId %in%
-                                 joined$ProteinId), ] %>%
+    joined$ProteinId), ] %>%
     select(., -c("seq", "Anno_method"))
   write_tsv(still_unmatched, args$final_unmatched)
   write_tsv(meta, args$meta_output)
