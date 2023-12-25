@@ -1,6 +1,5 @@
 process ANNOTATE {
     publishDir "$outdir", mode: "copy", pattern: "{*.tsv,*.fasta}"
-    conda "/home/shannc/anaconda3/envs/eggnog"
     // May need to install pandas and requests
 
     input:

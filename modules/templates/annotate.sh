@@ -9,13 +9,13 @@ ipdir="!{name}_interpro-unmatched"
 
 if [ -e needs_annotating.fasta ]; then
     mkdir ${eggdir}; mv needs_annotating* ${eggdir}; cd ${eggdir}
-    export EGGNOG_DATA_DIR="!{params}.eggnog_data_dir"
-    emapper.py -i needs_annotating.fasta \
+    export EGGNOG_DATA_DIR=!{params.eggnog_data_dir}
+    conda run -n eggnog emapper.py -i needs_annotating.fasta \
         --output temp \
         --report_orthologs
 
     Rscript !{params.bin}/sort_eggnog.r \
-        -f needs_annotating.fasta \
+        -f needs_annotating2.fasta \
         --blast needs_annotating.tsv \
         --output_unmatched !{name}_eggnog_unmatched.tsv \
         --output_meta !{name}_meta-eggnog.tsv \
@@ -28,12 +28,12 @@ if [ -e needs_annotating.fasta ]; then
 
     annotate.py --merge_eggnog \
         --anno_tsv !{name}_anno.tsv \
-        --eggnog_anno_tsv ${eggdir}/ !{name}_anno-eggnog.tsv
+        --eggnog_anno_tsv ${eggdir}/!{name}_anno-eggnog.tsv
 
     if [ -e needs_annotating2.fasta ]; then
         interpro_header='query\tsequence_md5\tlength\tmember_db\tdb_accession\tdescription\tstart\tstop\tevalue\tstatus\tdate\tinterpro_accession\tinterpro_description\tGO\tpathways'
         mkdir ${ipdir}; mv needs_annotating2.fasta ${ipdir}; cd ${ipdir}
-        interproscan.sh -i needs_2.fasta \
+        interproscan.sh -i needs_annotating2.fasta \
             -f tsv \
             -goterms \
             -pa \
