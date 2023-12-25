@@ -90,7 +90,7 @@ workflow 'search' {
     empty = Channel.empty()
     empty.mix(
         METAMORPHEUS_DEFAULT.out.percolator,
-        MSGF_MERGE.out, // TODO Replace maxquant with msgf
+        MSGF_MERGE.out,
         COMET.out.percolator,
         MSFRAGGER.out.percolator,
         FORMAT_IDPY.out.percolator
@@ -132,7 +132,7 @@ workflow 'search' {
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*|.*msgf.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
               db.seq_header_mapping, mzML)
-    from_first = /.*metamorpheus.*|.*maxquant.*/
+    from_first = /.*metamorpheus.*/
 
     // Second pass quantification
     quantify_SECOND(MS_MAPPING.out,

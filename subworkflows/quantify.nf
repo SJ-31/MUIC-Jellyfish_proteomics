@@ -18,12 +18,12 @@ workflow 'quantify'{
     engine_percolator_output.branch {
         comet: it =~ /comet/
         identipy: it =~ /identipy/
+        msgf: it =~ /msgf/
         msfragger: it =~ /msfragger/
-        maxquant: it =~ /maxquant/
         tide: it =~ /tide/
         metamorpheus: it =~ /metamorpheus/
     }.set { per }
-    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.maxquant,
+    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.msgf,
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
               "$outdir/Mapped_scans")
