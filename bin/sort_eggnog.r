@@ -25,7 +25,7 @@ main <- function(args) {
                       by = join_by(x$`#query` == y$`#qseqid`)) %>%
     select(-c("qstart", "qend", "sstart", "send", "sseqid")) %>%
     as_tibble()
-    # Import the eggnog data and merge together
+    # Import the eggnog data and merge the two together
   joined <- joined %>%
     lapply(., as.character) %>%
     as_tibble() %>%
@@ -37,10 +37,12 @@ main <- function(args) {
   with_blast <- inner_join(unmatched_blast, joined,
                            by = join_by(x$ProteinId == y$`#query`))
                           # Get metadata for eggnog-identified proteins
-  final <- mutate(with_blast, Anno_method = "eggNOG")
+  final <- mutate(with_blast, Anno_method = "eggNOG", GO = GOs,
+                  KEGG_ko = unlist(lapply(KEGG_ko, gsub, pattern = "ko:",
+                                          replacement = "" )))
   anno_cols <- c("seed_ortholog", "eggNOG_OGs",
                 "max_annot_level", "COG_category", "Description",
-                "Preferred_name", "GOs", "EC", "KEGG_ko", "PFAMs",
+                "Preferred_name", "GO", "EC", "KEGG_ko", "PFAMs",
                 "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction",
                 "KEGG_rclass", "BRITE","KEGG_TC", "CAZy", "BiGG_Reaction")
   annotations <- final %>% select(any_of(c("ProteinId", "header", anno_cols)))
