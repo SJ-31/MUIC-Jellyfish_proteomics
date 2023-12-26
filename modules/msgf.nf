@@ -46,6 +46,9 @@ process MSGF {
             -d decoys-!{file.baseName}.mzid \
             -v normal-!{file.baseName}.mzid \
             -o !{name}_msgf.pin
+        rm *cseq
+        rm *csarr
+        rm *clnclp
         '''
     }
 }
@@ -69,10 +72,10 @@ process MSGF_MERGE {
 
     shell:
     '''
+    output=msgf_all_pins.temp
     pin_header="SpecId	Label	ScanNr	ExpMass	CalcMass	RawScore	DeNovoScore	ScoreRatio	Energy	lnEValue	IsotopeError	lnExplainedIonCurrentRatio	lnNTermIonCurrentRatio	lnCTermIonCurrentRatio	lnMS2IonCurrent	Mass	PepLen	dM	absdM	MeanErrorTop7	sqMeanErrorTop7	StdevErrorTop7	Charge1	Charge2	Charge3	Charge4	Charge5	enzN	enzC	enzInt	Peptide	Proteins"
-    merge_tables.sh -r "$pin_header" \
-        -o msgf_all_pins.temp \
-        -p pin
+    echo "$pin_header" > "$output"
+    find . -maxdepth 1 -name "*pin" -exec sed -se 1,2d {} + >> "$output"
     '''
     //
 }
