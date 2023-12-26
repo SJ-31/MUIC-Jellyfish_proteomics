@@ -41,6 +41,8 @@ remove_substr <- function(pair) {
 coverage <- function(protein, peps) {
   # Using alignment percent identity for the coverage
   # calculation takes into account gaps and mismatches
+  if (length(protein) == 0) {
+  }
   if (any(protein == peps)) {
     return(1.00)
   }
@@ -56,16 +58,19 @@ coverage <- function(protein, peps) {
   )
   cov <- Biostrings::coverage(align)
   cov <- data.frame(values = cov@values, lengths = cov@lengths)
-  sum_cov <- cov %>% filter(values > 0) %>% select(lengths) %>% sum()
-  return(sum_cov/nchar(protein))
+  sum_cov <- cov %>%
+    filter(values > 0) %>%
+    select(lengths) %>%
+    sum()
+  return(sum_cov / nchar(protein))
 }
 
 clean_split_peps <- function(pep_list) {
   splits <- unlist(str_split(pep_list, ","), use.names = FALSE)
   splits <- splits[!(grepl("^NA$", splits))] %>% unique()
   cleaned <- unlist(lapply(splits, function(x) {
-      return(paste0(str_extract_all(x, "[A-Z]+")[[1]], collapse = ""))
-    }))
+    return(paste0(str_extract_all(x, "[A-Z]+")[[1]], collapse = ""))
+  }))
   return(cleaned)
 }
 
@@ -80,7 +85,7 @@ coverage_calc <- function(prot_df) {
           remove_substr(pairs[, x])
         }), use.names = FALSE)
       }
-      prot <- .[x, ]$sequence
+      prot <- .[x, ]$seq
       return(coverage(prot, peps))
     })))
   return(covered_df)
@@ -103,4 +108,3 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   covered <- coverage_calc(prot_df)
   write_delim(covered, args$output, delim = "\t")
 }
-
