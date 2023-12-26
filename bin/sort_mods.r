@@ -4,9 +4,11 @@ library(tidyverse)
 # CA = Common Artifact
 # CB = Common Biological
 # M = Metal
-MOD_LIST_DEFAULT <- list("Cys_Carbamidomethylation" = "\\[57.02[0-9]*\\]",
-                 "NTerm_Acetylation" = "\\[42.0[0-9]*\\]",
-                 "Met_Oxidation" = "\\[15.99[0-9]*\\]")
+MOD_LIST_DEFAULT <<- list(
+  "Cys_Carbamidomethylation" = "\\[57.02[0-9]*\\]",
+  "NTerm_Acetylation" = "\\[42.0[0-9]*\\]",
+  "Met_Oxidation" = "\\[15.99[0-9]*\\]"
+)
 
 cleanPeptide <- function(modified_pep) {
   clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
@@ -26,8 +28,8 @@ namedModList <- function(df) {
     unlist(use.names = FALSE) %>%
     unique()
   named_mods <- str_extract(unique_mods, named_mod_string) %>%
-    unique() %>%
-    dropNA()
+    unique()
+  named_mods <- named_mods[!is.na(named_mods)]
   if (length(named_mods) == 0) {
     return(list())
   }
@@ -51,7 +53,7 @@ countMods <- function(peptide, mod_dict) {
     }
     count <- grepl(MOD_LIST_DEFAULT[[n]], peptide)
     if (count > 0) {
-        mod_dict[current_mod] <- count + current_val
+      mod_dict[current_mod] <- count + current_val
     }
   }
 }
@@ -62,36 +64,46 @@ getAllMods <- function(mod_df, row) {
   current <- mod_df[row, ]
   mods <- hash()
   modified <- current$peptideIds %>%
-  strsplit(",") %>%
-  unlist() %>%
-  unique() %>%
-  grep("[][]", ., value = TRUE)
+    strsplit(",") %>%
+    unlist() %>%
+    unique() %>%
+    grep("[][]", ., value = TRUE)
   lapply(modified, countMods, mod_dict = mods)
   mod_string <- paste(keys(mods), values(mods), collapse = "|")
   return(mod_string)
 }
 
-main <- function(input, output) {
-  df <- read_tsv(input)
+sortModsMain <- function(input, is_file) {
+  if (is_file) {
+    df <- read_tsv(input)
+  } else {
+    df <- input
+  }
   has_mods <- df %>% filter(grepl("[][]", df$peptideIds))
   no_mods <- df[!(df$ProteinId %in% has_mods$ProteinId), ] %>%
     mutate(Mods = NA)
-  MOD_LIST_DEFAULT <- c(MOD_LIST_DEFAULT, namedModList(has_mods))
+  MOD_LIST_DEFAULT <<- c(MOD_LIST_DEFAULT, namedModList(has_mods))
   mod_col <- seq_len(dim(has_mods[1])) %>%
     lapply(., getAllMods, mod_df = has_mods) %>%
     unlist(use.names = FALSE)
   has_mods <- has_mods %>% mutate(Mods = mod_col)
   df <- bind_rows(has_mods, no_mods)
+  return(df)
 }
 
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
-  parser <- add_option(parser, c("-i", "--input"), action = "store_true",
-                       defaulta = TRUE, help = "Print extra output [default]")
-  parser <- add_option(parser, c("-o", "--output"), type = "character",
-                       help = "Output file name")
+  parser <- add_option(parser, c("-i", "--input"),
+    action = "store_true",
+    defaulta = TRUE, help = "Print extra output [default]"
+  )
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
   args <- parse_args(parser)
-  main(args$input, args$output)
+  sorted <- sortModsMain(args$input)
+  write_tsv(sorted, args$output)
 }
