@@ -1,0 +1,10 @@
+* $name
+:SCRIPT:
+    $script
+:END:
++ *Details*
+  * /Exit status:/ $exit
+  * /Task status:/ $status
+  * /Folder:/ $hash
+  * /Duration:/ $duration
+  * /Memory:/ $memory
