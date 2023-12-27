@@ -335,6 +335,9 @@ def reformat_float(x):
 
 
 def merge_annotated_eggnog(args):
+    print("-" * 10)
+    print("MERGING EGGNOG")
+    print("-" * 10)
     eggnog_anno = pd.read_csv(args["eggnog_anno_tsv"], sep="\t")
     anno = pd.read_csv(args["anno_tsv"], sep="\t")
     get_eggnog = anno.drop("GO", axis="columns").merge(
@@ -343,9 +346,15 @@ def merge_annotated_eggnog(args):
     already_matched = anno[~anno["ProteinId"].isin(get_eggnog["ProteinId"])]
     merged = pd.concat([already_matched, get_eggnog])
     merged.to_csv(args["anno_tsv"], sep="\t", index=False)
+    print("-" * 10)
+    print("MERGING EGGNOG DONE")
+    print("-" * 10)
 
 
 def merge_annotated_interpro(args):
+    print("-" * 10)
+    print("MERGING INTERPRO")
+    print("-" * 10)
     command = "Rscript -e 'source(\"{r_source}/sort_interpro.r\")'".format(
         r_source=args["r_source"]
     )
@@ -379,6 +388,9 @@ def merge_annotated_interpro(args):
     write_fasta(still_left, "still_needs_annotating.fasta")
     final = pd.concat([joined, annotated])
     final.to_csv(args["anno_tsv"], sep="\t", index=False)
+    print("-" * 10)
+    print("MERGING INTERPRO DONE")
+    print("-" * 10)
 
 
 def parse_args():

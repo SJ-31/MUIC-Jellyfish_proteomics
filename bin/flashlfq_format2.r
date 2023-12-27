@@ -6,8 +6,10 @@ flashlfq_header <- c(
   "Base Sequence", "Full Sequence", "Peptide Monoisotopic Mass",
   "Protein Accession"
 )
-old_names <- c("file", "retentionTime", "precursorCharge",
-               "base_peptide", "peptide", "mw", "protein")
+old_names <- c(
+  "file", "retentionTime", "precursorCharge",
+  "base_peptide", "peptide", "mw", "protein"
+)
 parser <- OptionParser()
 parser <- add_option(parser, c("-p", "--path"),
   type = "character",
@@ -30,7 +32,14 @@ all_engines <- lapply(files, function(x) {
 
 all_engines <- all_engines %>%
   filter(!(is.na(`Peptide Monoisotopic Mass`))) %>%
-  mutate(`Base Sequence` = unlist(lapply(`Base Sequence`, gsub, pattern = "X", replacement = ""))) %>%
+  mutate(
+    `Base Sequence` =
+      unlist(lapply(`Base Sequence`, gsub, pattern = "X", replacement = "")),
+    `Full Sequence` =
+      unlist(lapply(`Full Sequence`, gsub,
+        pattern = "-\\.|\\.-",
+        replacement = ""
+      ))
+  ) %>%
   distinct(`Base Sequence`, .keep_all = TRUE)
-
 write_delim(all_engines, args$output, delim = "\t")

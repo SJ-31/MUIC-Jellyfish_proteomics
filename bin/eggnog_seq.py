@@ -1,11 +1,13 @@
 #!/usr/bin/env python
 # Obtain the sequence of eggnog proteins, writing them into the metadata file
+import numpy as np
 import pandas as pd
 import subprocess
 
 
 def parse_args():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--eggnog_database")
     parser.add_argument("-m", "--metadata_file")
@@ -18,30 +20,38 @@ def parse_args():
 def main(args: dict):
     query_file = "./queries.txt"
     anno = pd.read_csv(args["annotations_file"], sep="\t")
-    eggnog_queries = '\n'.join(list(anno["seed_ortholog"]))
+    eggnog_queries = "\n".join(list(anno["seed_ortholog"]))
     with open("./queries.txt", "w") as q:
         q.write(eggnog_queries)
     command = f'seqkit grep -n -r -f {query_file} {args["eggnog_database"]}'
     seqkit = subprocess.run(command, shell=True, capture_output=True)
     unformatted = str(seqkit.stdout)[2:-1].split("\\n")
-    seqs = {"seed_ortholog": [], "seq": []}
+    seqs = {"seed_ortholog": set(), "seq": []}
     seq_count = 0
     for line in unformatted:
         if line.startswith(">"):
-            seqs["seed_ortholog"].append(line[1:])
+            seqs["seed_ortholog"].add(line[1:])
             seqs["seq"].append("")
             seq_count += 1
         else:
-            seqs["seq"][seq_count-1] = (seqs["seq"][seq_count-1] + line)
+            seqs["seq"][seq_count - 1] = seqs["seq"][seq_count - 1] + line
+    for so in anno["seed_ortholog"]:
+        if so not in seqs["seed_ortholog"]:
+            seqs["seed_ortholog"].add(so)
+            seqs["seq"].append(np.NaN)
+    seqs["seed_ortholog"] = list(seqs["seed_ortholog"])
     seqs = pd.DataFrame(seqs)
-    anno = (anno.filter(["ProteinId", "seed_ortholog"])
-            .merge(seqs, on="seed_ortholog"))
-    meta = pd.read_csv(args["metadata_file"], sep="\t").drop("seq",
-                                                             axis="columns")
+    seqs.to_csv("sequence_df.tsv", sep="\t", index=False)
+    anno = anno.filter(["ProteinId", "seed_ortholog"]).merge(
+        seqs, on="seed_ortholog"
+    )
+    meta = pd.read_csv(args["metadata_file"], sep="\t").drop(
+        "seq", axis="columns"
+    )
     final = anno.filter(["ProteinId", "seq"]).merge(meta, on="ProteinId")
     final.to_csv(args["output_file"], sep="\t", na_rep="-", index=None)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     args = parse_args()
     main(args)

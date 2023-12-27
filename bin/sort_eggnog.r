@@ -5,14 +5,14 @@ library(glue)
 # 1. Determine which proteins weren't matched by eggnog, then extract to a fasta file for further annotation by interpro
 # 2. Merge identified eggnog proteins with previous metadata from percolator to identify their origin e.g. from which de novo search engine and obtain metadata
 
-write_unmatched <- function(from_blast, eggnog_hits, output_fasta) {
+write_unmatched <- function(from_blast, eggnog_hits) {
   matched_by_eggnog <- (from_blast$ProteinId %in% eggnog_hits$ProteinId)
   not_matched_by_eggnog <- from_blast %>%
     filter(!(matched_by_eggnog))
   sequences <- as.list(not_matched_by_eggnog$seq)
   ids <- not_matched_by_eggnog$ProteinId
-  write.fasta(sequences, ids, output_fasta)
-  return(not_matched_by_eggnog)
+  ## write.fasta(sequences, ids, output_fasta)
+  return(list(fasta_seqs = sequences, fasta_ids = ids, tsv = not_matched_by_eggnog))
 }
 
 main <- function(args) {
@@ -63,10 +63,8 @@ main <- function(args) {
     "qcov", "scov", "score", "max_annot_lvl",
     "mass", "length"
   )))
-  write_delim(meta, args$output_meta, delim = "\t")
-  write_delim(annotations, args$output_anno, delim = "\t")
-  u <- write_unmatched(unmatched_blast, meta, args$output_fasta)
-  write_delim(u, args$output_unmatched, delim = "\t")
+  u <- write_unmatched(unmatched_blast, meta)
+  return(list(meta_df = meta, anno_df = annotations, unmatched = u))
 }
 
 if (sys.nframe() == 0) {
@@ -101,5 +99,9 @@ if (sys.nframe() == 0) {
     help = "tsv containing unmatched blast hits originally given to eggnog"
   )
   ARGS <- parse_args(parser)
-  main(ARGS)
+  m <- main(ARGS)
+  write.fasta(m$unmatched$fasta_seqs, m$unmatched$fasta_ids, ARGS$output_fasta)
+  write_delim(m$unmatched$tsv, ARGS$output_unmatched, delim = "\t")
+  write_delim(m$meta_df, ARGS$output_meta, delim = "\t")
+  write_delim(m$anno_df, ARGS$output_anno, delim = "\t")
 }

@@ -162,9 +162,7 @@ main <- function(args) {
   still_unmatched <- eggnog_df[!(eggnog_df$ProteinId %in%
     joined$ProteinId), ] %>%
     select(., -c("seq", "Anno_method"))
-  write_tsv(still_unmatched, args$final_unmatched)
-  write_tsv(meta, args$meta_output)
-  write_tsv(anno, args$anno_output)
+  return(list(unmatched = still_unmatched, meta_df = meta, anno_df = anno))
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
@@ -176,5 +174,8 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("-u", "--eggnog_unmatched"), type = "character")
   parser <- add_option(parser, c("-f", "--final_unmatched"), type = "character")
   args <- parse_args(parser)
-  main(args)
+  results <- main(args)
+  write_tsv(results$unmatched, args$final_unmatched)
+  write_tsv(results$meta_df, args$meta_output)
+  write_tsv(results$anno_df, args$anno_output)
 }
