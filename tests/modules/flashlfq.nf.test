@@ -1,0 +1,29 @@
+nextflow_process {
+
+    name "Test Process FLASHLFQ"
+    script "modules/flashlfq.nf"
+    process "FLASHLFQ"
+
+    test("Should receive actual output") {
+
+        when {
+            params {
+                pth = "$baseDir/results/jellyfish/1-First_pass/Quantify"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("${params.pth}/Mapped_scans/*.tsv").collect()
+                input[1] = Channel.fromPath("$baseDir/data/MS/indexed_mzML_peak_picked/*mzML").collect()
+                input[2] = "$baseDir/tests/nf-test-out/flashlfq"
+                input[3] = "$baseDir/tests/nf-test-out/flashlfq"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

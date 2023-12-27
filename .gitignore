@@ -1,6 +1,12 @@
 work/*
-tests/*
 docs/__*
+tests/__pycache__
+tests/results/*
+tests/pytest/output/*
+tests/testthat/output/*
+tests/*fasta
+*fasta
+tests/nf-test-out/*
 .projectile
 metrics/*
 *.tsv

@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test Process SORT_INTERPRO"
+    script "modules/interpro.nf"
+    process "SORT_INTERPRO"
+    // ID method should not have
+    //
+    test("ID_Method column should not have NA and ProteinIds should be all unique") {
+
+        when {
+            params {
+                pth = "$baseDir/tests/results/Unmatched"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("${params.pth}/InterPro/nO_D_interpro.tsv")
+                input[1] = Channel.fromPath("${params.pth}/eggNOG/nO_D_eggnog_unmatched.tsv")
+                input[2] = "$baseDir/tests/nf-test-out/sort_interpro"
+                input[3] = "$baseDir/tests/nf-test-out/sort_interpro"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

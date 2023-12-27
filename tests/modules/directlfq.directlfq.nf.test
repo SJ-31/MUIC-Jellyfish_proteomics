@@ -1,0 +1,28 @@
+nextflow_process {
+
+    name "Test Process DIRECTLFQ"
+    script "modules/directlfq.nf"
+    process "DIRECTLFQ"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pth = "$baseDir/results/jellyfish/1-First_pass/Quantify"
+            }
+            process {
+                """
+                input[0] = ChannelfromPath("${pth}/directlfq.aq_reformat.tsv")
+                input[1] = "$baseDir/tests/nf-test-out/directlfq"
+                input[2] = "$baseDir/tests/nf-test-out/directlfq"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}
