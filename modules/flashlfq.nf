@@ -12,6 +12,7 @@ process FLASHLFQ {
 
     output:
     path("Quantified*")
+    path("QuantifiedProteins.tsv"), emit: prot
     path("*.{txt,toml}")
     path("flashlfq.tsv")
     //

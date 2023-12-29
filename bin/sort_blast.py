@@ -148,7 +148,7 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["header"] = blast_only["header_y"]
     blast_only["Anno_method"] = "blast"
     blast_only = blast_only.loc[
-        :, ~blast_only.columns.str.contains("[xy]", regex=True)
+        :, ~blast_only.columns.str.contains("_[xy]", regex=True)
     ].loc[:, db_df.columns]
     return blast_only
 
@@ -219,9 +219,10 @@ def main(args: dict):
         """
         )
     final = pd.concat([filtered, in_db, from_blast])
-    final.to_csv(args["output"], sep="\t", index=False)
+    return final
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
+    f = main(args)
+    f.to_csv(args["output"], sep="\t", index=False)

@@ -28,6 +28,7 @@ split_ambiguous <- function(table, index) {
 }
 
 sort_ambiguous <- function(mm) {
+  #' Split a metamorpheus psm matching to multiple proteins into multiple rows
   ambiguous <- mm %>% filter(grepl("\\|", `Base.Sequence`))
   if (dim(ambiguous)[1] == 0) {
     return(mm)
