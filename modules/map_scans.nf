@@ -3,6 +3,7 @@ process MAP_SCANS {
 
     input:
     path(psm_file)
+    path(unmatched_peptides)
     val(mapping)
     val(outdir)
     //
@@ -16,6 +17,7 @@ process MAP_SCANS {
     engine=$(echo !{psm_file.baseName} | sed 's/[-_].*//')
     Rscript !{params.bin}/get_scan_num.r \
         -i !{psm_file} \
+        -u !{unmatched_peptides} \
         -m !{mapping}   \
         -e $engine \
         -o ${engine}_scans.tsv

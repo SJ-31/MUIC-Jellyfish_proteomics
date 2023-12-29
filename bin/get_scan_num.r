@@ -160,6 +160,23 @@ read_engine_psms <- function(percolator_input, engine, mapping) {
   return(psms)
 }
 
+merge_unmatched <- function(final_df, unmatched_peptides) {
+  #' Merge the final scan numbers with the ids of the unmatched peptides
+  #' so that they may be quantified
+  u_df <- read_tsv(unmatched_peptides)
+  unwanted_cols <- colnames(u_df)
+  unwanted_cols <- unwanted_cols[!unwanted_cols %in% "peptideIds"]
+  no_prot <- final_df %>% filter(is.na(protein))
+  has_prot <- final_df %>% filter(!is.na(protein))
+  joined <- left_join(no_prot, u_df,
+    by =
+      join_by(x$base_peptide == y$peptideIds)
+  ) %>%
+    mutate(protein = ProteinId) %>%
+    select(all_of(unwanted_cols))
+  return(bind_rows(joined, has_prot))
+}
+
 
 if (sys.nframe() == 0) {
   parser <- OptionParser()
@@ -175,12 +192,17 @@ if (sys.nframe() == 0) {
     type = "character",
     help = "Psm file"
   )
+  parser <- add_option(parser, c("-u", "--unmatched_peptides"),
+    type = "character",
+    help = "TSV containing unmatched peptides"
+  )
   parser <- add_option(parser, c("-e", "--engine"),
     type = "character",
     help = "Engine psm file was obtained from"
   )
   args <- parse_args(parser)
   mapping <- read.delim(args$msms_mapping, sep = "\t")
-  final <- read_engine_psms(args$input, args$engine, mapping)
+  f <- read_engine_psms(args$input, args$engine, mapping)
+  final <- merge_unmatched(f, args$unmatched_peptides)
   write_delim(final, args$output, delim = "\t")
 }

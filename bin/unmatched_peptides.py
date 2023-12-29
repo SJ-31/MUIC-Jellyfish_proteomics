@@ -70,7 +70,6 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input_path")
-    parser.add_argument("-o", "--output")
     parser.add_argument("-t", "--unmatched_tsv")
     parser.add_argument("-p", "--pep_threshold")
     parser.add_argument("-q", "--q_threshold")
