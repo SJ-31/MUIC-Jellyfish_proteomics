@@ -3,6 +3,7 @@ process MERGE_QUANT {
 
     input:
     path(directlfq)
+    path(flashlfq)
     path(search_intersections)
     path(open_searches) // Open searches need to be included as well, since they will map to de novo and transcriptome proteins
     path(unmatched_peptides)
@@ -13,12 +14,16 @@ process MERGE_QUANT {
     path("unknown_hits.tsv"), emit: unknown_tsv
     path("unknown.fasta"), emit: unknown_fasta
     path("database_hits.tsv"), emit: database_tsv
+    path("unmatched_peptides.tsv"), emit: unmatched_pep
     //
 
     shell:
     '''
-    merge_quantifications.py -d !{directlfq} \
+    merge_quantifications.py \
+        --flash_lfq !{flashlfq} \
+        -d !{directlfq} \
         -i !{search_intersections} \
+        --unmatched_peptides !{unmatched_peptides} \
         -s !{open_searches} \
         -p !{params.pep_thresh} \
         -q !{params.fdr} \
@@ -30,7 +35,7 @@ process MERGE_QUANT {
         temp.tsv > unknown_hits.tsv
     awk -F "\t" '{if (FNR == 1) {next} else {printf ">%s\\n%s\\n",$1,$7}}' \
         unknown_hits.tsv > temp1.fasta
-    cat temp1.fasta !{unmatched_peptides}.fasta > temp2.fasta
+    cat temp1.fasta unmatched_peptides.fasta > temp2.fasta
     cd-hit -i temp2.fasta -o unknown.fasta -c 1.0
     '''
     // cd-hit at 1.0 identity will cluster sequences that are complete subsets

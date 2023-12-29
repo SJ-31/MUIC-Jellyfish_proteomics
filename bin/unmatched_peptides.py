@@ -20,42 +20,42 @@ def perc_row(series_row):
             "q-value": series_row[2],
             "posterior_error_prob": series_row[3],
             "peptide": series_row[4],
-            "proteinIds": ';'.join(series_row[5:])
+            "proteinIds": ";".join(series_row[5:]),
         },
-        index=[1])
+        index=[1],
+    )
 
 
 def clean_peptide(peptide):
     peptide = peptide.upper().replace("X", "")
-    return ''.join(re.findall("[A-Z]+", peptide))
+    return "".join(re.findall("[A-Z]+", peptide))
 
 
 def read_percolator(filepath, p_threshold, q_threshold):
-    percolator = (pd.read_csv(filepath, index_col=False).iloc[:, 0].apply(
-        str.split, sep="\t").apply(perc_row).to_list())
+    percolator = (
+        pd.read_csv(filepath, index_col=False)
+        .iloc[:, 0]
+        .apply(str.split, sep="\t")
+        .apply(perc_row)
+        .to_list()
+    )
     final = pd.concat(percolator)
     final["posterior_error_prob"] = final["posterior_error_prob"].astype(float)
     final["q-value"] = final["q-value"].astype(float)
     final = final[final["q-value"] <= q_threshold]
     final = final[final["posterior_error_prob"] <= p_threshold]
-    final["peptide"] = final['peptide'].apply(clean_peptide)
+    final["peptide"] = final["peptide"].apply(clean_peptide)
     return final
 
 
 def read_tide(filepath, p_threshold, q_threshold):
     tide = pd.read_csv(filepath, sep="\t")
     tide["sequence"] = tide["sequence"].apply(clean_peptide)
-    tide = (tide[tide["percolator q-value"] <= q_threshold])
-    tide = (tide[tide["percolator PEP"] <= p_threshold].rename(
-        columns={
-            "sequence": "peptide",
-            "protein id": "proteinIds"
-        }))
+    tide = tide[tide["percolator q-value"] <= q_threshold]
+    tide = tide[tide["percolator PEP"] <= p_threshold].rename(
+        columns={"sequence": "peptide", "protein id": "proteinIds"}
+    )
     return tide
-
-
-def make_fasta(pep):
-    return f">U{pep.name}\n{pep[0]}\n"
 
 
 def get_engine_files(path) -> dict:
@@ -67,6 +67,7 @@ def get_engine_files(path) -> dict:
 
 def parse_args():
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input_path")
     parser.add_argument("-o", "--output")
@@ -86,32 +87,46 @@ def main(args: dict):
     engine_files = get_engine_files(path)
     for engine, path in engine_files.items():
         if engine == "tide":
-            current = read_tide(engine_files["tide"], pep_threshold,
-                                q_threshold)
+            current = read_tide(
+                engine_files["tide"], pep_threshold, q_threshold
+            )
         else:
             current = read_percolator(path, pep_threshold, q_threshold)
         unmatched = pd.Series(
-            current.where(current["proteinIds"] == '')["peptide"].unique())
+            current.where(current["proteinIds"] == "")["peptide"].unique()
+        )
         unmatched_df.append(current[current["peptide"].isin(unmatched)])
         all_unmatched = all_unmatched | set(unmatched)
     all_unmatched = pd.Series(list(all_unmatched)).reset_index()
-    all_unmatched_str = all_unmatched.apply(make_fasta, 1)
-    all_unmatched["ProteinId"] = all_unmatched["index"].apply(lambda x: f"U{x}")
+    all_unmatched["ProteinId"] = all_unmatched["index"].apply(
+        lambda x: f"U{x}"
+    )
     all_unmatched.drop("index", axis="columns", inplace=True)
     all_unmatched.rename({0: "seq"}, axis="columns", inplace=True)
     all_unmatched_df = pd.concat(unmatched_df).groupby("peptide").sample()
-    all_unmatched_df.rename({"q-value": "q.value", "peptide": "peptideIds"},
-                            axis="columns", inplace=True)
-    df = all_unmatched.merge(all_unmatched_df, how="inner",
-                             left_on="seq", right_on="peptideIds")
+    all_unmatched_df.rename(
+        {"q-value": "q.value", "peptide": "peptideIds"},
+        axis="columns",
+        inplace=True,
+    )
+    df = all_unmatched.merge(
+        all_unmatched_df, how="inner", left_on="seq", right_on="peptideIds"
+    )
     df["ProteinGroupId"] = np.NaN
     df["Group"] = np.NaN
     df["header"] = "unknown"
-    df = df[["ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
-            "peptideIds", "header", "Group"]]
-    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep='-')
-    with open(args["output"], "w") as f:
-        f.write(''.join(all_unmatched_str))
+    df = df[
+        [
+            "ProteinId",
+            "ProteinGroupId",
+            "q.value",
+            "posterior_error_prob",
+            "peptideIds",
+            "header",
+            "Group",
+        ]
+    ]
+    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep="-")
 
 
 if __name__ == "__main__":

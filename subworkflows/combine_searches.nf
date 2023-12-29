@@ -7,15 +7,15 @@ include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_QUANT } from '../modules/merge_quantifications'
 include { INTERPROSCAN; SORT_INTERPRO } from '../modules/interpro'
 include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
-include { UNMATCHED_PSMS } from '../modules/unmatched'
 
 workflow 'combine_searches' {
 
     take:
     prot2intersect
     psm2combinedPEP
+    flashlfq
     directlfq
-    percolator_psms
+    unmatched_pep_tsv
     outdir
     seq_header_mappings
     open_results
@@ -25,9 +25,9 @@ workflow 'combine_searches' {
                      "$outdir/Combined", seq_header_mappings)
     COMBINE_PEP(psm2combinedPEP, true,
                     "$outdir/Combined")
-    UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
-    MERGE_QUANT(directlfq, SEARCH_INTERSECT.out.sorted, open_results,
-                UNMATCHED_PSMS.out.fasta, // Merge combined database hits
+    MERGE_QUANT(directlfq, flashlfq,
+                SEARCH_INTERSECT.out.sorted, open_results,
+                unmatched_pep_tsv, // Merge combined database hits
                 // with quantification, and obtain unmatched peptides
         "$outdir/Combined")
     if (params.denovo) {
@@ -47,22 +47,25 @@ workflow 'combine_searches' {
         // nO_D = No one, hits, degenerates
         // O_nD
         SORT_BLAST(MERGE_QUANT.out.unknown_tsv,
-                   UNMATCHED_PSMS.out.tsv,
+                   MERGE_QUANT.out.unmatched_pep,
                    MERGE_QUANT.out.database_tsv,
                    BLASTP.out, seq_header_mappings,
                    MERGE_QUANT.out.unknown_fasta,
-                   blast_vars, "$outdir/Unmatched") // Extract peptides that
+                   blast_vars, "$outdir/Unmatched/BLAST") // Extract peptides that
                                                     // weren't matched by blast
         EGGNOG(SORT_BLAST.out.unmatched,
                "$outdir/Unmatched/eggNOG")
         SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched
-                    UNMATCHED_PSMS.out.tsv, // by eggnog
+                    MERGE_QUANT.out.unmatched_pep, // by eggnog
                     "$outdir/Unmatched/eggNOG")
         INTERPROSCAN(SORT_EGGNOG.out.fasta,
                      "$outdir/Unmatched/InterPro")
         SORT_INTERPRO(INTERPROSCAN.out, SORT_EGGNOG.out.unmatched,
-                      "$outdir/Unmatched/InterPro")
-        // ANNOTATE(SORT_BLAST.out.matched, "$outdir") TODO need to merge this with the kept blast results
+                      "$outdir/Unmatched/InterPro",
+                      "$outdir/Unmatched/Remaining_unmatched")
+        ANNOTATE(SORT_BLAST.out.matched,
+                 "$outdir/Unmatched/Database-annotated")
+        // TODO need to merge this with the kept blast results
         // combine_all(annotate.out, )
         // FINAL_METRICS()
     } else {

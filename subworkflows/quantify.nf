@@ -1,4 +1,5 @@
 include { FLASHLFQ } from '../modules/flashlfq'
+include { UNMATCHED_PSMS } from '../modules/unmatched'
 include { MAP_SCANS } from '../modules/map_scans'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
 include { FILTER_MSMS } from '../modules/unmatched'
@@ -8,14 +9,14 @@ workflow 'quantify'{
     take:
     msms_mappings
     mzmls
-    engine_percolator_output
+    percolator_psms
     metamorpheus_AllPSMs
     tide_target_search
     psm2combinedPEP
     outdir
 
     main:
-    engine_percolator_output.branch {
+    percolator_psms.branch {
         comet: it =~ /comet/
         identipy: it =~ /identipy/
         msgf: it =~ /msgf/
@@ -23,6 +24,7 @@ workflow 'quantify'{
         tide: it =~ /tide/
         metamorpheus: it =~ /metamorpheus/
     }.set { per }
+    UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
     MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.msgf,
                             metamorpheus_AllPSMs, tide_target_search),
               msms_mappings,
@@ -35,8 +37,8 @@ workflow 'quantify'{
 
     emit:
     directlfq = DIRECTLFQ.out.quant
+    flashlfq = FLASHLFQ.out.prot
     unmatched_msms = FILTER_MSMS.out
-
-
+    unmatched_pep_tsv = UNMATCHED_PSMS.out.tsv
 
 }
