@@ -14,3 +14,4 @@ output <- main(args)
 anno <- output$anno_df
 meta <- output$meta_df
 expect_equal(any(is.na(meta$ID_method)), FALSE)
+expect_equal(anno$ProteinId, unique(anno$ProteinId))

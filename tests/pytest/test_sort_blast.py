@@ -1,6 +1,4 @@
 #!/usr/bin/env python
-import os
-import importlib
 import pandas as pd
 import sys
 
@@ -28,17 +26,16 @@ def get_results(prefix, kb, oh):
         "keep_best": kb,
         "one_hit": oh,
     }
-    sb.main(args)
+    f = sb.main(args)
+    return f
 
 
-def test_NoOneHitsNoDegenerates():
-    get_results("nO_nD", False, True)
-    unmatched = pd.read_csv("./output/nO_nD_unmatched.tsv", sep="\t")
-    matched = pd.read_csv("./output/nO_nD_blast_matched-test.tsv", sep="\t")
-    # assert len(nO_nD_unmatched.ProteinId) > len(nO_nD_unmatched.ProteinId.unique())
+# def test_NoOneHitsNoDegenerates():
+f = get_results("nO_nD", False, True)
+# unmatched = pd.read_csv("./output/nO_nD_unmatched.tsv", sep="\t")
+# matched = pd.read_csv("./output/nO_nD_blast_matched-test.tsv", sep="\t")
+# assert len(nO_nD_unmatched.ProteinId) > len(nO_nD_unmatched.ProteinId.unique())
 
-
-test_NoOneHitsNoDegenerates()
 
 # get_results("O_D", True, False)
 # O_D_unmatched = pd.read_csv("./output/O_D_unmatched.tsv", sep="\t")

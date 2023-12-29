@@ -14,3 +14,4 @@ meta <- m$meta_df
 expect_equal(any(is.na(meta$ID_method)), FALSE)
 u <- m$unmatched$tsv
 expect_equal(any(is.na(u$ID_method)), FALSE)
+expect_equal(meta$ProteinId, unique(meta$ProteinId))
