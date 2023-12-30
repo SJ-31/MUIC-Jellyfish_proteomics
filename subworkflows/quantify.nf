@@ -27,7 +27,7 @@ workflow 'quantify'{
     UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
     MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.msgf,
                             metamorpheus_AllPSMs, tide_target_search),
-              UNMATCHED_PSMS.out.tsv.first(),
+              UNMATCHED_PSMS.out.tsv,
               msms_mappings,
               "$outdir/Mapped_scans")
     FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir", "$outdir/Logs")

@@ -56,7 +56,7 @@ workflow 'combine_searches' {
         EGGNOG(SORT_BLAST.out.unmatched,
                "$outdir/Unmatched/eggNOG")
         SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched
-                    MERGE_QUANT.out.unmatched_pep, // by eggnog
+                    MERGE_QUANT.out.unmatched_pep.first(), // by eggnog
                     "$outdir/Unmatched/eggNOG")
         INTERPROSCAN(SORT_EGGNOG.out.fasta,
                      "$outdir/Unmatched/InterPro")
