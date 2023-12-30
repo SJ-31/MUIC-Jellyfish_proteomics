@@ -1,5 +1,6 @@
 library(tidyverse)
 library(testthat)
+options(Debug = TRUE)
 source("./bin/sort_eggnog.r")
 pth <- "./tests/results/Unmatched"
 args <- list(

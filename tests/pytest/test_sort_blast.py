@@ -30,11 +30,8 @@ def get_results(prefix, kb, oh):
     return f
 
 
-# def test_NoOneHitsNoDegenerates():
 f = get_results("nO_nD", False, True)
-# unmatched = pd.read_csv("./output/nO_nD_unmatched.tsv", sep="\t")
-# matched = pd.read_csv("./output/nO_nD_blast_matched-test.tsv", sep="\t")
-# assert len(nO_nD_unmatched.ProteinId) > len(nO_nD_unmatched.ProteinId.unique())
+assert len(f["ProteinId"]) == len(f["ProteinId"].unique())
 
 
 # get_results("O_D", True, False)

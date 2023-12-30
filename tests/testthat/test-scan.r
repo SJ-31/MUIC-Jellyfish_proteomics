@@ -5,14 +5,6 @@ bin <- "./bin"
 source(glue("{bin}/get_scan_num.r"))
 
 pth <- "./results/jellyfish/1-First_pass"
-file_list <- list( # For tests
-  comet = "../../results/test_manifest/1-First_pass/Percolator/comet_percolator_psms.tsv",
-  identipy = "../../results/test_manifest/1-First_pass/Percolator/identipy_percolator_psms.tsv",
-  maxquant = "../../results/test_manifest/1-First_pass/MaxQuant/maxquant_all_pins.temp",
-  msfragger = "../../results/test_manifest/1-First_pass/Percolator/msfragger_percolator_psms.tsv",
-  metamorpheus = "../../results/test_manifest/1-First_pass/Metamorpheus/metamorpheus_AllPSMs.psmtsv",
-  tide = "../../results/test_manifest/1-First_pass/Tide/tide-search.target.txt"
-)
 
 peps <- glue("{pth}/Quantify/Unmatched/unmatched_peptides.tsv") %>% read_tsv()
 all_scans <- list.files(glue("{pth}/Quantify/Mapped_scans")) %>%
@@ -21,3 +13,12 @@ all_scans <- list.files(glue("{pth}/Quantify/Mapped_scans")) %>%
   }) %>%
   unlist() %>%
   read_tsv()
+
+args <- list(
+  msms_mapping = glue("./results/jellyfish/msms_scans.tsv"),
+  input = glue("{pth}/Percolator/comet_percolator_psms.tsv"),
+  engine = "comet",
+  unmatched_peptides = glue("{pth}/Quantify/Unmatched/unmatched_peptides.tsv")
+)
+p <- read_engine_psms(args)
+final <- merge_unmatched(p, args$unmatched_peptides)
