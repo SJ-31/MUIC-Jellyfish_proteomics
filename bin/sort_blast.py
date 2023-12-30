@@ -28,8 +28,13 @@ def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
     Write the entries unmatched by blast to a new fasta and tsv file
     """
     unmatched_fasta = ""
-    unmatched = prot_df[~prot_df["ProteinId"].isin(queries_df["queryID"])]
-    unmatched = pd.concat([prot_df, failed_filter])
+    unmatched = prot_df[
+        ~prot_df["ProteinId"].isin(queries_df["queryID"].unique())
+    ]
+    unmatched = unmatched[
+        ~unmatched["ProteinId"].isin(failed_filter["ProteinId"])
+    ]
+    unmatched = pd.concat([unmatched, failed_filter])
     unmatched.to_csv(tsv_name, sep="\t", index=False)
     for row in unmatched.iterrows():
         entry = f">{row[1]['ProteinId']}\n{row[1]['seq']}\n"
