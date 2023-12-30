@@ -129,7 +129,10 @@ clean_peptide <- function(modified_pep) {
   return(clean_pep)
 }
 
-read_engine_psms <- function(percolator_input, engine, mapping) {
+read_engine_psms <- function(args) {
+  percolator_input <- args$input
+  engine <- args$engine
+  mapping <- read.delim(args$msms_mapping, sep = "\t")
   if (grepl("metamorpheus", engine)) {
     psms <- read_metamorpheus(percolator_input)
   } else if (engine == "tide") {
@@ -173,7 +176,7 @@ merge_unmatched <- function(final_df, unmatched_peptides) {
       join_by(x$base_peptide == y$peptideIds)
   ) %>%
     mutate(protein = ProteinId) %>%
-    select(all_of(unwanted_cols))
+    select(-all_of(unwanted_cols))
   return(bind_rows(joined, has_prot))
 }
 
@@ -201,8 +204,7 @@ if (sys.nframe() == 0) {
     help = "Engine psm file was obtained from"
   )
   args <- parse_args(parser)
-  mapping <- read.delim(args$msms_mapping, sep = "\t")
-  f <- read_engine_psms(args$input, args$engine, mapping)
+  f <- read_engine_psms(args)
   final <- merge_unmatched(f, args$unmatched_peptides)
   write_delim(final, args$output, delim = "\t")
 }
