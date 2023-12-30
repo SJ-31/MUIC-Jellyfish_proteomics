@@ -164,21 +164,29 @@ def database_search(get: str, databases: list) -> list:
 def parse_db(name: str, db_list: list) -> str:
     # Collect ids from a list of databases
     anno: list = []
+    evi: list = []
     for db in db_list:
         id = db["id"]
         property = db["properties"][0]["value"]
+        if name == "GO":
+            evidence = db["properties"][1]["value"]
+            evi.append(evidence)
         if name in {"GO", "PANTHER", "Pfam"}:
             anno.append(f"{id}_{property}")
         elif name in {"KEGG", "OrthoDb"}:
             anno.append(id)
-    return ";".join(anno)
+    if name == "GO":
+        return {name: ";".join(anno), "evidence": ";".join(evi)}
+    return {name: ";".join(anno), "evidence": None}
 
 
 def from_db(name, database_list) -> str:
     """Combine database_search and parse_db function."""
     if db := database_search(name, database_list):
         return parse_db(name, db)
-    return "None"
+    if name == "GO":
+        return {"GO": None, "evidence": None}
+    return {name: None, "evidence": None}
 
 
 def map_list(id_list, origin_db: str):
@@ -191,6 +199,7 @@ def map_list(id_list, origin_db: str):
         "organism": [],
         "lineage": [],
         "GO": [],
+        "GO_evidence": [],
         "KEGG_Genes": [],
         "OrthoDb": [],
         "PANTHER": [],
@@ -221,15 +230,27 @@ def map_list(id_list, origin_db: str):
             for key in ["length", "molWeight", "sequence"]:
                 anno_dict[key].append("unknown")
         if databases := current.get("uniProtKBCrossReferences"):
-            anno_dict["KEGG_Genes"].append(from_db("KEGG", databases))
+            anno_dict["KEGG_Genes"].append(from_db("KEGG", databases)["KEGG"])
             # The 3 letters prefixed to kegg entries here are
             #   the kegg organism codes
-            anno_dict["GO"].append(from_db("GO", databases))
-            anno_dict["PANTHER"].append(from_db("PANTHER", databases))
-            anno_dict["OrthoDb"].append(from_db("OrthoDb", databases))
+            go = from_db("GO", databases)
+            anno_dict["GO"].append(go["GO"])
+            anno_dict["GO_evidence"].append(go["evidence"])
+            anno_dict["PANTHER"].append(
+                from_db("PANTHER", databases)["PANTHER"]
+            )
+            anno_dict["OrthoDb"].append(
+                from_db("OrthoDb", databases)["OrthoDb"]
+            )
         else:
-            for key in ["KEGG_Genes", "GO", "PANTHER", "OrthoDb"]:
-                anno_dict[key].append("NA")
+            for key in [
+                "KEGG_Genes",
+                "GO",
+                "PANTHER",
+                "OrthoDb",
+                "GO_evidence",
+            ]:
+                anno_dict[key].append(None)
     if failedIds := results_dict.get("failedIds"):
         failed = [f for f in failedIds]
         return (anno_dict, failed)
@@ -256,7 +277,7 @@ def write_fasta(needs_annotating: pd.DataFrame, file_name: str):
         a.write(query_string)
 
 
-def main(args: dict):
+def anno(args: dict):
     to_map = pd.read_csv(args["input"], sep="\t")
     dbIds_ids = to_map.apply(id_from_header, axis=1).dropna()
     id_map = pd.DataFrame(
@@ -299,6 +320,7 @@ def main(args: dict):
         # Any remaining unannotated sequences will be extracted and sent to
         # interproscan for annotation
     uniprot_query = map_list(uniprot_ids, "UniProtKB")
+    from IPython.core.debugger import set_trace; set_trace()  # fmt: skip
     final = (
         pd.concat([ncbi_mapped, pd.DataFrame(uniprot_query[0])])
         .merge(id_map, left_on="query", right_on="dbId")
@@ -313,6 +335,7 @@ def main(args: dict):
         "organism",
         "lineage",
         "GO",
+        "GO_evidence",
         "KEGG_Genes",
         "OrthoDb",
         "PANTHER",
@@ -324,8 +347,7 @@ def main(args: dict):
         )
     anno = final[["ProteinId", "header"] + anno_cols]
     meta = final[["ProteinId"] + not_anno]
-    anno.to_csv(args["anno_tsv"], sep="\t", index=False)
-    meta.to_csv(args["meta_tsv"], sep="\t", index=False)
+    return {"anno": anno, "meta": meta}
 
 
 def reformat_float(x):
@@ -345,7 +367,7 @@ def merge_annotated_eggnog(args):
     )
     already_matched = anno[~anno["ProteinId"].isin(get_eggnog["ProteinId"])]
     merged = pd.concat([already_matched, get_eggnog])
-    merged.to_csv(args["anno_tsv"], sep="\t", index=False)
+    merged.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING EGGNOG DONE")
     print("-" * 10)
@@ -387,7 +409,7 @@ def merge_annotated_interpro(args):
     # Remaining proteins that are still unannotated
     write_fasta(still_left, "still_needs_annotating.fasta")
     final = pd.concat([joined, annotated])
-    final.to_csv(args["anno_tsv"], sep="\t", index=False)
+    final.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING INTERPRO DONE")
     print("-" * 10)
@@ -416,4 +438,6 @@ if __name__ == "__main__":
     elif args["merge_interpro"]:
         merge_annotated_interpro(args)
     else:
-        main(args)
+        m = anno(args)
+        m["anno"].to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
+        m["meta"].to_csv(args["meta_tsv"], sep="\t", index=False, na_rep="NaN")
