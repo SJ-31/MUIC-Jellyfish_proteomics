@@ -46,6 +46,8 @@ main <- function(args) {
   with_blast <- inner_join(unmatched_blast, joined,
     by = join_by(x$ProteinId == y$`#query`)
   )
+  ## transcriptome <- with_blast %>% filter(grepl("T"), ProteinId)
+  transcriptome <- with_blast %>% filter(grepl("TRANSCRIPTOME"), header)
   # Get metadata for eggnog-identified proteins
   final <- mutate(with_blast,
     Anno_method = "eggNOG", GO = GOs,
@@ -53,7 +55,7 @@ main <- function(args) {
       pattern = "ko:",
       replacement = ""
     ))
-  ) #
+  ) %>% select(-GOs)
   anno_cols <- c(
     "seed_ortholog", "eggNOG_OGs",
     "max_annot_level", "COG_category", "Description",

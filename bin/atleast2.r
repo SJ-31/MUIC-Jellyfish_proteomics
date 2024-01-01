@@ -16,7 +16,8 @@ splitDuplicates <- function(dupe_table, index) {
 }
 
 sort_duplicates <- function(file_path) {
-  # Read in a Percolator protein output file and sort duplicates
+  # Read in a Percolator protein output file and sort duplicates, proteins
+  # that are all known from the same set of peptides
   table <- read.delim(file_path, sep = "\t")
   engine <- gsub("_.*", "", file_path)
   duplicates <- table %>% filter(grepl(",", ProteinId))
@@ -76,7 +77,7 @@ merge_column <- function(column_name, dataframe) {
   cols <- grep(column_name, colnames(dataframe))
   selected <- select(dataframe, all_of(cols))
   all_vals <- lapply(1:dim(selected)[1], function(x) {
-    keep <- selected[x, ] %>% discard(~all(is.na(.)))
+    keep <- selected[x, ] %>% discard(~ all(is.na(.)))
     collapsed <- paste0(keep, collapse = ",")
     return(gsub(" ", "", collapsed))
   }) %>%

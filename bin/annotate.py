@@ -320,7 +320,6 @@ def anno(args: dict):
         # Any remaining unannotated sequences will be extracted and sent to
         # interproscan for annotation
     uniprot_query = map_list(uniprot_ids, "UniProtKB")
-    from IPython.core.debugger import set_trace; set_trace()  # fmt: skip
     final = (
         pd.concat([ncbi_mapped, pd.DataFrame(uniprot_query[0])])
         .merge(id_map, left_on="query", right_on="dbId")
@@ -346,7 +345,7 @@ def anno(args: dict):
             "needs_annotating.tsv", sep="\t", index=False, na_rep="NaN"
         )
     anno = final[["ProteinId", "header"] + anno_cols]
-    meta = final[["ProteinId"] + not_anno]
+    meta = final[not_anno].drop("header", axis="columns")
     return {"anno": anno, "meta": meta}
 
 
@@ -367,6 +366,9 @@ def merge_annotated_eggnog(args):
     )
     already_matched = anno[~anno["ProteinId"].isin(get_eggnog["ProteinId"])]
     merged = pd.concat([already_matched, get_eggnog])
+    if unwanted := set(merged.columns) & {"header_x", "header_y"}:
+        for u in unwanted:
+            merged.drop(u, axis="columns", inplace=True)
     merged.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING EGGNOG DONE")
@@ -407,8 +409,11 @@ def merge_annotated_interpro(args):
         ~unannotated["ProteinId"].isin(joined["ProteinId"])
     ]
     # Remaining proteins that are still unannotated
-    write_fasta(still_left, "still_needs_annotating.fasta")
+    write_fasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])
+    if unwanted := set(final.columns) & {"header_x", "header_y"}:
+        for u in unwanted:
+            final.drop(u, axis="columns", inplace=True)
     final.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING INTERPRO DONE")
