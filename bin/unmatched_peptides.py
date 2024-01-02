@@ -26,11 +26,6 @@ def perc_row(series_row):
     )
 
 
-def clean_peptide(peptide):
-    peptide = peptide.upper().replace("X", "")
-    return "".join(re.findall("[A-Z]+", peptide))
-
-
 def read_percolator(filepath, p_threshold, q_threshold):
     percolator = (
         pd.read_csv(filepath, index_col=False)
@@ -44,13 +39,16 @@ def read_percolator(filepath, p_threshold, q_threshold):
     final["q-value"] = final["q-value"].astype(float)
     final = final[final["q-value"] <= q_threshold]
     final = final[final["posterior_error_prob"] <= p_threshold]
-    final["peptide"] = final["peptide"].apply(clean_peptide)
+    final["peptide"] = final["peptide"].apply(
+        lambda x: x.upper()[2:-2]
+    )  # Remove N- and C-termini, formatting peptide string like in the
+    # percolator "proteins" file
     return final
 
 
 def read_tide(filepath, p_threshold, q_threshold):
     tide = pd.read_csv(filepath, sep="\t")
-    tide["sequence"] = tide["sequence"].apply(clean_peptide)
+    tide["sequence"] = tide["sequence"]
     tide = tide[tide["percolator q-value"] <= q_threshold]
     tide = tide[tide["percolator PEP"] <= p_threshold].rename(
         columns={"sequence": "peptide", "protein id": "proteinIds"}

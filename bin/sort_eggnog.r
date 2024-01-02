@@ -25,7 +25,7 @@ main <- function(args) {
   )
   joined <- inner_join(anno_df, seed_df,
     by = join_by(x$`#query` == y$`#qseqid`)
-  ) %>%
+ ) %>%
     select(-c("qstart", "qend", "sstart", "send", "sseqid")) %>%
     as_tibble()
   # Import the eggnog data and merge the two together, grouping
@@ -46,8 +46,6 @@ main <- function(args) {
   with_blast <- inner_join(unmatched_blast, joined,
     by = join_by(x$ProteinId == y$`#query`)
   )
-  ## transcriptome <- with_blast %>% filter(grepl("T"), ProteinId)
-  transcriptome <- with_blast %>% filter(grepl("TRANSCRIPTOME"), header)
   # Get metadata for eggnog-identified proteins
   final <- mutate(with_blast,
     Anno_method = "eggNOG", GO = GOs,
