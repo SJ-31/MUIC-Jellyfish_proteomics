@@ -2,6 +2,7 @@ include { FLASHLFQ } from '../modules/flashlfq'
 include { UNMATCHED_PSMS } from '../modules/unmatched'
 include { MAP_SCANS } from '../modules/map_scans'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
+include { WRITE_QUANT } from '../modules/write_quant'
 include { FILTER_MSMS } from '../modules/unmatched'
 
 
@@ -35,10 +36,11 @@ workflow 'quantify'{
     DIRECTLFQ(DIRECTLFQ_FORMAT.out, "$outdir", "$outdir/Logs")
     FILTER_MSMS(MAP_SCANS.out.collect(), psm2combinedPEP.collect(), mzmls,
                 "$outdir/Unmatched")
+    WRITE_QUANT(DIRECTLFQ.out.quant, FLASHLFQ.out.prot, "$outdir")
 
     emit:
-    directlfq = DIRECTLFQ.out.quant
-    flashlfq = FLASHLFQ.out.prot
+    directlfq = WRITE_QUANT.out.dlfq
+    flashlfq = WRITE_QUANT.out.flfq
     unmatched_msms = FILTER_MSMS.out
     unmatched_pep_tsv = UNMATCHED_PSMS.out.tsv
 
