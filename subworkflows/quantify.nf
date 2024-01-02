@@ -10,23 +10,23 @@ workflow 'quantify'{
     msms_mappings
     mzmls
     percolator_psms
+    percolator_proteins
     metamorpheus_AllPSMs
     tide_target_search
     psm2combinedPEP
     outdir
 
     main:
-    percolator_psms.branch {
-        comet: it =~ /comet/
-        identipy: it =~ /identipy/
-        msgf: it =~ /msgf/
-        msfragger: it =~ /msfragger/
-        tide: it =~ /tide/
-        metamorpheus: it =~ /metamorpheus/
-    }.set { per }
+    percolator_psms.filter{ !(it =~ /.*metamorpheus.*|.*tide.*/) }
+        .mix(metamorpheus_AllPSMs, tide_target_search)
+        .map { it = [ it.baseName.replaceFirst(/_.*/, ""), it ] }
+        .set { psm }
+    percolator_proteins
+        .map { it = [ it.baseName.replaceFirst(/_.*/, ""), it ] }
+        .set { prot }
+
     UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
-    MAP_SCANS(per.comet.mix(per.identipy, per.msfragger, per.msgf,
-                            metamorpheus_AllPSMs, tide_target_search),
+    MAP_SCANS(psm.join(prot),
               UNMATCHED_PSMS.out.tsv,
               msms_mappings,
               "$outdir/Mapped_scans")

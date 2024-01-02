@@ -103,6 +103,7 @@ workflow 'search' {
     quantify_FIRST(MS_MAPPING.out,
                    mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
+                   PERCOLATOR.out.prot2intersect,
                    METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
                    PERCOLATOR.out.psm2combinedPEP
@@ -137,10 +138,13 @@ workflow 'search' {
 
     // Second pass quantification
     quantify_SECOND(MS_MAPPING.out,
-                    mzML,
-                    bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
+                   mzML,
+                   bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
+                                              .filter( ~from_first ),
+                                              TIDE.out.perc_psms),
+                   bk_decoys.out.prot2intersect.mix(PERCOLATOR.out.prot2intersect
                                                .filter( ~from_first ),
-                                               TIDE.out.perc_psms),
+                                               TIDE.out.perc_protein),
                    METAMORPHEUS_DEFAULT.out.psms,
                    TIDE.out.target,
                    bk_decoys.out.psm2combinedPEP.mix(

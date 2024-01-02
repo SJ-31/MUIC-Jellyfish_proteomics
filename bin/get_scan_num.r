@@ -163,21 +163,53 @@ read_engine_psms <- function(args) {
   return(psms)
 }
 
-merge_unmatched <- function(final_df, unmatched_peptides) {
+expandProteinRows <- function(row) {
+  ProteinId <- row[["ProteinId"]] %>% str_split_1(",")
+  peptide <- row[["peptideIds"]] %>% str_split_1(" ")
+  combos <- crossing(ProteinId, peptide)
+  return(combos)
+}
+
+noTermini <- function(peptide_col) {
+  unlist(lapply(peptide_col, \(x) {
+    return(substr(x, start = 3, stop = nchar(x) - 2))
+  }))
+}
+
+merge_unmatched <- function(final_df, unmatched_peptides, proteins) {
   #' Merge the final scan numbers with the ids of the unmatched peptides
   #' so that they may be quantified
+  prot_df <- read_tsv(proteins) %>%
+    select(ProteinId, peptideIds) %>%
+    apply(., 1, expandProteinRows) %>%
+    bind_rows()
   u_df <- read_tsv(unmatched_peptides)
-  unwanted_cols <- colnames(u_df)
-  unwanted_cols <- unwanted_cols[!unwanted_cols %in% "peptideIds"]
-  no_prot <- final_df %>% filter(is.na(protein))
-  has_prot <- final_df %>% filter(!is.na(protein))
-  joined <- left_join(no_prot, u_df,
+  unwanted_cols <- colnames(u_df) %>% discard(., \(x) x %in% "peptideIds")
+  # Join with unmatched peptides
+  no_prot1 <- final_df %>%
+    filter(is.na(protein)) %>%
+    mutate(no_termini = noTermini(peptide))
+  has_prot1 <- final_df %>% filter(!is.na(protein))
+  joined1 <- left_join(no_prot1, u_df,
     by =
-      join_by(x$base_peptide == y$peptideIds)
+      join_by(x$no_termini == y$peptideIds)
   ) %>%
     mutate(protein = ProteinId) %>%
     select(-all_of(unwanted_cols))
-  return(bind_rows(joined, has_prot))
+  # Join with other proteins matched by percolator
+  no_prot2 <- joined1 %>%
+    filter(is.na(protein))
+  has_prot2 <- joined1 %>% filter(!is.na(protein))
+  joined2 <- left_join(no_prot2, prot_df,
+    by =
+      join_by(x$no_termini == y$peptide)
+  ) %>%
+    mutate(protein = ProteinId) %>%
+    select(-ProteinId)
+  return(select(
+    bind_rows(joined1, has_prot1, joined2, has_prot2),
+    -no_termini
+  ))
 }
 
 
@@ -193,7 +225,11 @@ if (sys.nframe() == 0) {
   )
   parser <- add_option(parser, c("-i", "--input"),
     type = "character",
-    help = "Psm file"
+    help = "Percolator psm file"
+  )
+  parser <- add_option(parser, c("-p", "--protein"),
+    type = "character",
+    help = "Percolator protein file"
   )
   parser <- add_option(parser, c("-u", "--unmatched_peptides"),
     type = "character",
@@ -205,6 +241,10 @@ if (sys.nframe() == 0) {
   )
   args <- parse_args(parser)
   f <- read_engine_psms(args)
-  final <- merge_unmatched(f, args$unmatched_peptides)
-  write_delim(final, args$output, delim = "\t")
+  if (any(is.na(f$protein))) {
+    final <- merge_unmatched(f, args$unmatched_peptides, args$protein)
+    write_delim(final, args$output, delim = "\t")
+  } else {
+    write_delim(f, args$output, delim = "\t")
+  }
 }
