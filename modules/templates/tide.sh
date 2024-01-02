@@ -21,3 +21,6 @@ crux percolator ./tide-search.target.txt \
     --fileroot tide
 
 rename_tide.sh
+mv tide-search.target.txt tide_search.target.txt
+mv tide-decoy.target.txt tide_search.decoy.txt
+mv tide-search.log tide_search.log

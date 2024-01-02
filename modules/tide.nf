@@ -13,8 +13,8 @@ process TIDE {
     //
 
     output:
-    path("tide-search.target.txt"), emit: target
-    path("tide-search.decoy.txt"), emit: decoy
+    path("tide_search.target.txt"), emit: target
+    path("tide_search.decoy.txt"), emit: decoy
     path("*percolator*"), emit: percolator
     path("tide_percolator_proteins.tsv"), emit: perc_protein
     path("tide_percolator_psms.tsv"), emit: perc_psms
@@ -22,10 +22,10 @@ process TIDE {
     //
 
     script:
-    def check = file("${outdir}/tide-search.target.txt")
+    def check = file("${outdir}/tide_search.target.txt")
     if (check.exists()) {
         """
-        cp ${outdir}/tide-search* .
+        cp ${outdir}/tide_search* .
         cp ${percolatordir}/tide_percolator* .
         """
     } else {

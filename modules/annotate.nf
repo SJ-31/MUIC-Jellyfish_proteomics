@@ -10,7 +10,7 @@ process ANNOTATE {
     //
 
     output:
-    tuple path("${name}_anno.tsv"), path("${name}_meta.tsv"), emit: annotations
+    tuple val(name), path("download_anno-${name}.tsv"), path("download_meta-${name}.tsv"), emit: annotations
     path("${name}_eggnog-unmatched")
     path("${name}_interpro-unmatched")
     path("*fasta"), optional: true
