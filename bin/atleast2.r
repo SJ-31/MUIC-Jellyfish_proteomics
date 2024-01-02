@@ -1,6 +1,6 @@
 library(tidyverse)
 # Merge all percolator protein results into a single file
-target <- "ProteinId"
+TARGET <- "ProteinId"
 headers <- c(
   "ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
   "peptideIds"
@@ -15,7 +15,7 @@ splitDuplicates <- function(dupe_table, index) {
   return(tibble(ProteinId = dupes, others))
 }
 
-sort_duplicates <- function(file_path) {
+sort_duplicates <- function(file_path, fdr, pep_thresh) {
   # Read in a Percolator protein output file and sort duplicates, proteins
   # that are all known from the same set of peptides
   table <- read.delim(file_path, sep = "\t")
@@ -31,23 +31,29 @@ sort_duplicates <- function(file_path) {
   bound <- bind_rows(list(duplicates, table)) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine)) %>%
     as_tibble()
+  bound <- bound %>% filter(`q.value` <= fdr)
+  bound <- bound %>% filter(posterior_error_prob <= pep_thresh)
   return(bound)
 }
 
-get_matches <- function(file_name, target) {
+get_matches <- function(file_name, target, fdr, pep_thresh) {
   engine <- gsub("_.*", "", file_name)
-  results <- sort_duplicates(file_name)
+  results <- sort_duplicates(file_name, fdr, pep_thresh)
   matches <- results[[target]]
   engine_results <- list(matches)
   names(engine_results) <- engine
   return(engine_results)
 }
 
-intersect_engines <- function(files, map_file) {
+intersect_engines <- function(files, map_file, fdr, pep_thresh) {
   mappings <- read.delim(map_file, sep = "\t")
-  engi <- lapply(files, get_matches, target = target) %>%
+  engi <- lapply(files, get_matches,
+    target = TARGET,
+    fdr = fdr,
+    pep_thresh = pep_thresh
+  ) %>%
     unlist(recursive = FALSE)
-  tables <- lapply(files, sort_duplicates)
+  tables <- lapply(files, sort_duplicates, fdr = fdr, pep_thresh = pep_thresh)
   combos <- combn(names(engi), 2)
   master_list <- lapply(1:ncol(combos), function(x) {
     # Obtain the intersection between every possible pair of engine searches
@@ -62,7 +68,7 @@ intersect_engines <- function(files, map_file) {
     unique()
   master_list <- master_list[!grepl("rev_", master_list)]
   matched_tables <- lapply(tables, function(x) {
-    return(x[x[[target]] %in% master_list, ])
+    return(x[x[[TARGET]] %in% master_list, ])
   })
   mapped <- mappings[mappings$id %in% master_list, ]
   return(list("tables" = matched_tables, "map_list" = mapped))
@@ -85,14 +91,14 @@ merge_column <- function(column_name, dataframe) {
   return(all_vals)
 }
 
-main <- function(seq_header_file, output) {
+main <- function(seq_header_file, output, fdr, pep_thresh) {
   files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
   # all the results files have been dumped
   # into the directory
-  matched <- intersect_engines(files, seq_header_file)
+  matched <- intersect_engines(files, seq_header_file, fdr, pep_thresh)
   matched_tables <- matched$tables
   mapped <- matched$map_list
-  merged_tables <- reduce(matched_tables, full_join, by = target)
+  merged_tables <- reduce(matched_tables, full_join, by = TARGET)
   merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
     `names<-`(headers) %>%
     as_tibble() %>%
@@ -103,6 +109,14 @@ main <- function(seq_header_file, output) {
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
+  parser <- add_option(parser, c("-p", "--pep_thresh"),
+    type = "character",
+    help = "Posterior Error Probability threshold"
+  )
+  parser <- add_option(parser, c("-f", "--fdr"),
+    type = "character",
+    help = "FDR threshold"
+  )
   parser <- add_option(parser, c("-m", "--seq_header_file"),
     type = "character",
     help = "Path to seq-header mapping"
@@ -112,5 +126,5 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     help = "Output file name"
   )
   args <- parse_args(parser)
-  main(args$seq_header_file, args$output)
+  main(args$seq_header_file, args$output, args$fdr, args$pep_thresh)
 }

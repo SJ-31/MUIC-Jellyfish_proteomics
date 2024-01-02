@@ -85,6 +85,6 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     dlfq = read_directlfq(args["dlfq"])
-    dlfq.write_csv(args["dlfq_sorted"], sep="\t", na_rep="NA", index=False)
+    dlfq.to_csv(args["dlfq_sorted"], sep="\t", na_rep="NA", index=False)
     flfq = read_flashlfq(args["flfq"])
-    flfq.write_csv(args["flfq_sorted"], sep="\t", na_rep="NA", index=False)
+    flfq.to_csv(args["flfq_sorted"], sep="\t", na_rep="NA", index=False)

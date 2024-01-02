@@ -4,10 +4,10 @@
 #'
 
 joinMods <- function(peptides) {
- pattern <- "([A-Z\\]]) ([A-Z\\[])"
- splits <- str_replace_all(peptides, pattern, "\\1,\\2") %>%
-   unlist(use.names = FALSE)
- return(paste0(splits, collapse = ","))
+  pattern <- "([A-Z\\]]) ([A-Z\\[])"
+  splits <- str_replace_all(peptides, pattern, "\\1,\\2") %>%
+    unlist(use.names = FALSE)
+  return(paste0(splits, collapse = ","))
 }
 
 dropNA <- function(vector) {
@@ -18,7 +18,9 @@ cleanNA <- function(vector) {
   cleaned <- lapply(vector, function(x) {
     if (is.na(x)) {
       return("")
-    } else return(x)
+    } else {
+      return(x)
+    }
   })
   return(unlist(cleaned, use.names = FALSE))
 }
@@ -30,11 +32,12 @@ sortDuplicates <- function(df) {
   }
   no_dupes <- df[!(df$ProteinId %in% dupes$ProteinId), ]
   split <- lapply(seq_len(dim(dupes)[1]), splitDuplicates,
-                  dupe_table = dupes) %>% bind_rows()
+    dupe_table = dupes
+  ) %>% bind_rows()
   return(bind_rows(split, no_dupes))
 }
 
-cleanUp <- function(path, q_threshold) {
+cleanUp <- function(path, fdr_threshold) {
   # Format protein rows with multiple peptides (duplicates)
   # Separate duplicates into separate rows
   # Filter by q-value
@@ -42,21 +45,24 @@ cleanUp <- function(path, q_threshold) {
   df <- read_tsv(path) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
   df <- mutate(df, peptideIds = unlist(lapply(df$peptideIds, joinMods),
-                                       use.names = FALSE))
-  df <- sortDuplicates(df) %>% filter(`q-value` <= 0.05)
+    use.names = FALSE
+  ))
+  print(colnames(df))
+  df <- sortDuplicates(df) %>% filter(`q-value` <= fdr_threshold)
   return(df)
 }
 
 
-main <- function(r_source, seq_header_file) {
+main <- function(args) {
   oldwd <- getwd()
-  setwd(r_source)
+  setwd(args$r_source)
   source("./atleast2.r")
   setwd(oldwd)
-  mapped <- read_tsv(seq_header_file)
+  mapped <- read_tsv(args$seq_header_file)
   files <- list.files(oldwd,
-                    pattern = "*percolator_proteins.tsv")
-  cleaned <- files %>% lapply(., cleanUp)
+    pattern = "*percolator_proteins.tsv"
+  )
+  cleaned <- files %>% lapply(., cleanUp, fdr_threshold = args$fdr)
   grouped <- bind_rows(cleaned) %>%
     group_by(ProteinId) %>%
     mutate_at(., vars(-group_cols()), paste0, collapse = ",") %>%
@@ -64,7 +70,6 @@ main <- function(r_source, seq_header_file) {
     ungroup() %>%
     inner_join(mapped, by = join_by(x$ProteinId == y$id))
   write_delim(grouped, args$output, delim = "\t")
-
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
@@ -72,13 +77,20 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-r", "--r_source"),
-                       type = "character")
-  parser <- add_option(parser, c("-o", "--output"), type = "character",
-                       help = "Output file name")
+    type = "character"
+  )
+  parser <- add_option(parser, c("-f", "--fdr"),
+    type = "character",
+    help = "FDR threshold"
+  )
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
   parser <- add_option(parser, c("-m", "--seq_header_file"),
     type = "character",
     help = "Path to seq-header mapping"
   )
   args <- parse_args(parser)
-  main(args$r_source, args$seq_header_file)
+  main(args)
 }
