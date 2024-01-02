@@ -46,7 +46,7 @@ process SORT_EGGNOG {
     output:
     path("${run_name}_eggnog.fasta"), emit: fasta
     path("${run_name}_eggnog_unmatched.tsv"), emit: unmatched
-    tuple path("eggnog_anno-${run_name}.tsv"), path("eggnog_meta-${run_name}.tsv"), emit: matched
+    tuple val(run_name), path("eggnog_anno-${run_name}.tsv"), path("eggnog_meta-${run_name}.tsv"), emit: matched
     //
 
     script:

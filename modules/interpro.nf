@@ -44,7 +44,7 @@ process SORT_INTERPRO {
     //
 
     output:
-    tuple path("interpro_anno-${name}.tsv"), path("interpro_meta-${name}.tsv")
+    tuple val(name), path("interpro_anno-${name}.tsv"), path("interpro_meta-${name}.tsv"), emit: matched
     path("remaining_unmatched-${name}.tsv")
     //
 

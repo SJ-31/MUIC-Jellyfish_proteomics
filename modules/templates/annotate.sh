@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 
 annotate.py -i !{combined_tsv} \
-    -m !{name}_meta.tsv \
-    -a !{name}_anno.tsv
+    -m download_meta-!{name}.tsv \
+    -a download_anno-!{name}.tsv
 
 eggdir="!{name}_eggnog-unmatched"
 ipdir="!{name}_interpro-unmatched"
@@ -35,7 +35,7 @@ if [ -e needs_annotating.fasta ]; then
     cd ..
 
     annotate.py --merge_eggnog \
-        --anno_tsv !{name}_anno.tsv \
+        --anno_tsv download_anno-!{name}.tsv \
         --eggnog_anno_tsv ${eggdir}/!{name}_anno-eggnog.tsv
 
     if [ -e needs_annotating2.fasta ]; then
@@ -59,7 +59,7 @@ if [ -e needs_annotating.fasta ]; then
             --interpro_query ${ipdir}/needs_annotating2.fasta \
             -r !{params.bin} \
             -i ${ipdir}/annotated.tsv \
-            --anno_tsv !{name}_anno.tsv
+            --anno_tsv download_anno-!{name}.tsv
         mv sorted.tsv ${ipdir}
     fi
 fi
