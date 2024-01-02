@@ -201,7 +201,6 @@ def map_list(id_list, origin_db: str):
         "GO": [],
         "GO_evidence": [],
         "KEGG_Genes": [],
-        "OrthoDb": [],
         "PANTHER": [],
         "length": [],
         "molWeight": [],
@@ -239,15 +238,11 @@ def map_list(id_list, origin_db: str):
             anno_dict["PANTHER"].append(
                 from_db("PANTHER", databases)["PANTHER"]
             )
-            anno_dict["OrthoDb"].append(
-                from_db("OrthoDb", databases)["OrthoDb"]
-            )
         else:
             for key in [
                 "KEGG_Genes",
                 "GO",
                 "PANTHER",
-                "OrthoDb",
                 "GO_evidence",
             ]:
                 anno_dict[key].append(None)
@@ -336,7 +331,6 @@ def anno(args: dict):
         "GO",
         "GO_evidence",
         "KEGG_Genes",
-        "OrthoDb",
         "PANTHER",
     ]
     not_anno = list(set(final.columns) - set(anno_cols))

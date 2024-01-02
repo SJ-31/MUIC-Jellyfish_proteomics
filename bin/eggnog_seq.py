@@ -26,30 +26,30 @@ def main(args: dict):
     command = f'seqkit grep -n -r -f {query_file} {args["eggnog_database"]}'
     seqkit = subprocess.run(command, shell=True, capture_output=True)
     unformatted = str(seqkit.stdout)[2:-1].split("\\n")
-    seqs = {"seed_ortholog": set(), "seq": []}
+    seqs = {"seed_ortholog": set(), "SO_seq": []}
     seq_count = 0
     for line in unformatted:
         if line.startswith(">"):
             seqs["seed_ortholog"].add(line[1:])
-            seqs["seq"].append("")
+            seqs["SO_seq"].append("")
             seq_count += 1
         else:
-            seqs["seq"][seq_count - 1] = seqs["seq"][seq_count - 1] + line
+            seqs["SO_seq"][seq_count - 1] = (
+                seqs["SO_seq"][seq_count - 1] + line
+            )
     for so in anno["seed_ortholog"]:
         if so not in seqs["seed_ortholog"]:
             seqs["seed_ortholog"].add(so)
-            seqs["seq"].append(np.NaN)
+            seqs["SO_seq"].append(np.NaN)
     seqs["seed_ortholog"] = list(seqs["seed_ortholog"])
     seqs = pd.DataFrame(seqs)
     seqs.to_csv("sequence_df.tsv", sep="\t", index=False)
     anno = anno.filter(["ProteinId", "seed_ortholog"]).merge(
         seqs, on="seed_ortholog"
     )
-    meta = pd.read_csv(args["metadata_file"], sep="\t").drop(
-        "seq", axis="columns"
-    )
-    final = anno.filter(["ProteinId", "seq"]).merge(meta, on="ProteinId")
-    final.to_csv(args["output_file"], sep="\t", na_rep="-", index=None)
+    meta = pd.read_csv(args["metadata_file"], sep="\t")
+    final = anno.filter(["ProteinId", "SO_seq"]).merge(meta, on="ProteinId")
+    final.to_csv(args["output_file"], sep="\t", na_rep="NA", index=None)
 
 
 if __name__ == "__main__":
