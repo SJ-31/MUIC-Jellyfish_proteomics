@@ -1,7 +1,6 @@
 process FLASHLFQ {
     publishDir "$outdir", mode: "copy"
     publishDir "$logdir", mode: "copy", pattern: "*{txt,toml}"
-    errorStrategy 'ignore'
 
     input:
     path(scan_prot_mappings)
