@@ -10,32 +10,22 @@ process SORT_BLAST {
     path(blast_results)
     path(mapping)
     path(blast_query)
-    each arg_string
     val(outdir)
     //
 
     output:
-    tuple path("${prefix}_unmatched.fasta"), path("${prefix}_unmatched.tsv"), emit: unmatched
-    path("db_hits-${prefix}.tsv"), emit: matched
+    tuple path("${params.pref}_blast_unmatched.fasta"), \
+        path("${params.pref}_blast_unmatched.tsv"), emit: unmatched
+    path("${params.pref}_blast_matched.tsv"), emit: matched
     //
 
     script:
-    // Syntax is <prefix> <do_one_hit?> <do_best_only?> <identity_threshold> <pep_threshold> <evalue_threshold>
-    arguments = arg_string.split(/ /)
-    prefix = arguments[0]
-    check = file("db_hits-${prefix}.tsv")
+    check = file("${params.pref}_blast_matched.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/*${prefix}* .
+        cp ${outdir}/*blast* .
         """
     } else {
-        one_hit = arguments[1]
-        // 0 Removes proteins identified by only one peptide
-        best = arguments[2]
-        // 1 Keeps best hit only, no degenerate peptides allowed
-        identity_thresh = arguments[3]
-        p_thresh = arguments[4]
-        evalue_thresh = arguments[5]
         """
         grep ">" ${blast_query} | sed 's/>//' > blast_query.txt
         sort_blast.py -b $blast_results \
@@ -44,14 +34,12 @@ process SORT_BLAST {
             -d $database_hits \
             -m $mapping \
             -q blast_query.txt \
-            -f "${prefix}_unmatched.fasta"  \
-            --unmatched_tsv ${prefix}_unmatched.tsv \
-            -i $identity_thresh \
-            -e $evalue_thresh \
-            -p $p_thresh \
-            --one_hit $one_hit \
-            --keep_best $best \
-            -o db_hits-${prefix}.tsv
+            -f ${params.pref}_blast_unmatched.fasta  \
+            --unmatched_tsv ${params.pref}_blast_unmatched.tsv \
+            -i 80 \
+            -e 0.00001 \
+            -p 0.05 \
+            -o ${params.pref}_blast_matched.tsv
         """
     // We want the tsv file for the unmatched peptides so that they their
     // metadata (which engines matched them, PEP, evalue etc.) will not be lost

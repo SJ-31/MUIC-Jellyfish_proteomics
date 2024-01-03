@@ -47,11 +47,6 @@ def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
     return unmatched_fasta
 
 
-def clean_peptide(peptide):
-    peptide = peptide.upper().replace("X", "")
-    return "".join(re.findall("[A-Z]+", peptide))
-
-
 def group_peps(df):
     """
     Concatenate values in rows, separating by commas
@@ -66,27 +61,42 @@ def group_peps(df):
     return pd.DataFrame(grouped, index=[0])
 
 
-def adjust_pep(df):
+def adjust_prob(df):
     n_matched = df.shape[0]
-    df["posterior_error_prob"] = (
-        df["posterior_error_prob"].astype(float) * n_matched
+    peps = (
+        df["posterior_error_prob"]
+        .astype(str)
+        .apply(lambda x: [float(p) for p in x.split(",")])
     )
+    peps = peps.apply(lambda x: sorted(x)[1] if len(x) > 1 else x[0])
+    df["posterior_error_prob"] = peps * n_matched
+    return df
+
+
+def markBest(df):
+    df = df.sort_values(["evalue", "bitscore"], ascending=[True, False])
+    best_list = [0] * df.shape[0]
+    degenerate_list = [df.iloc[0]["queryID"]] * df.shape[0]
+    best_list[0] = 1
+    degenerate_list[0] = np.NaN
+    df["is_blast_best"] = best_list
+    # is 1 if a given peptide was the best hit to protein subject
+    # 0 if a peptide is a degenerate, has mapped to multiple subjects
+    # df["blast_degenerates"] = degenerate_list
     return df
 
 
 def merge_blast(
     b_df,
     prot_df,
-    keep_best_only,
     ident_thresh,
     e_thresh,
     pep_thresh,
-    one_hit_wonders,
 ):
     """
     1. Filter blast results by percent identity and evalue,
-    2. (Optional) keep best hits of each blast result
-    3. (Optional) remove blast-identified proteins that have been matched by
+    2. Mark best hits of each blast result
+    3. Mark blast-identified proteins that have been matched by
         only one query
     4. Isolate queries that did not pass the filters for searching again
     This also groups up accepted blast queries that were matched to the same
@@ -98,28 +108,33 @@ def merge_blast(
     b_df = b_df.sort_values(by="evalue", kind="stable")
     joined = pd.merge(b_df, prot_df, left_on="queryID", right_on="ProteinId")
     copy = joined.copy()
-    if keep_best_only:
-        # Keep only the blast hit with the lowest e-value
-        # If this is False, then degenerate peptides are allowed
-        joined = joined.groupby("queryID").nth(1).reset_index()
-    else:
-        # Adjust Percolator PEPs by the number of proteins at peptide
-        # is matched with
-        joined = joined.groupby("ProteinId").apply(adjust_pep)
-        joined = joined[joined["posterior_error_prob"] <= pep_thresh]
+    # Mark the blast hit with the lowest e-value and highest
+    # If this is False, then degenerate peptides are allowed
+    joined = joined.groupby("queryID").apply(markBest)
+
+    # Adjust Percolator PEPs by the number of proteins at peptide
+    # is matched with
+    joined = joined.groupby("ProteinId").apply(adjust_prob)
+    joined = joined[joined["posterior_error_prob"] <= pep_thresh]
+
+    # Extract the psms that failed any filters
     did_not_pass = (
         copy[~copy["queryID"].isin(joined["queryID"])]
         .groupby("queryID")
         .nth(0)
     ).drop(list(b_df.columns), axis="columns")
-    # Extract the psms that failed any filters
+
     joined = (
         joined.groupby(["subjectID"]).apply(group_peps).reset_index(drop=True)
     )
-    if not one_hit_wonders:
-        # Filter out protein identifications that are matched by only
-        # one peptide
-        return (joined[joined["queryID"].str.contains(",")], did_not_pass)
+
+    # Mark protein identifications that are matched by only
+    # one peptide
+    one_hits = joined[~joined["queryID"].str.contains(",")]
+    one_hits["is_blast_one_hit"] = 1
+    multi_hit = joined[joined["queryID"].str.contains(",")]
+    multi_hit["is_blast_one_hit"] = 0
+    joined = pd.concat([one_hits, multi_hit])
     return (joined, did_not_pass)
 
 
@@ -129,7 +144,9 @@ def known_from_database(blast_df, db_df):
     the search output
     """
     already_found = db_df.merge(
-        blast_df.filter(["subjectID", "seq"]),
+        blast_df.filter(
+            ["subjectID", "seq", "is_blast_one_hit", "is_blast_best"]
+        ),
         left_on="ProteinId",
         right_on="subjectID",
     )
@@ -159,7 +176,7 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["Anno_method"] = "blast"
     blast_only = blast_only.loc[
         :, ~blast_only.columns.str.contains("_[xy]", regex=True)
-    ].loc[:, db_df.columns]
+    ].loc[:, list(db_df.columns) + ["is_blast_best", "is_blast_one_hit"]]
     return blast_only
 
 
@@ -179,8 +196,6 @@ def parse_args():
     parser.add_argument("-i", "--identity_threshold")
     parser.add_argument("-p", "--pep_threshold")
     parser.add_argument("-e", "--evalue_threshold")
-    parser.add_argument("--keep_best")
-    parser.add_argument("--one_hit")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
@@ -196,8 +211,6 @@ def main(args: dict):
     joined = merge_blast(
         blast_df,
         query_df,
-        keep_best_only=bool(int(args["keep_best"])),
-        one_hit_wonders=bool(int(args["one_hit"])),
         ident_thresh=float(args["identity_threshold"]),
         pep_thresh=float(args["pep_threshold"]),
         e_thresh=float(args["evalue_threshold"]),
