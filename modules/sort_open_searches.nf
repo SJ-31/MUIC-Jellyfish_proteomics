@@ -15,7 +15,6 @@ process SORT_OPEN {
     """
     Rscript $params.bin/sort_open_searches.r \
         -o temp.tsv \
-        -f $params.fdr \
         -r $params.bin \
         -m $seq_header_mappings
 

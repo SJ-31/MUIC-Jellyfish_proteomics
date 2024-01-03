@@ -17,9 +17,7 @@ process SEARCH_INTERSECT {
     """
     Rscript $params.bin/atleast2.r \
         -m ${seq_header_mappings} \
-        -o intersected_searches.tsv \
-        -p $params.pep_thresh \
-        -f $params.fdr
+        -o intersected_searches.tsv
 
     Rscript $params.bin/unify_groups.r \
         -i intersected_searches.tsv \
@@ -27,5 +25,5 @@ process SEARCH_INTERSECT {
         -s standard \
         -p G
     """
-    //
+    // Leave the filtering for the combining module
 }
