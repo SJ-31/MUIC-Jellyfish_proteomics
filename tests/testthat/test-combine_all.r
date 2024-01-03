@@ -11,11 +11,16 @@ args <- list(
   sort_mods = FALSE,
   empai = FALSE,
   is_denovo = "true",
+  directlfq = glue("{dir}/Quantify/sorted_directlfq.tsv"),
+  flashlfq = glue("{dir}/Quantify/sorted_flashlfq.tsv"),
   output_anno = "./tests/testthat/output/combined-anno.tsv",
   output_meta = "./tests/testthat/output/combined-anno.tsv",
-  r_source = "./bin/"
+  r_source = "./bin/",
+  fdr = 0.05,
+  pep_thresh = 1
 )
 
 results <- main(args)
+all <- results$all
 write_lines(results$anno$ProteinId, "./tests/testthat/output/all_proteinids.txt")
-found <- results$found
+found <- results$f

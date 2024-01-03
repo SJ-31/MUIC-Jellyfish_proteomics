@@ -37,7 +37,7 @@ sortDuplicates <- function(df) {
   return(bind_rows(split, no_dupes))
 }
 
-cleanUp <- function(path, fdr_threshold) {
+cleanUp <- function(path) {
   # Format protein rows with multiple peptides (duplicates)
   # Separate duplicates into separate rows
   # Filter by q-value
@@ -48,7 +48,7 @@ cleanUp <- function(path, fdr_threshold) {
     use.names = FALSE
   ))
   print(colnames(df))
-  df <- sortDuplicates(df) %>% filter(`q-value` <= fdr_threshold)
+  df <- sortDuplicates(df)
   return(df)
 }
 
@@ -62,7 +62,7 @@ main <- function(args) {
   files <- list.files(oldwd,
     pattern = "*percolator_proteins.tsv"
   )
-  cleaned <- files %>% lapply(., cleanUp, fdr_threshold = args$fdr)
+  cleaned <- files %>% lapply(., cleanUp)
   grouped <- bind_rows(cleaned) %>%
     group_by(ProteinId) %>%
     mutate_at(., vars(-group_cols()), paste0, collapse = ",") %>%
@@ -78,10 +78,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- OptionParser()
   parser <- add_option(parser, c("-r", "--r_source"),
     type = "character"
-  )
-  parser <- add_option(parser, c("-f", "--fdr"),
-    type = "character",
-    help = "FDR threshold"
   )
   parser <- add_option(parser, c("-o", "--output"),
     type = "character",

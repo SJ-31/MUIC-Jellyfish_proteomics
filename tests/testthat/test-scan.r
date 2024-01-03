@@ -21,14 +21,23 @@ args <- list(
   unmatched_peptides = glue("{pth}/Quantify/Unmatched/unmatched_peptides.tsv")
 )
 source(glue("{bin}/get_scan_num.r"))
-p <- read_engine_psms(args)
-final <- merge_unmatched(p, args$unmatched_peptides, args$protein)
 
-
-splitProteins <- function(row) {
-  row <- as_tibble(row)
-  proteins <- str_split_1(row[["proteinIds"]], "\t")
-  stacked <- uncount(row, length(proteins)) %>% mutate(proteinIds = proteins)
-  print(stacked)
-  return(stacked)
+test_dlfq <- function() {
+  args <- list(
+    path = glue("{pth}/Quantify/Mapped_scans"),
+    mapping = "./results/jellyfish/msms_scans.tsv"
+  )
+  source(glue("{bin}/directlfq_format2.r"))
+  f <- main(args)
 }
+
+test_flfq <- function() {
+  pth <- "./results/jellyfish/1-First_pass"
+  args <- list(
+    path = glue("{pth}/Quantify/Mapped_scans")
+  )
+  source(glue("{bin}/flashlfq_format2.r"))
+  return(main(args))
+}
+
+f <- test_flfq()

@@ -1,0 +1,7 @@
+source("./bin/ontologizer_prep.r")
+args <- list(input = "./tests/results//Combined/all_test.tsv")
+m <- main(args)
+writeOz("protein_mappings.id", m$universe)
+writeLines(m$id_open$ProteinId, "id_with_open.txt")
+writeLines(m$universe$ProteinId, "universe.txt")
+writeLines(m$standard_annotation$ProteinId, "downloaded_db.txt")
