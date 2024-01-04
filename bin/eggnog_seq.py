@@ -10,16 +10,15 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-e", "--eggnog_database")
-    parser.add_argument("-m", "--metadata_file")
+    parser.add_argument("-i", "--eggnog_input")
     parser.add_argument("-o", "--output_file")
-    parser.add_argument("-a", "--annotations_file")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
 
 def main(args: dict):
     query_file = "./queries.txt"
-    anno = pd.read_csv(args["annotations_file"], sep="\t")
+    anno = pd.read_csv(args["eggnog_input"], sep="\t")
     eggnog_queries = "\n".join(list(anno["seed_ortholog"]))
     with open("./queries.txt", "w") as q:
         q.write(eggnog_queries)
@@ -44,12 +43,8 @@ def main(args: dict):
     seqs["seed_ortholog"] = list(seqs["seed_ortholog"])
     seqs = pd.DataFrame(seqs)
     seqs.to_csv("sequence_df.tsv", sep="\t", index=False)
-    anno = anno.filter(["ProteinId", "seed_ortholog"]).merge(
-        seqs, on="seed_ortholog"
-    )
-    meta = pd.read_csv(args["metadata_file"], sep="\t")
-    final = anno.filter(["ProteinId", "SO_seq"]).merge(meta, on="ProteinId")
-    final.to_csv(args["output_file"], sep="\t", na_rep="NA", index=None)
+    anno = anno.merge(seqs, on="seed_ortholog")
+    anno.to_csv(args["output_file"], sep="\t", na_rep="NA", index=None)
 
 
 if __name__ == "__main__":

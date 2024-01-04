@@ -150,32 +150,27 @@ main <- function(args) {
     rename(., all_of(c("interpro_pathways" = "pathways")))
   blanks_removed <- unlist(lapply(joined$interpro_accession, function(x) {
     if (x == "") {
-      return("-")
+      return(NA)
     } else {
       return(x)
     }
   }))
   joined$interpro_accession <- blanks_removed
-  anno_cols <- c("interpro_accession", "interpro_description", "GO", "interpro_pathways", "interpro_db")
-  anno <- select(joined, all_of(c("ProteinId", "header", anno_cols)))
-  meta <- select(joined, -c("header", anno_cols))
-  still_unmatched <- eggnog_df[!(eggnog_df$ProteinId %in%
-    joined$ProteinId), ] %>%
+  still_unmatched <- eggnog_df[!(
+    eggnog_df$ProteinId %in% joined$ProteinId), ] %>%
     select(., -c("seq", "Anno_method"))
-  return(list(unmatched = still_unmatched, meta_df = meta, anno_df = anno))
+  return(list(unmatched = still_unmatched, all = joined))
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--interpro_results"), type = "character")
-  parser <- add_option(parser, c("-m", "--meta_output"), type = "character")
-  parser <- add_option(parser, c("-a", "--anno_output"), type = "character")
+  parser <- add_option(parser, c("-o", "--output"), type = "character")
   parser <- add_option(parser, c("-u", "--eggnog_unmatched"), type = "character")
   parser <- add_option(parser, c("-f", "--final_unmatched"), type = "character")
   args <- parse_args(parser)
   results <- main(args)
   write_tsv(results$unmatched, args$final_unmatched)
-  write_tsv(results$meta_df, args$meta_output)
-  write_tsv(results$anno_df, args$anno_output)
+  write_tsv(results$all, args$output)
 }

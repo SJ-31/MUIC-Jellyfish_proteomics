@@ -80,12 +80,16 @@ main <- function(search_type, group_prefix, output, input) {
 }
 
 if (sys.nframe() == 0) {
-   library("optparse")
+  library("optparse")
   parser <- OptionParser()
-  parser <- add_option(parser, c("-o", "--output"), type = "character",
-                      help = "Output file name")
-  parser <- add_option(parser, c("-i", "--input"), type = "character",
-                      help = "Input file name")
+  parser <- add_option(parser, c("-o", "--output"),
+    type = "character",
+    help = "Output file name"
+  )
+  parser <- add_option(parser, c("-i", "--input"),
+    type = "character",
+    help = "Input file name"
+  )
   parser <- add_option(parser, c("-s", "--search_type"), type = "character")
   parser <- add_option(parser, c("-p", "--group_prefix"), type = "character")
   args <- parse_args(parser)

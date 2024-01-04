@@ -4,6 +4,7 @@ library(glue)
 
 # 1. Determine which proteins weren't matched by eggnog, then extract to a fasta file for further annotation by interpro
 # 2. Merge identified eggnog proteins with previous metadata from percolator to identify their origin e.g. from which de novo search engine and obtain metadata
+#
 
 write_unmatched <- function(from_blast, eggnog_hits) {
   matched_by_eggnog <- (from_blast$ProteinId %in% eggnog_hits$ProteinId)
@@ -25,7 +26,7 @@ main <- function(args) {
   )
   joined <- inner_join(anno_df, seed_df,
     by = join_by(x$`#query` == y$`#qseqid`)
- ) %>%
+  ) %>%
     select(-c("qstart", "qend", "sstart", "send", "sseqid")) %>%
     as_tibble()
   # Import the eggnog data and merge the two together, grouping
@@ -53,22 +54,12 @@ main <- function(args) {
       pattern = "ko:",
       replacement = ""
     ))
-  ) %>% select(-GOs)
-  anno_cols <- c(
-    "seed_ortholog", "eggNOG_OGs",
-    "max_annot_level", "COG_category", "Description",
-    "Preferred_name", "GO", "EC", "KEGG_ko", "PFAMs",
-    "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction",
-    "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction"
-  )
-  annotations <- final %>% select(any_of(c("ProteinId", "header", anno_cols)))
-  meta <- final %>% select(-any_of(c(
-    "header", anno_cols, "bitscore", "pident",
-    "qcov", "scov", "score", "max_annot_lvl",
-    "mass", "length"
-  )))
-  u <- write_unmatched(unmatched_blast, meta)
-  return(list(meta_df = meta, anno_df = annotations, unmatched = u))
+  ) %>% select(-c(
+    "GOs", "bitscore", "pident", "qcov", "scov",
+    "score", "evalue", "bitscore", "max_annot_lvl"
+  ))
+  u <- write_unmatched(unmatched_blast, final)
+  return(list(all = final, unmatched = u))
 }
 
 if (sys.nframe() == 0) {
@@ -82,13 +73,9 @@ if (sys.nframe() == 0) {
     type = "character",
     help = "Output unmatched tsv file name (unmatched eggnog proteins)"
   )
-  parser <- add_option(parser, c("-m", "--output_meta"),
+  parser <- add_option(parser, c("-o", "--output"),
     type = "character",
-    help = "Output metadata tsv file name"
-  )
-  parser <- add_option(parser, c("-o", "--output_anno"),
-    type = "character",
-    help = "Output annotation tsv file name"
+    help = "output file name"
   )
   parser <- add_option(parser, c("-s", "--seeds"),
     type = "character",
@@ -106,6 +93,5 @@ if (sys.nframe() == 0) {
   m <- main(ARGS)
   write.fasta(m$unmatched$fasta_seqs, m$unmatched$fasta_ids, ARGS$output_fasta)
   write_delim(m$unmatched$tsv, ARGS$output_unmatched, delim = "\t")
-  write_delim(m$meta_df, ARGS$output_meta, delim = "\t")
-  write_delim(m$anno_df, ARGS$output_anno, delim = "\t")
+  write_delim(m$all, ARGS$output, delim = "\t")
 }
