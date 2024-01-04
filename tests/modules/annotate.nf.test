@@ -14,8 +14,8 @@ nextflow_process {
             process {
                 """
                 // define inputs of the process here. Example:
-                input[0] = Channel.fromPath("/mnt/data/shannc/nf/results/jellyfish/1-First_pass/Unmatched/BLAST/db_hits-nO_D.tsv")
-                input[1] = "/mnt/data/shannc/nf/tests/modules"
+                input[0] = Channel.fromPath("/mnt/data/shannc/nf/results/jellyfish/1-First_pass/Unmatched/BLAST/jellyfish_blast_matched.tsv")
+                input[1] = "$baseDir/tests/nf-test-out/annotate"
                 """
             }
         }
