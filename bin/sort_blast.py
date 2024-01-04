@@ -5,6 +5,13 @@ import pandas as pd
 import numpy as np
 
 
+def markUnmatched(row):
+    if "U" in row["ProteinId"] and "-" in row["ProteinGroupId"]:
+        return row["ProteinGroupId"].replace("-", "U")
+    else:
+        return row["ProteinGroupId"]
+
+
 def clean_peptide(peptide):
     peptide = peptide.upper().replace("X", "")
     return "".join(re.findall("[A-Z]+", peptide))
@@ -28,7 +35,7 @@ def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
     return combined[combined["ProteinId"].isin(queries)]
 
 
-def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
+def writeUnmatched(queries_df, failed_filter, prot_df, tsv_name):
     """
     Write the entries unmatched by blast to a new fasta and tsv file
     """
@@ -40,6 +47,7 @@ def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
         ~unmatched["ProteinId"].isin(failed_filter["ProteinId"])
     ]
     unmatched = pd.concat([unmatched, failed_filter])
+    unmatched["ProteinGroupId"] = unmatched.apply(markUnmatched, axis=1)
     unmatched.to_csv(tsv_name, sep="\t", index=False)
     for row in unmatched.iterrows():
         entry = f">{row[1]['ProteinId']}\n{row[1]['seq']}\n"
@@ -86,7 +94,7 @@ def markBest(df):
     return df
 
 
-def merge_blast(
+def mergeBlast(
     b_df,
     prot_df,
     ident_thresh,
@@ -135,6 +143,7 @@ def merge_blast(
     multi_hit = joined[joined["queryID"].str.contains(",")]
     multi_hit["is_blast_one_hit"] = 0
     joined = pd.concat([one_hits, multi_hit])
+    joined["ProteinGroupId"] = joined.apply(markUnmatched, axis=1)
     return (joined, did_not_pass)
 
 
@@ -208,7 +217,7 @@ def main(args: dict):
     query_df = prepare_unknown(
         args["unknown_hits"], args["unmatched_peptides"], args["blast_query"]
     )
-    joined = merge_blast(
+    joined = mergeBlast(
         blast_df,
         query_df,
         ident_thresh=float(args["identity_threshold"]),
@@ -227,7 +236,7 @@ def main(args: dict):
     # The number of unique matches that were accepted
     stats = pd.Series(stats)
     print(stats)
-    unmatched = write_unmatched(
+    unmatched = writeUnmatched(
         blast_df, joined[1], query_df, args["unmatched_tsv"]
     )
     with open(args["unmatched_fasta"], "w") as f:
