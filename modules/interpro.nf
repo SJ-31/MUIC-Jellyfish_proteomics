@@ -32,7 +32,7 @@ process INTERPROSCAN {
 }
 
 process SORT_INTERPRO {
-    publishDir "$outdir", mode: "copy", pattern: "*{meta,anno}*"
+    publishDir "$outdir", mode: "copy"
     publishDir "$outdir_unmatched", mode: "copy", pattern: "remaining_unmatched*"
 
     input:

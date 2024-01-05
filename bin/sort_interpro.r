@@ -26,7 +26,10 @@ clean_interpro <- function(df) {
       "db_accession", "description"
     )) %>%
     group_by(query) %>%
-    ungroup()
+    ungroup() %>%
+    mutate(Anno_method = "interpro") %>%
+    rename(., all_of(c("interpro_pathways" = "pathways"))) %>%
+    select(-c("member_db"))
   return(ip_df)
 }
 
@@ -142,12 +145,9 @@ main <- function(args) {
   # The true sequence of the protein that
   # the peptide has mapped to is unknown
   cleaned <- clean_annotations(interpro_df)
-  joined <- inner_join(eggnog_df, cleaned,
+  joined <- inner_join(select(eggnog_df, -Anno_method), cleaned,
     by = join_by(x$ProteinId == y$query)
-  ) %>%
-    mutate(Anno_method = "interpro") %>%
-    select(-c("member_db")) %>%
-    rename(., all_of(c("interpro_pathways" = "pathways")))
+  )
   blanks_removed <- unlist(lapply(joined$interpro_accession, function(x) {
     if (x == "") {
       return(NA)
@@ -158,7 +158,7 @@ main <- function(args) {
   joined$interpro_accession <- blanks_removed
   still_unmatched <- eggnog_df[!(
     eggnog_df$ProteinId %in% joined$ProteinId), ] %>%
-    select(., -c("seq", "Anno_method"))
+    select(-c(seq, Anno_method))
   return(list(unmatched = still_unmatched, all = joined))
 }
 
