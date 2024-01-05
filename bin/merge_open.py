@@ -1,6 +1,23 @@
 #!/usr/bin/env python
 
+import re
 import pandas as pd
+
+
+def cleanPeptide(peptide):
+    peptide = peptide.upper().replace("X", "")
+    return "".join(re.findall("[A-Z]+", peptide))
+
+
+def getFastaStr(df, col):
+    copy = df.copy()
+    copy["clean"] = copy["peptideIds"].apply(cleanPeptide)
+    fasta_str = "".join(
+        copy.apply(
+            lambda x: f'>{x["ProteinId"]}\n{x["clean"]}\n', axis="columns"
+        ).to_list()
+    )
+    return fasta_str
 
 
 def clean(target, string):
@@ -10,7 +27,7 @@ def clean(target, string):
     return list(target)
 
 
-def clean_list_col(colname, frame, split):
+def cleanListCol(colname, frame, split):
     return (
         frame[colname]
         .apply(str.split, sep=split)
@@ -25,6 +42,9 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--intersected_searches")
     parser.add_argument("-s", "--open_searches")
+    parser.add_argument("-d", "--database_output")
+    parser.add_argument("--unknown_output")
+    parser.add_argument("-k", "--unknown_output_fasta")
     parser.add_argument("-u", "--unmatched_peptides")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
@@ -78,10 +98,18 @@ def main(args: dict):
 
     final = pd.concat([shared, open_searches, proteins])
     final["Anno_method"] = "initial_database"
-    return final
+    db_hits = final.query("ProteinId.str.contains('P')")
+    unknown_hits = final.query("ProteinId.str.contains('O|T|D')")
+    fasta_str = getFastaStr(unknown_hits, "seq")
+    return {
+        "all": final,
+        "database_hits": db_hits,
+        "unknown_hits": unknown_hits,
+        "fasta_str": fasta_str,
+    }
 
 
-def check_unmatched(final_frame, peps):
+def checkUnmatched(final_frame, peps):
     """
     Filter out the peptides in the dataframe "peps" to leave only peptides that
     are truly unmatched
@@ -95,19 +123,22 @@ def check_unmatched(final_frame, peps):
         ]
     )
     actual_unmatched = pep_df.query("~(`peptideIds`.isin(@all_peps))")
-    fasta_str = "".join(
-        actual_unmatched.apply(
-            lambda x: f'>{x["ProteinId"]}\n{x["peptideIds"]}\n', axis="columns"
-        ).to_list()
-    )
+    fasta_str = getFastaStr(actual_unmatched, "peptideIds")
     return (actual_unmatched, fasta_str)
 
 
 if __name__ == "__main__":
     args = parse_args()
     m = main(args)
-    m.to_csv(args["output"], sep="\t", index=False)
-    unmatched_peptides = check_unmatched(m, args["unmatched_peptides"])
+    m["database_hits"].to_csv(
+        args["database_output"], sep="\t", index=False, na_rep="NA"
+    )
+    m["unknown_hits"].to_csv(
+        args["unknown_output"], sep="\t", index=False, na_rep="NA"
+    )
+    with open(args["unknown_output_fasta"], "w") as f:
+        f.write(m["fasta_str"])
+    unmatched_peptides = checkUnmatched(m["all"], args["unmatched_peptides"])
     unmatched_peptides[0].to_csv(
         args["unmatched_peptides"], sep="\t", index=False
     )
