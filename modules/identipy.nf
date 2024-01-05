@@ -13,7 +13,7 @@ process IDENTIPY {
     path("*.pep.xml"), emit: pepxml
     //
     shell:
-    def check = file("${outdir}/${mzML[0]}")
+    def check = file("${outdir}/${mzML[0].baseName}.pep.xml")
     if (check.exists()) {
         '''
         cp !{outdir}/*.pep.xml .

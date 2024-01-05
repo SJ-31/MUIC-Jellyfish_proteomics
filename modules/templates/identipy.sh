@@ -5,8 +5,14 @@ cat identipy.cfg | sed "s;^database:.*;database: $database;" > config.cfg
 
 for mzML in *mzML
 do
+    name=$(echo "$mzML" | sed 's/.mzML/.pep.xml/' )
+    if [ -e !{outdir}/"$name" ]; then
+        echo "${mzML} already completed!"
+        cp !{outdir}/${name} .
+    else
     identipy ${mzML} \
         -cfg config.cfg \
         -at \
         -out .
+    fi
 done
