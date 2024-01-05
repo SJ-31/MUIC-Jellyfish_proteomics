@@ -12,6 +12,13 @@ test = "./tests/results/Unmatched/Database-annotated"
 pytest = "./tests/pytest/output"
 
 
+def tets_nextflow_out():
+    pth = "./results/jellyfish/1-First_pass/"
+    check = pd.read_csv(f"{pth}/Unmatched/Database-annotated", sep="\t")
+    cols = check.columns
+    assert not check.columns.str.contains("_[xy]").any()
+
+
 def test_anno():
     args = {
         "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",

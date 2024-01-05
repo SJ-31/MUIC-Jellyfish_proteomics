@@ -1,12 +1,14 @@
+library(glue)
 library(testthat)
 source("./bin/combine_all.r")
 dir <- "./results/jellyfish/1-First_pass"
+tests <- "./tests/results/"
 
 args <- list(
-  eggnog = glue("{dir}/Unmatched/eggNOG/jelly_eggnog_matched.tsv"),
-  interpro = glue("{dir}/Unmatched/InterPro/jelly_interpro_matched.tsv"),
+  eggnog = glue("{dir}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
+  interpro = glue("{dir}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
   downloads =
-    glue("{dir}/Unmatched/Database-annotated/jelly_downloads_anno-3.tsv"),
+    glue("{dir}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
   sort_mods = FALSE,
   empai = FALSE,
@@ -21,9 +23,9 @@ args <- list(
 
 results <- main(args)
 all <- results$all
-write_tsv(all, "./tests/results/Combined/all_test.tsv")
-write_lines(results$anno$ProteinId, "./tests/testthat/output/all_proteinids.txt")
-found <- results$f
+## write_tsv(all, "./tests/results/Combined/all_test.tsv")
+## write_lines(results$anno$ProteinId, "./tests/testthat/output/all_proteinids.txt")
+## found <- results$f
 
 
 checkNa <- function(matrx, name) {
@@ -49,6 +51,3 @@ strangeNas <- function(args) {
   browser()
   print("temp")
 }
-
-
-strangeNas(args)
