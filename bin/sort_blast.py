@@ -94,13 +94,7 @@ def markBest(df):
     return df
 
 
-def mergeBlast(
-    b_df,
-    prot_df,
-    ident_thresh,
-    e_thresh,
-    pep_thresh,
-):
+def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     """
     1. Filter blast results by percent identity and evalue,
     2. Mark best hits of each blast result
@@ -123,7 +117,8 @@ def mergeBlast(
     # Adjust Percolator PEPs by the number of proteins at peptide
     # is matched with
     joined = joined.groupby("ProteinId").apply(adjust_prob)
-    joined = joined[joined["posterior_error_prob"] <= pep_thresh]
+    if adjust:
+        joined = joined[joined["posterior_error_prob"] <= pep_thresh]
 
     # Extract the psms that failed any filters
     did_not_pass = (
@@ -195,6 +190,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-b", "--blast_results")
     parser.add_argument("-u", "--unknown_hits")
+    parser.add_argument("-a", "--adjust", action="store_true", default=False)
     parser.add_argument("--unmatched_peptides")
     parser.add_argument("-q", "--blast_query")
     parser.add_argument("-d", "--database_hits")
@@ -202,9 +198,9 @@ def parse_args():
     parser.add_argument("-f", "--unmatched_fasta")
     parser.add_argument("-t", "--unmatched_tsv")
     parser.add_argument("-o", "--output")
-    parser.add_argument("-i", "--identity_threshold")
-    parser.add_argument("-p", "--pep_threshold")
-    parser.add_argument("-e", "--evalue_threshold")
+    parser.add_argument("-i", "--identity_threshold", type=float)
+    parser.add_argument("-p", "--pep_threshold", type=float)
+    parser.add_argument("-e", "--evalue_threshold", type=float)
     args = vars(parser.parse_args())  # convert to dict
     return args
 
@@ -220,9 +216,10 @@ def main(args: dict):
     joined = mergeBlast(
         blast_df,
         query_df,
-        ident_thresh=float(args["identity_threshold"]),
-        pep_thresh=float(args["pep_threshold"]),
-        e_thresh=float(args["evalue_threshold"]),
+        ident_thresh=args["identity_threshold"],
+        pep_thresh=args["pep_threshold"],
+        e_thresh=args["evalue_threshold"],
+        adjust=args["adjust"],
     )
     percent_matched = (blast_match := len(blast_df["queryID"].unique())) / (
         n_queries := len(query_df["ProteinId"])
