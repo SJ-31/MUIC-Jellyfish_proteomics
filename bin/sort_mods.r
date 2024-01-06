@@ -69,7 +69,7 @@ getAllMods <- function(mod_df, row) {
     unique() %>%
     grep("[][]", ., value = TRUE)
   lapply(modified, countMods, mod_dict = mods)
-  mod_string <- paste(keys(mods), values(mods), collapse = "|")
+  mod_string <- paste(hash::keys(mods), hash::values(mods), collapse = "|")
   return(mod_string)
 }
 
@@ -83,7 +83,7 @@ sortModsMain <- function(input, is_file) {
   no_mods <- df[!(df$ProteinId %in% has_mods$ProteinId), ] %>%
     mutate(Mods = NA)
   MOD_LIST_DEFAULT <<- c(MOD_LIST_DEFAULT, namedModList(has_mods))
-  mod_col <- seq_len(dim(has_mods[1])) %>%
+  mod_col <- seq_len(nrow(has_mods)) %>%
     lapply(., getAllMods, mod_df = has_mods) %>%
     unlist(use.names = FALSE)
   has_mods <- has_mods %>% mutate(Mods = mod_col)
