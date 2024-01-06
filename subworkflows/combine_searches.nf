@@ -35,28 +35,17 @@ workflow 'combine_searches' {
         BLASTP(MERGE_OPEN.out.unknown_fasta, params.blast_db,
                "$outdir/Unmatched/BLAST") // Let blast try to annotate
         // de novo, transcriptome and unmatched peptides
-        Channel.of("nO_nD 0 1 80 0.05 0.00001",
-                   "O_D 1 0 80 0.05 0.00001",
-                   "nO_D 0 0 80 0.05 0.00001",
-                   "O_nD 1 1 80 0.05 0.00001")
-            .set { blast_vars }
-        // nO_nD = No one hits, no degenerates:
-        //      targets matched by one query only not allowed
-        //      peptides that match multiple targets not allowed
-        // O_D = One hits, degenerates
-        // nO_D = No one, hits, degenerates
-        // O_nD
         SORT_BLAST(MERGE_OPEN.out.unknown_tsv,
                    MERGE_OPEN.out.unmatched_pep,
                    MERGE_OPEN.out.database_tsv,
                    BLASTP.out, seq_header_mappings,
                    MERGE_OPEN.out.unknown_fasta,
-                   blast_vars, "$outdir/Unmatched/BLAST") // Extract peptides that
+                   "$outdir/Unmatched/BLAST") // Extract peptides that
                                                     // weren't matched by blast
         EGGNOG(SORT_BLAST.out.unmatched,
                "$outdir/Unmatched/eggNOG")
         SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched
-                    MERGE_OPEN.out.unmatched_pep.first(), // by eggnog
+                    MERGE_OPEN.out.unmatched_pep, // by eggnog
                     "$outdir/Unmatched/eggNOG")
         INTERPROSCAN(SORT_EGGNOG.out.fasta,
                      "$outdir/Unmatched/InterPro")
@@ -66,22 +55,9 @@ workflow 'combine_searches' {
         ANNOTATE(SORT_BLAST.out.matched,
                  "$outdir/Unmatched/Database-annotated")
 
-        ANNOTATE.out.annotations
-            .join(SORT_EGGNOG.out.matched)
-            .join(SORT_INTERPRO.out.matched)
-            .flatten()
-            .branch {
-                eggnog: it[1] ==~ /.*eggnog.*/
-                interpro: it[1] ==~ /.*interpro.*/
-                download: it[1] ==~ /.*download.*/
-            }. set { combined }
-
-        combined.eggnog.view()
-        combined.interpro.view()
-        combined.download.view()
-
-        // COMBINE_ALL(combine.eggnog, combine.interpro, combine.download,
-        // directlfq, flashlfq, "$outdir")
+        COMBINE_ALL(ANNOTATE.out.annotations, SORT_EGGNOG.out.matched,
+                    SORT_INTERPRO.out.matched,
+                    directlfq, flashlfq, "$outdir")
     } else {
         Channel.fromPath("$params.config/NO_FILE")
             .map{ it = ["no_file", it, it] }
@@ -92,6 +68,8 @@ workflow 'combine_searches' {
     }
 
     emit:
+    all_combined = Channel.empty()
+    all_combined = COMBINE_ALL.out.all
     intersected_searches = SEARCH_INTERSECT.out.unsorted
     combinedPEP_psm = COMBINE_PEP.out
 }

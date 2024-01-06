@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test Process MERGE_OPEN"
+    script "modules/merge_open.nf"
+    process "MERGE_OPEN"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pth = "$baseDir/results/jellyfish/1-First_pass/"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("$params.pth/Combined/unified_groups.tsv")
+                input[1] = Channel.fromPath("$params.pth/Open_search/grouped_open_searches.tsv")
+                input[2] = Channel.fromPath("$params.pth/Quantify/Unmatched/unmatched_peptides.tsv")
+                input[3] = "$baseDir/tests/nf-test-out/merge_open"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+            assert snapshot(process.out).match()
+        }
+
+    }
+
+}

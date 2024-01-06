@@ -10,7 +10,7 @@ args <- list(
   downloads =
     glue("{dir}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
-  sort_mods = FALSE,
+  sort_mods = TRUE,
   empai = FALSE,
   is_denovo = "true",
   directlfq = glue("{dir}/Quantify/sorted_directlfq.tsv"),
@@ -51,3 +51,84 @@ strangeNas <- function(args) {
   browser()
   print("temp")
 }
+
+testCoverage <- function(df) {
+  source(glue("{args$r_source}/protein_coverage.r"))
+  start <- Sys.time()
+  covered <- coverageCalc(df)
+  end <- Sys.time()
+  print(glue("Coverage took {end-start}"))
+  return(covered)
+}
+
+
+testResolveAlignment <- function(wf) {
+  source(glue("{args$r_source}/protein_coverage.r"))
+  expect_equal(resolveAlignment(
+    "--AGFS--", "DSAGFS--"
+  ), "DSAGFS--")
+  expect_equal(resolveAlignment(
+    "--[AG]FS--", "--GFS--"
+  ), "--[AG]FS--")
+  expect_equal(resolveAlignment(
+    "--[AG]FS--", "--DFS--"
+  ), "--[AGD]FS--")
+  expect_equal(resolveAlignment(
+    "--AGFS--", "--AG----"
+  ), "--AGFS--")
+  expect_equal(resolveAlignment(
+    "--AGFS--", "--DF----"
+  ), "--[AD][GF]FS--")
+}
+
+
+testResolveAlignment2 <- function(wf) {
+  source(glue("{args$r_source}/protein_coverage.r"))
+  expect_equal(resolveAlignment2(
+    "--AGFS--", "DSAGFS--"
+  ), list("DSAGFS--"))
+  expect_equal(resolveAlignment2(
+    "--AGFS--", "--AFSD--"
+  ), list("--AGFS--", "--AFSD--"))
+  expect_equal(resolveAlignment2(
+    list("--AGFS--", "--AFSD--"), "--AGFSFF"
+  ), list("--AGFS--", "--AFSD--", "--AFSDFF"))
+}
+
+testResolveAlignment()
+
+sample <- dplyr::slice(all, 1:10)
+s <- testCoverage(sample)
+
+
+
+
+## test <- s[1, ]
+## algn <- test[["alignment"]] %>% splitWithGroups()
+## seq <- test[["seq"]] %>% str_split_1("")
+## mid <- c()
+## seq_new <- c()
+## algn_new <- c()
+## lapply(seq_along(seq), \(x) {
+##   if (algn[x] == seq[x]) {
+##     mid <<- c(mid, "|")
+##     algn_new <<- c(algn_new, algn[x])
+##     seq_new <<- c(seq_new, seq[x])
+##   } else if (grepl("\\[", algn[x])) {
+##     residues <- str_extract(algn[x], "\\[(.*)\\]", group = 1)
+##     midpoint <- median(seq_len(residues))
+##     if (str_length(algn[x]) %% 2 == 0) {
+##       midpoint <- ceiling(midpoint)
+##       residues <- R.utils::insert(residues, midpoint, "|")
+##     }
+##     padding <- str_dup(" ", (length(residues) - 1) / 2)
+##     algn_new <<- str_flatten(c("[", residues, "]"))
+##     seq_new <<- c(seq_new, glue("{padding}{seq[x]}{padding}"))
+##     mid <<- c(mid, glue("{padding}|{padding}"))
+##   } else {
+##     mid <<- c(mid, " ")
+##     algn_new <<- c(algn_new, algn[x])
+##     seq_new <<- c(seq_new, seq[x])
+##   }
+## })
+## full_algn <- lapply(list(seq_new, mid, algn_new), str_flatten) %>% unlist()

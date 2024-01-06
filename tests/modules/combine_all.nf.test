@@ -1,0 +1,31 @@
+nextflow_process {
+
+    name "Test Process COMBINE_ALL"
+    script "modules/combine_all.nf"
+    process "COMBINE_ALL"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pth = "$baseDir/results/jellyfish/1-First_pass/"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("$params.pth/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv")
+                input[1] = Channel.fromPath("$params.pth/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv")
+                input[2] = Channel.fromPath("$params.pth/Unmatched/InterPro/jellyfish_interpro_matched.tsv")
+                input[3] = Channel.fromPath("$params.pth/Quantify/sorted_directlfq.tsv")
+                input[4] = Channel.fromPath("$params.pth/Quantify/sorted_flashlfq.tsv")
+                input[5] = "$baseDir/results/tests/nf-test-out/combined"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}
