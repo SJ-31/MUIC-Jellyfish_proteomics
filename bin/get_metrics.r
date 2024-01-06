@@ -5,10 +5,15 @@ library(venn)
 library(Peptides)
 library(glue)
 
-clean_peptide <- function(modified_pep) {
-  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
-    paste0(collapse = "")
-  return(clean_pep)
+
+cleanPeptide <- function(pep) {
+  if (grepl("\\]|[a-z0-9.]|-", pep)) {
+    pep <- str_to_upper(pep) %>%
+      str_extract_all("[A-Z]") %>%
+      unlist() %>%
+      paste0(collapse = "")
+  }
+  return(pep)
 }
 
 read_tide <- function(tide_file) {
@@ -50,10 +55,13 @@ read_percolator_psms <- function(percolator_file) {
   p_tibble <- p_tibble %>%
     mutate(engine = engine) %>%
     mutate(peptide = unlist(lapply(peptide, clean_peptide),
-                            use.names = FALSE)) %>%
+      use.names = FALSE
+    )) %>%
     mutate(mw = mw(peptide)) %>%
-    mutate(PEP = as.numeric(PEP),
-           q_value = as.numeric(q_value)) %>%
+    mutate(
+      PEP = as.numeric(PEP),
+      q_value = as.numeric(q_value)
+    ) %>%
     as_tibble()
   return(p_tibble)
 }
@@ -80,16 +88,20 @@ read_prot <- function(prot_file) {
     select(c(X1, X3, X4)) %>%
     slice(-1) %>%
     `colnames<-`(prot_header) %>%
-    mutate(id = unlist(lapply(id, clear_decoys)),
-           engine = engine,
-           PEP = as.numeric(PEP),
-           q_value = as.numeric(q_value))
-    return(prot)
+    mutate(
+      id = unlist(lapply(id, clear_decoys)),
+      engine = engine,
+      PEP = as.numeric(PEP),
+      q_value = as.numeric(q_value)
+    )
+  return(prot)
 }
 
 split_duplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
-  dupes <- dupe_table[index, ]$id %>% strsplit(",") %>% unlist(use.names = FALSE)
+  dupes <- dupe_table[index, ]$id %>%
+    strsplit(",") %>%
+    unlist(use.names = FALSE)
   others <- select(dupe_table[index, ], -id)
   return(tibble(id = dupes, others))
 }

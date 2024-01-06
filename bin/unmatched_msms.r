@@ -6,10 +6,14 @@ library(glue)
 # Take psm2combined pep file from all engines, concatenate them,
 # Take all scans from all engines, concatenate to keep only scan and file, also
 # remove duplicates
-clean_peptide <- function(modified_pep) {
-  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
-    paste0(collapse = "")
-  return(clean_pep)
+cleanPeptide <- function(pep) {
+  if (grepl("\\]|[a-z0-9.]|-", pep)) {
+    pep <- str_to_upper(pep) %>%
+      str_extract_all("[A-Z]") %>%
+      unlist() %>%
+      paste0(collapse = "")
+  }
+  return(pep)
 }
 
 
@@ -17,16 +21,20 @@ filter_msms <- function(file_name, msms_path, df, metric_df) {
   # Read in an mzML file of "file_name", filter it to leave ms 1 & 2 spectra
   # not found in "df", then write the filtered file
   df <- filter(df, file == file_name)
-  n_matched <- df$scan %>% unique() %>% length()
+  n_matched <- df$scan %>%
+    unique() %>%
+    length()
   imported_ms <- readMSData(msms_path, mode = "onDisk")
   header <- header(imported_ms)
   n_all_msms <- (header %>% filter(msLevel == 2) %>% dim())[1]
   unmatched_array <- !(header$acquisitionNum %in% as.numeric(df$scan))
   unmatched_mzml <- imported_ms[unmatched_array]
-  metrics <- tibble(file = file_name, n_msms = n_all_msms,
-                    n_matched_msms = n_matched,
-                    n_unmatched = n_all_msms - n_matched,
-                    percent_matched = n_matched / n_all_msms)
+  metrics <- tibble(
+    file = file_name, n_msms = n_all_msms,
+    n_matched_msms = n_matched,
+    n_unmatched = n_all_msms - n_matched,
+    percent_matched = n_matched / n_all_msms
+  )
   writeMSData(unmatched_mzml, glue("filtered_{file_name}.mzML"))
   return(metrics)
 }
@@ -49,7 +57,7 @@ group_files <- function(file_list, type, selection, distinct_var) {
       changed <- read_csv(x) %>%
         select(all_of(selection)) %>%
         filter(Is_decoy == FALSE) %>%
-        mutate(peptide = unlist(lapply(peptide, clean_peptide)))
+        mutate(peptide = unlist(lapply(peptide, cleanPeptide)))
       return(changed)
     })
   } else {
@@ -63,8 +71,10 @@ group_files <- function(file_list, type, selection, distinct_var) {
 
 join_psms_scans <- function(psm_list, scan_list, pep_thresh) {
   write(glue("PEP threshold: {pep_thresh}", stdout()))
-  scans <- group_files(scan_list, "scan", c("file", "scan", "base_peptide"),
-                       "base_peptide")
+  scans <- group_files(
+    scan_list, "scan", c("file", "scan", "base_peptide"),
+    "base_peptide"
+  )
   psms <- group_files(psm_list, "psm", c("PEP", "peptide", "Is_decoy"), "peptide")
   join <- inner_join(scans, psms, by = join_by(x$base_peptide == y$peptide)) %>%
     filter(PEP <= pep_thresh) %>%
@@ -77,8 +87,10 @@ main <- function(args) {
   psms <- glue("{args$psm_path}/{list.files(path = args$psm_path)}")
   scans <- glue("{args$scan_path}/{list.files(path = args$scan_path)}")
   mzmls <- list.files(args$mzML_path, pattern = "*.mzML")
-  joined_psms <- join_psms_scans(psm_list = psms, scan_list = scans,
-                                 pep_thresh = args$pep_thresh)
+  joined_psms <- join_psms_scans(
+    psm_list = psms, scan_list = scans,
+    pep_thresh = args$pep_thresh
+  )
   metrics <- filter_from_mzML(mzmls, joined_psms)
 }
 

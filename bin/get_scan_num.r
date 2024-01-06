@@ -123,10 +123,14 @@ get_file_name <- function(scan) {
   return(gsub("\\..*", "", scan))
 }
 
-clean_peptide <- function(modified_pep) {
-  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
-    paste0(collapse = "")
-  return(clean_pep)
+cleanPeptide <- function(pep) {
+  if (grepl("\\]|[a-z0-9.]|-", pep)) {
+    pep <- str_to_upper(pep) %>%
+      str_extract_all("[A-Z]") %>%
+      unlist() %>%
+      paste0(collapse = "")
+  }
+  return(pep)
 }
 
 read_engine_psms <- function(args) {
