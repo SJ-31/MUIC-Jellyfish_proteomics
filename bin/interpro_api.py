@@ -178,6 +178,9 @@ def mapPfams(pfam_db_path, p2g_path, i2g_path, to_annotate):
     """
     Map entries in the pfam database to go accession numbers, using
     """
+    print(f"Reading pfam entries from path {pfam_db_path}")
+    print(f"Reading pfam2go file from path {p2g_path}")
+    print(f"Reading interpro2go entries from path {i2g_path}")
     has_pfams = to_annotate.query("~PFAMs.isna()")
     no_pfam = to_annotate.query("PFAMs.isna()")
 
@@ -206,7 +209,8 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    args = parse_args()
-    if args["get_pfam"]:
+    ARGS = parse_args()
+    # Will conflict with reticulate otherwise
+    if ARGS["get_pfam"]:
         all_pfam = getAllPfam()
-        all_pfam.to_csv(args["get_pfam"], sep="\t", na_rep="NA")
+        all_pfam.to_csv(ARGS["get_pfam"], sep="\t", na_rep="NA")

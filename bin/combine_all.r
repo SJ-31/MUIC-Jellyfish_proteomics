@@ -1,3 +1,4 @@
+library(seqinr)
 library(reticulate)
 library(tidyverse)
 library(glue)
@@ -21,8 +22,10 @@ writeAlignments <- function(row, file_name) {
   header <- ifelse(row[["header"]] == "unknown", row[["ProteinId"]],
     row[["header"]]
   )
+  count <- row[["num_unique_peps"]]
   write.fasta(row[["seq"]], header, open = "a", file.out = file_name)
-  write.fasta(row[["alignment"]], "ALIGNED PEPTIDES",
+  write.fasta(row[["alignment"]],
+    glue("ALIGNED PEPTIDES | COUNT: {count}"),
     open = "a",
     file.out = file_name
   )
@@ -40,6 +43,7 @@ cleanPeptide <- function(pep) {
 }
 
 organismFromHeader <- function(row) {
+  #' Parse the organism from an NCBI or uniprot ID
   organism <- row["organism"]
   if (is.na(organism)) {
     header <- row["header"]
@@ -84,6 +88,8 @@ loadFile <- function(path) {
 }
 
 getEvidence <- function(row) {
+  #' Parse GO evidence codes for all entires that have them
+  #' GOs added by eggNOG and interpro are automatically labelled IEA
   if (is.na(row[["GO"]])) {
     return(NA)
   }
@@ -96,13 +102,6 @@ getEvidence <- function(row) {
   }
   return("IEA")
 }
-
-## goFromPanther <- function(df) {
-##   # Use the PANTHER api to obtain GO terms for proteins
-##   # that lack the latter but have the former
-##   to_map <- filter(df, !is.na(PANTHER) & is.na(GO))
-##   the_rest <- filter(df, !(ProteinId %in% to_map$ProteinId))
-## }
 
 
 main <- function(args) {
@@ -184,6 +183,15 @@ main <- function(args) {
     ) %>% as_tibble()
   }
 
+  ## Map pfam domains to GO
+  source_python(glue("{args$r_source}/interpro_api.py"))
+  combined <- py$mapPfams(
+    to_annotate = as.data.frame(combined),
+    p2g_path = args$pfam2go,
+    i2g_path = args$interpro2go,
+    pfam_db_path = args$pfam_db
+  ) %>% as_tibble()
+
   ## Merge with quantification data
   combined <- left_join(combined, read_tsv(args$directlfq),
     by = join_by(x$ProteinId == y$ProteinId)
@@ -235,6 +243,9 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("--is_denovo"), type = "character")
   parser <- add_option(parser, c("--directlfq"), type = "character")
   parser <- add_option(parser, c("--flashlfq"), type = "character")
+  parser <- add_option(parser, c("--interpro2go"), type = "character")
+  parser <- add_option(parser, c("--pfam2go"), type = "character")
+  parser <- add_option(parser, c(--"pfam_db"), type = "character")
   parser <- add_option(parser, c("--coverage"),
     type = "character",
     default = TRUE,
