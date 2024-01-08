@@ -63,8 +63,6 @@ def group_peps(df):
     df["peptideIds"] = [clean_peptide(pep) for pep in df["peptideIds"]]
     for col in df.columns:
         joined_up = set([c for c in df[col]])
-        if "lfq" in col:
-            joined_up = [np.mean(list(joined_up))]
         grouped[col] = ",".join([str(j) for j in joined_up])
     return pd.DataFrame(grouped, index=[0])
 

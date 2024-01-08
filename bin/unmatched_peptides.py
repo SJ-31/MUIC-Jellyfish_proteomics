@@ -123,7 +123,9 @@ def main(args: dict):
             "Group",
         ]
     ]
-    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep="-")
+    df["ProteinGroupId"] = "U"
+    df["Group"] = "U"
+    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep="NA")
 
 
 if __name__ == "__main__":
