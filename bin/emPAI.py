@@ -41,8 +41,8 @@ def calculate_emPAI(df, m_range: tuple):
         .fillna(False)
         .combine(df["seq"] == "-", lambda x, y: x or y)
     )
-    full = df[~not_full]
-    other = df[not_full]
+    full = df[~not_full & df["seq"].notna()]
+    other = df[not_full | df["seq"].isna()]
     full["observable_peps"] = full["seq"].apply(
         n_observable, mass_range=m_range
     )
@@ -53,3 +53,8 @@ def calculate_emPAI(df, m_range: tuple):
     full = full.drop(["observable_peps", "observed_peps"], axis="columns")
     df = pd.concat([full, other])
     return df
+
+
+test = pd.read_csv(
+    "./results/jellyfish/1-First_pass/jellyfish_all.tsv", sep="\t"
+)
