@@ -155,7 +155,7 @@ read_engine_psms <- function(args) {
   }
   psms <- psms %>%
     mutate(file = unlist(lapply(scan, get_file_name))) %>%
-    mutate(base_peptide = unlist(lapply(peptide, clean_peptide))) %>%
+    mutate(base_peptide = unlist(lapply(peptide, cleanPeptide))) %>%
     select(c(
       "file", "scan", "base_peptide", "peptide",
       "protein"

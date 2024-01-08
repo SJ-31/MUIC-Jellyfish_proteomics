@@ -26,13 +26,6 @@ read_tide <- function(tide_file) {
 }
 
 
-clean_peptide <- function(modified_pep) {
-  pep <- gsub("^-\\.", "", modified_pep) %>%
-    gsub("\\.-$", "", .) %>%
-    gsub("([A-Z])\\.(.*)\\.([A-Z])", "\\1\\2\\3", .)
-  return(pep)
-}
-
 read_psms <- function(file) {
   t <- read_tsv(file, col_names = FALSE) %>%
     mutate(X6 = unlist(lapply(X6, gsub, pattern = "\t", replacement = ","))) %>%
@@ -54,7 +47,7 @@ read_percolator_psms <- function(percolator_file) {
   }
   p_tibble <- p_tibble %>%
     mutate(engine = engine) %>%
-    mutate(peptide = unlist(lapply(peptide, clean_peptide),
+    mutate(peptide = unlist(lapply(peptide, cleanPeptide),
       use.names = FALSE
     )) %>%
     mutate(mw = mw(peptide)) %>%
