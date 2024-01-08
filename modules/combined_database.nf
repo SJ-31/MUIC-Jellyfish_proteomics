@@ -12,6 +12,9 @@ process COMBINED_DATABASE {
     output:
     path("decoysWnormal.fasta")
     path("all_normal.fasta")
+    path("interpro2go")
+    path("pfam2go")
+    path("pfam_entries.tsv")
     path("all_decoys.fasta")
     path("blast_db")
     path("seq-header_mappings.tsv")
@@ -34,6 +37,10 @@ process COMBINED_DATABASE {
         -dbtype prot \
         -out downloaded
     mkdir blast_db; mv downloaded* blast_db
+
+    interpro_api.py --get_pfam pfam_entries.tsv
+    curl http://current.geneontology.org/ontology/external2go/pfam2go > pfam2go
+    curl http://current.geneontology.org/ontology/external2go/interpro2go > interpro2go
     '''
     //
 }
