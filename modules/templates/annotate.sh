@@ -1,42 +1,47 @@
 #!/usr/bin/env bash
 
 annotate.py -i !{combined_tsv} \
-    -m download_meta-!{name}.tsv \
-    -a download_anno-!{name}.tsv
+    --output !{params.pref}_downloads_anno-1.tsv
 
-eggdir="!{name}_eggnog-unmatched"
-ipdir="!{name}_interpro-unmatched"
+eggdir="annotate_eggnog_unmatched"
+ipdir="annotate_interpro_unmatched"
 previous_eggnog="!{outdir}/${eggdir}"
 previous_interpro="!{outdir}/${ipdir}"
 
 if [ -e needs_annotating.fasta ]; then
+    mkdir ${eggdir}
     if [ ! -d "${previous_eggnog}" ]; then
-    mkdir ${eggdir}; mv needs_annotating* ${eggdir}; cd ${eggdir}
+    mv needs_annotating* ${eggdir}; cd ${eggdir}
     export EGGNOG_DATA_DIR=!{params.eggnog_data_dir}
     conda run -n eggnog emapper.py -i needs_annotating.fasta \
         --output temp \
         --report_orthologs
     else
         cp -r "${previous_eggnog}" .
-        cd ${eggdir}
+        mv needs_annotating* ${eggdir}; cd ${eggdir}
     fi
 
     Rscript !{params.bin}/sort_eggnog.r \
         --output_fasta needs_annotating2.fasta \
         --blast needs_annotating.tsv \
-        --output_unmatched !{name}_eggnog_unmatched.tsv \
-        --output_meta !{name}_meta-eggnog.tsv \
-        --output_anno !{name}_anno-eggnog.tsv \
+        --output_unmatched eggnog_unmatched.tsv \
+        --output temp.tsv \
         --seeds temp.emapper.seed_orthologs \
         --annotations temp.emapper.annotations
+
+    eggnog_seq.py -e !{params.eggnog_db_fasta} \
+        -i temp.tsv \
+        -o eggnog_matched.tsv
+
     mv needs_annotating2.fasta ..
     # No need to get the sequences from the eggnog db, because
     # this is dealing with full-length proteins, not peptides
     cd ..
 
     annotate.py --merge_eggnog \
-        --anno_tsv download_anno-!{name}.tsv \
-        --eggnog_anno_tsv ${eggdir}/!{name}_anno-eggnog.tsv
+        --more_anno !{params.pref}_downloads_anno-1.tsv \
+        --output !{params.pref}_downloads_anno-2.tsv \
+        --eggnog_tsv ${eggdir}/eggnog_matched.tsv
 
     if [ -e needs_annotating2.fasta ]; then
         if [ ! -d "${previous_interpro}" ]; then
@@ -59,7 +64,8 @@ if [ -e needs_annotating.fasta ]; then
             --interpro_query ${ipdir}/needs_annotating2.fasta \
             -r !{params.bin} \
             -i ${ipdir}/annotated.tsv \
-            --anno_tsv download_anno-!{name}.tsv
+            --more_anno !{params.pref}_downloads_anno-2.tsv \
+            --output !{params.pref}_downloads_anno-3.tsv
         mv sorted.tsv ${ipdir}
     fi
 fi

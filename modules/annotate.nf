@@ -2,7 +2,6 @@ process ANNOTATE {
     publishDir "$outdir", mode: "copy", pattern: "{*.tsv,*.fasta}"
     publishDir "$outdir", mode: "copy", pattern: "${name}_eggnog-unmatched"
     publishDir "$outdir", mode: "copy", pattern: "${name}_interpro-unmatched"
-    // May need to install pandas and requests
 
     input:
     path(combined_tsv)
@@ -10,13 +9,13 @@ process ANNOTATE {
     //
 
     output:
-    tuple val(name), path("download_anno-${name}.tsv"), path("download_meta-${name}.tsv"), emit: annotations
-    path("${name}_eggnog-unmatched")
-    path("${name}_interpro-unmatched")
+    path("${params.pref}_downloads_anno-3.tsv"), emit: annotations
+    path("${params.pref}_downloads_anno*")
+    path("annotate_eggnog_unmatched")
+    path("annotate_interpro_unmatched")
     path("*fasta"), optional: true
     //
 
     shell:
-    name = combined_tsv.baseName.replaceFirst( /db_hits-/, "")
     template 'annotate.sh'
 }
