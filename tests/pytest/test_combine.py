@@ -32,7 +32,3 @@ for b in blast_vars:
             df2 = read_tsv(current2)
             if strInSeries(df2["ID_method"], "-"):
                 caught.append(current2)
-print(caught)
-# idf = read_tsv(
-#     f"{first_pass}/{to_check[1]}/{prefix_string[1]}{blast_vars[1]}.tsv"
-# )

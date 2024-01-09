@@ -12,7 +12,7 @@ test = "./tests/results/Unmatched/Database-annotated"
 pytest = "./tests/pytest/output"
 
 
-def tets_nextflow_out():
+def test_nextflow_out():
     pth = "./results/jellyfish/1-First_pass/"
     check = pd.read_csv(f"{pth}/Unmatched/Database-annotated", sep="\t")
     cols = check.columns
@@ -20,17 +20,35 @@ def tets_nextflow_out():
 
 
 def test_anno():
+    import os
+
     args = {
-        "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
+        # "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
+        "input": f"{test}/jellyfish_blast_matched-SHORTENED.tsv",
+        "annotate_extra": True,
     }
     f = an.anno(args)
-    return f
+    t = pd.read_csv("needs_annotating.tsv", sep="\t")
+    os.remove("needs_annotating.fasta")
+    os.remove("needs_annotating.tsv")
+    args["annotate_extra"] = False
+    fn = an.anno(args)
+    tn = pd.read_csv("needs_annotating.tsv", sep="\t")
+    os.remove("needs_annotating.fasta")
+    os.remove("needs_annotating.tsv")
+    return {
+        "annotated_extra": f,
+        "needs_annotating_extra": t,
+        "annotated_normal": fn,
+        "needs_annotating_normal": tn,
+    }
 
 
 def test_merge_eggnog():
     dirname = "./tests/results/Unmatched/Database-annotated"
     args = {
-        "more_anno": f"{dirname}/jellyfish_downloads_anno-1.tsv",
+        # "more_anno": f"{dirname}/jellyfish_downloads_anno-1.tsv",
+        "more_anno": f"{pytest}/annotated_extra.tsv",
         "eggnog_tsv": f"{dirname}/annotate_eggnog_unmatched/eggnog_matched.tsv",
     }
     f = an.mergeAnnotatedEggnog(args)
@@ -49,12 +67,20 @@ def test_merge_interpro():
     return f
 
 
-f = test_anno()
-f.to_csv(
-    f"{pytest}/jellyfish_downloads_anno-1.tsv",
-    sep="\t",
-    index=False,
-    na_rep="NaN",
-)
-eggnog = test_merge_eggnog()
-i = test_merge_interpro()
+a = test_anno()
+# # Try drop duplicates by protein id
+# for name, df in a.items():
+#     print(f"{name}: {df.shape}")
+#     print(f"    Num unique protein ids {df['ProteinId'].unique().shape}")
+# ae = a["annotated_extra"]
+# hp = a["annotated_extra"].query("GO.isna() & PANTHER.notna()")
+# It does seem that in some cases, the panther-go mapping fails...
+
+# f.to_csv(
+#     f"{pytest}/jellyfish_downloads_anno-1.tsv",
+#     sep="\t",
+#     index=False,
+#     na_rep="NaN",
+# )
+# eggnog = test_merge_eggnog()
+# i = test_merge_interpro()

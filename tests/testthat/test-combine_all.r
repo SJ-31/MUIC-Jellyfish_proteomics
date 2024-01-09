@@ -11,8 +11,11 @@ args <- list(
     glue("{dir}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
   sort_mods = TRUE,
-  empai = FALSE,
+  empai = TRUE,
   is_denovo = "true",
+  pfam2go = "./results/jellyfish/Databases/pfam2go",
+  interpro2go = "./results/jellyfish/Databases/interpro2go",
+  pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
   directlfq = glue("{dir}/Quantify/sorted_directlfq.tsv"),
   flashlfq = glue("{dir}/Quantify/sorted_flashlfq.tsv"),
   output = "./tests/testthat/output/combined-anno.tsv",
@@ -95,7 +98,7 @@ testResolveAlignment2 <- function(wf) {
   ), list("--AGFS--", "--AFSD--", "--AFSDFF"))
 }
 
-testResolveAlignment()
+## testResolveAlignment()
 
 sample <- dplyr::slice(all, 1:10)
 s <- testCoverage(sample)
