@@ -11,19 +11,18 @@ args <- list(
     glue("{dir}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
   sort_mods = TRUE,
-  empai = TRUE,
+  empai = FALSE,
   is_denovo = "true",
-  pfam2go = "./results/jellyfish/Databases/pfam2go",
+  pfam2go = "./results/jellyfish/Databases/pfam2go"
   interpro2go = "./results/jellyfish/Databases/interpro2go",
   pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
   directlfq = glue("{dir}/Quantify/sorted_directlfq.tsv"),
-  flashlfq = glue("{dir}/Quantify/sorted_flashlfq.tsv"),
+ flashlfq = glue("{dir}/Quantify/sorted_flashlfq.tsv"),
   output = "./tests/testthat/output/combined-anno.tsv",
   r_source = "./bin/",
   fdr = 0.05,
   pep_thresh = 1
 )
-
 results <- main(args)
 all <- results$all
 ## write_tsv(all, "./tests/results/Combined/all_test.tsv")

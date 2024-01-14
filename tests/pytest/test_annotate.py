@@ -1,15 +1,16 @@
-#!/usr/bin/env ipython
+#!/usr/bin/env python
 import sys
 
-sys.path.append("./bin")
+dir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
+sys.path.append(f"{dir}/bin")
 import annotate as an
 import pandas as pd
 
-pth = "./results/jellyfish/1-First_pass/"
-dirname = "./results/Unmatched/Database-annotated"
-nftest = "./tests/nf-test-out/annotate"
-test = "./tests/results/Unmatched/Database-annotated"
-pytest = "./tests/pytest/output"
+pth = f"{dir}/results/jellyfish/1-First_pass/"
+dirname = f"{dir}/results/Unmatched/Database-annotated"
+nftest = f"{dir}/tests/nf-test-out/annotate"
+test = f"{dir}/tests/results/Unmatched/Database-annotated"
+pytest = f"{dir}/tests/pytest/output"
 
 
 def test_nextflow_out():
@@ -24,7 +25,7 @@ def test_anno():
 
     args = {
         # "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
-        "input": f"{test}/jellyfish_blast_matched-SHORTENED.tsv",
+        "input": f"{dir}/jellyfish_blast_matched-SHORTENED.tsv",
         "annotate_extra": True,
     }
     f = an.anno(args)
@@ -45,7 +46,7 @@ def test_anno():
 
 
 def test_merge_eggnog():
-    dirname = "./tests/results/Unmatched/Database-annotated"
+    dirname = f"{dir}/tests/results/Unmatched/Database-annotated"
     args = {
         # "more_anno": f"{dirname}/jellyfish_downloads_anno-1.tsv",
         "more_anno": f"{pytest}/annotated_extra.tsv",
@@ -56,7 +57,7 @@ def test_merge_eggnog():
 
 
 def test_merge_interpro():
-    dirname = "./tests/results/Unmatched/Database-annotated"
+    dirname = f"{pth}/Unmatched/Database-annotated"
     args = {
         "more_anno": f"{dirname}/jellyfish_downloads_anno-2.tsv",
         "interpro_query": f"{dirname}/annotate_interpro_unmatched/needs_annotating2.fasta",
@@ -67,7 +68,7 @@ def test_merge_interpro():
     return f
 
 
-a = test_anno()
+# a = test_anno()
 # # Try drop duplicates by protein id
 # for name, df in a.items():
 #     print(f"{name}: {df.shape}")
@@ -82,5 +83,5 @@ a = test_anno()
 #     index=False,
 #     na_rep="NaN",
 # )
-# eggnog = test_merge_eggnog()
+eggnog = test_merge_eggnog()
 # i = test_merge_interpro()
