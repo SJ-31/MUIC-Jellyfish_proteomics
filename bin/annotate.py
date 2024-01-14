@@ -13,6 +13,7 @@ from requests.adapters import HTTPAdapter, Retry
 #   a genes in the NCBI's gene database
 #   Input: a tsv file that contains protein fasta headers in a
 #       column titled "header"
+#
 
 POLLING_INTERVAL = 3
 API_URL = "https://rest.uniprot.org"
@@ -161,31 +162,38 @@ def database_search(get: str, databases: list) -> list:
     return found
 
 
-def parse_db(name: str, db_list: list) -> str:
+def parse_db(name: str, db_list: list):
     # Collect ids from a list of databases
     anno: list = []
     evi: list = []
     for db in db_list:
-        id = db["id"]
-        property = db["properties"][0]["value"]
+        db_id = db["id"]
+        cur_property = db["properties"][0]["value"]
         if name == "GO":
             evidence = db["properties"][1]["value"]
             evi.append(evidence)
         if name in {"GO", "PANTHER", "Pfam"}:
-            anno.append(f"{id}_{property}")
-        elif name in {"KEGG", "OrthoDb"}:
-            anno.append(id)
+            anno.append(f"{db_id}_{cur_property}")
+        elif name == "InterPro":
+            anno.append(db_id)
+            evi.append(cur_property)
+        elif name in {"KEGG", "OrthoDb", "InterPro"}:
+            anno.append(db_id)
+    if name == "InterPro":
+        return {name: ",".join(anno), "description": ",".join(evi)}
     if name == "GO":
-        return {name: ";".join(anno), "evidence": ";".join(evi)}
-    return {name: ";".join(anno), "evidence": None}
+        return {name: ",".join(anno), "evidence": ",".join(evi)}
+    return {name: ",".join(anno), "evidence": None}
 
 
-def from_db(name, database_list) -> str:
+def from_db(name, database_list):
     """Combine database_search and parse_db function."""
     if db := database_search(name, database_list):
         return parse_db(name, db)
     if name == "GO":
         return {"GO": None, "evidence": None}
+    if name == "InterPro":
+        return {"InterPro": None, "description": None}
     return {name: None, "evidence": None}
 
 
@@ -201,7 +209,10 @@ def map_list(id_list, origin_db: str):
         "GO": [],
         "GO_evidence": [],
         "KEGG_Genes": [],
+        "PFAMs": [],
         "PANTHER": [],
+        "interpro_accession": [],
+        "interpro_description": [],
         "length": [],
         "molWeight": [],
         "sequence": [],
@@ -210,14 +221,14 @@ def map_list(id_list, origin_db: str):
         link = get_id_mapping_results_link(job_id)
         results_dict: dict = get_id_mapping_results_search(link, "json")
     else:
-        return (pd.DataFrame(), [])
+        return pd.DataFrame(), []
     for result in results_dict["results"]:
         anno_dict["query"].append(result["from"])
         current = result["to"]
         anno_dict["UniProtKB_ID"].append(current["uniProtkbId"])
         if organism := current.get("organism"):
             anno_dict["organism"].append(organism["scientificName"])
-            anno_dict["lineage"].append(";".join(organism["lineage"]))
+            anno_dict["lineage"].append(",".join(organism["lineage"]))
         else:
             anno_dict["organism"].append("unknown")
             anno_dict["lineage"].append("unknown")
@@ -229,9 +240,13 @@ def map_list(id_list, origin_db: str):
             for key in ["length", "molWeight", "sequence"]:
                 anno_dict[key].append("unknown")
         if databases := current.get("uniProtKBCrossReferences"):
+            interpro = from_db("InterPro", databases)
+            anno_dict["interpro_accession"].append(interpro["InterPro"])
+            anno_dict["interpro_description"].append(interpro["description"])
             anno_dict["KEGG_Genes"].append(from_db("KEGG", databases)["KEGG"])
             # The 3 letters prefixed to kegg entries here are
             #   the kegg organism codes
+            anno_dict["PFAMs"].append(from_db("Pfam", databases)["Pfam"])
             go = from_db("GO", databases)
             anno_dict["GO"].append(go["GO"])
             anno_dict["GO_evidence"].append(go["evidence"])
@@ -242,27 +257,30 @@ def map_list(id_list, origin_db: str):
             for key in [
                 "KEGG_Genes",
                 "GO",
+                "interpro_accession",
+                "interpro_description",
+                "PFAMs",
                 "PANTHER",
                 "GO_evidence",
             ]:
                 anno_dict[key].append(None)
     if failedIds := results_dict.get("failedIds"):
         failed = [f for f in failedIds]
-        return (anno_dict, failed)
-    return (anno_dict, [])
+        return anno_dict, failed
+    return anno_dict, []
 
 
-def id_from_header(row):
+def idFromHeader(row):
     header = row["header"]
-    id = row["ProteinId"]
+    cur_id = row["ProteinId"]
     if "|" in header and (find := re.search(r"\|(.*)\|", header)):
-        return [id, find.groups()[0]]
+        return [cur_id, find.groups()[0]]
     elif "." in header:
-        return [id, header.split(" ")[0]]
-    return (id, "NONE")
+        return [cur_id, header.split(" ")[0]]
+    return cur_id, "NONE"
 
 
-def write_fasta(needs_annotating: pd.DataFrame, file_name: str):
+def writeFasta(needs_annotating: pd.DataFrame, file_name: str):
     query_string = ""
     for row in needs_annotating.iterrows():
         query_string = (
@@ -274,17 +292,17 @@ def write_fasta(needs_annotating: pd.DataFrame, file_name: str):
 
 def anno(args: dict):
     to_map = pd.read_csv(args["input"], sep="\t")
-    dbIds_ids = to_map.apply(id_from_header, axis=1).dropna()
-    id_map = pd.DataFrame(
+    dbIds_ids = to_map.apply(idFromHeader, axis=1).dropna()
+    all_ids_mapping = pd.DataFrame(
         {
             "dbId": dbIds_ids.apply(lambda x: x[1]),
             "ProteinId": dbIds_ids.apply(lambda x: x[0]),
         }
     )
-    ids = id_map["dbId"]
+    ids = all_ids_mapping["dbId"]
 
     # Try to map proteins in NCBI to UniProt proteins. Multiple databases
-    # required
+    # required.
     ncbi_ids = ids.where(ids.str.contains("\\."))
     ncbi_ids = set(ncbi_ids.dropna())
     uniprot_ids = ids[~(ids.isin(ncbi_ids))]
@@ -295,6 +313,8 @@ def anno(args: dict):
         "EMBL-GenBank-DDBJ_CDS",
     ]
     db_counter = 0
+    # With every pass through a database, the list (set) of ncbi_ids will be
+    # reduced as the ids are mapped by UniProt
     while len(ncbi_ids) > 0 and db_counter < 3:
         ncbi_query = map_list(list(ncbi_ids), databases[db_counter])
         anno_df = pd.DataFrame(ncbi_query[0])
@@ -302,45 +322,57 @@ def anno(args: dict):
         ncbi_ids = ncbi_ids - set(anno_df["query"])
         db_counter += 1
     needs_annotating = pd.DataFrame()
-    needs_annotating_headers = pd.Series()
+    needs_annotating_ids = pd.Series()
 
-    # Get any remaining unannotated sequences
+    uniprot_entries = pd.DataFrame(map_list(uniprot_ids, "UniProtKB")[0])
+
+    # (Optional) Get entries that were mapped and found in the uniprot and
+    # ncbi databases, but have no annotation information
+    if args["annotate_extra"]:
+        no_annotation_criteria = "GO.isna() & PANTHER.isna()"
+        no_annotation_criteria_inv = "GO.notna() | PANTHER.notna()"
+        no_info = pd.concat(
+            [
+                uniprot_entries.query(no_annotation_criteria),
+                ncbi_mapped.query(no_annotation_criteria),
+            ]
+        )["query"]
+        unannotated_set = set(no_info) | ncbi_ids
+        uniprot_entries = uniprot_entries.query(no_annotation_criteria_inv)
+        ncbi_mapped = ncbi_mapped.query(no_annotation_criteria_inv)
+    else:
+        unannotated_set = ncbi_ids
+
+    # Get any remaining unannotated sequences, ids that couldn't be mapped
     if len(ncbi_ids) > 0:
-        needs_annotating = id_map[
-            id_map["dbId"].isin(pd.Series(list(ncbi_ids)))
+        needs_annotating = all_ids_mapping[
+            all_ids_mapping["dbId"].isin(pd.Series(list(unannotated_set)))
         ]
-        needs_annotating = to_map.merge(needs_annotating, on="ProteinId")
-        needs_annotating_headers = needs_annotating["ProteinId"]
-        write_fasta(needs_annotating, "needs_annotating.fasta")
+        needs_annotating = to_map.merge(needs_annotating, on="ProteinId").drop(
+            "dbId", axis="columns"
+        )
+        needs_annotating_headers = needs_annotating.apply(
+            idFromHeader, axis=1
+        ).apply(lambda x: x[1])
+        needs_annotating["NCBI_ID"] = needs_annotating_headers
+        needs_annotating_ids = needs_annotating["ProteinId"]
+        writeFasta(needs_annotating, "needs_annotating.fasta")
         # Any remaining unannotated sequences will be extracted and sent to
-        # interproscan for annotation
-    uniprot_query = map_list(uniprot_ids, "UniProtKB")
+        # eggnog mapper for annotation
+
     final = (
-        pd.concat([ncbi_mapped, pd.DataFrame(uniprot_query[0])])
-        .merge(id_map, left_on="query", right_on="dbId")
+        pd.concat([ncbi_mapped, uniprot_entries])
+        .merge(all_ids_mapping, left_on="query", right_on="dbId")
         .merge(to_map, on="ProteinId")
         .drop(["dbId", "length_y", "molWeight", "sequence"], axis="columns")
         .rename({"query": "NCBI_ID", "length_x": "length"}, axis="columns")
     )
     final = pd.concat([final, needs_annotating])
-    anno_cols = [
-        "NCBI_ID",
-        "UniProtKB_ID",
-        "organism",
-        "lineage",
-        "GO",
-        "GO_evidence",
-        "KEGG_Genes",
-        "PANTHER",
-    ]
-    not_anno = list(set(final.columns) - set(anno_cols))
-    if not needs_annotating_headers.empty:
-        final[final["ProteinId"].isin(needs_annotating_headers)].to_csv(
-            "needs_annotating.tsv", sep="\t", index=False, na_rep="NaN"
-        )
-    anno = final[["ProteinId", "header"] + anno_cols]
-    meta = final[not_anno].drop("header", axis="columns")
-    return {"anno": anno, "meta": meta}
+    if not needs_annotating_ids.empty:
+        final[final["ProteinId"].isin(needs_annotating_ids)].drop(
+            "PFAMs", axis="columns"
+        ).to_csv("needs_annotating.tsv", sep="\t", index=False, na_rep="NA")
+    return final
 
 
 def reformat_float(x):
@@ -349,27 +381,34 @@ def reformat_float(x):
     return float(x)
 
 
-def merge_annotated_eggnog(args):
+def mergeAnnotatedEggnog(args):
     print("-" * 10)
     print("MERGING EGGNOG")
     print("-" * 10)
-    eggnog_anno = pd.read_csv(args["eggnog_anno_tsv"], sep="\t")
-    anno = pd.read_csv(args["anno_tsv"], sep="\t")
-    get_eggnog = anno.drop("GO", axis="columns").merge(
+    eggnog_anno = pd.read_csv(args["eggnog_tsv"], sep="\t").drop(
+        ["organism", "lineage", "GO_evidence", "KEGG_Genes", "PANTHER"],
+        axis="columns",
+    )
+    eggnog_anno["NCBI_ID"] = eggnog_anno.apply(idFromHeader, axis=1).apply(
+        lambda x: x[1]
+    )
+    anno = pd.read_csv(args["more_anno"], sep="\t")
+    unwanted = set(
+        eggnog_anno.columns[eggnog_anno.columns.isin(anno.columns)]
+    ) - {"ProteinId"}
+    get_eggnog = anno.drop(list(unwanted), axis="columns").merge(
         eggnog_anno, on="ProteinId"
     )
+    get_eggnog["Anno_method"] = "eggNOG"
     already_matched = anno[~anno["ProteinId"].isin(get_eggnog["ProteinId"])]
     merged = pd.concat([already_matched, get_eggnog])
-    if unwanted := set(merged.columns) & {"header_x", "header_y"}:
-        for u in unwanted:
-            merged.drop(u, axis="columns", inplace=True)
-    merged.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING EGGNOG DONE")
     print("-" * 10)
+    return merged
 
 
-def merge_annotated_interpro(args):
+def mergeAnnotatedInterpro(args):
     print("-" * 10)
     print("MERGING INTERPRO")
     print("-" * 10)
@@ -382,36 +421,39 @@ def merge_annotated_interpro(args):
     command = command + " -e 'cleaned <- clean_annotations(df)'"
     command = command + " -e 'write_tsv(cleaned, \"sorted.tsv\")'"
     subprocess.run(command, shell=True)
-    sorted = pd.read_csv("./sorted.tsv", sep="\t")
-    anno = pd.read_csv(args["anno_tsv"], sep="\t")
+    ip_sorted = pd.read_csv("./sorted.tsv", sep="\t")
+    anno = pd.read_csv(args["more_anno"], sep="\t", low_memory=False)
     with open(args["interpro_query"], "r") as u:
         query_headers = [
             u.strip().replace(">", "") for u in u.readlines() if ">" in u
         ]
         query_headers = pd.Series(query_headers)
     unannotated = anno[anno["ProteinId"].isin(query_headers)]
-    joined = (
-        sorted.merge(unannotated, left_on="query", right_on="ProteinId")
-        .rename({"GO_x": "GO"}, axis="columns")
-        .drop(["GO_y", "query"], axis="columns")
+    # Merge with metadata and drop redundant columns
+    joined = ip_sorted.merge(
+        unannotated, left_on="query", right_on="ProteinId"
     )
-    joined["organism"] = joined["header"].apply(
-        lambda x: x[x.find("[") + 1 : x.find("]")] if "[" in x else "-"
-    )
+    duplicate_cols_x = joined.columns[joined.columns.str.contains("_x")]
+    underscore_removed = [re.sub("_[xy]", "", c) for c in duplicate_cols_x]
+    joined = joined.rename(
+        dict(zip(duplicate_cols_x, underscore_removed)), axis="columns"
+    ).drop([re.sub("_x", "_y", c) for c in duplicate_cols_x], axis="columns")
+
     annotated = anno[~(anno["ProteinId"].isin(query_headers))]
     still_left = unannotated[
         ~unannotated["ProteinId"].isin(joined["ProteinId"])
     ]
+    joined["Anno_method"] = "interpro"
     # Remaining proteins that are still unannotated
-    write_fasta(still_left, "still_unannotated.fasta")
+    writeFasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])
     if unwanted := set(final.columns) & {"header_x", "header_y"}:
         for u in unwanted:
             final.drop(u, axis="columns", inplace=True)
-    final.to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
     print("-" * 10)
     print("MERGING INTERPRO DONE")
     print("-" * 10)
+    return final
 
 
 def parse_args():
@@ -419,13 +461,14 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-s", "--merge_interpro", action="store_true")
+    parser.add_argument("-a", "--annotate_extra", action="store_true")
     parser.add_argument("-e", "--merge_eggnog", action="store_true")
-    parser.add_argument("-m", "--meta_tsv")
+    parser.add_argument("-o", "--output")
     parser.add_argument("-q", "--interpro_query")
-    parser.add_argument("-a", "--anno_tsv")
     parser.add_argument("-r", "--r_source")
     parser.add_argument("-i", "--input")
-    parser.add_argument("--eggnog_anno_tsv")
+    parser.add_argument("-m", "--more_anno")
+    parser.add_argument("--eggnog_tsv")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
@@ -433,10 +476,9 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     if args["merge_eggnog"]:
-        merge_annotated_eggnog(args)
+        m = mergeAnnotatedEggnog(args)
     elif args["merge_interpro"]:
-        merge_annotated_interpro(args)
+        m = mergeAnnotatedInterpro(args)
     else:
         m = anno(args)
-        m["anno"].to_csv(args["anno_tsv"], sep="\t", index=False, na_rep="NaN")
-        m["meta"].to_csv(args["meta_tsv"], sep="\t", index=False, na_rep="NaN")
+    m.to_csv(args["output"], sep="\t", index=False, na_rep="NA")
