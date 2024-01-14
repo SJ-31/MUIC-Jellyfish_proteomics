@@ -20,7 +20,7 @@ def perc_row(series_row):
             "q-value": series_row[2],
             "posterior_error_prob": series_row[3],
             "peptide": series_row[4],
-            "proteinIds": ";".join(series_row[5:]),
+            "proteinIds": ",".join(series_row[5:]),
         },
         index=[1],
     )

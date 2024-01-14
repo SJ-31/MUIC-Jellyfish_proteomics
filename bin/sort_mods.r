@@ -10,12 +10,6 @@ MOD_LIST_DEFAULT <<- list(
   "Met_Oxidation" = "\\[15.99[0-9]*\\]"
 )
 
-cleanPeptide <- function(modified_pep) {
-  clean_pep <- str_extract_all(modified_pep, "[A-Z]+")[[1]] %>%
-    paste0(collapse = "")
-  return(clean_pep)
-}
-
 namedModList <- function(df) {
   # Capture named modifications from dataframe as
   # a list to add to MOD_LIST

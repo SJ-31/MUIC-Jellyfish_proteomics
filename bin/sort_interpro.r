@@ -19,6 +19,7 @@ clean_interpro <- function(df) {
       ),
       interpro_evalue = evalue,
       GO = str_replace(GO, "NA", ""),
+      GO = str_replace(GO, "\\|", ","),
       pathways = str_replace(pathways, "NA", "")
     ) %>%
     select(-c(

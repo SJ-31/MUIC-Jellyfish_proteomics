@@ -88,16 +88,16 @@ loadFile <- function(path) {
 }
 
 getEvidence <- function(row) {
-  #' Parse GO evidence codes for all entires that have them
+  #' Parse GO evidence codes for all entries that have them
   #' GOs added by eggNOG and interpro are automatically labelled IEA
   if (is.na(row[["GO"]])) {
     return(NA)
   }
   if (!is.na(row[["GO_evidence"]])) {
     evidence <- row[["GO_evidence"]] %>%
-      str_split_1(";") %>%
+      str_split_1(",") %>%
       sapply(gsub, pattern = ":.*", replacement = "", USE.NAMES = FALSE) %>%
-      paste0(., collapse = ";")
+      paste0(., collapse = ",")
     return(evidence)
   }
   return("IEA")
@@ -245,7 +245,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("--flashlfq"), type = "character")
   parser <- add_option(parser, c("--interpro2go"), type = "character")
   parser <- add_option(parser, c("--pfam2go"), type = "character")
-  parser <- add_option(parser, c(--"pfam_db"), type = "character")
+  parser <- add_option(parser, c("--pfam_db"), type = "character")
   parser <- add_option(parser, c("--coverage"),
     type = "character",
     default = TRUE,

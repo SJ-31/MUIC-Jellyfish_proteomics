@@ -109,7 +109,7 @@ def sliding_window(elements, window_size, flexible=True):
         if start_i != previous_start_i:
             # I have to substract a number! (the number behind (=left) of the
             # sliding window)
-            n_decoys -= next_page(start_gen)
+            n_decoys -= next(start_gen)
             current_win_size -= 1
 
         if stop_i != previous_stop_i:
@@ -117,7 +117,7 @@ def sliding_window(elements, window_size, flexible=True):
             # (=right) of the sliding window)
             for i in range(stop_i - previous_stop_i):
                 try:
-                    n_decoys += next_page(stop_gen)
+                    n_decoys += next(stop_gen)
                     current_win_size += 1
                 except StopIteration:
                     break  # cause StopIteration silently ends for-loops, will be fixed in py3.6 :)
