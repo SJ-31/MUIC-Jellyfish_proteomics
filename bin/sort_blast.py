@@ -12,9 +12,10 @@ def markUnmatched(row):
         return row["ProteinGroupId"]
 
 
-def clean_peptide(peptide):
-    peptide = peptide.upper().replace("X", "")
-    return "".join(re.findall("[A-Z]+", peptide))
+def removeX(peptide):
+    peptide = peptide.replace("X", "")
+    return peptide
+    # return "".join(re.findall("[A-Z]+", peptide))
 
 
 def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
@@ -29,7 +30,7 @@ def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
     queries = pd.Series(text).apply(lambda x: x.strip())
     unknown_df = pd.read_csv(unknown_tsv_path, sep="\t")
     peptide_df = pd.read_csv(peptide_tsv_path, sep="\t")
-    peptide_df["seq"] = peptide_df["peptideIds"].apply(clean_peptide)
+    peptide_df["seq"] = peptide_df["peptideIds"].apply(removeX)
     peptide_df["ID_method"] = "standard"
     combined = pd.concat([unknown_df, peptide_df])
     return combined[combined["ProteinId"].isin(queries)]
@@ -60,7 +61,7 @@ def group_peps(df):
     Concatenate values in rows, separating by commas
     """
     grouped = {}
-    df["peptideIds"] = [clean_peptide(pep) for pep in df["peptideIds"]]
+    df["peptideIds"] = [removeX(pep) for pep in df["peptideIds"]]
     for col in df.columns:
         joined_up = set([c for c in df[col]])
         grouped[col] = ",".join([str(j) for j in joined_up])
