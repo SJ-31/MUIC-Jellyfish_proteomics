@@ -9,6 +9,7 @@ include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { FORMAT_MQ } from '../modules/format_mq'
 include { PERCOLATOR } from '../modules/percolator'
+include { RAWPARSE } from '../modules/rawparse'
 include { DEISOTOPE } from '../modules/deisotope'
 include { MS_MAPPING } from '../modules/ms_mapping'
 include { CALIBRATE } from '../modules/calibrate'
@@ -29,8 +30,9 @@ workflow 'pre' {
     normal_database
 
     main:
-    DEISOTOPE(mzML.collect(),"$params.results/Preprocessed")
-    FALCON(mzML.collect(), "$params.results/Preprocessed/Falcon")
+    RAWPARSE(raw.collect(),"$params.results/Preprocessed/Converted")
+    DEISOTOPE(,"$params.results/Preprocessed")
+    FALCON(RAWPARSE.out.collect(), "$params.results/Preprocessed/Falcon")
     CALIBRATE(raw.collect(), normal_database,
               "$params.results/Preprocessed/Falcon")
 }
@@ -99,7 +101,6 @@ workflow 'search' {
                "$params.results/1-First_pass/Logs",
                db.plusdecoys.first())
 
-    // First pass quantification
     quantify_FIRST(MS_MAPPING.out,
                    mzML,
                    PERCOLATOR.out.psms.mix(TIDE.out.perc_psms),
@@ -110,14 +111,12 @@ workflow 'search' {
                        .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/1-First_pass/Quantify")
 
-    // First open search
     open_search_FIRST(quantify_FIRST.out.unmatched_msms,
                       db.plusdecoys,
                       db.normal,
                       "$params.results/1-First_pass/Open_search",
                       db.seq_header_mapping)
 
-    // First combining
     combine_searches_FIRST(
         PERCOLATOR.out.prot2intersect
             .mix(TIDE.out.perc_protein).collect(),
@@ -130,13 +129,13 @@ workflow 'search' {
         db.seq_header_mapping,
         open_search_FIRST.out.open_results)
 
-    // Second pass with Bern and Kil decoy database
+    /* Second pass with Bern and Kil decoy database
+    */
     compatible = /.*comet.*|.*identipy.*|.*msfragger.*|.*msgf.*/
     bk_decoys(PERCOLATOR.out.prot.filter({ it[0] =~ compatible }),
               db.seq_header_mapping, mzML)
     from_first = /.*metamorpheus.*/
 
-    // Second pass quantification
     quantify_SECOND(MS_MAPPING.out,
                    mzML,
                    bk_decoys.out.all_psms.mix(PERCOLATOR.out.psms
@@ -152,14 +151,12 @@ workflow 'search' {
                        TIDE_COMBINED_PEP.out.psm2combinedPEP),
                    "$params.results/2-Second_pass/Quantify")
 
-    // Second open search
     open_search_SECOND(quantify_SECOND.out.unmatched_msms,
                       db.plusdecoys,
                       db.normal,
                       "$params.results/2-Second_pass/Open_search",
                       db.seq_header_mapping)
 
-    // Second combining
     combine_searches_SECOND(
         bk_decoys.out.prot2intersect.mix(
             PERCOLATOR.out.prot2intersect.filter( ~from_first ),
