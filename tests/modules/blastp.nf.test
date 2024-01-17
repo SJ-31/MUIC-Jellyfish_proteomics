@@ -1,0 +1,30 @@
+nextflow_process {
+
+    name "Test Process BLASTP"
+    script "modules/blastp.nf"
+    process "BLASTP"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                blast_db = "$baseDir/results/jellyfish/Databases/blast_db/downloaded"
+            }
+            process {
+                """
+                input[0] = file("$baseDir/tests/results/Combined/unknown.fasta")
+                input[1] = "$params.blast_db"
+                input[2] = Channel.from(tuple(0, 35), tuple(35, 50),
+                              tuple(50, 85), tuple(85, 100000))
+                input[3] = "$baseDir/tests/nf-test-out/blastp"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

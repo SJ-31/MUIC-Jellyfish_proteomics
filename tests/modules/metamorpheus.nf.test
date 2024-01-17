@@ -1,0 +1,36 @@
+nextflow_process {
+
+    name "Test Process METAMORPHEUS"
+    script "modules/metamorpheus.nf"
+    process "METAMORPHEUS"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                // define parameters here. Example:
+                // outdir = "tests/results"
+
+            }
+            process {
+                """
+                // define inputs of the process here. Example:
+                input[0] = Channel.fromPath("$baseDir/data/MS/mgf/*").collect()
+                input[1] = "$baseDir/tests/nf-test-out/metamorpheus"
+                input[2] = "$baseDir/tests/nf-test-out/metamorpheus"
+                input[3] = ""
+                input[4] = "$baseDir/config/metamorpheus_params.toml"
+                input[5] = "$baseDir/results/jellyfish/Databases/all_normal.fasta"
+
+
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

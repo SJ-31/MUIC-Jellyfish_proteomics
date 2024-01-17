@@ -1,8 +1,8 @@
 nextflow_process {
 
-    name "Test Process ONTOLOGIZER"
-    script "modules/ontologizer.nf"
-    process "ONTOLOGIZER"
+    name "Test Process EGGNOG"
+    script "modules/eggnog.nf"
+    process "EGGNOG"
 
     test("Should run without failures") {
 
@@ -13,8 +13,8 @@ nextflow_process {
             }
             process {
                 """
-                input[0] = Channel.fromPath("$baseDir/results/jellyfish/1-First_pass/jellyfish_all.tsv")
-                input[1] = "$baseDir/tests/nf-test-out/ontologizer"
+                input[0] = tuple(file("$baseDir/tests/results/eggnog_input/unknown.fasta"), file("$baseDir/tests/results/eggnog_input/unknown_hits.tsv"))
+                input[1] = "$baseDir/tests/nf-test-out/eggnog"
                 """
             }
         }

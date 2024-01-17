@@ -1,23 +1,23 @@
 library(glue)
 library(testthat)
 source("./bin/combine_all.r")
-dir <- "./results/jellyfish/1-First_pass"
+dir_name <- "./results/jellyfish/1-First_pass"
 tests <- "./tests/results/"
 
 args <- list(
-  eggnog = glue("{dir}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
-  interpro = glue("{dir}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
+  eggnog = glue("{dir_name}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
+  interpro = glue("{dir_name}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
   downloads =
-    glue("{dir}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
+    glue("{dir_name}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
   sort_mods = TRUE,
   empai = FALSE,
   is_denovo = "true",
-  pfam2go = "./results/jellyfish/Databases/pfam2go"
+  pfam2go = "./results/jellyfish/Databases/pfam2go",
   interpro2go = "./results/jellyfish/Databases/interpro2go",
   pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
-  directlfq = glue("{dir}/Quantify/sorted_directlfq.tsv"),
- flashlfq = glue("{dir}/Quantify/sorted_flashlfq.tsv"),
+  directlfq = glue("{dir_name}/Quantify/sorted_directlfq.tsv"),
+  flashlfq = glue("{dir_name}/Quantify/sorted_flashlfq.tsv"),
   output = "./tests/testthat/output/combined-anno.tsv",
   r_source = "./bin/",
   fdr = 0.05,
@@ -102,8 +102,26 @@ testResolveAlignment2 <- function(wf) {
 sample <- dplyr::slice(all, 1:10)
 s <- testCoverage(sample)
 
+WANTED_TYPES <- c("list", "character", "logical", "numeric")
+UNWANTED_TYPES <- c("tbl", "data.frame", "tbl_df", "function")
 
+checkWanted <- function(x) {
+  evaluated <- get(x)
+  what_is <- class(evaluated)
+  if (any(what_is %in% UNWANTED_TYPES)) {
+    return(FALSE)
+  }
+  if (purrr::pluck_depth(evaluated) > 1) {
+    any(lapply(seq_along(evaluated), \(x) { any(evaluated[[x]] %in%
+                                                  UNWANTED_TYPES)
+    }) %>% unlist())
+    return(FALSE)
+  }
+  return(any(what_is %in% WANTED_TYPES))
+}
 
+kept_vars <- ls() %>% keep(., checkWanted)
+with_vals <- lapply(kept_vars, get) %>% `names<-`(kept_vars)
 
 ## test <- s[1, ]
 ## algn <- test[["alignment"]] %>% splitWithGroups()
