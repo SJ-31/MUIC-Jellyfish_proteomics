@@ -4,11 +4,12 @@ process BLASTP {
     input:
     path(query)
     val(db)
+    tuple val(min), val(max)
     val(outdir)
     //
 
     output:
-    path("${query.baseName}-blast.csv")
+    path(blast_results)
     //
 
     shell:
@@ -18,22 +19,31 @@ process BLASTP {
     // qseqid, sseqid = query, subject seq id
     // sstart, send = start, end of alignment in subject
     // length = alignment length
-    def check = file("${outdir}/${query.baseName}-blast.csv")
+    blast_results = "${query.baseName}${min}-blast.csv"
+    check = file("${outdir}/${blast_results}")
     if (check.exists()) {
         '''
-        cp !{outdir}/!{query.baseName}-blast.csv .
+        cp !{outdir}/!{blast_results} .
         '''
     } else {
+        if (max == 35) {
+            flags = "-task blastp-short"
+        } else if (max == 50) {
+            flags = "-task blastp -matrix PAM70"
+        } else if (max == 85) {
+            flags = "-task blastp -matrix BLOSUM80"
+        } else {
+            flags = "-task blastp -matrix BLOSUM62"
+        }
         '''
-        cat !{query}
-        header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
-        blastp -query !{query} \
+        seqkit seq -m !{min} -M !{max} !{query} > filtered.fasta
+        blastp -query filtered.fasta \
+            !{flags} \
             -db !{db} \
             -outfmt "10 delim=, qseqid sseqid sstart send length bitscore evalue pident nident mismatch gaps" | \
-        sed "s;sp|\\(.*\\)|;\\1;" > temp.csv
-        echo $header | cat - temp.csv > !{query.baseName}-blast.csv
+            sed "s;sp|\\(.*\\)|;\\1;" > !{blast_results}
         '''
-
     }
     //
 }
+

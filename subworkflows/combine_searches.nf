@@ -31,14 +31,20 @@ workflow 'combine_searches' {
                 // with quantification, and obtain unmatched peptides
         "$outdir/Combined")
     if (params.denovo) {
-        // Syntax is <prefix> <do_one_hit?> <do_best_only?> <identity_threshold> <pep_threshold> <evalue_threshold>
-        BLASTP(MERGE_OPEN.out.unknown_fasta, params.blast_db,
+        ranges = Channel.from(tuple(0, 35), tuple(35, 50),
+                              tuple(50, 85), tuple(85, 100000))
+        BLASTP(MERGE_OPEN.out.unknown_fasta, params.blast_db, ranges,
                "$outdir/Unmatched/BLAST") // Let blast try to annotate
         // de novo, transcriptome and unmatched peptides
+        // To optimize the searches, queries will be partitioned into four ranges,
+        // following the recommendations on the blast user guide
+        BLASTP.out.collectFile(name: "combined_blast.csv", newLine: true)
+            .set { combined_blast }
+
         SORT_BLAST(MERGE_OPEN.out.unknown_tsv,
                    MERGE_OPEN.out.unmatched_pep,
                    MERGE_OPEN.out.database_tsv,
-                   BLASTP.out, seq_header_mappings,
+                   combined_blast, seq_header_mappings,
                    MERGE_OPEN.out.unknown_fasta,
                    "$outdir/Unmatched/BLAST") // Extract peptides that
                                                     // weren't matched by blast
