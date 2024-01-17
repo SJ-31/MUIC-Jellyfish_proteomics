@@ -31,7 +31,7 @@ workflow 'pre' {
 
     main:
     RAWPARSE(raw.collect(),"$params.results/Preprocessed/Converted")
-    DEISOTOPE(,"$params.results/Preprocessed")
+    DEISOTOPE(RAWPARSE.out.collect(),"$params.results/Preprocessed")
     FALCON(RAWPARSE.out.collect(), "$params.results/Preprocessed/Falcon")
     CALIBRATE(raw.collect(), normal_database,
               "$params.results/Preprocessed/Falcon")
