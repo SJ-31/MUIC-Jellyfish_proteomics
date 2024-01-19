@@ -25,7 +25,7 @@ process MS2RESCORE {
        do
         name=$(echo $output | sed 's/_.*//')
         ms2rescore $output \
-            -c !{params.config}/ms2rescore_config.json \
+            -c !{params.config_dir}/ms2rescore_config.json \
             -o $name \
             -m mgf >> ms2rescore.log
         done

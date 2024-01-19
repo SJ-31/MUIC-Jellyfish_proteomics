@@ -19,7 +19,7 @@ process MAXQUANT {
 
     shell:
     '''
-    cp !{params.config}/!{mq_config} template.xml
+    cp !{params.config_dir}/!{mq_config} template.xml
     maxquant_wrapper.py -c template.xml \
         -r . -o mqconfig.xml \
         -d !{database} \
@@ -35,7 +35,7 @@ process MAXQUANT {
     '''
     //
     //
-    // cp !{params.config}/maxquant_ms2rescore.xml template.xml Use this for ms2rescore
+    // cp !{params.config_dir}/maxquant_ms2rescore.xml template.xml Use this for ms2rescore
 }
 
 
@@ -58,7 +58,7 @@ process MAXQUANT {
 
 //     shell:
 //     '''
-//     cp !{params.config}/maxquant_ms2rescore.xml template.xml
+//     cp !{params.config_dir}/maxquant_ms2rescore.xml template.xml
 //     maxquant_wrapper.py !{raw_file} template.xml !{database}
 //     rm template.xml
 //     dotnet /home/shannc/tools/MaxQuant_2.4.2.0/bin/MaxQuantCmd.exe mqconfig.xml \
@@ -69,5 +69,5 @@ process MAXQUANT {
 //     '''
 //     //
 //     //
-//     // cp !{params.config}/maxquant_ms2rescore.xml template.xml Use this for ms2rescore
+//     // cp !{params.config_dir}/maxquant_ms2rescore.xml template.xml Use this for ms2rescore
 // }
