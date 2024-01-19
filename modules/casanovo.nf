@@ -19,7 +19,7 @@ process CASANOVO {
     casanovo \
         --mode=denovo \
         --peak_path=$mzMLs \
-        --config ${params.config}/casanovo.yaml \
+        --config ${params.config_dir}/casanovo.yaml \
         --output=temp \
         --model=$params.casanovomodel > casanovo.log
     grep -v ^M temp.mztab > ${mzMLs.baseName}_casanovo.tsv

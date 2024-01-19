@@ -18,20 +18,20 @@ workflow 'open_search' {
     seq_header_mapping
 
     main:
-    MSFRAGGER_OPEN(mzML.collect(), "$params.config/open_fragger.params",
+    MSFRAGGER_OPEN(mzML.collect(), "$params.config_dir/open_fragger.params",
                    "GPTMD", "$outdir/MsFragger_open", "$outdir/Logs", dbPlusDecoys)
-    MSFRAGGER_GLYCO(mzML.collect(), "$params.config/Nglyco_fragger.params",
+    MSFRAGGER_GLYCO(mzML.collect(), "$params.config_dir/Nglyco_fragger.params",
                     "Glyco", "$outdir/MsFragger_glyco", "$outdir/Logs",
                     dbPlusDecoys)
     METAMORPHEUS_GET_GPTMD(mzML.collect(), "$outdir/Metamorpheus_gptmd",
                        "$outdir/Logs", "",
-                       "$params.config/metamorpheus_gptmd_params.toml", db)
+                       "$params.config_dir/metamorpheus_gptmd_params.toml", db)
     METAMORPHEUS_GET_GPTMD.out.all.flatten().filter( ~/.*\.xml/ )
         .set { xml_ch }
     METAMORPHEUS_SEARCH_GPTMD(mzML.collect(),
                               "$outdir/Metamorpheus_gptmd",
                               "$outdir/Logs", "GTPMD",
-                              "$params.config/metamorpheus_params.toml", xml_ch)
+                              "$params.config_dir/metamorpheus_params.toml", xml_ch)
     METAMORPHEUS_SEARCH_GPTMD.out.percolator.mix(
         MSFRAGGER_OPEN.out.percolator,
         MSFRAGGER_GLYCO.out.percolator,

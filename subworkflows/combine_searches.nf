@@ -65,7 +65,7 @@ workflow 'combine_searches' {
                     SORT_INTERPRO.out.matched,
                     directlfq, flashlfq, "$outdir")
     } else {
-        Channel.fromPath("$params.config/NO_FILE")
+        Channel.fromPath("$params.config_dir/NO_FILE")
             .map{ it = ["no_file", it, it] }
             .set { no_file }
         ANNOTATE(MERGE_OPEN.out.database_tsv, "$outdir")

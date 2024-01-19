@@ -29,7 +29,7 @@ process COMET {
         pin_header="SpecId	Label	ScanNr	ExpMass	CalcMass	lnrSp	deltLCn	deltCn	lnExpect	Xcorr	Sp	IonFrac	Mass	PepLen	Charge1	Charge2	Charge3	Charge4	Charge5	Charge6	enzN	enzC	enzInt	lnNumSP	dM	absdM	Peptide	Proteins"
         database="!{database}"
 
-        cp !{params.config}/default_comet.params .
+        cp !{params.config_dir}/default_comet.params .
         cat default_comet.params | sed "s;database.*;database_name = $database;" > comet.params
         philosopher workspace --init
         philosopher comet --param comet.params !{indexed_mzMLs} > comet.log

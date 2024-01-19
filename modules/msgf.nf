@@ -32,13 +32,8 @@ process MSGF {
             java -jar !{params.msgf} -s !{file} \
                 -o ${n}-!{file.baseName}.mzid \
                 -d ${n}.fasta \
-                -inst 3 \
-                -decoy rev \
-                -t 20ppm \
-                -minLength 7 \
-                -m 3 \
+                -conf !{params.config_dir}/MSGFPlus_Params.txt
                 -addFeatures 1 \
-                -maxMissedCleavages 2 \
             -tda 0 > !{name}_search.log
         done
         rm *.fasta

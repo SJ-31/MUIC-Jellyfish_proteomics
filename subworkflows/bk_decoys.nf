@@ -30,7 +30,7 @@ workflow bk_decoys {
           "$params.results/2-Second_pass/Logs", bk_db.identipy.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml,
                 "$params.results/2-Second_pass/Engines/Identipy")
-    MSFRAGGER(mzML_ch.collect(), "$params.config/MSFragger_params.params", "",
+    MSFRAGGER(mzML_ch.collect(), "$params.config_dir/MSFragger_params.params", "",
     "$params.results/2-Second_pass/Engines/MsFragger",
               "$params.results/2-Second_pass/Logs", bk_db.msfragger)
     MSGF(mzML_ch, "$params.results/2-Second_pass/Engines/MSGF",

@@ -25,7 +25,6 @@ include { open_search as open_search_SECOND } from './open_search'
 
 workflow 'pre' {
     take:
-    mzML
     raw
     normal_database
 
@@ -34,16 +33,8 @@ workflow 'pre' {
     DEISOTOPE(RAWPARSE.out.collect(),"$params.results/Preprocessed")
     FALCON(RAWPARSE.out.collect(), "$params.results/Preprocessed/Falcon")
     CALIBRATE(raw.collect(), normal_database,
-              "$params.results/Preprocessed/Falcon")
+              "$params.results/Preprocessed/Metamorpheus")
 }
-
-println """
-Searching spectra...
-    Prefix: $params.pref
-    Manifest file: $params.manifest_file
-    Database file: $params.db_spec
-    Results path: $params.results
-"""
 
 workflow 'search' {
 
@@ -67,7 +58,7 @@ workflow 'search' {
     // All searches
     COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
           "$params.results/1-First_pass/Logs", db.plusdecoys)
-    MSFRAGGER(mzML.collect(), "$params.config/MSFragger_params.params", "",
+    MSFRAGGER(mzML.collect(), "$params.config_dir/MSFragger_params.params", "",
               "$params.results/1-First_pass/Engines/MsFragger",
               "$params.results/1-First_pass/Logs", db.plusdecoys)
     IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy",
@@ -77,7 +68,7 @@ workflow 'search' {
     METAMORPHEUS_DEFAULT(mgf.collect(),
                          "$params.results/1-First_pass/Engines/Metamorpheus",
                          "$params.results/1-First_pass/Logs", "",
-                         "$params.config/metamorpheus_params.toml", db.normal)
+                         "$params.config_dir/metamorpheus_params.toml", db.normal)
     MSGF(mzML, "$params.results/1-First_pass/Engines/MSGF",
          "$params.results/1-First_pass/Logs", db.plusdecoys.first())
     MSGF_MERGE(MSGF.out.pin.collect(),
