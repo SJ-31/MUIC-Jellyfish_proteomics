@@ -24,7 +24,9 @@ process COMBINED_DATABASE {
     shell:
     '''
     outdir=!{outdir}
-    make_combined_db.sh !{other_fasta} !{denovo_peptides}
+    cat !{other_fasta} !{denovo_peptides} | seqkit rmdup > intermediate.fasta
+    create_decoys.py intermediate.fasta seq-header_mappings.tsv
+    rm intermediate.fasta
 
     find . \\( -name "*fasta" -o -name "*tsv" \\) -type f > temp_list.txt
     cat temp_list.txt | sed 's;./;!{outdir}/;' > !{params.pref}.DB.txt
