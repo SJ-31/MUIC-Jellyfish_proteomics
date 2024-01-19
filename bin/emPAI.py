@@ -1,13 +1,28 @@
 import pandas as pd
 import re
 from pyteomics import parser
+import random
 from pyteomics import mass
 
 
+def resolveResidue(seq):
+    non_standard: dict = {
+        "X": [""],
+        "B": ["N", "D"],
+        "Z": ["Q", "E"],
+        "J": ["L", "I"],
+        "U": [""],
+    }
+    if intersect := set(non_standard.keys()) & set(seq):
+        for i in intersect:
+            seq = seq.replace(i, random.choice(non_standard[i]))
+    return seq
+
+
 def cleanPep(peptide):
-    peptide = peptide.upper()
-    peptide = "".join(re.findall("[^BXZ]+", peptide))  # Leaving these
-    # unknown residues will raise an error with emPAI
+    peptide = resolveResidue(peptide.upper())
+    # Leaving unknown residues will raise an error with emPAI due to
+    # unspecified mass
     peptide = "".join(re.findall("[A-Z]+", peptide))
     return peptide
 

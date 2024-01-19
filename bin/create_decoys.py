@@ -1,15 +1,27 @@
 #!/usr/bin/env python
+import random
 import sys
 import pandas as pd
 from pyteomics import mass
 from Bio import SeqIO
 
 
-def mass_calc(seq) -> float:
-    if (intersect := {"X", "B", "Z"} & set(seq)):
+def resolveResidue(seq):
+    non_standard: dict = {
+        "X": [""],
+        "B": ["N", "D"],
+        "Z": ["Q", "E"],
+        "J": ["L", "I"],
+        "U": [""],
+    }
+    if intersect := set(non_standard.keys()) & set(seq):
         for i in intersect:
-            seq = seq.replace(i, "")
-    return mass.fast_mass(seq)
+            seq = seq.replace(i, random.choice(non_standard[i]))
+    return seq
+
+
+def mass_calc(seq) -> float:
+    return mass.fast_mass(resolveResidue(seq))
 
 
 def write_lines(file: str, line_list: list) -> None:
@@ -20,8 +32,6 @@ def write_lines(file: str, line_list: list) -> None:
 
 input = sys.argv[1]
 mapping_name = sys.argv[2]
-# input = "./all.fasta"
-# mapping_name = "./headers.tsv"
 
 mapping: dict = {
     "id": [],
@@ -50,10 +60,7 @@ for record in SeqIO.parse(input, "fasta"):
         is_download = True
     mapping["id"].extend([seq_id, f"rev_{seq_id}"])
     mapping["header"].extend([f"{record.description}", "DECOY"])
-    if "J" in record.seq or "U" in record.seq:
-        seq = str(record.seq).replace("J", "").replace("U", "")
-    else:
-        seq = str(record.seq)
+    seq = resolveResidue(str(record.seq))
     mapping["seq"].extend([seq, str(seq[::-1])])
     norm_lines: list = [f">{seq_id}" + "\n", str(seq) + "\n"]
     decoy_lines: list = [f">rev_{seq_id}" + "\n", str(seq[::-1]) + "\n"]
