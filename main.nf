@@ -2,6 +2,20 @@ include { search } from "./subworkflows/shotgun"
 include { assemble } from "./subworkflows/rna_seq"
 include { make_db } from "./subworkflows/make_db"
 include { pre } from "./subworkflows/shotgun"
+include { validateParameters; paramsHelp; paramsSummaryLog; fromSamplesheet } from 'plugin/nf-validation'
+
+// Print help message, supply typical command line usage for the pipeline
+if (params.help) {
+   log.info paramsHelp("nextflow main.nf --manifest <manifest_file> --subworkflow <subworkflow>")
+   exit 0
+}
+
+// Validate input parameters
+validateParameters()
+
+// Print summary of supplied parameters
+log.info paramsSummaryLog(workflow)
+
 
 /* LAUNCH FLAGS */
 /* --entry <rnaseq|identify|analyze|preprocess|combine_databases> */
@@ -41,25 +55,43 @@ Channel.fromPath(params.db_spec).splitText() { it.replaceAll("\n", "") }
         downloaded : it ==~ /.*downloaded.fasta/
     }.set { db }
 
-workflow rnaseq {
-    assemble()
-}
-
-workflow identify {
-    search(manifest.mzML, manifest.mgf, manifest.raw, db.normal)
-}
-
-workflow analyze {
-    analysis(Channel.fromPath(params.first_final, params.second_final),
-             "${params.results}/Analysis")
-}
-
-workflow preprocess {
-    pre(manifest.mzML, manifest.raw, db.normal)
-}
-
-workflow combine_databases {
-    make_db(manifest.mzML, manifest.mgf)
+workflow {
+    switch(params.subworkflow) {
+        case "rnaseq":
+            assemble();
+            break;
+        case "identify":
+            println """
+            Searching spectra...
+                Prefix: $params.pref
+                Manifest file: $params.manifest_file
+                Database file: $params.db_spec
+                Results path: $params.results
+            """
+            search(manifest.mzML, manifest.mgf, manifest.raw, db.normal);
+            break;
+        case "analyze":
+            analysis(Channel.fromPath(params.first_final, params.second_final),
+                "${params.results}/Analysis");
+            break;
+        case "preprocess":
+            pre(manifest.raw, db.normal);
+            break;
+        case "combine_databases":
+            println """
+            Combining databases...
+                Prefix: $params.pref
+                Database file: $params.to_construct
+                Manifest file: $params.manifest_file
+                Results path: $params.results
+            """
+            if (params.to_construct == null) {
+                println "Text file to databases is empty!"
+                exit 0;
+            }
+            make_db(manifest.mzML, manifest.mgf)
+            break;
+    }
 }
 
 workflow hidden {
