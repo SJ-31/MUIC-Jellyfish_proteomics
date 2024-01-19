@@ -1,4 +1,4 @@
-#!/usr/bin/env ipython
+#!/usr/bin/env python
 """
 Download matches and other features from InterPro for a given UniProt accession
 
@@ -209,8 +209,8 @@ def parse_args():
 
 
 if __name__ == "__main__":
-    ARGS = parse_args()
-    # Will conflict with reticulate otherwise
-    if ARGS["get_pfam"]:
+    arguments = parse_args()
+    # will conflict with reticulate otherwise
+    if arguments["get_pfam"]:
         all_pfam = getAllPfam()
-        all_pfam.to_csv(ARGS["get_pfam"], sep="\t", na_rep="NA")
+        all_pfam.to_csv(arguments["get_pfam"], sep="\t", na_rep="NA")

@@ -198,6 +198,12 @@ def from_db(name, database_list):
 
 
 def map_list(id_list, origin_db: str):
+    """
+    Submit queries as list of ids to UniProt server
+    Parse response
+    Return dictionary containing metadata for each id, as well as any failed
+        ids
+    """
     job_id = submit_id_mapping(
         from_db=origin_db, to_db="UniProtKB", ids=id_list
     )
@@ -271,6 +277,10 @@ def map_list(id_list, origin_db: str):
 
 
 def idFromHeader(row):
+    """
+    Reformat fasta header
+    Return ncbi or UniProt id if present
+    """
     header = row["header"]
     cur_id = row["ProteinId"]
     if "|" in header and (find := re.search(r"\|(.*)\|", header)):
@@ -291,6 +301,14 @@ def writeFasta(needs_annotating: pd.DataFrame, file_name: str):
 
 
 def anno(args: dict):
+    """
+    Annotate proteins in filtered blast results
+    1. Try to map proteins in NCBI to UniProt proteins. Multiple databases
+    required.
+        NCBI proteins without UniProt equivalents are extracted for further
+        annotation by Interproscan and eggNOG mapper
+    2. Obtain annotation information for UniProt proteins
+    """
     to_map = pd.read_csv(args["input"], sep="\t")
     dbIds_ids = to_map.apply(idFromHeader, axis=1).dropna()
     all_ids_mapping = pd.DataFrame(
@@ -301,8 +319,7 @@ def anno(args: dict):
     )
     ids = all_ids_mapping["dbId"]
 
-    # Try to map proteins in NCBI to UniProt proteins. Multiple databases
-    # required.
+    # 1.
     ncbi_ids = ids.where(ids.str.contains("\\."))
     ncbi_ids = set(ncbi_ids.dropna())
     uniprot_ids = ids[~(ids.isin(ncbi_ids))]

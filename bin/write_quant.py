@@ -3,14 +3,14 @@
 import pandas as pd
 
 
-def clean(target, string):
+def removeFrom(target, string):
     target = set(target)
     if string in target:
         target.remove(string)
     return list(target)
 
 
-def split_proteins(row):
+def splitProteins(row):
     new_len = len(row["protein"])
     new = row.drop("protein").map(lambda x: [x] * new_len)
     new["protein"] = row["protein"]
@@ -19,27 +19,25 @@ def split_proteins(row):
     return new_df
 
 
-def clean_list_col(colname, frame, split):
+def cleanListCol(colname, frame, split):
     return (
         frame[colname]
         .apply(str.split, sep=split)
-        .apply(clean, string="")
-        .apply(clean, string="NA")
+        .apply(removeFrom, string="")
+        .apply(removeFrom, string="NA")
     )
 
 
-def read_directlfq(directlfq):
+def readDirectlfq(directlfq):
     df = pd.read_csv(directlfq, sep="\t").iloc[:, 1:]
     rename_mapping = dict(
         zip(df.columns[1:], [f"directlfq-{col}" for col in df.columns[1:]])
     )
     df = df.rename(columns=rename_mapping)
     dlfq_copy = df.copy()
-    dlfq_copy["protein"] = clean_list_col("protein", dlfq_copy, ";").apply(
-        list
-    )
+    dlfq_copy["protein"] = cleanListCol("protein", dlfq_copy, ";").apply(list)
     dlfq_copy = dlfq_copy[dlfq_copy["protein"].map(lambda x: len(x) > 0)]
-    split = [split_proteins(row[1]) for row in dlfq_copy.iterrows()]
+    split = [splitProteins(row[1]) for row in dlfq_copy.iterrows()]
     dlfq_copy = pd.concat(split)
     dlfq_copy = dlfq_copy[~dlfq_copy["protein"].str.contains("rev_")]
     dlfq_copy = dlfq_copy.groupby("protein").median()
@@ -47,7 +45,7 @@ def read_directlfq(directlfq):
     return dlfq_copy
 
 
-def read_flashlfq(file):
+def readFlashlfq(file):
     protdf = (
         pd.read_csv(file, sep="\t")
         .drop(0)
@@ -84,7 +82,7 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    dlfq = read_directlfq(args["dlfq"])
+    dlfq = readDirectlfq(args["dlfq"])
     dlfq.to_csv(args["dlfq_sorted"], sep="\t", na_rep="NA", index=False)
-    flfq = read_flashlfq(args["flfq"])
+    flfq = readFlashlfq(args["flfq"])
     flfq.to_csv(args["flfq_sorted"], sep="\t", na_rep="NA", index=False)

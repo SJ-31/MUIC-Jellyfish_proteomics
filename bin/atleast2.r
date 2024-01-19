@@ -1,6 +1,6 @@
 library(tidyverse)
 # Merge all percolator protein results into a single file
-target <- "ProteinId"
+TARGET <- "ProteinId"
 headers <- c(
   "ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
   "peptideIds"
@@ -34,10 +34,10 @@ sort_duplicates <- function(file_path) {
   return(bound)
 }
 
-get_matches <- function(file_name, target) {
+get_matches <- function(file_name) {
   engine <- gsub("_.*", "", file_name)
   results <- sort_duplicates(file_name)
-  matches <- results[[target]]
+  matches <- results[[TARGET]]
   engine_results <- list(matches)
   names(engine_results) <- engine
   return(engine_results)
@@ -45,7 +45,7 @@ get_matches <- function(file_name, target) {
 
 intersect_engines <- function(files, map_file) {
   mappings <- read.delim(map_file, sep = "\t")
-  engi <- lapply(files, get_matches, target = target) %>%
+  engi <- lapply(files, get_matches) %>%
     unlist(recursive = FALSE)
   tables <- lapply(files, sort_duplicates)
   combos <- combn(names(engi), 2)
@@ -62,7 +62,7 @@ intersect_engines <- function(files, map_file) {
     unique()
   master_list <- master_list[!grepl("rev_", master_list)]
   matched_tables <- lapply(tables, function(x) {
-    return(x[x[[target]] %in% master_list, ])
+    return(x[x[[TARGET]] %in% master_list, ])
   })
   mapped <- mappings[mappings$id %in% master_list, ]
   return(list("tables" = matched_tables, "map_list" = mapped))
@@ -85,19 +85,19 @@ merge_column <- function(column_name, dataframe) {
   return(all_vals)
 }
 
-main <- function(seq_header_file, output) {
-  files <- list.files(".", pattern = "*percolator.*") # This script will be run in a Nextflow process where
+main <- function(seq_header_file, path) {
+  files <- list.files(path, pattern = "*percolator.*") # This script will be run in a Nextflow process where
   # all the results files have been dumped
   # into the directory
   matched <- intersect_engines(files, seq_header_file)
   matched_tables <- matched$tables
   mapped <- matched$map_list
-  merged_tables <- reduce(matched_tables, full_join, by = target)
+  merged_tables <- reduce(matched_tables, full_join, by = TARGET)
   merged_tables <- lapply(headers, merge_column, dataframe = merged_tables) %>%
     `names<-`(headers) %>%
     as_tibble() %>%
     inner_join(mapped, by = join_by(x$ProteinId == y$id))
-  write_delim(merged_tables, output, delim = "\t")
+  return(merged_tables)
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
@@ -107,10 +107,15 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "Path to seq-header mapping"
   )
+  parser <- add_option(parser, c("-p", "--path"),
+    type = "character",
+    help = "Output file name"
+  )
   parser <- add_option(parser, c("-o", "--output"),
     type = "character",
     help = "Output file name"
   )
   args <- parse_args(parser)
-  main(args$seq_header_file, args$output)
+  m <- main(args$seq_header_file, args$path)
+  write_delim(m, args$output, delim = "\t")
 }
