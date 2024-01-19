@@ -38,7 +38,7 @@ search_enzyme_cut_2 =                       # Second enzyme's cutting amino acid
 search_enzyme_nocut_2 =                     # Second enzyme's protecting amino acid.
 allowed_missed_cleavage_2 = 2               # Second enzyme's allowed number of missed cleavages per peptide. Maximum value is 5.
 search_enzyme_sense_2 = C                   # Second enzyme's cutting terminal.
-num_enzyme_termini = 2                      # 0 for non-enzymatic, 1 for semi-enzymatic, 2 for fully-enzymatic, and 3 for N-term semi-enzymatic.
+num_enzyme_termini = 1                      # 0 for non-enzymatic, 1 for semi-enzymatic, 2 for fully-enzymatic, and 3 for N-term semi-enzymatic.
 
 clip_nTerm_M = 1                            # Specifies the trimming of a protein N-terminal methionine as a variable modification (0 or 1).
 
@@ -53,7 +53,7 @@ variable_mod_02 = 42.010565 [^ 1
 # variable_mod_06 = 0.00000 site_06 3
 # variable_mod_07 = 0.00000 site_07 3
 
-allow_multiple_variable_mods_on_residue = 0 # Allow each residue to be modified by multiple variable modifications (0 or 1).
+allow_multiple_variable_mods_on_residue = 1 # Allow each residue to be modified by multiple variable modifications (0 or 1).
 max_variable_mods_per_peptide = 3           # Maximum total number of variable modifications per peptide.
 max_variable_mods_combinations = 5000       # Maximum number of modified forms allowed for each peptide (up to 65534).
 mass_diff_to_variable_mod = 0               # Put mass diff as a variable modification. 0 for no; 1 for yes and remove delta mass; 2 for yes and keep delta mass.
@@ -61,7 +61,7 @@ mass_diff_to_variable_mod = 0               # Put mass diff as a variable modifi
 output_format = tsv_pin                      # File format of output files (tsv, pin, pepxml, tsv_pin, tsv_pepxml, pepxml_pin, or tsv_pepxml_pin).
 output_report_topN = 1                      # Reports top N PSMs per input spectrum.
 output_max_expect = 50                      # Suppresses reporting of PSM if top hit has expectation value greater than this threshold.
-report_alternative_proteins = 0             # Report alternative proteins for peptides that are found in multiple proteins (0 for no, 1 for yes).
+report_alternative_proteins = 1             # Report alternative proteins for peptides that are found in multiple proteins (0 for no, 1 for yes).
 
 precursor_charge = 1 4                      # Assumed range of potential precursor charge states. Only relevant when override_charge is set to 1.
 override_charge = 0                         # Ignores precursor charge and uses charge state specified in precursor_charge range (0 or 1).

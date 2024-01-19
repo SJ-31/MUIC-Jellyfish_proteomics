@@ -24,7 +24,7 @@ isotope_error = 3                      # 0=off, 1=0/1 (C13 error), 2=0/1/2, 3=0/
 #
 search_enzyme_number = 1               # choose from list at end of this params file
 search_enzyme2_number = 0              # second enzyme; set to 0 if no second enzyme
-num_enzyme_termini = 2                 # 1 (semi-digested), 2 (fully digested, default), 8 C-term unspecific , 9 N-term unspecific
+num_enzyme_termini = 1                 # 1 (semi-digested), 2 (fully digested, default), 8 C-term unspecific , 9 N-term unspecific
 allowed_missed_cleavage = 2            # maximum value is 5; for enzyme search
 
 #
@@ -52,7 +52,8 @@ require_variable_mod = 0
 #
 fragment_bin_tol = 1.0005              # binning to use on fragment ions
 fragment_bin_offset = 0.4              # offset position to start the binning (0.0 to 1.0)
-theoretical_fragment_ions = 1          # 0=use flanking peaks, 1=M peak only
+theoretical_fragment_ions = 0          # 0=use flanking peaks, 1=M peak only
+# Kept at 0 due to use of higher resolution mass spectrometer
 use_A_ions = 0
 use_B_ions = 1
 use_C_ions = 0
@@ -83,7 +84,7 @@ scan_range = 0 0                       # start and end scan range to search; eit
 precursor_charge = 0 0                 # precursor charge range to analyze; does not override any existing charge; 0 as 1st entry ignores parameter
 override_charge = 0                    # 0=no, 1=override precursor charge states, 2=ignore precursor charges outside precursor_charge range, 3=see online
 ms_level = 2                           # MS level to analyze, valid are levels 2 (default) or 3
-activation_method = ALL                # activation method; used if activation method set; allowed ALL, CID, ECD, ETD, ETD+SA, PQD, HCD, IRMPD
+activation_method = HCD                # activation method; used if activation method set; allowed ALL, CID, ECD, ETD, ETD+SA, PQD, HCD, IRMPD
 
 #
 # misc parameters
@@ -96,7 +97,7 @@ skip_researching = 1                   # for '.out' file output only, 0=search e
 max_fragment_charge = 3                # set maximum fragment charge state to analyze (allowed max 5)
 max_precursor_charge = 6               # set maximum precursor charge state to analyze (allowed max 9)
 nucleotide_reading_frame = 0           # 0=proteinDB, 1-6, 7=forward three, 8=reverse three, 9=all six
-clip_nterm_methionine = 0              # 0=leave sequences as-is; 1=also consider sequence w/o N-term methionine
+clip_nterm_methionine = 1              # 0=leave sequences as-is; 1=also consider sequence w/o N-term methionine
 spectrum_batch_size = 15000            # max. # of spectra to search at a time; 0 to search the entire scan range in one loop
 decoy_prefix = rev_                  # decoy entries are denoted by this string which is pre-pended to each protein accession
 equal_I_and_L = 1                      # 0=treat I and L as different; 1=treat I and L as same

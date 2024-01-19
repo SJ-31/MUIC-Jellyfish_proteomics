@@ -3,8 +3,14 @@ cp ${database} database.fasta
 crux tide-index database.fasta db \
     --decoy-format peptide-reverse \
     --decoy-prefix rev_ \
+    --keep-terminal-aminos none \
+    --digestion partial-digest \
+    --min-length 7 \
+    --max-length 50 \
     --nterm-protein-mods-spec 1X+42.010565 \
-    --mods-spec 3M+15.994915
+    --mods-spec 3M+15.994915 \
+    --enzyme trypsin/p \
+    --missed-cleavages 2
 
 crux tide-search ${mgf} ./db \
     --auto-precursor-window warn \
