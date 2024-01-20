@@ -35,6 +35,7 @@ process PERCOLATOR {
 
         Rscript $params.bin/2combinedPEP.r \
             -e $engine \
+            -r $params.bin \
             -m ${engine}_percolator_psms.tsv \
             -d ${engine}_percolator_decoy_psms.tsv \
             -o ${engine}_psm2combined_PEP.tsv

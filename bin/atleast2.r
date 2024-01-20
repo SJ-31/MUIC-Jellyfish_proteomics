@@ -1,10 +1,14 @@
+library(glue)
 library(tidyverse)
+
 # Merge all percolator protein results into a single file
 TARGET <- "ProteinId"
 headers <- c(
   "ProteinId", "ProteinGroupId", "q.value", "posterior_error_prob",
   "peptideIds"
 )
+
+ID_LIST <- list()
 
 splitDuplicates <- function(dupe_table, index) {
   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
@@ -29,32 +33,31 @@ sort_duplicates <- function(file_path) {
   duplicates <- lapply(1:dim(duplicates)[1], splitDuplicates, dupe_table = duplicates) %>%
     bind_rows()
   bound <- bind_rows(list(duplicates, table)) %>%
-    mutate(ProteinGroupId = paste0(ProteinGroupId, engine)) %>%
     as_tibble()
   return(bound)
 }
 
 get_matches <- function(file_name) {
-  engine <- gsub("_.*", "", file_name)
-  results <- sort_duplicates(file_name)
+  engine <- gsub(".*/", "", file_name) %>% gsub("_.*", "", .)
+  results <- tibbleDuplicateAt(read_tsv(file_name), "ProteinId", ",") %>%
+    mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
   matches <- results[[TARGET]]
   engine_results <- list(matches)
   names(engine_results) <- engine
-  return(engine_results)
+  ID_LIST <<- c(ID_LIST, engine_results)
+  return(results)
 }
 
 intersect_engines <- function(files, map_file) {
   mappings <- read.delim(map_file, sep = "\t")
-  engi <- lapply(files, get_matches) %>%
-    unlist(recursive = FALSE)
-  tables <- lapply(files, sort_duplicates)
-  combos <- combn(names(engi), 2)
+  tables <- lapply(files, get_matches)
+  combos <- combn(names(ID_LIST), 2)
   master_list <- lapply(1:ncol(combos), function(x) {
     # Obtain the intersection between every possible pair of engine searches
     engine_pair <- combos[, x]
     intersection <- intersect(
-      engi[[engine_pair[1]]],
-      engi[[engine_pair[2]]]
+      ID_LIST[[engine_pair[1]]],
+      ID_LIST[[engine_pair[2]]]
     )
     return(intersection)
   }) %>%
@@ -86,9 +89,10 @@ merge_column <- function(column_name, dataframe) {
 }
 
 main <- function(seq_header_file, path) {
-  files <- list.files(path, pattern = "*percolator.*") # This script will be run in a Nextflow process where
+  # This script will be run in a Nextflow process where
   # all the results files have been dumped
   # into the directory
+  files <- list.files(path, pattern = "*percolator.*", full.names = TRUE)
   matched <- intersect_engines(files, seq_header_file)
   matched_tables <- matched$tables
   mapped <- matched$map_list
@@ -111,11 +115,16 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "Output file name"
   )
+  parser <- add_option(parser, c("-r", "--r_source"),
+    type = "character",
+    help = "Output file name"
+  )
   parser <- add_option(parser, c("-o", "--output"),
     type = "character",
     help = "Output file name"
   )
   args <- parse_args(parser)
-  m <- main(args$seq_header_file, args$path)
+  source(glue("{args$r_source}/helpers.r"))
+  m <- main(args$seq_header_file, args$path, args$r_source)
   write_delim(m, args$output, delim = "\t")
 }

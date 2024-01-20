@@ -1,19 +1,8 @@
 library(tidyverse)
+library(glue)
 library(optparse)
 # Renames headers and formats percolator output files for use with Ursgal's combine_pep_1_0_0.py script
 # The ursgal script needs decoys as well as regular matches
-
-
-cleanPeptide <- function(pep) {
-  if (grepl("\\]|[a-z0-9.]|-", pep)) {
-    pep <- str_to_upper(pep) %>%
-      str_extract_all("[A-Z]") %>%
-      unlist() %>%
-      paste0(collapse = "")
-  }
-  return(pep)
-}
-
 
 read_psms <- function(file, is_decoy) {
   t <- read_tsv(file, col_names = FALSE) %>%
@@ -63,6 +52,10 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "File containing non-decoy matches only"
   )
+  parser <- add_option(parser, c("-r", "--r_source"),
+    type = "character",
+    help = "Path to r scripts"
+  )
   parser <- add_option(parser, c("-d", "--decoys"),
     type = "character",
     help = "File containing decoy matches only"
@@ -75,6 +68,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "Output file name"
   )
+  source("{args$r_source}/helpers.r")
   args <- parse_args(parser)
   combined <- read_percolator(args$matches, args$decoys, args$engine)
   write.csv(combined, file = args$output, row.names = FALSE)

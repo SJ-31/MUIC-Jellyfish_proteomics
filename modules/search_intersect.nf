@@ -18,6 +18,7 @@ process SEARCH_INTERSECT {
     Rscript $params.bin/atleast2.r \
         -m ${seq_header_mappings} \
         -p . \
+        -r $params.bin \
         -o intersected_searches.tsv
 
     Rscript $params.bin/unify_groups.r \

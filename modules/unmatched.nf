@@ -22,7 +22,7 @@ process UNMATCHED_PSMS {
 }
 
 
-process FILTER_MSMS {
+process UNMATCHED_MSMS {
     publishDir "$outdir", mode: "copy"
 
     input:
@@ -43,6 +43,7 @@ process FILTER_MSMS {
     Rscript ${params.bin}/unmatched_msms.r \
         --psm_path psms  \
         --pep_thresh 1 \
+        -r $params.bin \
         --scan_path scans \
         --mzML_path . > unmatched.txt
     """

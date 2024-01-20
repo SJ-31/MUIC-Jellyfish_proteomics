@@ -5,17 +5,6 @@ library(venn)
 library(Peptides)
 library(glue)
 
-
-cleanPeptide <- function(pep) {
-  if (grepl("\\]|[a-z0-9.]|-", pep)) {
-    pep <- str_to_upper(pep) %>%
-      str_extract_all("[A-Z]") %>%
-      unlist() %>%
-      paste0(collapse = "")
-  }
-  return(pep)
-}
-
 read_tide <- function(tide_file) {
   tide <- read_tsv(tide_file) %>%
     select(c("percolator q-value", "percolator PEP", "sequence")) %>%
@@ -137,3 +126,4 @@ get_tables <- function(path, is_psm, pep_thresh, fdr, mapping) {
     return(get_prot(paths, pep_thresh, fdr, mapping))
   }
 }
+source(glue("{args$r_source}/helpers.r"))

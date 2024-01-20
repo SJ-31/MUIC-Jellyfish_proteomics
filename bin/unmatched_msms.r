@@ -6,16 +6,6 @@ library(glue)
 # Take psm2combined pep file from all engines, concatenate them,
 # Take all scans from all engines, concatenate to keep only scan and file, also
 # remove duplicates
-cleanPeptide <- function(pep) {
-  if (grepl("\\]|[a-z0-9.]|-", pep)) {
-    pep <- str_to_upper(pep) %>%
-      str_extract_all("[A-Z]") %>%
-      unlist() %>%
-      paste0(collapse = "")
-  }
-  return(pep)
-}
-
 
 filter_msms <- function(file_name, msms_path, df, metric_df) {
   # Read in an mzML file of "file_name", filter it to leave ms 1 & 2 spectra
@@ -100,6 +90,8 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, c("-s", "--scan_path"))
   parser <- add_option(parser, c("-p", "--pep_thresh"))
   parser <- add_option(parser, c("-z", "--mzML_path"))
+  parser <- add_option(parser, c("-r", "--r_source"))
   args <- parse_args(parser)
+  source(glue("{args$r_source}/helpers.r"))
   main(args)
 }

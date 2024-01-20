@@ -50,6 +50,7 @@ process TIDE_COMBINED_PEP {
     script:
     """
     Rscript $params.bin/2combinedPEP.r \
+        -r $params.bin \
         -e tide \
         -m tide_percolator_psms.tsv \
         -d tide_percolator_decoy_psms.tsv \
