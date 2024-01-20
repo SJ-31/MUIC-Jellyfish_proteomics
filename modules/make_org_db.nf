@@ -11,6 +11,7 @@ process MAKE_ORGDB {
     //
 
     script:
+    splits = params.species_spec.split("_")
     name = annotations.baseName.replaceFirst(/_meta/, "")
     """
     Rscript $params.bin/make_orgdb.r \
@@ -18,8 +19,8 @@ process MAKE_ORGDB {
         -m "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
         -a "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
         -t $params.tax_id \
-        -s $params.species \
-        -g $params.genus
+        -s ${splits[0]} \
+        -g ${splits[1]}
 
     mv org* ${name}_org.db
     """
