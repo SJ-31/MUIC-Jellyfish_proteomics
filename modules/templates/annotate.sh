@@ -19,6 +19,7 @@ if [ -e needs_annotating.fasta ]; then
     else
         cp -r "${previous_eggnog}" .
         mv needs_annotating* ${eggdir}; cd ${eggdir}
+        touch eggnog_copied.txt
     fi
 
     Rscript !{params.bin}/sort_eggnog.r \
@@ -58,6 +59,7 @@ if [ -e needs_annotating.fasta ]; then
             cd ..
         else
             cp -r "${previous_interpro}" .
+            touch ${ipdir}/interpro_copied.txt
         fi
 
         annotate.py --merge_interpro \

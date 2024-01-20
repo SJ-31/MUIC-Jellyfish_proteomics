@@ -19,7 +19,7 @@ process CALIBRATE {
     """
     metamorpheus -s *raw \
         -o . \
-        -t ${params.config}/CalibrateTaskconfig.toml \
+        -t ${params.config_dir}/CalibrateTaskconfig.toml \
         -d $database
 
     find . -name "*mzML" -exec mv {} . \;

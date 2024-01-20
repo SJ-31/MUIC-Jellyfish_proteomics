@@ -34,7 +34,7 @@ process SORT_BLAST {
 
         sort_blast.py -b blast_results.csv \
             --unknown_hits !{unknown_tsv} \
-            --unmatched_peptides !unmatched_peptides_tsv \
+            --unmatched_peptides !{unmatched_peptides_tsv} \
             -d !{database_hits} \
             -m !{mapping} \
             -q blast_query.txt \
