@@ -68,7 +68,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
     type = "character",
     help = "Output file name"
   )
-  source("{args$r_source}/helpers.r")
+  source(glue("{args$r_source}/helpers.r"))
   args <- parse_args(parser)
   combined <- read_percolator(args$matches, args$decoys, args$engine)
   write.csv(combined, file = args$output, row.names = FALSE)

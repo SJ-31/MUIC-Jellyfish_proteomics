@@ -127,6 +127,7 @@ clean_annotations <- function(df) {
     ) %>%
       bind_rows() %>%
       distinct(., interpro_description, .keep_all = TRUE) %>%
+      mutate(matchedPeptideIds = query) %>%
       group_by(query) %>%
       mutate_at(., vars(-group_cols()), paste0, collapse = ",") %>%
       distinct() %>%

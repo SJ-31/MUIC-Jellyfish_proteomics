@@ -138,7 +138,7 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     multi_hit["is_blast_one_hit"] = 0
     joined = pd.concat([one_hits, multi_hit])
     joined["ProteinGroupId"] = joined.apply(markUnmatched, axis=1)
-    return (joined, did_not_pass)
+    return joined, did_not_pass
 
 
 def known_from_database(blast_df, db_df):
@@ -148,7 +148,13 @@ def known_from_database(blast_df, db_df):
     """
     already_found = db_df.merge(
         blast_df.filter(
-            ["subjectID", "seq", "is_blast_one_hit", "is_blast_best"]
+            [
+                "subjectID",
+                "seq",
+                "is_blast_one_hit",
+                "is_blast_best",
+                "queryID",
+            ]
         ),
         left_on="ProteinId",
         right_on="subjectID",
@@ -179,7 +185,10 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["Anno_method"] = "blast"
     blast_only = blast_only.loc[
         :, ~blast_only.columns.str.contains("_[xy]", regex=True)
-    ].loc[:, list(db_df.columns) + ["is_blast_best", "is_blast_one_hit"]]
+    ].loc[
+        :,
+        list(db_df.columns) + ["is_blast_best", "is_blast_one_hit", "queryID"],
+    ]
     return blast_only
 
 
@@ -246,7 +255,9 @@ def main(args: dict):
         only was identified previously!
         """
         )
-    final = pd.concat([filtered, in_db, from_blast])
+    final = pd.concat([filtered, in_db, from_blast]).rename(
+        {"queryID": "matchedPeptideIds"}, axis="columns"
+    )
     return final
 
 
