@@ -1,10 +1,13 @@
 #!/usr/bin/env python
+import os
 import sys
 
-sys.path.append("./bin")
+workdir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
+sys.path.append("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
+
 import sort_blast as sb
 
-output = "./tests/pytest/output"
+output = f"{workdir}/tests/pytest/output"
 m = "~/Bio_SDD/MUIC_senior_project/workflow/results/jellyfish"
 
 
@@ -16,7 +19,7 @@ def get_results():
         "database_hits": f"{m}/1-First_pass/Combined/database_hits.tsv",
         "unmatched_fasta": f"{output}/jellyfish_blast_unmatched.fasta",
         "unmatched_tsv": f"{output}/jellyfish_blast_unmatched.tsv",
-        "blast_query": "./tests/results/Unmatched/queries.txt",
+        "blast_query": f"{workdir}/tests/results/Unmatched/queries.txt",
         "unmatched_peptides": f"{m}/1-First_pass/Unmatched/unmatched_peptides.tsv",
         "adjust": True,
         "pep_threshold": 0.05,

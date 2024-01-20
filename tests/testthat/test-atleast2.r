@@ -1,12 +1,13 @@
-source("./bin/atleast2.r")
+library(testthat)
 library(glue)
+source("./bin/atleast2.r")
 pth1 <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/jellyfish/"
 pth <- "./tests/results/Percolator_proteins"
-setwd(pth)
 args <- list(
   seq_header_file = glue("{pth1}/Databases/seq-header_mappings.tsv"),
-  pep_thresh = 1,
-  fdr = 0.05
+  path = pth,
+  r_source = "./bin"
 )
-m <- main(args$seq_header_file, args$fdr, args$pep_thresh)
-setwd("../../..")
+source(glue("{args$r_source}/helpers.r"))
+output <- "~/atleast2_test.tsv"
+m <- main(args$seq_header_file, args$path)

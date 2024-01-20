@@ -1,23 +1,24 @@
 library(glue)
 library(testthat)
+library(ggplot2)
 source("./bin/combine_all.r")
 dir_name <- "./results/jellyfish/1-First_pass"
 tests <- "./tests/results/"
 
 args <- list(
-  eggnog = glue("{dir_name}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
-  interpro = glue("{dir_name}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
+  eggnog = glue::glue("{dir_name}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
+  interpro = glue::glue("{dir_name}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
   downloads =
-    glue("{dir_name}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
+    glue::glue("{dir_name}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
   coverage = FALSE,
   sort_mods = TRUE,
-  empai = FALSE,
+  empai = TRUE,
   is_denovo = "true",
   pfam2go = "./results/jellyfish/Databases/pfam2go",
   interpro2go = "./results/jellyfish/Databases/interpro2go",
   pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
-  directlfq = glue("{dir_name}/Quantify/sorted_directlfq.tsv"),
-  flashlfq = glue("{dir_name}/Quantify/sorted_flashlfq.tsv"),
+  directlfq = glue::glue("{dir_name}/Quantify/sorted_directlfq.tsv"),
+  flashlfq = glue::glue("{dir_name}/Quantify/sorted_flashlfq.tsv"),
   output = "./tests/testthat/output/combined-anno.tsv",
   r_source = "./bin/",
   fdr = 0.05,
@@ -27,7 +28,7 @@ results <- main(args)
 all <- results$all
 ## write_tsv(all, "./tests/results/Combined/all_test.tsv")
 ## write_lines(results$anno$ProteinId, "./tests/testthat/output/all_proteinids.txt")
-## found <- results$f
+found <- results$f
 
 
 checkNa <- function(matrx, name) {
@@ -112,8 +113,9 @@ checkWanted <- function(x) {
     return(FALSE)
   }
   if (purrr::pluck_depth(evaluated) > 1) {
-    any(lapply(seq_along(evaluated), \(x) { any(evaluated[[x]] %in%
-                                                  UNWANTED_TYPES)
+    any(lapply(seq_along(evaluated), \(x) {
+      any(evaluated[[x]] %in%
+            UNWANTED_TYPES)
     }) %>% unlist())
     return(FALSE)
   }

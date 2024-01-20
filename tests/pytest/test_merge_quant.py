@@ -19,4 +19,4 @@ args = {
 m = mo.main(args)
 up = mo.checkUnmatched(m, args["unmatched_peptides"])
 flfq = wq.read_flashlfq(args["flfq"])
-dlfq = wq.read_directlfq(args["dlfq"])
+dlfq = wq.readDirectlfq(args["dlfq"])
