@@ -7,7 +7,7 @@ library(optparse)
 read_psms <- function(file, is_decoy) {
   t <- read_tsv(file, col_names = FALSE) %>%
     mutate(X6 = unlist(lapply(X6, gsub, pattern = "\t", replacement = ","))) %>%
-    `colnames<-`(.[1, ]) %>%
+    `colnames<-`(.[1,]) %>%
     slice(-1) %>%
     select(c(score, `q-value`, posterior_error_prob, peptide)) %>%
     rename(PEP = posterior_error_prob) %>%
@@ -49,27 +49,27 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-m", "--matches"),
-    type = "character",
-    help = "File containing non-decoy matches only"
+                       type = "character",
+                       help = "File containing non-decoy matches only"
   )
   parser <- add_option(parser, c("-r", "--r_source"),
-    type = "character",
-    help = "Path to r scripts"
+                       type = "character",
+                       help = "Path to r scripts"
   )
   parser <- add_option(parser, c("-d", "--decoys"),
-    type = "character",
-    help = "File containing decoy matches only"
+                       type = "character",
+                       help = "File containing decoy matches only"
   )
   parser <- add_option(parser, c("-e", "--engine"),
-    help = "Set this if the files contain matches to
+                       help = "Set this if the files contain matches to
           proteins rather than peptides/psms"
   )
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "Output file name"
+                       type = "character",
+                       help = "Output file name"
   )
-  source(glue("{args$r_source}/helpers.r"))
   args <- parse_args(parser)
+  source(glue("{args$r_source}/helpers.r"))
   combined <- read_percolator(args$matches, args$decoys, args$engine)
   write.csv(combined, file = args$output, row.names = FALSE)
 }

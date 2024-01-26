@@ -17,17 +17,17 @@ FIRST_COLS <- c(
 splitPeptidesMatch <- function(tb, quant_tb) {
   # Splits an entry with multiple matched peptides so that a match
   # attempt to the quantification tibble is made with every peptide
-  split_up <- tibbleDuplicateAt(tb, "matchedPeptideIds", ",") %>%
+  split_up <- tibbleDuplicateAt(tb, "matchedPeptideIds", ";") %>%
     nest(.by = ProteinId) %>%
     apply(., 1, \(x) {
       group_tb <- x[["data"]]
       id <- x[["ProteinId"]]
-      duplicated <- group_tb[1,] %>% mutate(matchedPeptideIds = id)
+      duplicated <- group_tb[1, ] %>% mutate(matchedPeptideIds = id)
       return(bind_rows(duplicated, group_tb) %>%
-               mutate(
-                 ProteinId = id,
-                 .before = "ProteinGroupId"
-               ))
+        mutate(
+          ProteinId = id,
+          .before = "ProteinGroupId"
+        ))
     }) %>%
     bind_rows()
   return(left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId)))
@@ -44,15 +44,15 @@ meanTop3 <- function(tb, quant_name) {
       top_three <- slice_max(x[["data"]], across(contains(quant_name)), n = 3)
       means <- top_three %>%
         summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
-      joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ",")
+      joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ";")
       id <- x[["ProteinId"]]
-      return(top_three[1,] %>%
-               select(-contains(quant_name)) %>%
-               mutate(.,
-                      matchedPeptideIds = joined_ids,
-                      ProteinId = id
-               ) %>%
-               bind_cols(means))
+      return(top_three[1, ] %>%
+        select(-contains(quant_name)) %>%
+        mutate(.,
+          matchedPeptideIds = joined_ids,
+          ProteinId = id
+        ) %>%
+        bind_cols(means))
     }) %>%
     bind_rows()
   return(tb)
@@ -65,15 +65,15 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   # peptides (de novo, transcriptome etc.) in blast and interpro are
   # extracted and handled differently:
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds) &
-                                       ProteinId != matchedPeptideIds)
+    ProteinId != matchedPeptideIds)
   if (nrow(has_multiple) != 0) {
     has_multiple <- splitPeptidesMatch(has_multiple, quant_tb)
     has_multiple <- meanTop3(has_multiple, quant_name = quant_name)
   }
   full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds) |
-                                        ProteinId == matchedPeptideIds)
+    ProteinId == matchedPeptideIds)
   full_proteins <- left_join(full_proteins, quant_tb,
-                             by = join_by(x$ProteinId == y$ProteinId)
+    by = join_by(x$ProteinId == y$ProteinId)
   )
   bound <- bind_rows(full_proteins, has_multiple)
   calcs <- bound %>%
@@ -87,14 +87,14 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
 
 writeAlignments <- function(row, file_name) {
   header <- ifelse(row[["header"]] == "unknown", row[["ProteinId"]],
-                   row[["header"]]
+    row[["header"]]
   )
-  # count <- row[["num_unique_peps"]]
+  pep_count <- row[["num_unique_peps"]]
   write.fasta(row[["seq"]], header, open = "a", file.out = file_name)
   write.fasta(row[["alignment"]],
-              glue("ALIGNED PEPTIDES | COUNT: {count}"),
-              open = "a",
-              file.out = file_name
+    glue("ALIGNED PEPTIDES | COUNT: {pep_count}"),
+    open = "a",
+    file.out = file_name
   )
   cat("\n", file = file_name, append = TRUE)
 }
@@ -128,7 +128,7 @@ ANNO_COLS <- KEEP_AS_CHAR %>% discard(., \(x) {
 })
 
 sortVals <- function(values) {
-  v <- str_split_1(values, ",") %>% as.double()
+  v <- str_split_1(values, ";") %>% as.double()
   if (length(v) > 1) {
     v <- sort(v)[2]
   }
@@ -145,16 +145,16 @@ loadFile <- function(path) {
 }
 
 getEvidence <- function(row) {
-            #' Parse GO evidence codes for all entries that have them
-            #' GOs added by eggNOG and interpro are automatically labelled IEA
+  #' Parse GO evidence codes for all entries that have them
+  #' GOs added by eggNOG and interpro are automatically labelled IEA
   if (is.na(row[["GO"]])) {
     return(NA)
   }
   if (!is.na(row[["GO_evidence"]])) {
     evidence <- row[["GO_evidence"]] %>%
-      str_split_1(",") %>%
+      str_split_1(";") %>%
       sapply(gsub, pattern = ":.*", replacement = "", USE.NAMES = FALSE) %>%
-      paste0(., collapse = ",")
+      paste0(., collapse = ";")
     return(evidence)
   }
   return("IEA")
@@ -190,16 +190,16 @@ main <- function(args) {
 
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
-    mutate_all(~replace(., . == "-", NA)) %>%
-    mutate_all(~replace(., . == NaN, NA)) %>%
+    mutate_all(~ replace(., . == "-", NA)) %>%
+    mutate_all(~ replace(., . == NaN, NA)) %>%
     mutate(
       GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
       unique_peptides = lapply(peptideIds, \(x) {
-        x <- str_split_1(x, ",") %>%
+        x <- str_split_1(x, ";") %>%
           lapply(., cleanPeptide) %>%
           unlist()
-        return(paste0(unique(x), collapse = ","))
+        return(paste0(unique(x), collapse = ";"))
       }) %>% unlist(),
       num_unique_peps = sapply(unique_peptides, \(x) {
         return(str_count(x, ",") + 1)
@@ -222,7 +222,7 @@ main <- function(args) {
     source(glue("{args$r_source}/protein_coverage.r"))
     combined <- coverageCalc(combined)
     apply(filter(combined, !is.na(seq)), 1, writeAlignments,
-          file_name = args$alignment_file
+      file_name = args$alignment_file
     )
   }
   ## Record modifications
@@ -263,7 +263,7 @@ main <- function(args) {
       eggNOG_description = Description
     ) %>%
     relocate(where(is.numeric),
-             .after = where(is.character)
+      .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
     relocate(c("peptideIds", "SO_seq", "seq"), .after = where(is.numeric)) %>%
@@ -301,23 +301,23 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--pfam2go", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
   parser <- add_option(parser, "--coverage",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--empai",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--sort_mods",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--r_source", type = "character")
-  source(glue("{args$r_source}/helpers.r"))
   args <- parse_args(parser)
+  source(glue("{args$r_source}/helpers.r"))
   results <- main(args)
   write_tsv(results$all, args$output)
 }

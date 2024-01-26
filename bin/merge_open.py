@@ -20,20 +20,20 @@ def getFastaStr(df, col):
     return fasta_str
 
 
-def clean(target, string):
-    target = set(target)
-    if string in target:
-        target.remove(string)
-    return list(target)
+# def clean(target, string):
+#     target = set(target)
+#     if string in target:
+#         target.remove(string)
+#     return list(target)
 
 
-def cleanListCol(colname, frame, split):
-    return (
-        frame[colname]
-        .apply(str.split, sep=split)
-        .apply(clean, string="")
-        .apply(clean, string="NA")
-    )
+# def cleanListCol(colname, frame, split):
+#     return (
+#         frame[colname]
+#         .apply(str.split, sep=split)
+#         .apply(clean, string="")
+#         .apply(clean, string="NA")
+#     )
 
 
 def parse_args():
@@ -51,12 +51,12 @@ def parse_args():
     return args
 
 
-def concatComma(df, col1, col2) -> pd.Series:
+def concatColon(df, col1, col2) -> pd.Series:
     """
     Concatenate columns col1 and col2 such that their entries are
     joined end-to-end in a csv list.
     """
-    return df[col1].combine(df[col2], lambda x, y: f"{x},{y}")
+    return df[col1].combine(df[col2], lambda x, y: f"{x};{y}")
 
 
 def main(args: dict):
@@ -72,9 +72,9 @@ def main(args: dict):
         on="ProteinId",
         how="inner",
     )
-    shared["peptideIds"] = concatComma(shared, "peptideIds_x", "peptideIds_y")
-    shared["q.value"] = concatComma(shared, "q.value_x", "q.value_y")
-    shared["posterior_error_prob"] = concatComma(
+    shared["peptideIds"] = concatColon(shared, "peptideIds_x", "peptideIds_y")
+    shared["q.value"] = concatColon(shared, "q.value_x", "q.value_y")
+    shared["posterior_error_prob"] = concatColon(
         shared, "posterior_error_prob_x", "posterior_error_prob_y"
     )
     shared.drop(
@@ -118,7 +118,7 @@ def checkUnmatched(final_frame, peps):
     all_peps = pd.Series(
         [
             pep
-            for pep_list in final_frame["peptideIds"].str.split(",")
+            for pep_list in final_frame["peptideIds"].str.split(";")
             for pep in pep_list
         ]
     )

@@ -36,7 +36,7 @@ def check_response(response):
 def submit_id_mapping(from_db, to_db, ids):
     request = requests.post(
         f"{API_URL}/idmapping/run",
-        data={"from": from_db, "to": to_db, "ids": ",".join(ids)},
+        data={"from": from_db, "to": to_db, "ids": ";".join(ids)},
     )
     check_response(request)
     return request.json()["jobId"]
@@ -180,10 +180,10 @@ def parse_db(name: str, db_list: list):
         elif name in {"KEGG", "OrthoDb", "InterPro"}:
             anno.append(db_id)
     if name == "InterPro":
-        return {name: ",".join(anno), "description": ",".join(evi)}
+        return {name: ";".join(anno), "description": ";".join(evi)}
     if name == "GO":
-        return {name: ",".join(anno), "evidence": ",".join(evi)}
-    return {name: ",".join(anno), "evidence": None}
+        return {name: ";".join(anno), "evidence": ";".join(evi)}
+    return {name: ";".join(anno), "evidence": None}
 
 
 def from_db(name, database_list):
@@ -234,7 +234,7 @@ def map_list(id_list, origin_db: str):
         anno_dict["UniProtKB_ID"].append(current["uniProtkbId"])
         if organism := current.get("organism"):
             anno_dict["organism"].append(organism["scientificName"])
-            anno_dict["lineage"].append(",".join(organism["lineage"]))
+            anno_dict["lineage"].append(";".join(organism["lineage"]))
         else:
             anno_dict["organism"].append("unknown")
             anno_dict["lineage"].append("unknown")

@@ -20,7 +20,7 @@ def perc_row(series_row):
             "q-value": series_row[2],
             "posterior_error_prob": series_row[3],
             "peptide": series_row[4],
-            "proteinIds": ",".join(series_row[5:]),
+            "proteinIds": ";".join(series_row[5:]),
         },
         index=[1],
     )
@@ -57,7 +57,9 @@ def read_tide(filepath, p_threshold, q_threshold):
 
 
 def get_engine_files(path) -> dict:
-    files = [file.absolute() for file in Path(path).glob("*_percolator_*")]
+    files = [
+        file.absolute() for file in Path(path).glob("*_percolator_psms.tsv")
+    ]
     names = [re.sub(r"_percolator_.*", "", f.name) for f in files]
     engine_files = dict(zip(names, files))
     return engine_files

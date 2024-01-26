@@ -64,7 +64,7 @@ def group_peps(df):
     df["peptideIds"] = [removeX(pep) for pep in df["peptideIds"]]
     for col in df.columns:
         joined_up = set([c for c in df[col]])
-        grouped[col] = ",".join([str(j) for j in joined_up])
+        grouped[col] = ";".join([str(j) for j in joined_up])
     return pd.DataFrame(grouped, index=[0])
 
 
@@ -73,7 +73,7 @@ def adjust_prob(df):
     peps = (
         df["posterior_error_prob"]
         .astype(str)
-        .apply(lambda x: [float(p) for p in x.split(",")])
+        .apply(lambda x: [float(p) for p in x.split(";")])
     )
     peps = peps.apply(lambda x: sorted(x)[1] if len(x) > 1 else x[0])
     df["posterior_error_prob"] = peps * n_matched
@@ -132,9 +132,9 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
 
     # Mark protein identifications that are matched by only
     # one peptide
-    one_hits = joined[~joined["queryID"].str.contains(",")]
+    one_hits = joined[~joined["queryID"].str.contains(";")]
     one_hits["is_blast_one_hit"] = 1
-    multi_hit = joined[joined["queryID"].str.contains(",")]
+    multi_hit = joined[joined["queryID"].str.contains(";")]
     multi_hit["is_blast_one_hit"] = 0
     joined = pd.concat([one_hits, multi_hit])
     joined["ProteinGroupId"] = joined.apply(markUnmatched, axis=1)
@@ -160,7 +160,7 @@ def known_from_database(blast_df, db_df):
         right_on="subjectID",
     )
     already_found["peptideIds"] = already_found["peptideIds"].str.cat(
-        already_found["seq_y"].to_list(), sep=","
+        already_found["seq_y"].to_list(), sep=";"
     )
     already_found = already_found.drop(
         ["seq_y", "subjectID"], axis="columns"

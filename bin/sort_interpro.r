@@ -14,12 +14,12 @@ clean_interpro <- function(df) {
         "MobiDBLite: mobidb-lite" = "MobiDBLite"
       ),
       interpro_description = paste0(
-        description, ", ",
+        description, "; ",
         interpro_description
       ),
       interpro_evalue = evalue,
       GO = str_replace(GO, "NA", ""),
-      GO = str_replace(GO, "\\|", ","),
+      GO = str_replace(GO, "\\|", ";"),
       pathways = str_replace(pathways, "NA", "")
     ) %>%
     select(-c(
@@ -107,9 +107,10 @@ resolve_overlaps <- function(overlapping_indices, df) {
 }
 
 distinct_from_csv <- function(csv_string) {
-  split <- strsplit(csv_string, ",")
+  split <- strsplit(csv_string, ";")
+  print(split)
   split <- unique(unlist(split, use.names = FALSE))
-  return(paste0(split[split != "-"], collapse = ","))
+  return(paste0(split[split != "-"], collapse = ";"))
 }
 
 clean_annotations <- function(df) {
@@ -129,7 +130,7 @@ clean_annotations <- function(df) {
       distinct(., interpro_description, .keep_all = TRUE) %>%
       mutate(matchedPeptideIds = query) %>%
       group_by(query) %>%
-      mutate_at(., vars(-group_cols()), paste0, collapse = ",") %>%
+      mutate_at(., vars(-group_cols()), paste0, collapse = ";") %>%
       distinct() %>%
       mutate_at(., vars(-group_cols()), distinct_from_csv) %>%
       ungroup() %>%

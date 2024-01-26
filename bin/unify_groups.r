@@ -5,7 +5,7 @@ library(glue)
 
 check_group <- function(group_list, group_record) {
   group_list <- as.character(group_list)
-  split <- strsplit(group_list, split = ",") %>% unlist()
+  split <- strsplit(group_list, split = ";") %>% unlist()
   try <- intersect(names(group_record), split)
   if (length(try) > 0) {
     not_in <- setdiff(split, names(group_record))
@@ -25,7 +25,7 @@ unify_groups <- function(combined_tib) {
   counter <- 1
   for (index in seq_along(combined_tib$ProteinId)) {
     current <- combined_tib[index, ]
-    current_groups <- strsplit((current$ProteinGroupId), ",") %>% unlist()
+    current_groups <- strsplit((current$ProteinGroupId), ";") %>% unlist()
     current_groups <- current_groups[grep("NA", current_groups,
       invert = TRUE
     )]
@@ -44,12 +44,12 @@ unify_groups <- function(combined_tib) {
 }
 
 collect_in_group <- function(group_name, dataframe) {
-  return(paste(dataframe[[group_name]], collapse = ","))
+  return(paste(dataframe[[group_name]], collapse = ";"))
 }
 
 num_prot <- function(prot_list) {
   return(
-    prot_list %>% strsplit(",") %>% unlist() %>% length()
+    prot_list %>% strsplit(";") %>% unlist() %>% length()
   )
 }
 
@@ -63,20 +63,20 @@ group_frame <- function(pId, combined_frame, p_record) {
 resolve_records <- function(combined_tib, records) {
   new <- combined_tib %>%
     mutate(Group = unlist(lapply(ProteinGroupId, function(x) {
-      groups <- strsplit(x, ",")[[1]]
+      groups <- strsplit(x, ";")[[1]]
       found <- intersect(groups, names(records))[1]
       return(records[[found]])
     })))
   return(new)
 }
 
-main <- function(search_type, group_prefix, output, input) {
+main <- function(search_type, group_prefix, input) {
   combined <- read.delim(input, sep = "\t") %>%
     as_tibble()
   group_records <- unify_groups(combined)
   all_groups <- resolve_records(combined, group_records) %>%
     mutate(ID_method = search_type)
-  write_delim(all_groups, output, delim = "\t")
+  return(all_groups)
 }
 
 if (sys.nframe() == 0) {
@@ -93,5 +93,6 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-s", "--search_type"), type = "character")
   parser <- add_option(parser, c("-p", "--group_prefix"), type = "character")
   args <- parse_args(parser)
-  main(args$search_type, args$group_prefix, args$output, args$input)
+  m <- main(args$search_type, args$group_prefix, args$input)
+  write_delim(m, args$output, delim = "\t")
 }
