@@ -11,3 +11,4 @@ args <- list(
 source(glue("{args$r_source}/helpers.r"))
 output <- "~/atleast2_test.tsv"
 m <- main(args$seq_header_file, args$path)
+write_tsv(m, "./tests/testthat//output//intersected_searches.tsv")
