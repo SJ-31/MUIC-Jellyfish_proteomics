@@ -27,6 +27,9 @@ process COMBINE_ALL {
         --coverage TRUE \
         --sort_mods TRUE \
         --empai TRUE \
+        --pfam2go $params.pfam2go \
+        --interpro2go $params.interpro2go \
+        --pfam_db $params.pfam_entries \
         --alignment_file aligned_peptides.fasta \
         --is_denovo $params.denovo \
         --fdr $params.fdr \

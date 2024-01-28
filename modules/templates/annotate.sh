@@ -14,6 +14,7 @@ if [ -e needs_annotating.fasta ]; then
     mv needs_annotating* ${eggdir}; cd ${eggdir}
     export EGGNOG_DATA_DIR=!{params.eggnog_data_dir}
     conda run -n eggnog emapper.py -i needs_annotating.fasta \
+        -m mmseqs \
         --output temp \
         --report_orthologs
     else

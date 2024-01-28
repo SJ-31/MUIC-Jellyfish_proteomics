@@ -27,6 +27,7 @@ process EGGNOG {
         export EGGNOG_DATA_DIR="$params.eggnog_data_dir"
         emapper.py -i $unknown_fasta \
             --output ${params.pref} \
+            -m mmseqs \
             --report_orthologs
         """
     }
