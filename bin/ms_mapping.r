@@ -14,8 +14,10 @@ mzml <- header(openMSfile(input)) %>%
   as_tibble()
 mzml <- mzml %>%
   mutate(scanNum = paste0(run_name, ".", acquisitionNum)) %>%
-  select(c(scanNum, msLevel, retentionTime, precursorCharge,
-           precursorIntensity, precursorMZ, totIonCurrent,
-           peaksCount, basePeakMZ))
+  select(c(
+    scanNum, msLevel, retentionTime, precursorCharge,
+    precursorIntensity, precursorMZ, totIonCurrent,
+    peaksCount, basePeakMZ
+  ))
 
 write_delim(mzml, output, delim = "\t")

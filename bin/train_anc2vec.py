@@ -3,9 +3,10 @@
 import anc2vec.train as builder
 import numpy as np
 
-save_to = "/mnt/data/shannc/nf/data/reference/go.obo"
+go_obo = "/mnt/data/shannc/nf/data/reference/go.obo"
+save_to = "/mnt/data/shannc/nf/data/reference/go_embedded.npz"
 es = builder.fit(
-    save_to,
+    go_obo,
     embedding_sz=200,
     batch_sz=64,
     num_epochs=100,

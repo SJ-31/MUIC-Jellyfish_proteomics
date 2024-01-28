@@ -9,7 +9,6 @@ $ python fetch-protein-matches.py UNIPROT-ACCESSION
 """
 
 import sys
-import errno
 import re
 import json
 import ssl
