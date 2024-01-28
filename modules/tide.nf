@@ -18,16 +18,16 @@ process TIDE {
     path("*percolator*"), emit: percolator
     path("tide_percolator_proteins.tsv"), emit: perc_protein
     path("tide_percolator_psms.tsv"), emit: perc_psms
-    path("*.log.txt")
+    path("*.log")
     //
 
-    script:
-    def check = file("${outdir}/tide_search.target.txt")
+    shell:
+    def check = file("${outdir}/tide_search.target.temp")
     if (check.exists()) {
-        """
-        cp ${outdir}/tide_search* .
-        cp ${percolatordir}/tide_percolator* .
-        """
+        '''
+        cp !{outdir}/tide_search* .
+        cp !{percolatordir}/tide_percolator* .
+        '''
     } else {
         template 'tide.sh'
     }
