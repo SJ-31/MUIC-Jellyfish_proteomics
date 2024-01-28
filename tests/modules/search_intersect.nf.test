@@ -1,0 +1,28 @@
+nextflow_process {
+
+    name "Test Process SEARCH_INTERSECT"
+    script "modules/search_intersect.nf"
+    process "SEARCH_INTERSECT"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pth = "$baseDir/results/jellyfish/1-First_pass"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("$params.pth/Percolator/*_percolator_proteins.tsv").collect()
+                input[1] = "$baseDir/tests/nf-test-out/search_intersect"
+                input[2] = "$baseDir/results/jellyfish/Databases/seq-header_mappings.tsv"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

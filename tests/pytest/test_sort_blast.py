@@ -9,7 +9,7 @@ sys.path.append("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
 import sort_blast as sb
 
 output = f"{workdir}/tests/pytest/output"
-m = "~/Bio_SDD/MUIC_senior_project/workflow/results/jellyfish"
+m = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/jellyfish"
 
 
 def get_results():

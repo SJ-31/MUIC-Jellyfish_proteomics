@@ -19,7 +19,7 @@ for name, file in output.items():
     )
 
 
-def search(regex: str, df, case=False):
+def mySearch(regex: str, df, case=False):
     """Search all the text columns of `df`, return rows with any matches."""
     textlikes = df.select_dtypes(include=[object, "string"])
     return df[
@@ -31,10 +31,26 @@ def search(regex: str, df, case=False):
     ]
 
 
-def columnsWith(regex: str, df, case=False):
+def myColumnsWith(regex: str, df, case=False):
     """Return columns of `df` that contain the regex"""
     contained = []
     for col in df.select_dtypes(include=[object, "string"]):
-        if df[col].str.contains(regex, regex=True, case=case, na=False).any():
-            contained.append(col)
+        try:
+            if (
+                df[col]
+                .apply(str)
+                .str.contains(regex, regex=True, case=case, na=False)
+                .any()
+            ):
+                contained.append(col)
+        except AttributeError:
+            from IPython.core.debugger import set_trace; set_trace()  # fmt: skip
     return contained
+
+
+nf_test = {}
+for file in Path("./tests/nf-test-out/annotate").glob("*downloads*"):
+    nf_test[file.name] = pd.read_csv(file, sep="\t")
+for file, df in nf_test.items():
+    print(file)
+    print(myColumnsWith(",", df))

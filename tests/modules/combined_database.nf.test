@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "Test Process COMBINED_DATABASE"
+    script "modules/combined_database.nf"
+    process "COMBINED_DATABASE"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                // define parameters here. Example:
+                // outdir = "tests/results"
+            }
+            process {
+                """
+                Channel.fromPath("$baseDir/runs/jelly_db.txt")
+                    .splitText()
+                    .set { database_listing }
+                Channel.fromPath("$baseDir/results/jellyfish/Denovo/*/*.fasta")
+                                    .set { fastas }
+                input[0] = database_listing.collect()
+                input[1] = fastas.collect()
+                input[2] = "$baseDir/tests/nf-test-out/combined_database"
+                input[3] = "$baseDir/tests/nf-test-out/combined_database"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

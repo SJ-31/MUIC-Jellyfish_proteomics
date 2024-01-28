@@ -3,7 +3,9 @@ import sys
 
 dir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
 sys.path.append(f"{dir}/bin")
+sys.path.append(f"{dir}/tests/pytest")
 import annotate as an
+import test_verify_output as vo
 import pandas as pd
 
 pth = f"{dir}/results/jellyfish/1-First_pass/"
@@ -24,24 +26,24 @@ def test_anno():
     import os
 
     args = {
-        # "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
-        "input": f"{dir}/jellyfish_blast_matched-SHORTENED.tsv",
+        "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
+        # "input": f"{dir}/jellyfish_blast_matched-SHORTENED.tsv",
         "annotate_extra": True,
     }
     f = an.anno(args)
     t = pd.read_csv("needs_annotating.tsv", sep="\t")
     os.remove("needs_annotating.fasta")
     os.remove("needs_annotating.tsv")
-    args["annotate_extra"] = False
-    fn = an.anno(args)
-    tn = pd.read_csv("needs_annotating.tsv", sep="\t")
-    os.remove("needs_annotating.fasta")
-    os.remove("needs_annotating.tsv")
+    # args["annotate_extra"] = False
+    # fn = an.anno(args)
+    # tn = pd.read_csv("needs_annotating.tsv", sep="\t")
+    # os.remove("needs_annotating.fasta")
+    # os.remove("needs_annotating.tsv")
     return {
         "annotated_extra": f,
         "needs_annotating_extra": t,
-        "annotated_normal": fn,
-        "needs_annotating_normal": tn,
+        # "annotated_normal": fn,
+        # "needs_annotating_normal": tn,
     }
 
 
@@ -68,11 +70,12 @@ def test_merge_interpro():
     return f
 
 
-# a = test_anno()
+a = test_anno()
 # # Try drop duplicates by protein id
-# for name, df in a.items():
-#     print(f"{name}: {df.shape}")
-#     print(f"    Num unique protein ids {df['ProteinId'].unique().shape}")
+for name, df in a.items():
+    print(f"{name}: {df.shape}")
+    print(f"    Num unique protein ids {df['ProteinId'].unique().shape}")
+    print(vo.columnsWith(",", df))
 # ae = a["annotated_extra"]
 # hp = a["annotated_extra"].query("GO.isna() & PANTHER.notna()")
 # It does seem that in some cases, the panther-go mapping fails...
