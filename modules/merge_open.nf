@@ -1,4 +1,5 @@
 process MERGE_OPEN {
+
     publishDir "$outdir", mode: "copy"
 
     input:
@@ -28,8 +29,8 @@ process MERGE_OPEN {
     cat temp1.fasta unmatched_peptides.fasta > temp2.fasta
     cd-hit -i temp2.fasta -o unknown.fasta -c 1.0
     '''
-    // cd-hit at 1.0 identity will cluster sequences that are complete subsets
-    // of another
+    // cd-hit at 1. identity will cluster sequences that are complete subsets
+    // of one another
     //
 }
 

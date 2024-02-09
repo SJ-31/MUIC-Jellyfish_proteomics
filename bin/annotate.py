@@ -15,6 +15,7 @@ from requests.adapters import HTTPAdapter, Retry
 #       column titled "header"
 #
 
+
 POLLING_INTERVAL = 3
 API_URL = "https://rest.uniprot.org"
 

@@ -115,7 +115,7 @@ def main(output_folder):
     for taxon, taxon_id in taxa.items():
         search = constructQuery(venom_keywords, taxon_id)
         cur_dict = {"all": processQuery(search)}
-        cur_dict["all"]["GO_ids"] = cur_dict["all"]["Gene Ontology IDs"].apply(
+        cur_dict["all"]["GO_IDs"] = cur_dict["all"]["Gene Ontology IDs"].apply(
             lambda x: x if pd.isna(x) else x.replace(" ", "")
         )
         cur_dict["reviewed"] = cur_dict["all"].query("Reviewed == 'reviewed'")

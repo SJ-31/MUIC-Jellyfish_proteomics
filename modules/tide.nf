@@ -22,7 +22,7 @@ process TIDE {
     //
 
     shell:
-    def check = file("${outdir}/tide_search.target.temp")
+    def check = file("${outdir}/tide_search.target.txt")
     if (check.exists()) {
         '''
         cp !{outdir}/tide_search* .

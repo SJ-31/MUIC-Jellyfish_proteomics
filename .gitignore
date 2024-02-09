@@ -1,4 +1,9 @@
 work/*
+.idea/*
+.RData
+.nf-test.log
+*.nf.test.snap
+run_summary.org
 docs/__*
 tests/__pycache__
 tests/results/*

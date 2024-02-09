@@ -32,18 +32,14 @@ process MSGF {
             java -jar !{params.msgf} -s !{file} \
                 -o ${n}-!{file.baseName}.mzid \
                 -d ${n}.fasta \
-                -conf !{params.config_dir}/MSGFPlus_Params.txt
-                -addFeatures 1 \
-            -tda 0 > !{name}_search.log
+                -conf !{params.config_dir}/MSGFPlus_Params.txt \
+                -addFeatures 1 > !{name}_search.log
         done
         rm *.fasta
         msgf2pin.py \
             -d decoys-!{file.baseName}.mzid \
             -v normal-!{file.baseName}.mzid \
             -o !{name}_msgf.pin
-        rm *cseq
-        rm *csarr
-        rm *clnclp
         '''
     }
 }

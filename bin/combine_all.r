@@ -14,9 +14,26 @@ FIRST_COLS <- c(
   "UniProtKB_ID", "organism", "lineage", "ID_method", "Anno_method"
 )
 
+
+
+##'   Remove description from a vector of GO terms separated by ";"
+##'   tODO: change the splitting pattern to ; once you have data afterwards
+cleanGO <- function(go_vector) {
+  go_vector %>%
+    lapply(., \(x) {
+      if (is.na(x)) {
+        return(x)
+      }
+      s <- str_split_1(x, pattern = ",|;") %>% keep(grepl("GO:", .))
+      r <- unlist(lapply(s, gsub, pattern = "_.*", replacement = "")) %>% unique()
+      return(paste0(r, collapse = ";"))
+    }) %>%
+    unlist()
+}
+
+##'   Splits an entry with multiple matched peptides so that a match
+##'   attempt to the quantification tibble is made with every peptide
 splitPeptidesMatch <- function(tb, quant_tb) {
-  # Splits an entry with multiple matched peptides so that a match
-  # attempt to the quantification tibble is made with every peptide
   split_up <- tibbleDuplicateAt(tb, "matchedPeptideIds", ";") %>%
     nest(.by = ProteinId) %>%
     apply(., 1, \(x) {
@@ -33,10 +50,13 @@ splitPeptidesMatch <- function(tb, quant_tb) {
   return(left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId)))
 }
 
+
+##' When there are multiple quantified peptides for a protein, take
+#' the top 3 peptides and average their values, reporting that as the
+#' abundance of the protein
+#' @param quant_name the name of the program used to generate the
+#' quantification data e.g. "directlfq"
 meanTop3 <- function(tb, quant_name) {
-  # When there are multiple quantified peptides for a protein, take
-  # the top 3 peptides and average their values, reporting that as the
-  # abundance of the protein
   tb <- tb %>%
     group_by(ProteinId) %>%
     nest() %>%
@@ -64,6 +84,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   # Entries that have been matched by multiple peptides
   # peptides (de novo, transcriptome etc.) in blast and interpro are
   # extracted and handled differently:
+  # Compute average and median values across samples
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds) &
     ProteinId != matchedPeptideIds)
   if (nrow(has_multiple) != 0) {
@@ -212,7 +233,8 @@ main <- function(args) {
   combined <- combined %>%
     mutate(
       q_adjust = unlist(lapply(`q.value`, sortVals)),
-      pep_adjust = unlist(lapply(posterior_error_prob, sortVals))
+      pep_adjust = unlist(lapply(posterior_error_prob, sortVals)),
+      GO_IDs = cleanGO(GO)
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
