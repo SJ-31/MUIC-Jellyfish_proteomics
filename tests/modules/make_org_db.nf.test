@@ -1,0 +1,29 @@
+nextflow_process {
+
+    name "Test Process MAKE_ORGDB"
+    script "modules/make_org_db.nf"
+    process "MAKE_ORGDB"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                // define parameters here. Example:
+                // outdir = "tests/results"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("$baseDir/results/jellyfish/1-First_pass/jellyfish_all.tsv")
+                input[1] = "$baseDir/data/protein_databases/comparison_taxa"
+                input[2] = "$baseDir/tests/nf-test-out/makeorgdb"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

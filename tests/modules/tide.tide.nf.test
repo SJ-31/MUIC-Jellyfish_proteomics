@@ -14,9 +14,9 @@ nextflow_process {
             process {
                 """
                 input[0] = Channel.fromPath(params.mgf_path).collect()
-                input[1] = "$baseDir/tests/nf-test-output/tide"
-                input[2] = "$baseDir/tests/nf-test-output/tide"
-                input[3] = "$baseDir/tests/nf-test-output/tide"
+                input[1] = "$baseDir/tests/nf-test-out/tide"
+                input[2] = "$baseDir/tests/nf-test-out/tide"
+                input[3] = "$baseDir/tests/nf-test-out/tide"
                 input[4] =  Channel.fromPath(params.db_path)
                 """
             }

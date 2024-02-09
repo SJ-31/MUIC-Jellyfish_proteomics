@@ -27,8 +27,6 @@ args <- list(
 source(glue("{args$r_source}/helpers.r"))
 results <- main(args)
 all <- results$all
-## write_tsv(all, "./tests/results/Combined/all_test.tsv")
-## write_lines(results$anno$ProteinId, "./tests/testthat/output/all_proteinids.txt")
 found <- results$f
 
 
@@ -153,5 +151,5 @@ with_vals <- lapply(kept_vars, get) %>% `names<-`(kept_vars)
 ##     algn_new <<- c(algn_new, algn[x])
 ##     seq_new <<- c(seq_new, seq[x])
 ##   }
-##})
+## })
 ## full_algn <- lapply(list(seq_new, mid, algn_new), str_flatten) %>% unlist()
