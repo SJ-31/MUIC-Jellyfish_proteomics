@@ -38,7 +38,7 @@ search_enzyme_cut_2 =                       # Second enzyme's cutting amino acid
 search_enzyme_nocut_2 =                     # Second enzyme's protecting amino acid.
 allowed_missed_cleavage_2 = 2               # Second enzyme's allowed number of missed cleavages per peptide. Maximum value is 5.
 search_enzyme_sense_2 = C                   # Second enzyme's cutting terminal.
-num_enzyme_termini = 1                      # 0 for non-enzymatic, 1 for semi-enzymatic, 2 for fully-enzymatic, and 3 for N-term semi-enzymatic.
+num_enzyme_termini = 2                      # 0 for non-enzymatic, 1 for semi-enzymatic, 2 for fully-enzymatic, and 3 for N-term semi-enzymatic.
 
 clip_nTerm_M = 1                            # Specifies the trimming of a protein N-terminal methionine as a variable modification (0 or 1).
 
