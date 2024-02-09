@@ -30,7 +30,4 @@ workflow 'make_db' {
     }
     COMBINED_DATABASE(database_listing.collect(), denovo.collect(),
                       "$params.results/Databases", params.db_loc)
-
-    emit:
-    COMBINED_DATABASE.out.listing
 }

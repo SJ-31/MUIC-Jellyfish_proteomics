@@ -29,7 +29,7 @@ workflow 'open_search' {
     METAMORPHEUS_GET_GPTMD.out.all.flatten().filter( ~/.*\.xml/ )
         .set { xml_ch }
     METAMORPHEUS_SEARCH_GPTMD(mzML.collect(),
-                              "$outdir/Metamorpheus_gptmd",
+                              "$outdir/Metamorpheus_gptmd_search",
                               "$outdir/Logs", "GTPMD",
                               "$params.config_dir/metamorpheus_params.toml", xml_ch)
     METAMORPHEUS_SEARCH_GPTMD.out.percolator.mix(
