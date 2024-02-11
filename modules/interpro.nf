@@ -1,5 +1,6 @@
 process INTERPROSCAN {
     publishDir "$outdir", mode: "copy"
+    memory "35 GB"
 
     input:
     path(unknown_fasta)

@@ -1,5 +1,5 @@
 process MSFRAGGER {
-    memory { 2.GB * task.attempt }
+    memory "35 GB"
     publishDir "$outdir", mode: "copy"
     publishDir "$logdir", mode: "copy", pattern: "*.log"
 
