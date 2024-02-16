@@ -12,6 +12,12 @@ library(vegan)
 library(clusterProfiler)
 library(tidyverse)
 
+#' Unique values of a named vector (based on its name)
+#'
+uniqueNames <- function(vec) {
+  return(vec[!duplicated(names(vec))])
+}
+
 
 #' Related GO terms based on ontology structure
 #'
@@ -24,9 +30,16 @@ goRelated <- function(term) {
     ontology <- query@Ontology
     secondary <- query@Secondary
     offspring <- switch(ontology,
-                        CC = { GOCCOFFSPRING[[term]] },
-                        BP = { GOBPOFFSPRING[[term]] },
-                        MF = { GOMFOFFSPRING[[term]] })
+      CC = {
+        GOCCOFFSPRING[[term]]
+      },
+      BP = {
+        GOBPOFFSPRING[[term]]
+      },
+      MF = {
+        GOMFOFFSPRING[[term]]
+      }
+    )
     return(c(secondary, offspring))
   }
   return(NULL)
@@ -35,8 +48,8 @@ goRelated <- function(term) {
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
-           tibble::rownames_to_column(var = first_col) %>%
-           as_tibble())
+    tibble::rownames_to_column(var = first_col) %>%
+    as_tibble())
 }
 
 #' Saves both 3d or 2d plots
@@ -71,14 +84,16 @@ euclideanDistance <- function(tb, name_col) {
 }
 
 #' Equalize the number of proteins between the sample and taxa being compared
-#' 
+#'
 #' @description
 #' When a given taxon has more proteins than the sample, the proteins
 #' are sorted by length and selection is performed at regular intervals
 #' so that the taxon tibble has the same dimensions as the sample tb
 adjustProteinNumbers <- function(sample_tb, taxa_tb_list) {
   sample_num <- nrow(sample_tb)
-  nested <- taxa_tb_list %>% group_by(taxon) %>% nest()
+  nested <- taxa_tb_list %>%
+    group_by(taxon) %>%
+    nest()
   nested$data <- nested$data %>% lapply(\(x) {
     nrows <- nrow(x)
     if (nrows <= sample_num) {
@@ -146,10 +161,10 @@ prepOrgDb <- function(path) {
 reduceGOList <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
     rrvgo::calculateSimMatrix(go_list,
-                              orgdb = db_name,
-                              keytype = "GID",
-                              ont = x,
-                              method = "Rel"
+      orgdb = db_name,
+      keytype = "GID",
+      ont = x,
+      method = "Rel"
     )
   })
   names(sims) <- ONTOLOGIES
@@ -205,7 +220,7 @@ ontoResults <- function(ontologizer_dir) {
     unlist()
   names(onto_files) <- onto_files %>%
     lapply(., str_match,
-           pattern = ".*-(.*)\\.txt"
+      pattern = ".*-(.*)\\.txt"
     ) %>%
     lapply(., \(x) x[, 2]) %>%
     unlist()
@@ -231,7 +246,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
 
   # Load Uniprot data into a list of tibbles
   file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-                          full.names = TRUE
+    full.names = TRUE
   )
   all_tbs <- file_list %>%
     lapply(\(x) {
@@ -246,7 +261,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
         dplyr::rename(length = Length)
     }) %>%
     `names<-`(lapply(file_list, gsub,
-                     pattern = ".*/(.*)\\.tsv", replacement = "\\1"
+      pattern = ".*/(.*)\\.tsv", replacement = "\\1"
     ))
 
 
@@ -275,8 +290,8 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     nest()
   taxa_counts <- go_tb_all$taxon %>% table()
   go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-    go_id <- nested[x,]$GO_IDs
-    cur_nest <- nested[x,]$data[[1]] %>% table()
+    go_id <- nested[x, ]$GO_IDs
+    cur_nest <- nested[x, ]$data[[1]] %>% table()
     normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
     most_frequent <- normalized %>%
       as_tibble() %>%

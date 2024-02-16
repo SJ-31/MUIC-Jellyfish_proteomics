@@ -91,16 +91,16 @@ tsneAndJoin <- function(data, join_col) {
 }
 
 #' Wrapper for Scikit learn's more optimized tsne
-tsneSkAndJoin <- function(data, join_col, args) {
+tsneSkAndJoin <- function(data, join_col, params) {
   converted <- data %>% column_to_rownames(var = join_col)
   mf <- import("sklearn.manifold")
-  if (missing(args)) {
+  if (missing(params)) {
     tsne <- mf$TSNE(n_components = 3L)
   } else {
     tsne <- mf$TSNE(
       n_components = 3L,
-      perplexity = args$perplexity,
-      metric = args$metric
+      perplexity = params$perplexity,
+      metric = params$metric
     )
   }
   result <- tsne$fit_transform(converted)
@@ -230,9 +230,9 @@ completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params) {
       name = paste0(prefix, "_", x)
     ))
     dr_data$trustworthiness[[n]] <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
-    write_lines(
+    cat(
       dr_data$trustworthiness[[n]],
-      glue("{fig_dir}/{prefix}_{n}_trustworthiness.txt")
+      file = glue("{fig_dir}_{n}/{prefix}_{n}_trustworthiness.txt")
     )
   }
   return(dr_data)
