@@ -2,7 +2,6 @@
 #' and semantic similarity
 #'
 
-args <- list(r_source = "./bin")
 library(paletteer)
 ONTOLOGIES <- c("MF", "BP", "CC")
 library(GO.db)
