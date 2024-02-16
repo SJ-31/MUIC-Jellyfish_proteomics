@@ -16,10 +16,26 @@ write_unmatched <- function(from_blast, eggnog_hits) {
   return(list(fasta_seqs = sequences, fasta_ids = ids, tsv = not_matched_by_eggnog))
 }
 
+#' Find the true start of an eggnog annotations
+#' file
+findStart <- function(file) {
+  lines <- readLines(file, n = 50)
+  counter <- 0
+  for (i in seq_len(length(lines))) {
+    split <- str_split_1(lines[i], "\t")
+    if (split[1] == "#qseqid" || split[1] == "#query") {
+      break
+    }
+    counter <- counter + 1
+  }
+  return(counter)
+}
+
+
 main <- function(args) {
   unmatched_blast <- read_tsv(args$blast)
-  anno_df <- read_tsv(args$annotations, skip = 4)
-  seed_df <- read_tsv(args$seeds, skip = 5) %>% select(-c("evalue"))
+  anno_df <- read_tsv(args$annotations, skip = findStart(args$annotations))
+  seed_df <- read_tsv(args$seeds, skip = findStart(args$seeds)) %>% select(-c("evalue"))
   distinct_cols <- c(
     "#query", "evalue", "score", "bitscore",
     "pident", "qcov", "scov"
