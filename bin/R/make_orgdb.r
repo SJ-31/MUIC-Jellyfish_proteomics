@@ -1,30 +1,36 @@
 library(tidyverse)
 library(AnnotationForge)
 
-## Just use the custom ProteinIds column instead
-## getGeneId <- function(row) {
-##   if (!is.na(row["UniProtKB_ID"])) {
-##     return(paste0("UniProtKB:", row["UniProtKB_ID"]))
-##   }
-##   if (!is.na(row["NCBI_ID"])) {
-##     return(paste0("NCBI:", row["NCBI_ID"]))
-##   }
-##   return(paste0("Custom:", row["ProteinId"]))
-## }
-
-prepDf <- function(annotation_file) {
-  df <- read_tsv(annotation_file)
-  has_gos <- df %>%
+prepDf <- function(annotation_file, path_to_extra) {
+  # Format tibble for use with makeOrgPackage function
+  # - Split GO column
+  # - Add GO evidence column
+  # - Merge with proteins downloaded from UniProt intended for comparison
+  tb <- read_tsv(annotation_file) %>%
     filter(!is.na(GO)) %>%
-    mutate(GID = ProteinId)
-  go_df <- has_gos %>%
+    dplyr::select(ProteinId, GO_IDs, GO_evidence, header) %>%
+    dplyr::rename(GID = ProteinId)
+  compare <- list.files(path_to_extra, "*_reviewed.tsv",
+                        full.names = TRUE
+  ) %>%
+    read_tsv() %>%
+    dplyr::select(Entry, GO_IDs, `Protein names`) %>%
+    dplyr::filter(!is.na(GO_IDs)) %>%
+    dplyr::rename(GID = Entry, header = `Protein names`)
+  tb <- bind_rows(tb, compare)
+  go_df <- tb %>%
     apply(., 1, function(x) {
-      gos <- str_split_1(x["GO"], "\\||;") %>%
+      gos <- str_split_1(x["GO_IDs"], "\\||;|,") %>%
         lapply(., gsub, pattern = "_.*", replacement = "") %>%
         unlist()
-      evidence <- str_split_1(x["GO_evidence"], ",") %>%
-        lapply(., gsub, pattern = ":.*", replacement = "") %>%
-        unlist()
+      evidence <- x["GO_evidence"]
+      if (!is.na(evidence)) {
+        evidence <- str_split_1(evidence, ",") %>%
+          lapply(., gsub, pattern = ":.*", replacement = "") %>%
+          unlist()
+      } else {
+        evidence <- "IEA"
+      }
       if (length(evidence) < length(gos)) {
         evidence <- c(evidence, rep("IEA", length(gos) - length(evidence)))
       }
@@ -41,7 +47,7 @@ prepDf <- function(annotation_file) {
     as.data.frame() %>%
     unique()
   info_df <- data.frame(
-    GID = has_gos$GID, HEADER = has_gos$header, ENTREZID = has_gos$GID
+    GID = tb$GID, HEADER = tb$header, ENTREZID = tb$GID
   ) %>% unique()
   return(list(info = info_df, go = go_df))
 }
@@ -50,6 +56,7 @@ if (sys.nframe() == 0) {
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-c", "--combined_annotations"))
+  parser <- add_option(parser, c("-p", "--path_to_extra"))
   parser <- add_option(parser, c("-a", "--author"))
   parser <- add_option(parser, c("-m", "--maintainer"))
   parser <- add_option(parser, c("-t", "--tax_id"))
@@ -57,7 +64,7 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-g", "--genus"))
   args <- parse_args(parser)
 
-  dfs <- prepDf(args$combined_annotations)
+  dfs <- prepDf(args$combined_annotations, args$path_to_extra)
   makeOrgPackage(
     gene_info = dfs$info, go = dfs$go,
     version = "0.1",

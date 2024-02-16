@@ -13,13 +13,13 @@ process SORT_OPEN {
 
     script:
     """
-    Rscript $params.bin/sort_open_searches.r \
+    Rscript $params.bin/R/sort_open_searches.r \
         -p . \
         -o temp.tsv \
-        -r $params.bin \
+        -r $params.bin/R \
         -m $seq_header_mappings
 
-    Rscript $params.bin/unify_groups.r \
+    Rscript $params.bin/R/unify_groups.r \
         -i temp.tsv \
         -o grouped_open_searches.tsv \
         -s open \

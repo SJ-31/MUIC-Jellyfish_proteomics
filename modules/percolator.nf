@@ -33,9 +33,9 @@ process PERCOLATOR {
             -i $pin_file \
             -f $database
 
-        Rscript $params.bin/2combinedPEP.r \
+        Rscript $params.bin/R/2combinedPEP.r \
             -e $engine \
-            -r $params.bin \
+            -r $params.bin/R \
             -m ${engine}_percolator_psms.tsv \
             -d ${engine}_percolator_decoy_psms.tsv \
             -o ${engine}_psm2combined_PEP.tsv
@@ -44,8 +44,3 @@ process PERCOLATOR {
     //
 }
 
-    // Rscript $params.bin/to_combined_PEP.r \
-    //     -m ${engine}_percolator_proteins.tsv \
-    //     -d ${engine}_percolator_decoy_proteins.tsv \
-    //     --protein_matches \
-    //     -o ${engine}_prot2combined_PEP.tsv

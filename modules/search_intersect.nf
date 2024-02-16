@@ -15,13 +15,13 @@ process SEARCH_INTERSECT {
 
     script:
     """
-    Rscript $params.bin/atleast2.r \
+    Rscript $params.bin/R/atleast2.r \
         -m ${seq_header_mappings} \
         -p . \
-        -r $params.bin \
+        -r $params.bin/R \
         -o intersected_searches.tsv
 
-    Rscript $params.bin/unify_groups.r \
+    Rscript $params.bin/R/unify_groups.r \
         -i intersected_searches.tsv \
         -o unified_groups.tsv \
         -s standard \

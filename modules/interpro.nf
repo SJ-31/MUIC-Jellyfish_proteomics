@@ -50,7 +50,7 @@ process SORT_INTERPRO {
 
     script:
     """
-    Rscript $params.bin/sort_interpro.r \
+    Rscript $params.bin/R/sort_interpro.r \
         -i $interpro_results \
         -u $eggnog_unmatched \
         -o ${params.pref}_interpro_matched.tsv \

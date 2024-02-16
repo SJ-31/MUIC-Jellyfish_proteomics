@@ -23,7 +23,7 @@ if [ -e needs_annotating.fasta ]; then
         touch eggnog_copied.txt
     fi
 
-    Rscript !{params.bin}/sort_eggnog.r \
+    Rscript !{params.bin}/R/sort_eggnog.r \
         --output_fasta needs_annotating2.fasta \
         --blast needs_annotating.tsv \
         --output_unmatched eggnog_unmatched.tsv \
@@ -65,7 +65,7 @@ if [ -e needs_annotating.fasta ]; then
 
         annotate.py --merge_interpro \
             --interpro_query ${ipdir}/needs_annotating2.fasta \
-            -r !{params.bin} \
+            -r !{params.bin}/R \
             -i ${ipdir}/annotated.tsv \
             --more_anno !{params.pref}_downloads_anno-2.tsv \
             --output !{params.pref}_downloads_anno-3.tsv

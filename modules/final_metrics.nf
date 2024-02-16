@@ -12,7 +12,7 @@ process FINAL_METRICS {
     // TODO: Unfinished, this needs to
     script:
     """
-    Rscript $params.bin/protein_coverage.r \
+    Rscript $params.bin/R/protein_coverage.r \
         --intersected_searches $combined_table \
         -o ${params.pref}_final.tsv
 

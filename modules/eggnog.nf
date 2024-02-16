@@ -58,7 +58,7 @@ process SORT_EGGNOG {
         """
     } else {
         """
-        Rscript $params.bin/sort_eggnog.r \
+        Rscript $params.bin/R/sort_eggnog.r \
             -u ${params.pref}_eggnog_unmatched.tsv \
             -f ${params.pref}_eggnog.fasta \
             --blast $unknown_tsv \

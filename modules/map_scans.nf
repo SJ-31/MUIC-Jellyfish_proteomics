@@ -15,7 +15,7 @@ process MAP_SCANS {
     shell:
     '''
     engine=$(echo !{psm_file.baseName} | sed 's/[-_].*//')
-    Rscript !{params.bin}/get_scan_num.r \
+    Rscript !{params.bin}/R/get_scan_num.r \
         -i !{psm_file} \
         -p !{proteins} \
         -u !{unmatched_peptides} \

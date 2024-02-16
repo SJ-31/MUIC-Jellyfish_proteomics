@@ -40,10 +40,10 @@ process UNMATCHED_MSMS {
     """
     mkdir psms; mv $psm2combinedPEP psms
     mkdir scans; mv $scan_mappings scans
-    Rscript ${params.bin}/unmatched_msms.r \
+    Rscript ${params.bin}/R/unmatched_msms.r \
         --psm_path psms  \
         --pep_thresh 1 \
-        -r $params.bin \
+        -r $params.bin/R \
         --scan_path scans \
         --mzML_path . > unmatched.txt
     """

@@ -14,7 +14,7 @@ process ONTOLOGIZER {
 
     script:
     """
-    Rscript $params.bin/ontologizer.r \
+    Rscript $params.bin/R/ontologizer.r \
         -i $combined_tsv
 
     java -jar $params.ontologizer_jar -g $params.go_ontology \

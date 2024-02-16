@@ -19,7 +19,7 @@ process MS_MAPPING {
 
     for file in *.mzML
         do
-            Rscript !{params.bin}/ms_mapping.r $file ${file}.temp
+            Rscript !{params.bin}/R/ms_mapping.r $file ${file}.temp
     done
 
     merge_tables.sh -r "$header" \

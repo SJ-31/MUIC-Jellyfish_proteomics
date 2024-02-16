@@ -20,7 +20,7 @@ process COMBINE_ALL {
         eggnog = interpro = ""
     }
     """
-    Rscript $params.bin/combine_all.r \
+    Rscript ${params.bin}/R/combine_all.r \
         --eggnog $eggnog \
         --interpro $interpro \
         --downloads $downloads \
@@ -37,7 +37,7 @@ process COMBINE_ALL {
         --output "${params.pref}_all.tsv" \
         --directlfq $directlfq \
         --flashlfq $flashlfq \
-        --r_source $params.bin
+        --r_source ${params.bin}/R
     """
     //
 }
