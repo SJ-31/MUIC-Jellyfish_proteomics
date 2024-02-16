@@ -153,5 +153,24 @@ if (!args$optimize) {
         }
       }
     }
+  } else if (args$mode == "TSNE") {
+    for (metric in c("cosine", "euclidean")) {
+      for (p in seq(from = 5, to = 50, by = 5)) {
+        params <- list(
+          perplexity = p,
+          metric = metric
+        )
+        print(glue("Running tsne with perplexity {p}, {metric} distance"))
+        path <- glue("{fig_path}/tsne_optimization/{p}p_{metric}")
+        completeDR(
+          dr_data = sample_protein,
+          fig_dir = path,
+          prefix = "sample",
+          join_on = "ProteinId",
+          dR = tsneSkAndJoin,
+          params = params
+        )
+      }
+    }
   }
 }
