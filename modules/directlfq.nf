@@ -35,6 +35,7 @@ process DIRECTLFQ {
 
     output:
     path("directlfq_prot.tsv"), emit: quant
+    path("directlfq_ions.tsv")
     path("*.log")
     //
 
@@ -49,6 +50,7 @@ process DIRECTLFQ {
         """
         directlfq lfq -i $aqreformat
         mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
+        mv directlfq.aq_reformat.tsv.ion_intensities.tsv directlfq_ions.tsv
         cp .command.out directlfq.log
         """
     }
