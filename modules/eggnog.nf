@@ -24,8 +24,9 @@ process EGGNOG {
         """
     } else {
         """
+        clean_fasta.py -i $unknown.fasta -o query.fasta
         export EGGNOG_DATA_DIR="$params.eggnog_data_dir"
-        emapper.py -i $unknown_fasta \
+        emapper.py -i query.fasta \
             --output ${params.pref} \
             -m mmseqs \
             --report_orthologs

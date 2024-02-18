@@ -19,8 +19,9 @@ process INTERPROSCAN {
         '''
     } else {
         '''
+        clean_fasta.py -i !{unknown.fasta} -o query.fasta
         header="query\tsequence_md5\tlength\tmember_db\tdb_accession\tdescription\tstart\tstop\tevalue\tstatus\tdate\tinterpro_accession\tinterpro_description\tGO\tpathways"
-        interproscan.sh -i !{unknown_fasta} \
+        interproscan.sh -i query.fasta \
             -f tsv \
             -goterms \
             -pa \
