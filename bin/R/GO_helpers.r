@@ -164,7 +164,9 @@ reduceGOList <- function(go_list) {
       orgdb = db_name,
       keytype = "GID",
       ont = x,
-      method = "Rel"
+      method = "Wang" # Because the IC-based methods are based on the
+      # specific corpus of GO terms, this can introduce bias
+      # Wang's graph-based method does not have this limitation
     )
   })
   names(sims) <- ONTOLOGIES
@@ -234,12 +236,12 @@ ontoResults <- function(ontologizer_dir) {
   return(onto_files)
 }
 
-
 goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) {
   # Load sample data & ontologizer results
   sample_tb <- readr::read_tsv(sample_data) %>%
     filter(!is.na(GO_IDs)) %>%
-    mutate(ProteinId = paste0(ProteinId, "-SAMPLE"))
+    mutate(ProteinId = paste0(ProteinId, "-SAMPLE")) # Necessary because the custom names may
+  # be the same as the database names
   ontologizer <- ontoResults(onto_path)
 
   # Load Uniprot data into a list of tibbles

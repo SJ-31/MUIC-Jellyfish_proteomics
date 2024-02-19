@@ -10,10 +10,11 @@ parser <- add_option(parser, c("-m", "--mode"))
 parser <- add_option(parser, c("-o", "--ontologizer_path"))
 parser <- add_option(parser, c("-e", "--embeddings_path"))
 parser <- add_option(parser, "--optimize",
-  action = "store_true",
-  default = FALSE
+                     action = "store_true",
+                     default = FALSE
 )
 parser <- add_option(parser, c("-r", "--r_source"))
+parser <- add_option(parser, c("-p", "--python_source"))
 parser <- add_option(parser, c("-c", "--combined_results"))
 args <- parse_args(parser)
 source(glue("{args$r_source}/GO_helpers.r"))
@@ -93,62 +94,65 @@ all_protein <- list(
 
 if (!args$optimize) {
   switch(args$mode,
-    "PCA" = {
-      protein_path <- glue("{fig_path}/pca/protein_embeddings")
-      go_path <- glue("{fig_path}/pca/go_embeddings")
-      dr_func <- pcaAndJoin
-    },
-    "COSINE" = {
-      protein_path <- glue("{fig_path}/cosine/protein_embeddings")
-      go_path <- glue("{fig_path}/cosine/go_embeddings")
-      dr_func <- cosinePcoaAndJoin
-    },
-    "UMAP" = {
-      protein_path <- glue("{fig_path}/umap/protein_embeddings")
-      go_path <- glue("{fig_path}/umap/go_embeddings")
-      dr_func <- umapAndJoin
-    },
-    "TSNE" = {
-      protein_path <- glue("{fig_path}/tsne/protein_embeddings")
-      go_path <- glue("{fig_path}/tsne/go_embeddings")
-      dr_func <- tsneAndJoin
-    }
+         "PCA" = {
+           protein_path <- glue("{fig_path}/pca/protein_embeddings")
+           go_path <- glue("{fig_path}/pca/go_embeddings")
+           dr_func <- pcaAndJoin
+         },
+         "COSINE" = {
+           protein_path <- glue("{fig_path}/cosine/protein_embeddings")
+           go_path <- glue("{fig_path}/cosine/go_embeddings")
+           dr_func <- cosinePcoaAndJoin
+         },
+         "UMAP" = {
+           protein_path <- glue("{fig_path}/umap/protein_embeddings")
+           go_path <- glue("{fig_path}/umap/go_embeddings")
+           dr_func <- umapAndJoin
+         },
+         "TSNE" = {
+           protein_path <- glue("{fig_path}/tsne/protein_embeddings")
+           go_path <- glue("{fig_path}/tsne/go_embeddings")
+           dr_func <- tsneAndJoin
+         }
   )
   sample_go <- completeDR(sample_go, go_path,
-    "GO_IDs",
-    prefix = "sample", dr_func
+                          "GO_IDs",
+                          prefix = "sample", dr_func
   )
   all_go <- completeDR(all_go, go_path,
-    "GO_IDs",
-    prefix = "all", dr_func
+                       "GO_IDs",
+                       prefix = "all", dr_func
   )
   sample_protein <- completeDR(sample_protein, protein_path,
-    "ProteinId",
-    prefix = "sample", dr_func
+                               "ProteinId",
+                               prefix = "sample", dr_func
   )
   all_protein <- completeDR(all_protein, protein_path,
-    "ProteinId",
-    prefix = "all", dr_func
+                            "ProteinId",
+                            prefix = "all", dr_func
   )
 } else {
   if (args$mode == "UMAP") {
     for (metric in c("cosine", "euclidean")) {
       for (n_neighbors in seq(from = 10, to = 15)) {
         for (min_dist in seq(from = 0.1, to = 0.5, by = 0.1)) {
-          params <- umap.defaults
-          params$n_neighbors <- n_neighbors
-          params$min_dist <- min_dist
-          params$metric <- metric
-          params$n_components <- 3
+          params <- list(umap = umap.defaults)
+          params$umap <- umap.defaults
+          params$umap$n_neighbors <- n_neighbors
+          params$umap$min_dist <- min_dist
+          params$umap$metric <- metric
+          params$umap$n_components <- 3
           print(glue("Running umap with {n_neighbors} neighbors, min_dist: {min_dist}, {metric} distance"))
           path <- glue("{fig_path}/umap_optimization/{n_neighbors}nn_{min_dist}mind_{metric}")
+          label <- labelGen("UMAP", "test", glue("n neighbors: {n_neighbors}, min dist: {min_dist}, metric: {metric}"))
           completeDR(
             dr_data = sample_protein,
             fig_dir = path,
             prefix = "sample",
             join_on = "ProteinId",
             dR = umapAndJoin,
-            params = params
+            params = params,
+            label = label
           )
         }
       }
@@ -162,13 +166,15 @@ if (!args$optimize) {
         )
         print(glue("Running tsne with perplexity {p}, {metric} distance"))
         path <- glue("{fig_path}/tsne_optimization/{p}p_{metric}")
+        label <- labelGen("T-SNE", "test", glue("perplexity: {perplexity}, metric: {metric}"))
         completeDR(
           dr_data = sample_protein,
           fig_dir = path,
           prefix = "sample",
           join_on = "ProteinId",
           dR = tsneSkAndJoin,
-          params = params
+          params = params,
+          label = label
         )
       }
     }
