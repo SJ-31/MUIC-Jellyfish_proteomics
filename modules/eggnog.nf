@@ -24,7 +24,7 @@ process EGGNOG {
         """
     } else {
         """
-        clean_fasta.py -i $unknown.fasta -o query.fasta
+        clean_fasta.py -i $unknown_fasta -o query.fasta
         export EGGNOG_DATA_DIR="$params.eggnog_data_dir"
         emapper.py -i query.fasta \
             --output ${params.pref} \

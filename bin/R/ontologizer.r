@@ -32,7 +32,7 @@ ozFormat <- function(df, with_filter, col, val) {
         pattern = "_.*", replacement = "",
         USE.NAMES = FALSE
       )
-      return(paste0(x, collapse = ","))
+      return(paste0(x, collapse = ",")) # comma delimiter is required for ontologizer formatting
     }, USE.NAMES = FALSE)) %>%
     filter(GO != "NA")
   return(prepped)

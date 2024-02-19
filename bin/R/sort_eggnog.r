@@ -50,16 +50,6 @@ main <- function(args) {
   #   Don't do this (YET) because proteins/peptides matching to the same seed
   # ortholog doesn't necessarily mean that they belong to the same protein.
   # They may belong to separate proteins that are ALL homologs of the seed ortholog
-  ## joined <- joined %>%
-  ##   lapply(., as.character) %>%
-  ##   as_tibble() %>%
-  ##   group_by(seed_ortholog) %>%
-  ##   mutate_at(., distinct_cols,
-  ##     paste0,
-  ##     collapse = ","
-  ##   ) %>%
-  ##   distinct() %>%
-  ##   ungroup()
   with_blast <- inner_join(unmatched_blast, joined,
     by = join_by(x$ProteinId == y$`#query`)
   )
