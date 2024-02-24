@@ -195,7 +195,7 @@ plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) 
                colour_column = color_col,
                labels = labels
   ) %>%
-    mySaveFig(., glue("{path}/{name}_biplot-{color_col}.png"))
+    mySaveFig(., glue("{path}/{name}_biplot-{color_col}-{labels$caption}.png"))
   plotly::plot_ly(plot,
                   x = ~base::get(glue("{prefix}1")),
                   y = ~base::get(glue("{prefix}2")),
@@ -203,7 +203,7 @@ plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) 
                   type = "scatter3d",
                   marker = list(size = 5)
   ) %>%
-    mySaveFig(., glue("{path}/{name}_3d-{color_col}.html"))
+    mySaveFig(., glue("{path}/{name}_3d-{color_col}-{labels$caption}.html"))
 }
 
 labelGen <- function(analysis_name, sample_name, caption) {
