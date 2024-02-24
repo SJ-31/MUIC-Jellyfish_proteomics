@@ -108,7 +108,6 @@ resolve_overlaps <- function(overlapping_indices, df) {
 
 distinct_from_csv <- function(csv_string) {
   split <- strsplit(csv_string, ";")
-  print(split)
   split <- unique(unlist(split, use.names = FALSE))
   return(paste0(split[split != "-"], collapse = ";"))
 }

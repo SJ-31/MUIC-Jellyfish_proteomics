@@ -28,7 +28,7 @@ def cleanPep(peptide):
 
 
 def n_observed(pep_list):
-    peps = set(pep_list.split(","))
+    peps = set(re.split(r";", pep_list))  # Change this to ;
     if "NA" in peps:
         peps.remove("NA")
     return len(peps)
@@ -61,7 +61,7 @@ def calculate_emPAI(df, m_range: tuple):
     )
     full = df[~not_full & df["seq"].notna()]
     full["peptideIds"] = full["peptideIds"].apply(
-        lambda x: ",".join([cleanPep(p) for p in x.split(",")])
+        lambda x: ";".join([cleanPep(p) for p in x.split(";")])
     )
     other = df[not_full | df["seq"].isna()]
     full["observable_peps"] = full["seq"].apply(

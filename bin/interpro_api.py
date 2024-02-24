@@ -108,7 +108,7 @@ def addGos(receive, add):
         return add
     if pd.notna(receive) and pd.isna(add):
         return receive
-    return ",".join(set(receive.split(",")) | set(add.split(",")))
+    return ";".join(set(receive.split(";")) | set(add.split(";")))
 
 
 def parseGoMapping(path):
@@ -129,7 +129,7 @@ def parseGoMapping(path):
     return (
         pd.DataFrame(p2g_df)
         .groupby(["accession", "name"])
-        .apply(lambda x: ",".join(x["GO"].to_list()))
+        .apply(lambda x: ";".join(x["GO"].to_list()))
         .to_frame()
         .reset_index()
         .rename({0: "GO"}, axis="columns")
@@ -144,32 +144,32 @@ def getOnePfam(pfam2go, interpro2go, pfam_db, domain_name):
     gos = set()
     gos.add(valueFromCol(pfam2go, "name", "GO", domain_name))
     if pfam_accession := valueFromCol(
-        pfam_db, "Name", "Accession", domain_name
+        pfam_db, "name", "accession", domain_name
     ):
         gos.add(valueFromCol(pfam2go, "accession", "GO", pfam_accession))
     if interpro_accession := valueFromCol(
-        pfam_db, "Name", "Integrated Into", domain_name
+        pfam_db, "name", "interpro_accession", domain_name
     ):
         gos.add(
             valueFromCol(interpro2go, "accession", "GO", interpro_accession)
         )
     gos = gos - {None}
     if gos:
-        return ",".join(gos)
+        return ";".join(gos)
     return None
 
 
 def pfamsFromRow(row, pfam2go, interpro2go, pfam_db):
     gos = set()
     domain_name = row["PFAMs"]
-    splits = domain_name.split(",")
+    splits = domain_name.split(";")
     if len(splits) == 1:
         return getOnePfam(pfam2go, interpro2go, pfam_db, domain_name)
     for s in splits:
         gos.add(getOnePfam(pfam2go, interpro2go, pfam_db, s))
     gos = gos - {None}
     if gos:
-        return ",".join(gos)
+        return ";".join(gos)
     return None
 
 
@@ -212,4 +212,6 @@ if __name__ == "__main__":
     # will conflict with reticulate otherwise
     if arguments["get_pfam"]:
         all_pfam = getAllPfam()
-        all_pfam.to_csv(arguments["get_pfam"], sep="\t", na_rep="NA")
+        all_pfam.to_csv(
+            arguments["get_pfam"], sep="\t", na_rep="NA", index=False
+        )

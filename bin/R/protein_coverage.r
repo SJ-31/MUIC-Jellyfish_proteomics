@@ -163,7 +163,7 @@ coverage <- function(protein, peps) {
 }
 
 appliedCoverage <- function(row) {
-  peps <- str_split_1(row[["unique_peptides"]], ",")
+  peps <- str_split_1(row[["unique_peptides"]], ";")
   if (length(peps) > 1) {
     pairs <- combn(peps, 2)
     peps <- unlist(lapply(seq_len(dim(pairs)[2]), function(x) {

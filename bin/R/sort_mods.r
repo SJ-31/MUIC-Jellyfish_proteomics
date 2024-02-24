@@ -58,7 +58,7 @@ getAllMods <- function(mod_df, row) {
   current <- mod_df[row, ]
   mods <- hash()
   modified <- current$peptideIds %>%
-    strsplit(",") %>%
+    strsplit(";") %>%
     unlist() %>%
     unique() %>%
     grep("[][]", ., value = TRUE)
