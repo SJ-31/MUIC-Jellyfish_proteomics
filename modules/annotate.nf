@@ -1,7 +1,7 @@
 process ANNOTATE {
     publishDir "$outdir", mode: "copy", pattern: "{*.tsv,*.fasta}"
-    publishDir "$outdir", mode: "copy", pattern: "${name}_eggnog-unmatched"
-    publishDir "$outdir", mode: "copy", pattern: "${name}_interpro-unmatched"
+    publishDir "$outdir", mode: "copy", pattern: "annotate_eggnog-unmatched"
+    publishDir "$outdir", mode: "copy", pattern: "annotate_interpro-unmatched"
 
     input:
     path(combined_tsv)
@@ -17,5 +17,12 @@ process ANNOTATE {
     //
 
     shell:
-    template 'annotate.sh'
+    check = file("!{outdir}/!{params.pref}_downloads_anno-3.tsv")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/* .
+        '''
+    } else {
+        template 'annotate.sh'
+    }
 }
