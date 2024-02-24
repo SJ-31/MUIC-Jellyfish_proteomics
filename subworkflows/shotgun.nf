@@ -107,6 +107,7 @@ workflow 'search' {
         PERCOLATOR.out.psm2combinedPEP
             .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
         quantify_FIRST.out.flashlfq,
+        quantify_FIRST.out.maxlfq,
         quantify_FIRST.out.directlfq,
         quantify_FIRST.out.unmatched_pep_tsv,
         "$params.results/1-First_pass",
@@ -149,6 +150,7 @@ workflow 'search' {
             PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
             TIDE_COMBINED_PEP.out.psm2combinedPEP).collect(),
        quantify_SECOND.out.flashlfq,
+       quantify_SECOND.out.maxlfq,
        quantify_SECOND.out.directlfq,
        quantify_SECOND.out.unmatched_pep_tsv,
        "$params.results/2-Second_pass",

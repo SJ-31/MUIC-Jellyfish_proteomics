@@ -7,6 +7,7 @@ process COMBINE_ALL {
     path(interpro)
     path(directlfq)
     path(flashlfq)
+    path(maxlfq)
     val(outdir)
     //
 
@@ -36,8 +37,10 @@ process COMBINE_ALL {
         --pep_thresh $params.pep_thresh \
         --output "${params.pref}_all.tsv" \
         --directlfq $directlfq \
+        --maxlfq $maxlfq \
         --flashlfq $flashlfq \
-        --r_source ${params.bin}/R
+        --r_source ${params.bin}/R \
+        --python_source ${params.bin}
     """
     //
 }

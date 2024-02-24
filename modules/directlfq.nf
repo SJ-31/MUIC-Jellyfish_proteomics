@@ -44,6 +44,7 @@ process DIRECTLFQ {
     if (check.exists()) {
         """
         cp ${outdir}/directlfq_prot.tsv .
+        cp ${outdir}/directlfq_ions.tsv .
         cp ${outdir}/directlfq.log .
         """
     } else {
