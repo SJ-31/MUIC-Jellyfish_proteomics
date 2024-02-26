@@ -15,6 +15,7 @@ workflow 'combine_searches' {
     prot2intersect
     psm2combinedPEP
     flashlfq
+    maxlfq
     directlfq
     unmatched_pep_tsv
     outdir
@@ -33,7 +34,8 @@ workflow 'combine_searches' {
     if (params.denovo) {
         ranges = Channel.from(tuple(0, 35), tuple(35, 50),
                               tuple(50, 85), tuple(85, 100000))
-        BLASTP(MERGE_OPEN.out.unknown_fasta, params.blast_db, ranges,
+        BLASTP(MERGE_OPEN.out.unknown_fasta.first(),
+               params.blast_db, ranges,
                "$outdir/Unmatched/BLAST") // Let blast try to annotate
         // de novo, transcriptome and unmatched peptides
         // To optimize the searches, queries will be partitioned into four ranges,
@@ -63,14 +65,19 @@ workflow 'combine_searches' {
 
         COMBINE_ALL(ANNOTATE.out.annotations, SORT_EGGNOG.out.matched,
                     SORT_INTERPRO.out.matched,
-                    directlfq, flashlfq, "$outdir")
+                    directlfq, flashlfq, maxlfq, "$outdir")
+        // Key for "ProteinId" column:
+        // P = protein from downloaded database
+        // D = de novo peptide
+        // T = transcriptome protein
+        // U = peptide that was not matched to a protein
     } else {
         Channel.fromPath("$params.config_dir/NO_FILE")
             .map{ it = ["no_file", it, it] }
             .set { no_file }
         ANNOTATE(MERGE_OPEN.out.database_tsv, "$outdir")
         COMBINE_ALL(no_file, no_file, ANNOTATE.out.annotations,
-                    directlfq, flashlfq, "$outdir")
+                    directlfq, flashlfq, maxlfq, "$outdir")
     }
 
     emit:

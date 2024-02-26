@@ -29,8 +29,8 @@ ozFormat <- function(df, with_filter, col, val) {
     mutate(GO = sapply(GO, function(x) {
       s <- unlist(strsplit(x, "\\||;|,")) %>% discard(!grepl("GO:", .))
       x <- sapply(s, gsub,
-        pattern = "_.*", replacement = "",
-        USE.NAMES = FALSE
+                  pattern = "_.*", replacement = "",
+                  USE.NAMES = FALSE
       )
       return(paste0(x, collapse = ",")) # comma delimiter is required for ontologizer formatting
     }, USE.NAMES = FALSE)) %>%
@@ -42,9 +42,9 @@ prep <- function(args) {
   combined <- read_tsv(args$input)
   u <- ozFormat(combined, FALSE)
   io <- ozFormat(combined, TRUE, "ID_method", "open")
-  sa <- ozFormat(filter(
-    combined, Anno_method == "blast" | Anno_method == "intial_database",
-  ), FALSE)
+  sa <- ozFormat(
+    combined %>% dplyr::filter(Anno_method == "interpro" | Anno_method == "eggNOG", grepl("[UDT]", ProteinId)
+    ), FALSE)
   return(list(
     universe = u,
     id_open = io,
@@ -60,6 +60,6 @@ if (sys.nframe() == 0) {
   m <- prep(args)
   writeOz("protein_mappings.ids", m$universe)
   writeLines(m$id_open$ProteinId, "id_with_open.txt")
-  writeLines(m$standard_annotation$ProteinId, "from_downloaded_db.txt")
+  writeLines(m$standard_annotation$ProteinId, "unknown_to_db")
   writeLines(m$universe$ProteinId, "universe.txt")
 }
