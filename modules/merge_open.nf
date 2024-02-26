@@ -17,18 +17,28 @@ process MERGE_OPEN {
     //
 
     shell:
-    '''
-    merge_open.py \
-        -i !{search_intersections} \
-        --unmatched_peptides !{unmatched_peptides} \
-        --database_output database_hits.tsv \
-        --unknown_output unknown_hits.tsv \
-        --unknown_output_fasta temp1.fasta \
-        -s !{open_searches}
+    def check = file("!{outdir}/database_hits.tsv")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/unknown_hits.tsv .
+        cp !{outdir}/unknown.fasta .
+        cp !{outdir}/database_hits.tsv .
+        cp !{outdir}/unmatched_peptides.tsv .
+        '''
+    } else {
+        '''
+        merge_open.py \
+            -i !{search_intersections} \
+            --unmatched_peptides !{unmatched_peptides} \
+            --database_output database_hits.tsv \
+            --unknown_output unknown_hits.tsv \
+            --unknown_output_fasta temp1.fasta \
+            -s !{open_searches}
 
-    cat temp1.fasta unmatched_peptides.fasta > temp2.fasta
-    cd-hit -i temp2.fasta -o unknown.fasta -c 1.0
-    '''
+        cat temp1.fasta unmatched_peptides.fasta > temp2.fasta
+        cd-hit -i temp2.fasta -o unknown.fasta -c 1.0
+        '''
+    }
     // cd-hit at 1. identity will cluster sequences that are complete subsets
     // of one another
     //

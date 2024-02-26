@@ -11,10 +11,17 @@ process MAX_LFQ {
     //
 
     script:
-    """
-    Rscript ${params.bin}/R/iq_wrapper.r --input $aqreformat \
-        --output max_lfq.tsv \
-        --r_source ${params.bin}/R
-    """
+    def check = file("${outdir}/max_lfq.tsv")
+    if (check.exists()) {
+        """
+        cp ${outdir}/max_lfq.tsv .
+        """
+    } else {
+        """
+        Rscript ${params.bin}/R/iq_wrapper.r --input $aqreformat \
+            --output max_lfq.tsv \
+            --r_source ${params.bin}/R
+        """
+    }
     //
 }

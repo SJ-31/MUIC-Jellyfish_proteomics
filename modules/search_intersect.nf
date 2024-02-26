@@ -14,18 +14,26 @@ process SEARCH_INTERSECT {
     //
 
     script:
-    """
-    Rscript $params.bin/R/atleast2.r \
-        -m ${seq_header_mappings} \
-        -p . \
-        -r $params.bin/R \
-        -o intersected_searches.tsv
+    def check = file("${outdir}/unified_groups.tsv")
+    if (check.exists()) {
+        """
+        cp ${outdir}/unified_groups.tsv .
+        cp ${outdir}/intersected_searches.tsv .
+        """
+    } else {
+        """
+        Rscript $params.bin/R/atleast2.r \
+            -m ${seq_header_mappings} \
+            -p . \
+            -r $params.bin/R \
+            -o intersected_searches.tsv
 
-    Rscript $params.bin/R/unify_groups.r \
-        -i intersected_searches.tsv \
-        -o unified_groups.tsv \
-        -s standard \
-        -p G
-    """
+        Rscript $params.bin/R/unify_groups.r \
+            -i intersected_searches.tsv \
+            -o unified_groups.tsv \
+            -s standard \
+            -p G
+        """
+    }
     // Leave the filtering for the combining module
 }
