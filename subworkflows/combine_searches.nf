@@ -6,6 +6,7 @@ include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_OPEN } from '../modules/merge_open'
+include { COVERAGE_CALC; COVERAGE_SPLIT; COVERAGE_MERGE } from '../modules/coverage'
 include { INTERPROSCAN; SORT_INTERPRO } from '../modules/interpro'
 include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
 
@@ -79,6 +80,11 @@ workflow 'combine_searches' {
         COMBINE_ALL(no_file, no_file, ANNOTATE.out.annotations,
                     directlfq, flashlfq, maxlfq, "$outdir")
     }
+    COVERAGE_MERGE(
+        COVERAGE_CALC(COVERAGE_SPLIT(COMBINE_ALL.out.all),
+                      "$outdir/coverage").collect(),
+        COMBINE_ALL.out.ALL,
+        "$outdir")
 
     emit:
     all_combined = Channel.empty()
