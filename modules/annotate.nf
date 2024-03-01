@@ -17,10 +17,10 @@ process ANNOTATE {
     //
 
     shell:
-    check = file("!{outdir}/!{params.pref}_downloads_anno-3.tsv")
+    check = file("${outdir}/${params.pref}_downloads_anno-3.tsv")
     if (check.exists()) {
         '''
-        cp !{outdir}/* .
+        cp -r !{outdir}/* .
         '''
     } else {
         template 'annotate.sh'

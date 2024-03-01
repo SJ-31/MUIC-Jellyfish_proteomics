@@ -13,7 +13,7 @@ nextflow_process {
             }
             process {
                 """
-                input[0] = Channel.fromPath("$baseDir/results/jellyfish/1-First_pass/jellyfish_all.tsv")
+                input[0] = Channel.fromPath("$baseDir/results/C_indra/1-First_pass/C_indra_all.tsv")
                 input[1] = "$baseDir/tests/nf-test-out/ontologizer"
                 """
             }

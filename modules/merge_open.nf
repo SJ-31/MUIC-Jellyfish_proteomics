@@ -17,7 +17,7 @@ process MERGE_OPEN {
     //
 
     shell:
-    def check = file("!{outdir}/database_hits.tsv")
+    def check = file("${outdir}/database_hits.tsv")
     if (check.exists()) {
         '''
         cp !{outdir}/unknown_hits.tsv .

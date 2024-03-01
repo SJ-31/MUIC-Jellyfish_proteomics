@@ -26,9 +26,9 @@ process ONTOLOGIZER {
     java -jar $params.ontologizer_jar -g $params.go_ontology \
             -a protein_mappings.ids \
             -p universe.txt \
-            -s from_downloaded_db.txt \
+            -s unknown_to_db.txt \
             -m "Bonferroni-Holm"
-    mv table-from_downloaded_db* ontologizer-from_downloaded_db.txt
+    mv table-unknown_to_db* ontologizer-unknown_to_db.txt
     mv table-id_with_open* ontologizer-id_with_open.txt
     """
     //
