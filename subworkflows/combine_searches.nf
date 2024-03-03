@@ -63,7 +63,6 @@ workflow 'combine_searches' {
                       "$outdir/Unmatched/Remaining_unmatched")
         ANNOTATE(SORT_BLAST.out.matched,
                  "$outdir/Unmatched/Database-annotated")
-
         COMBINE_ALL(ANNOTATE.out.annotations, SORT_EGGNOG.out.matched,
                     SORT_INTERPRO.out.matched,
                     directlfq, flashlfq, maxlfq, "$outdir")
@@ -80,11 +79,11 @@ workflow 'combine_searches' {
         COMBINE_ALL(no_file, no_file, ANNOTATE.out.annotations,
                     directlfq, flashlfq, maxlfq, "$outdir")
     }
-    COVERAGE_MERGE(
-        COVERAGE_CALC(COVERAGE_SPLIT(COMBINE_ALL.out.all),
-                      "$outdir/coverage").collect(),
-        COMBINE_ALL.out.ALL,
-        "$outdir")
+
+    COVERAGE_SPLIT(COMBINE_ALL.out.all)
+    COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(), "$outdir")
+    COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all,
+                   "$outdir")
 
     emit:
     all_combined = Channel.empty()

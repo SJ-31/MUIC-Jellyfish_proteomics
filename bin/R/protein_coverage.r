@@ -1,19 +1,19 @@
 library(tidyverse)
+library(seqinr)
 library(glue)
-library(parallel)
 library(Biostrings)
 
 
 writeAlignments <- function(row, file_name) {
   header <- ifelse(row[["header"]] == "unknown", row[["ProteinId"]],
-                   row[["header"]]
+    row[["header"]]
   )
   pep_count <- row[["num_unique_peps"]]
   write.fasta(row[["seq"]], header, open = "a", file.out = file_name)
   write.fasta(row[["alignment"]],
-              glue("ALIGNED PEPTIDES | COUNT: {pep_count}"),
-              open = "a",
-              file.out = file_name
+    glue("ALIGNED PEPTIDES | COUNT: {pep_count}"),
+    open = "a",
+    file.out = file_name
   )
   cat("\n", file = file_name, append = TRUE)
 }
@@ -172,13 +172,21 @@ coverage <- function(protein, peps) {
   cov <- Biostrings::coverage(align)
   cov <- tibble(values = cov@values, lengths = cov@lengths)
   sum_cov <- cov %>%
-    filter(values > 0) %>%
+    dplyr::filter(values > 0) %>%
     select(lengths) %>%
     sum()
   chars <- nchar(protein)
   nmatch <- sum(nmatch(align)) / chars
+  if (nmatch >= 1) {
+    # Redundant peptides (that differ by at least one residue) can cause nmatch to
+    # exceed 1
+    # We figure out the actual number of matches by taking the ratio of indices
+    # that are not "-" in the alignment string
+    total <- nchar(vis)
+    nmatch <- (total - str_count(vis, "-")) / total
+  }
   result <- tibble(
-    coverage_nmatch = ifelse(nmatch >= 1, 1.00, nmatch),
+    coverage_nmatch = nmatch,
     coverage_alignlen = sum_cov / chars,
     alignment = vis
   )
@@ -187,12 +195,6 @@ coverage <- function(protein, peps) {
 
 appliedCoverage <- function(row) {
   peps <- str_split_1(row[["unique_peptides"]], ";")
-  if (length(peps) > 1) {
-    pairs <- combn(peps, 2)
-    peps <- unlist(lapply(seq_len(dim(pairs)[2]), function(x) {
-      remove_substr(pairs[, x])
-    }), use.names = FALSE)
-  }
   prot <- row[["seq"]]
   return(coverage(prot, peps))
 }
@@ -200,8 +202,10 @@ appliedCoverage <- function(row) {
 
 coverageCalc <- function(prot_df) {
   # Coverage calculation will only be performed on full-length proteins
-  considered <- filter(prot_df, !grepl("U|D", ProteinId))
-  cov_info <- apply(considered, 1, appliedCoverage) %>% bind_rows()
+  considered <- dplyr::filter(prot_df, !grepl("U|D", ProteinId))
+  cov_info <- apply(considered, 1, appliedCoverage) %>%
+    dplyr::bind_rows() %>%
+    dplyr::mutate(ProteinId = considered$ProteinId)
   return(cov_info)
 }
 
@@ -210,13 +214,14 @@ coverageCalc <- function(prot_df) {
 #'
 splitForCoverage <- function(tb, path) {
   tb <- dplyr::filter(tb, !is.na(seq)) %>% dplyr::select(c(ProteinId, unique_peptides, seq))
+  size <- 500
   num_rows <- nrow(tb)
-  window <- c(0, 2000)
+  window <- c(0, size)
   slices <- list()
-  while (num_rows >= 2000) {
-    num_rows <- num_rows - 2000
+  while (num_rows >= size) {
+    num_rows <- num_rows - size
     slices <- c(slices, list(dplyr::slice(tb, window[1]:window[2])))
-    window <- window + 2000
+    window <- window + size
   }
   slices <- c(slices, list(dplyr::slice(tb, window[1]:window[2])))
   for (n in seq_along(slices)) {
@@ -226,11 +231,12 @@ splitForCoverage <- function(tb, path) {
 
 mergeCoverage <- function(tb_path, merge_into) {
   coverage <- list.files(tb_path,
-                         full.names = TRUE,
-                         pattern = ".*_calculated.tsv") %>%
+    full.names = TRUE,
+    pattern = ".*_calculated.tsv"
+  ) %>%
     map(., read_tsv) %>%
     bind_rows()
-  tb <- inner_join(merge_into, coverage, join = join_by(ProteinId))
+  tb <- inner_join(merge_into, coverage, by = join_by(ProteinId))
   return(tb)
 }
 
@@ -239,36 +245,43 @@ if (sys.nframe() == 0) {
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--input"), type = "character")
   parser <- add_option(parser, c("-o", "--output_file"),
-                       type = "character",
-                       help = "Output file name")
+    type = "character",
+    help = "Output file name"
+  )
   parser <- add_option(parser, c("-p", "--output_path"),
-                       type = "character",
-                       help = "Output path")
+    type = "character",
+    help = "Output path"
+  )
   parser <- add_option(parser, "--input_path")
   parser <- add_option(parser, c("-s", "--split"),
-                       action = "store_true")
+    action = "store_true", default = FALSE
+  )
   parser <- add_option(parser, "--alignment_file",
-                       type = "character")
+    type = "character"
+  )
   parser <- add_option(parser, c("-c", "--calculate"),
-                       action = "store_true")
+    action = "store_true", default = FALSE
+  )
   parser <- add_option(parser, c("-m", "--merge"),
-                       action = "store_true")
+    action = "store_true", default = FALSE
+  )
   args <- parse_args(parser)
   input <- read_tsv(args$input)
   if (args$split) {
     splitForCoverage(input, args$output_path)
   } else if (args$calculate) {
     calculated <- coverageCalc(input)
-    new_name <- gsub("\\.tsv",
-                     "_calculated.tsv", args$input)
+    new_name <- gsub(
+      "\\.tsv",
+      "_calculated.tsv", args$input
+    )
     write_tsv(calculated, new_name)
   } else if (args$merge) {
     merged <- mergeCoverage(args$input_path, input)
     apply(dplyr::filter(merged, !is.na(seq)), 1, writeAlignments,
-          file_name = args$alignment_file
+      file_name = args$alignment_file
     )
     merged <- dplyr::select(merged, -alignment)
     write_tsv(merged, args$output_path)
   }
 }
-
