@@ -4,7 +4,12 @@ from pathlib import Path
 import pandas as pd
 
 prefix = "jellyfish"
-path = f"./results/{prefix}/1-First_pass/"
+
+path = (
+    f"/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/"
+    "{prefix}/1-First_pass/"
+)
+
 found = {}
 output = {
     "interpro": f"{prefix}_interpro_matched",
@@ -14,9 +19,12 @@ output = {
 }
 results_path = Path(path)
 for name, file in output.items():
-    found[name] = pd.read_csv(
-        list(results_path.rglob(f"{file}.tsv"))[0], sep="\t"
-    )
+    try:
+        found[name] = pd.read_csv(
+            list(results_path.rglob(f"{file}.tsv"))[0], sep="\t"
+        )
+    except IndexError:
+        print(file)
 
 
 def mySearch(regex: str, df, case=False):
@@ -44,7 +52,9 @@ def myColumnsWith(regex: str, df, case=False):
             ):
                 contained.append(col)
         except AttributeError:
-            from IPython.core.debugger import set_trace; set_trace()  # fmt: skip
+            from IPython.core.debugger import set_trace
+
+            set_trace()  # fmt: skip
     return contained
 
 

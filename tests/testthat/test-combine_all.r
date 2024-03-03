@@ -1,7 +1,7 @@
 library(glue)
 library(testthat)
 library(ggplot2)
-source("./bin/combine_all.r")
+source("./bin/R/combine_all.r")
 dir_name <- "./results/jellyfish/1-First_pass"
 tests <- "./tests/results/"
 
@@ -19,8 +19,9 @@ args <- list(
   pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
   directlfq = glue::glue("{dir_name}/Quantify/sorted_directlfq.tsv"),
   flashlfq = glue::glue("{dir_name}/Quantify/sorted_flashlfq.tsv"),
+  python_source = "./bin",
   output = "./tests/testthat/output/combined-anno.tsv",
-  r_source = "./bin/",
+  r_source = "./bin/R/",
   fdr = 0.05,
   pep_thresh = 1
 )
