@@ -40,13 +40,15 @@ process SORT_INTERPRO {
     input:
     path(interpro_results)
     path(eggnog_unmatched)
+    path(unmatched_peptides)
     val(outdir)
     val(outdir_unmatched)
     //
 
     output:
     path("${params.pref}_interpro_matched.tsv"), emit: matched
-    path("remaining_unmatched-${params.pref}.tsv")
+    path("remaining_unmatched-${params.pref}.tsv"), emit: unmatched
+    path("remaining_unmatched-${params.pref}.fasta"), emit: unmatched_fasta
     //
 
     script:
@@ -55,7 +57,10 @@ process SORT_INTERPRO {
         -i $interpro_results \
         -u $eggnog_unmatched \
         -o ${params.pref}_interpro_matched.tsv \
-        -f remaining_unmatched-${params.pref}.tsv
+        -f remaining_unmatched-${params.pref}.tsv \
+        -a remaining_unmatched-${params.pref}.fasta \
+        -p $unmatched_peptides \
+        -m $seq_header_mappings
     """
     //
 }

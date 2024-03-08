@@ -164,15 +164,42 @@ main <- function(args) {
   return(list(unmatched = still_unmatched, all = joined))
 }
 
+
+writeUnmatched <- function(mapping, unmatched_peptides, unmatched, output) {
+  # Find unmatched peptides
+  unmatched_peptides <- filter(unmatched_peptides, ProteinId %in% unmatched$ProteinId) %>%
+    rename(seq = peptideIds)
+  print(unmatched)
+  unmatched <- filter(unmatched, !ProteinId %in% unmatched_peptides$ProteinId) %>%
+    rename(seq = peptideIds) %>%
+    select(c(ProteinId, seq, header))
+  to_write <- bind_rows(unmatched_peptides, unmatched) %>%
+    mutate(header = paste0(ProteinId, " ", header))
+  write.fasta(
+    sequences = as.list(to_write$seq),
+    names = to_write$header,
+    file.out = output,
+    nchar = 100,
+    open = "w", as.string = TRUE
+  )
+}
+
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--interpro_results"), type = "character")
   parser <- add_option(parser, c("-o", "--output"), type = "character")
+  parser <- add_option(parser, c("-p", "--unmatched_peptides"), type = "character")
   parser <- add_option(parser, c("-u", "--eggnog_unmatched"), type = "character")
   parser <- add_option(parser, c("-f", "--final_unmatched"), type = "character")
+  parser <- add_option(parser, c("-a", "--final_unmatched_fasta"), type = "character")
   args <- parse_args(parser)
   results <- main(args)
+  unmatched_peptides <- read_tsv(args$unmatched_peptides)
   write_tsv(results$unmatched, args$final_unmatched)
+  writeUnmatched(
+    full_mapping, unmatched_peptides, results$unmatched,
+    args$final_unmatched_fasta
+  )
   write_tsv(results$all, args$output)
 }
