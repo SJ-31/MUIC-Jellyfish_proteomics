@@ -31,15 +31,15 @@ goRelated <- function(term) {
     ontology <- query@Ontology
     secondary <- query@Secondary
     offspring <- switch(ontology,
-                        CC = {
-                          GOCCOFFSPRING[[term]]
-                        },
-                        BP = {
-                          GOBPOFFSPRING[[term]]
-                        },
-                        MF = {
-                          GOMFOFFSPRING[[term]]
-                        }
+      CC = {
+        GOCCOFFSPRING[[term]]
+      },
+      BP = {
+        GOBPOFFSPRING[[term]]
+      },
+      MF = {
+        GOMFOFFSPRING[[term]]
+      }
     )
     return(c(secondary, offspring))
   }
@@ -49,8 +49,8 @@ goRelated <- function(term) {
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
-           tibble::rownames_to_column(var = first_col) %>%
-           as_tibble())
+    tibble::rownames_to_column(var = first_col) %>%
+    as_tibble())
 }
 
 #' Saves both 3d or 2d plots
@@ -162,12 +162,12 @@ prepOrgDb <- function(path) {
 reduceGOList <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
     rrvgo::calculateSimMatrix(go_list,
-                              orgdb = db_name,
-                              keytype = "GID",
-                              ont = x,
-                              method = "Wang" # Because the IC-based methods are based on the
-                              # specific corpus of GO terms, this can introduce bias
-                              # Wang's graph-based method does not have this limitation
+      orgdb = db_name,
+      keytype = "GID",
+      ont = x,
+      method = "Wang" # Because the IC-based methods are based on the
+      # specific corpus of GO terms, this can introduce bias
+      # Wang's graph-based method does not have this limitation
     )
   })
   names(sims) <- ONTOLOGIES
@@ -223,12 +223,12 @@ ontoResults <- function(ontologizer_dir) {
     unlist()
   names(onto_files) <- onto_files %>%
     lapply(., str_match,
-           pattern = ".*-(.*)\\.txt"
+      pattern = ".*-(.*)\\.txt"
     ) %>%
     lapply(., \(x) x[, 2]) %>%
     unlist()
   onto_files <- lapply(onto_files, readr::read_tsv)
-  onto_files$gos_from_downloads <- onto_files$from_downloaded_db %>%
+  onto_files$gos_from_downloads <- onto_files$unknown_to_db %>%
     filter(!is.trivial) %>%
     goVector(go_column = "ID")
   onto_files$gos_from_open <- onto_files$id_with_open %>%
@@ -237,17 +237,10 @@ ontoResults <- function(ontologizer_dir) {
   return(onto_files)
 }
 
-goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) {
-  # Load sample data & ontologizer results
-  sample_tb <- readr::read_tsv(sample_data) %>%
-    filter(!is.na(GO_IDs)) %>%
-    mutate(ProteinId = paste0(ProteinId, "-SAMPLE")) # Necessary because the custom names may
-  # be the same as the database names
-  ontologizer <- ontoResults(onto_path)
-
+getUniprotData <- function(uniprot_data_dir) {
   # Load Uniprot data into a list of tibbles
   file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-                          full.names = TRUE
+    full.names = TRUE
   )
   all_tbs <- file_list %>%
     lapply(\(x) {
@@ -262,13 +255,8 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
         dplyr::rename(length = Length)
     }) %>%
     `names<-`(lapply(file_list, gsub,
-                     pattern = ".*/(.*)\\.tsv", replacement = "\\1"
+      pattern = ".*/(.*)\\.tsv", replacement = "\\1"
     ))
-
-
-  # Extract all GO terms from the list of tibbles
-  # Load into new combined tibble and merge with sample GO terms
-  # Load sample GO terms into separate tibble
   go_tb_all <- names(all_tbs) %>%
     lapply(., \(x) {
       tb <- all_tbs[[x]] %>% filter(!is.na(GO_IDs))
@@ -276,23 +264,56 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
       return(tibble(GO_IDs = gos, taxon = gsub("_reviewed", "", x)))
     }) %>%
     bind_rows()
+  all_gos <- go_tb_all$GO_IDs %>% unique()
+  prot_tb_all <- all_tbs %>%
+    bind_rows() %>%
+    dplyr::rename(ProteinId = Entry) %>%
+    dplyr::filter(!is.na(GO_IDs))
+  prot_go_map <- prot_tb_all$GO_IDs %>%
+    lapply(., str_split_1, pattern = ";") %>%
+    `names<-`(prot_tb_all$ProteinId)
+  return(list(
+    map = prot_go_map,
+    all_tbs = all_tbs,
+    go_vec = all_gos,
+    prot_tb = prot_tb_all,
+    go_tb = go_tb_all
+  ))
+}
+
+goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) {
+  # Load sample data & ontologizer results
+  sample_tb <- readr::read_tsv(sample_data) %>%
+    filter(!is.na(GO_IDs)) %>%
+    mutate(ProteinId = paste0(ProteinId, "-SAMPLE")) # Necessary because the custom names may
+  # be the same as the database names
+  ontologizer <- ontoResults(onto_path)
+
+  # Load Uniprot data into a list of tibbles
+  unip <- getUniprotData(uniprot_data_dir)
+  file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
+    full.names = TRUE
+  )
+
+  # Extract all GO terms from the list of tibbles
+  # Load into new combined tibble and merge with sample GO terms
+  # Load sample GO terms into separate tibble
 
   sample_gos <- goVector(sample_tb, go_column = "GO_IDs") %>% unique()
 
-  go_tb_all <- bind_rows(go_tb_all, tibble(
+  go_tb_all <- bind_rows(unip$go_tb, tibble(
     GO_IDs = sample_gos,
     taxon = sample_name
   ))
   # Taxa that have a higher (normalized) frequency of a given GO ID will be
   # assigned that id
-  # TODO: Is this really the best way to do it? Who could you ask?
   nested <- go_tb_all %>%
     group_by(GO_IDs) %>%
     nest()
   taxa_counts <- go_tb_all$taxon %>% table()
   go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-    go_id <- nested[x,]$GO_IDs
-    cur_nest <- nested[x,]$data[[1]] %>% table()
+    go_id <- nested[x, ]$GO_IDs
+    cur_nest <- nested[x, ]$data[[1]] %>% table()
     normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
     most_frequent <- normalized %>%
       as_tibble() %>%
@@ -315,7 +336,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     sig_id_w_open = sample_gos %in% ontologizer$id_with_open
   )
   prot_tb_sample <- dplyr::select(sample_tb, c("ProteinId", "GO_IDs"))
-  prot_tb_all <- all_tbs %>%
+  prot_tb_all <- unip$all_tbs %>%
     bind_rows() %>%
     dplyr::rename(ProteinId = Entry) %>%
     bind_rows(dplyr::mutate(sample_tb, taxon = sample_name)) %>%
@@ -323,7 +344,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
   data <- list()
   data$sample_tb <- sample_tb
   data$ontologizer <- ontologizer
-  data$all_tbs <- all_tbs
+  data$all_tbs <- unip$all_tbs
   data$go_tb$all <- go_tb_all
   data$go_tb$sample <- go_tb_sample
   data$go_vec$sample <- sample_gos
@@ -332,9 +353,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
   data$go_vec$eggnog <- eggnog_gos
   data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
   data$protein$sample <- prot_tb_sample
-  data$prot_go_map$all <- prot_tb_all$GO_IDs %>%
-    lapply(., str_split_1, pattern = ";") %>%
-    `names<-`(prot_tb_all$ProteinId)
+  data$prot_go_map$all <- unip$map
   data$prot_go_map$sample <- data$prot_go_map$all %>%
     purrr::keep_at(\(x) x %in% prot_tb_sample$ProteinId)
   return(data)
