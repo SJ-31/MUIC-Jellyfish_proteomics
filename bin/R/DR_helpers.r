@@ -69,15 +69,17 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
     geom_point(size = 1, stroke = 1) +
     scale_color_paletteer_d(p) +
     theme_bw() +
-    labs(title = labels$title,
-         caption = labels$caption)
+    labs(
+      title = labels$title,
+      caption = labels$caption
+    )
   return(plotted)
 }
 
 goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
   # Combine GO terms assigned to each protein in protein_map using
   # combine_func
-  purrr::map(names(protein_map), ~{
+  purrr::map(names(protein_map), ~ {
     dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
       reframe(across(is.numeric, combine_func)) %>%
       mutate(ProteinId = .x, .before = V1)
@@ -177,6 +179,9 @@ cosinePcoaAndJoin <- function(data, join_col) {
 #' Generates both 3d and 2d plots
 #' Currently works with results from PCA or umap
 plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) {
+  caption_str <- ifelse(labels$caption == "", "",
+    glue("-{gsub(' ', '_', labels$caption)}")
+  )
   prefix <- "V"
   if (pluck_exists(dr_result, "prcomp")) {
     prefix <- "PC"
@@ -186,29 +191,34 @@ plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) 
     colnames(dr_result) <- colnames(dr_result) %>%
       map_chr(., \(x) gsub("Dim", "V", x))
   }
-  plot <- dr_result %>%
+  to_plot <- dr_result %>%
     as_tibble() %>%
     mutate(!!join_col := join_tb[[join_col]]) %>%
     inner_join(., join_tb, by = join_by(!!join_col))
-  biplotCustom(plot,
-               x = glue("{prefix}1"), y = glue("{prefix}2"),
-               colour_column = color_col,
-               labels = labels
-  ) %>%
-    mySaveFig(., glue("{path}/{name}_biplot-{color_col}-{labels$caption}.png"))
-  plotly::plot_ly(plot,
-                  x = ~base::get(glue("{prefix}1")),
-                  y = ~base::get(glue("{prefix}2")),
-                  z = ~base::get(glue("{prefix}3")), color = ~base::get(color_col),
-                  type = "scatter3d",
-                  marker = list(size = 5)
-  ) %>%
-    mySaveFig(., glue("{path}/{name}_3d-{color_col}-{labels$caption}.html"))
+  biplot <- biplotCustom(to_plot,
+    x = glue("{prefix}1"), y = glue("{prefix}2"),
+    colour_column = color_col,
+    labels = labels
+  )
+  mySaveFig(biplot, glue("{path}/{name}_biplot-{color_col}{caption_str}.png"))
+  v1 <- to_plot[[glue("{prefix}1")]]
+  v2 <- to_plot[[glue("{prefix}2")]]
+  v3 <- to_plot[[glue("{prefix}3")]]
+  plotly::plot_ly(to_plot,
+    x = v1,
+    y = v2,
+    z = v3, color = ~ base::get(color_col),
+    type = "scatter3d",
+    marker = list(size = 5)
+  ) %>% mySaveFig(., glue("{path}/{name}_3d-{color_col}{caption_str}.html"))
+  return(biplot)
 }
 
 labelGen <- function(analysis_name, sample_name, caption) {
-  return(list(title = glue("{analysis_name} of {sample_name}"),
-              caption = caption))
+  return(list(
+    title = glue("{analysis_name} of {sample_name}"),
+    caption = caption
+  ))
 }
 
 #' Generic dimensionality reduction function
@@ -223,43 +233,46 @@ labelGen <- function(analysis_name, sample_name, caption) {
 #' and the columns to color on ("color")
 #' Note data is a named vector, which will be iterated over
 completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params, title, label) {
-  for (n in names(dr_data$data)) {
-    data <- purrr::pluck(dr_data, "data", n)
-    if (!missing(params)) {
-      print("parameters passed")
-      dr_result <- dR(data, join_on, params)
-    } else {
-      dr_result <- dR(data, join_on)
-    }
-    if (missing(label)) {
-      label <- labelGen(title, glue("{prefix}_{n}"), caption = "")
-    }
-    dr_data$dr[[n]] <- dr_result
-    purrr::map(dr_data$color, \(x) {
-      plotDr(dr_result,
-             color_col = x,
-             labels = label,
-             join_tb = dr_data$tb,
-             join_col = join_on,
-             path = paste0(fig_dir, "_", n),
-             name = paste0(prefix, "_", x)) }
-    )
-    dr_data$trustworthiness[[n]] <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
-    cat(
-      dr_data$trustworthiness[[n]],
-      file = glue("{fig_dir}_{n}/{prefix}_{n}_trustworthiness.txt")
-    )
+  data <- purrr::pluck(dr_data, "data")
+  if (!missing(params)) {
+    print("parameters passed")
+    dr_result <- dR(data, join_on, params)
+  } else {
+    dr_result <- dR(data, join_on)
   }
+  if (missing(label)) {
+    label <- labelGen(title, glue("{prefix}"), caption = "")
+  }
+  dr_data$dr <- dr_result
+  if (!is.null(dr_data$embd_type)) {
+    path_name <- paste0(fig_dir)
+  } else {
+    path_name <- paste0(fig_dir, "_", dr_data$embd_type)
+  }
+  dr_data$biplots <- purrr::map(dr_data$color, \(x) {
+    plotDr(dr_result,
+      color_col = x,
+      labels = label,
+      join_tb = dr_data$tb,
+      join_col = join_on,
+      path = path_name,
+      name = paste0(prefix, "_", x)
+    )
+  })
+  dr_data$trustworthiness <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
+  cat(
+    dr_data$trustworthiness,
+    file = glue("{fig_dir}_{n}/{prefix}_{n}_trustworthiness.txt")
+  )
   return(dr_data)
 }
-
 
 #' Compute the distance of all rows in a matrix against one vector
 #'
 #' @description
 #' Uses the function specified by "dist_func"
 distRows <- function(query, matrix, dist_func) {
-  distances <- map(rownames(matrix), \(x) dist_func(matrix[x,], query)) %>%
+  distances <- map(rownames(matrix), \(x) dist_func(matrix[x, ], query)) %>%
     `names<-`(rownames(matrix)) %>%
     unlist()
   return(distances)
@@ -282,7 +295,7 @@ nearestInDim <- function(query, k, data, dist_func, id_col) {
   }
   result_list <- list()
   for (q in seq_len(nrow(query))) {
-    result <- distRows(query[q,], points, dist_func)
+    result <- distRows(query[q, ], points, dist_func)
     result <- result %>%
       discard_at(\(x) x %in% rownames(query)) %>%
       sort() %>%

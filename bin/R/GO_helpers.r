@@ -315,6 +315,9 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     go_id <- nested[x, ]$GO_IDs
     cur_nest <- nested[x, ]$data[[1]] %>% table()
     normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
+    if (dim(normalized) == 0) {
+      return(tibble())
+    }
     most_frequent <- normalized %>%
       as_tibble() %>%
       arrange(desc(n)) %>%
@@ -354,8 +357,9 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
   data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
   data$protein$sample <- prot_tb_sample
   data$prot_go_map$all <- unip$map
-  data$prot_go_map$sample <- data$prot_go_map$all %>%
-    purrr::keep_at(\(x) x %in% prot_tb_sample$ProteinId)
+  data$prot_go_map$sample <- prot_tb_sample$GO_IDs %>%
+    lapply(., str_split_1, pattern = ";") %>%
+    `names<-`(prot_tb_sample$ProteinId)
   return(data)
 }
 
