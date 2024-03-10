@@ -6,10 +6,11 @@ if (sys.nframe() == 0) {
   parser <- OptionParser()
   parser <- add_option(parser, c("-f", "--figure_path"))
   parser <- add_option(parser, c("-s", "--sample_name"))
-  parser <- add_option(parser, c("-u", "--uniprot_data"))
+  parser <- add_option(parser, c("-u", "--uniprot_data_dir"))
   parser <- add_option(parser, "--technique")
   parser <- add_option(parser, c("-o", "--ontologizer_path"))
   parser <- add_option(parser, "--metric")
+  parser <- add_option(parser, "--uniprot_embeddings")
   parser <- add_option(parser, "--protein_embedding_mode") # One of mean or sum
   parser <- add_option(parser, c("-e", "--embeddings_path"))
   parser <- add_option(parser, c("-r", "--r_source"))
@@ -21,9 +22,8 @@ source(glue("{args$r_source}/GO_helpers.r"))
 source(glue("{args$r_source}/DR_helpers.r"))
 source(glue("{args$r_source}/prepare_embeddings.r"))
 metric <- args$metric # One of euclidean, cosine
-protein_embd_mode <- args$protein_embedding_mode
 
-
+sample_protein$color <- "category"
 results <- list()
 if (args$technique == "UMAP") {
   for (n_neighbors in seq(from = 10, to = 15)) {
@@ -72,6 +72,6 @@ if (args$technique == "UMAP") {
 }
 comparison <- ggarrange(plotlist = results, common.legend = TRUE)
 ggsave(glue("{args$figure_path}/{args$technique}_{metric}_comparison.png"),
-  comparison,
-  width = 20, height = 15
+       comparison,
+       width = 30, height = 25
 )
