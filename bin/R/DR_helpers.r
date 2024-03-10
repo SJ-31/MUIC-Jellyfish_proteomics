@@ -262,7 +262,7 @@ completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params, title, lab
   dr_data$trustworthiness <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
   cat(
     dr_data$trustworthiness,
-    file = glue("{fig_dir}_{n}/{prefix}_{n}_trustworthiness.txt")
+    file = glue("{path_name}/{prefix}_trustworthiness.txt")
   )
   return(dr_data)
 }
