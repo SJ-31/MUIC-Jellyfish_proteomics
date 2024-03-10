@@ -13,6 +13,7 @@ process ANNOTATE {
     path("${params.pref}_downloads_anno*")
     path("annotate_eggnog_unmatched")
     path("annotate_interpro_unmatched")
+    path("still_unannotated.fasta"), emit: unannotated
     path("*fasta"), optional: true
     //
 

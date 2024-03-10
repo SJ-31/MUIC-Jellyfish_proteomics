@@ -59,8 +59,7 @@ process SORT_INTERPRO {
         -o ${params.pref}_interpro_matched.tsv \
         -f remaining_unmatched-${params.pref}.tsv \
         -a remaining_unmatched-${params.pref}.fasta \
-        -p $unmatched_peptides \
-        -m $seq_header_mappings
+        -p $unmatched_peptides
     """
     //
 }

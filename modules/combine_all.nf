@@ -13,7 +13,6 @@ process COMBINE_ALL {
 
     output:
     path("${params.pref}_all.tsv"), emit: all
-    path("aligned_peptides.fasta")
     //
 
     script:

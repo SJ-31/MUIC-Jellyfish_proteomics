@@ -56,6 +56,7 @@ process COVERAGE_MERGE {
 
     output:
     path("${combined_file.baseName}_wcoverage.tsv")
+    path("aligned_peptides.fasta")
     //
 
     script:

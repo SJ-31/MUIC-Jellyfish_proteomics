@@ -53,8 +53,10 @@ countMods <- function(peptide, mod_dict) {
 }
 
 getAllMods <- function(mod_df, row) {
-  # Count all the modifications in a given peptide, returning
-  # a string with the count of each mod separated by |
+  # Split row of peptides by separator
+  # Filter uniques
+  # Count modifications
+  # Return string of modifications connected by "|"
   current <- mod_df[row, ]
   mods <- hash()
   modified <- current$peptideIds %>%
