@@ -17,6 +17,8 @@ if [ -e needs_annotating.fasta ]; then
         -m mmseqs \
         --output temp \
         --report_orthologs
+    elif [ -e annotation_complete.fasta ]; then
+        exit 0
     else
         cp -r "${previous_eggnog}" .
         mv needs_annotating* ${eggdir}; cd ${eggdir}
