@@ -58,7 +58,7 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
     x <- "PC2"
   }
   if (missing(palette)) {
-    p <- "Redmonder::qPBI"
+    p <- "ggprism::colors" # Has 20 colors
   } else {
     p <- palette
   }
@@ -79,7 +79,7 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
 goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
   # Combine GO terms assigned to each protein in protein_map using
   # combine_func
-  purrr::map(names(protein_map), ~ {
+  purrr::map(names(protein_map), ~{
     dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
       reframe(across(is.numeric, combine_func)) %>%
       mutate(ProteinId = .x, .before = V1)
@@ -115,6 +115,7 @@ tsneSkAndJoin <- function(data, join_col, params) {
 # Perform umap on "data",
 umapAndJoin <- function(data, join_col, params) {
   if (!missing(params) && pluck_exists(params, "umap")) {
+    print(params)
     umap_params <- params$umap
   } else {
     umap_params <- umap.defaults

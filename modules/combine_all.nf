@@ -1,5 +1,6 @@
 process COMBINE_ALL {
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "*.tsv"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(downloads)
@@ -9,10 +10,12 @@ process COMBINE_ALL {
     path(flashlfq)
     path(maxlfq)
     val(outdir)
+    val(logdir)
     //
 
     output:
     path("${params.pref}_all.tsv"), emit: all
+    path("combine_all.log")
     //
 
     script:
@@ -24,7 +27,6 @@ process COMBINE_ALL {
         --eggnog $eggnog \
         --interpro $interpro \
         --downloads $downloads \
-        --coverage FALSE \
         --sort_mods TRUE \
         --empai TRUE \
         --pfam2go $params.pfam2go \
@@ -39,6 +41,8 @@ process COMBINE_ALL {
         --flashlfq $flashlfq \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
+
+    cp .command.log combine_all.log
     """
     //
 }
