@@ -23,34 +23,45 @@ uniqueNames <- function(vec) {
 #' Related GO terms based on ontology structure
 #'
 #' @description
-#' Returns GO term ids related to query term id "term",
-#' which include secondary ids and all offspring (children and their children)
+#' Returns GO term ids that related to query term id "term",
+#' which includes secondary ids and all offspring (children and their children)
 #' of "term"
-goRelated <- function(term) {
+goOffspring <- function(term) {
   if (!is.null(query <- GO.db::GOTERM[[term]])) {
     ontology <- query@Ontology
     secondary <- query@Secondary
     offspring <- switch(ontology,
-      CC = {
-        GOCCOFFSPRING[[term]]
-      },
-      BP = {
-        GOBPOFFSPRING[[term]]
-      },
-      MF = {
-        GOMFOFFSPRING[[term]]
-      }
+                        CC = {
+                          GOCCOFFSPRING[[term]]
+                        },
+                        BP = {
+                          GOBPOFFSPRING[[term]]
+                        },
+                        MF = {
+                          GOMFOFFSPRING[[term]]
+                        }
     )
     return(c(secondary, offspring))
   }
   return(NULL)
 }
 
+
+#' Returns TRUE if term a is offspring of term b
+#'
+isGoOffspring <- function(a, b) {
+  offspring <- goOffspring(b)
+  if (is.null(offspring)) {
+    return(FALSE)
+  }
+  return(a %in% offspring)
+}
+
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
-    tibble::rownames_to_column(var = first_col) %>%
-    as_tibble())
+           tibble::rownames_to_column(var = first_col) %>%
+           as_tibble())
 }
 
 #' Saves both 3d or 2d plots
@@ -156,25 +167,29 @@ prepOrgDb <- function(path) {
 
 
 #'  Reduce a  list of GO terms by removing redundant terms
+#' Uses the specified semantic similarity method to generate distance
+#' matrix, then performs hierarchical clustering
 #'  Returns three types of results: the matrix of representative go terms,
 #'  the similarity matrix and the associated scatter plot
 #'  There are three for each ontology in the GO
+#' Wtihout scores, it relies on term uniqueness
 reduceGOList <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
     rrvgo::calculateSimMatrix(go_list,
-      orgdb = db_name,
-      keytype = "GID",
-      ont = x,
-      method = "Wang" # Because the IC-based methods are based on the
-      # specific corpus of GO terms, this can introduce bias
-      # Wang's graph-based method does not have this limitation
+                              orgdb = db_name,
+                              keytype = "GID",
+                              ont = x,
+                              method = "Wang" # Because the IC-based methods are based on the
+                              # specific corpus of GO terms, this can introduce bias
+                              # Wang's graph-based method does not have this limitation
     )
   })
   names(sims) <- ONTOLOGIES
+  # The scores generated here are from hiearchichal clustering
   reduce_matrices <- lapply(sims, \(x) {
     close <- myReduceSimMatrix(
       x,
-      threshold = 0.7,
+      threshold = 0.9,
       orgdb = db_name,
       keytype = "GID"
     )
@@ -223,7 +238,7 @@ ontoResults <- function(ontologizer_dir) {
     unlist()
   names(onto_files) <- onto_files %>%
     lapply(., str_match,
-      pattern = ".*-(.*)\\.txt"
+           pattern = ".*-(.*)\\.txt"
     ) %>%
     lapply(., \(x) x[, 2]) %>%
     unlist()
@@ -240,7 +255,7 @@ ontoResults <- function(ontologizer_dir) {
 getUniprotData <- function(uniprot_data_dir) {
   # Load Uniprot data into a list of tibbles
   file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-    full.names = TRUE
+                          full.names = TRUE
   )
   all_tbs <- file_list %>%
     lapply(\(x) {
@@ -255,7 +270,7 @@ getUniprotData <- function(uniprot_data_dir) {
         dplyr::rename(length = Length)
     }) %>%
     `names<-`(lapply(file_list, gsub,
-      pattern = ".*/(.*)\\.tsv", replacement = "\\1"
+                     pattern = ".*/(.*)\\.tsv", replacement = "\\1"
     ))
   go_tb_all <- names(all_tbs) %>%
     lapply(., \(x) {
@@ -292,7 +307,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
   # Load Uniprot data into a list of tibbles
   unip <- getUniprotData(uniprot_data_dir)
   file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-    full.names = TRUE
+                          full.names = TRUE
   )
 
   # Extract all GO terms from the list of tibbles
@@ -312,8 +327,8 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     nest()
   taxa_counts <- go_tb_all$taxon %>% table()
   go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-    go_id <- nested[x, ]$GO_IDs
-    cur_nest <- nested[x, ]$data[[1]] %>% table()
+    go_id <- nested[x,]$GO_IDs
+    cur_nest <- nested[x,]$data[[1]] %>% table()
     normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
     if (dim(normalized) == 0) {
       return(tibble())
@@ -399,7 +414,7 @@ TARGET_TERMS <- list(toxins = c(
   "GO:0015473" # Fimbrial usher porin activity
 ))
 TARGET_TERMS <- map(TARGET_TERMS, \(x) {
-  map(x, goRelated) %>%
+  map(x, goOffspring) %>%
     unlist() %>%
     unique() %>%
     discard(is.na)
@@ -409,3 +424,19 @@ getToxinProteins <- function(prot2go_map) {
   prot2go_map %>%
     keep(\(x) any(x %in% TARGET_TERMS$toxins))
 }
+
+# A list of important, higher-level GO categories (somewhat arbitrary)
+GO_CATEGORIES <- list(
+  venom_component = c("GO:0090719", "GO:0046930",
+                      "GO:0031640", "GO:0015473"),
+  small_molecule_binding = "GO:0036094",
+  translation = "GO:0006412",
+  transport = "GO:0006810",
+  cell_projection = "GO:0042995",
+  cytoskeleton = "GO:0005856",
+  membrane = "GO:0016020"
+)
+GO_CATEGORIES <- lapply(GO_CATEGORIES, \(x) {
+  offspring <- lapply(x, goOffspring) %>% unlist()
+  return(c(x, offspring))
+})

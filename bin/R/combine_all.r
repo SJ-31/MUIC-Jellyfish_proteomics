@@ -20,10 +20,35 @@ HEADER_QUERIES <- list(
   venom_component = "toxin|porin",
   transport = "pump|transport|channel",
   membrane = "membrane",
-  translation = "ribosom|elongation|initiation|translation",
+  translation = "ribosome|elongation|initiation|translation",
   cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
   other = ""
 )
+
+#' Check distinct
+#'
+#' @description
+#' Returns false when a tibbble has duplicated rows
+hasDuplicates <- function(tb) {
+  return(!all(dim(distinct(tb)) == dim(tb)))
+}
+
+#' Assign a protein to a higher-level go category
+#' 
+#' @description
+#' Categorizes a protein based on the parent terms (in a specified list) of one of its GO terms
+#' If there are multiple hits, take the most specific term
+goCategorize <- function(go_list, original_category) {
+  if (!is.na(go_list)) {
+    go <- str_split_1(go_list, ";")
+    for (n in names(GO_CATEGORIES)) {
+      if (any(go %in% GO_CATEGORIES[[n]])) {
+        return(n)
+      }
+    }
+  }
+  return(original_category)
+}
 
 
 #' Assign a protein into a loose category
@@ -38,7 +63,6 @@ headerCategorize <- function(header) {
 }
 
 ##'   Remove description from a vector of GO terms separated by ";"
-##'   tODO: change the splitting pattern to ; once you have data afterwards
 cleanGO <- function(go_vector) {
   go_vector %>%
     lapply(., \(x) {
@@ -100,12 +124,12 @@ meanTop3 <- function(tb, quant_name) {
 }
 
 
+# Merge annotation tibble with quantification tibble
+# Entries that have been matched by multiple peptides
+# peptides (de novo, transcriptome etc.) in blast and interpro are
+# extracted and handled differently: the values are averaged
+# Compute average and median values across samples
 mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
-  # Merge annotation tibble with quantification tibble
-  # Entries that have been matched by multiple peptides
-  # peptides (de novo, transcriptome etc.) in blast and interpro are
-  # extracted and handled differently: the values are averaged
-  # Compute average and median values across samples
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds) &
                                        ProteinId != matchedPeptideIds)
   if (nrow(has_multiple) != 0) {
@@ -172,9 +196,9 @@ loadFile <- function(path) {
   return(df)
 }
 
+#' Parse GO evidence codes for all entries that have them
+#' GOs added by eggNOG and interpro are automatically labelled IEA
 getEvidence <- function(row) {
-              #' Parse GO evidence codes for all entries that have them
-              #' GOs added by eggNOG and interpro are automatically labelled IEA
   if (is.na(row[["GO"]])) {
     return(NA)
   }
@@ -202,7 +226,7 @@ main <- function(args) {
   combined[combined == ""] <- NA
   combined <- combined %>% mutate(
     num_peps = sapply(peptideIds, function(x) {
-      return(str_count(x, ";") + 1) # Might need to change this to ;
+      return(str_count(x, ";") + 1)
     }, USE.NAMES = FALSE),
     mass = sapply(mass, function(x) {
       if (x == "-" | is.na(x)) {
@@ -215,6 +239,10 @@ main <- function(args) {
   redundant <- sapply(colnames(combined), function(x) {
     all(is.na(combined[[x]]))
   })
+
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 227")
+  }
 
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
@@ -234,6 +262,10 @@ main <- function(args) {
       }, USE.NAMES = FALSE),
     )
 
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 250")
+  }
+
   ## Filter by FDR and PEP
   ## If a (standard) protein has at least two peptides are lower than the fdr
   ## threshold, it is kept
@@ -246,6 +278,18 @@ main <- function(args) {
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
+
+  categories <- apply(combined, 1, \(x) {
+    cat <- x["category"]
+    if (cat == "unknown" | cat == "other") {
+      return(goCategorize(x["GO_IDs"], cat))
+    } else return(cat)
+  })
+  combined$category <- categories
+
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 266")
+  }
 
   ## Record modifications
   if (args$sort_mods) {
@@ -271,12 +315,20 @@ main <- function(args) {
     pfam_db_path = args$pfam_db
   ) %>% as_tibble()
 
+
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 299")
+  }
+
   ## Merge with quantification data
   print("Begin merging with quantification")
   combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq")
   combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq")
   combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
 
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 306")
+  }
   ## Categorize
 
   ## Arrange columns
@@ -298,13 +350,11 @@ main <- function(args) {
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(all_of(FIRST_COLS))
 
-  found <- colSums(!is.na(combined)) %>%
-    lapply(., \(x) {
-      x / nrow(combined) * 100
-    }) %>%
-    as.matrix()
+  if (hasDuplicates(combined)) {
+    print("Duplicates at 330")
+  }
 
-  return(list(all = combined, f = found))
+  return(combined)
 }
 
 
@@ -324,11 +374,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--interpro2go", type = "character")
   parser <- add_option(parser, "--pfam2go", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
-  parser <- add_option(parser, "--coverage",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
-  )
   parser <- add_option(parser, "--empai",
                        type = "character",
                        default = TRUE,
@@ -343,6 +388,8 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--python_source", type = "character")
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
+  source(glue("{args$r_source}/GO_helpers.r"))
   results <- main(args)
-  write_tsv(results$all, args$output)
+  results <- distinct(results) # BUG: Somewhere, rows are being duplicated...
+  write_tsv(results, args$output)
 }
