@@ -3,28 +3,28 @@
 from pathlib import Path
 import pandas as pd
 
-prefix = "jellyfish"
-
-path = (
-    f"/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/"
-    "{prefix}/1-First_pass/"
-)
-
+prefix = "C_indra"
+runs = ("1-First_pass", "2-Second_pass")
+basedir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
 found = {}
 output = {
     "interpro": f"{prefix}_interpro_matched",
     "eggnog": f"{prefix}_eggnog_matched",
     "downloads": f"{prefix}_downloads_anno-3",
-    "combined": f"{prefix}_all",
+    "combined": f"{prefix}_all_wcoverage",
 }
-results_path = Path(path)
-for name, file in output.items():
-    try:
-        found[name] = pd.read_csv(
-            list(results_path.rglob(f"{file}.tsv"))[0], sep="\t"
-        )
-    except IndexError:
-        print(file)
+
+# Get result files, putting them in "found"
+for run in runs:
+    path = f"{basedir}/results/{prefix}/{run}/"
+    results_path = Path(path)
+    for name, file in output.items():
+        try:
+            found[f"{run}_{name}"] = pd.read_csv(
+                list(results_path.rglob(f"{file}.tsv"))[0], sep="\t"
+            )
+        except IndexError:
+            print(f"Not found: {run}/{file}")
 
 
 def mySearch(regex: str, df, case=False):
@@ -46,9 +46,9 @@ def myColumnsWith(regex: str, df, case=False):
         try:
             if (
                 df[col]
-                .apply(str)
-                .str.contains(regex, regex=True, case=case, na=False)
-                .any()
+                    .apply(str)
+                    .str.contains(regex, regex=True, case=case, na=False)
+                    .any()
             ):
                 contained.append(col)
         except AttributeError:
@@ -58,9 +58,19 @@ def myColumnsWith(regex: str, df, case=False):
     return contained
 
 
-nf_test = {}
-for file in Path("./tests/nf-test-out/annotate").glob("*downloads*"):
-    nf_test[file.name] = pd.read_csv(file, sep="\t")
-for file, df in nf_test.items():
-    print(file)
-    print(myColumnsWith(",", df))
+def hasDuplicates(df, col: str) -> bool:
+    if len(df[col]) != len(df[col].unique()):
+        return True
+    return False
+
+
+def findDuplicates(df, col: str) -> pd.Series:
+    return df[col][df[col].duplicated()]
+
+
+duplicates_proteinid = {}
+col = "ProteinId"
+for name, f in found.items():
+    if hasDuplicates(f, col):
+        duplicates_proteinid[name] = f[f[col].isin(findDuplicates(f, col))]
+        print(f"Has duplicates: {name}")

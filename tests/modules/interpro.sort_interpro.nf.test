@@ -9,14 +9,18 @@ nextflow_process {
 
         when {
             params {
-                pth = "$baseDir/tests/results/Unmatched"
+                run = "C_indra"
+                pass = "1-First_pass"
+                // pass = "2-Second_pass"
+                pth = "$baseDir/results/${run}/${pass}"
             }
             process {
                 """
-                input[0] = Channel.fromPath("${params.pth}/InterPro/nO_D_interpro.tsv")
-                input[1] = Channel.fromPath("${params.pth}/eggNOG/nO_D_eggnog_unmatched.tsv")
-                input[2] = "$baseDir/tests/nf-test-out/sort_interpro"
+                input[0] = Channel.fromPath("${params.pth}/Unmatched/InterPro/${params.run}_interpro.tsv")
+                input[1] = Channel.fromPath("${params.pth}/Unmatched/eggNOG/${params.run}_eggnog_unmatched.tsv")
+                input[2] = Channel.fromPath("${params.pth}/Quantify/Unmatched/unmatched_peptides.tsv")
                 input[3] = "$baseDir/tests/nf-test-out/sort_interpro"
+                input[4] = "$baseDir/tests/nf-test-out/sort_interpro"
                 """
             }
         }

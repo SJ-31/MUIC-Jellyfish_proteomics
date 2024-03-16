@@ -44,8 +44,21 @@ prot_dist_sample <- GOSemSim::mgeneSim(
   drop = "NULL", measure = "Wang"
 )
 
+go_freq <- d$sample_tb$GO_IDs %>%
+  lapply(., str_split_1, pattern = ";") %>%
+  unlist() %>%
+  table() %>%
+  sort(decreasing = TRUE) %>%
+  as_tibble() %>%
+  rename(c("GO_ID" = ".", "count" = "n")) %>%
+  mutate(
+    term = map_chr(GO_ID, \(x)
+      ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Term)),
+    ontology = map_chr(GO_ID, \(x)
+      ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Ontology))
+  )
 
-# rrvgo_sample <- reduceGOList(d$go_vec$sample)
+rrvgo_sample <- reduceGOList(d$go_vec$sample)
 # # rrvgo_sample$reduced_matrix %>% lmap()
 # rrvgo_all <- reduceGOList(d$go_vec$all)
 # anno_method_pcoa <- pcoaWithTb(

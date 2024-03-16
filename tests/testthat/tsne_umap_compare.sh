@@ -1,4 +1,9 @@
-for tech in "umap" "tsne"; do
+#!/bin/bash
+
+# tech_list=("umap" "tsne")
+tech_list=("umap")
+
+for tech in "${tech_list[@]}"; do
     TECH=$(echo $tech | tr '[:lower:]' '[:upper:]')
     for e_mode in "mean" "sum"; do
         for metric in "euclidean" "cosine"; do
