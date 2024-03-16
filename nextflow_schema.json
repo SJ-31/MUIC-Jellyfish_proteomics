@@ -59,7 +59,8 @@
       "description": "Run denovo searches"
     },
     "to_construct": {
-      "type": "string"
+      "type": "string",
+      "description": "text file containing all the protein sources for the database search engines, in fasta format\nPlease ensure that there are no blank lines in this file"
     },
     "db_loc": {
       "type": "string",

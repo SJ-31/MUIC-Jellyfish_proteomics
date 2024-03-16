@@ -8,7 +8,7 @@ process CLUSTER_UNMATCHED {
     //
 
     output:
-    path("unmatched_clustered.fasta")
+    path("unmatched_clustered.fasta"), emit: fasta
     path("unmatched_clustered.tsv")
     //
 
