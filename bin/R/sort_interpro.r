@@ -142,9 +142,8 @@ clean_annotations <- function(df) {
 
 main <- function(args) {
   interpro_df <- read_tsv(args$interpro_results)
-  eggnog_df <- read_tsv(args$eggnog_unmatched) %>%
-    mutate(seq = "-", mass = "-", length = "-")
-  # The true sequence of the protein that
+  eggnog_df <- read_tsv(args$eggnog_unmatched)
+  # Note that the true sequence of the protein that
   # the peptide has mapped to is unknown
   cleaned <- clean_annotations(interpro_df)
   joined <- inner_join(select(eggnog_df, -Anno_method), cleaned,
@@ -160,7 +159,7 @@ main <- function(args) {
   joined$interpro_accession <- blanks_removed
   still_unmatched <- eggnog_df[!(
     eggnog_df$ProteinId %in% joined$ProteinId), ] %>%
-    select(-c(seq, Anno_method))
+    select(-Anno_method)
   return(list(unmatched = still_unmatched, all = joined))
 }
 
@@ -169,9 +168,7 @@ writeUnmatched <- function(mapping, unmatched_peptides, unmatched, output) {
   # Find unmatched peptides
   unmatched_peptides <- filter(unmatched_peptides, ProteinId %in% unmatched$ProteinId) %>%
     rename(seq = peptideIds)
-  print(unmatched)
   unmatched <- filter(unmatched, !ProteinId %in% unmatched_peptides$ProteinId) %>%
-    rename(seq = peptideIds) %>%
     select(c(ProteinId, seq, header))
   to_write <- bind_rows(unmatched_peptides, unmatched) %>%
     mutate(header = paste0(ProteinId, " ", header))
@@ -179,7 +176,7 @@ writeUnmatched <- function(mapping, unmatched_peptides, unmatched, output) {
     sequences = as.list(to_write$seq),
     names = to_write$header,
     file.out = output,
-    nchar = 100,
+    nbchar = 100,
     open = "w", as.string = TRUE
   )
 }
