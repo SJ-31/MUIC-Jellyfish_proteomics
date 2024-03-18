@@ -48,6 +48,15 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
 }
 
 
+notMissing <- function(tb) {
+  colSums(!is.na(tb)) %>%
+    lapply(., \(x) {
+      x / nrow(tb) * 100
+    }) %>%
+    as.matrix() %>%
+    as.data.frame()
+}
+
 #'  Compare first and second passes
 #'
 #' @description
@@ -116,18 +125,21 @@ wilcoxWrapper <- function(first_sec) {
   return(list(two_sided = two_sided, sec_greater = sec_greater))
 }
 
-c_indra <- runData("./results/C_indra")
-cov_align <- compareFirstSecL(c_indra, "coverage_alignlen",
+run <- runData("./results/C_indra")
+
+cov_align <- compareFirstSecL(run, "coverage_alignlen",
                               TRUE, "ProteinId")
-num_peps <- compareFirstSecW(c_indra, "num_peps", "ProteinId", TRUE)
+num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
 test_num_peps <- wilcoxWrapper(num_peps)
-test_coverage <- wilcoxWrapper(compareFirstSecW(c_indra, "coverage_alignlen", "ProteinId"))
-c_indra_coverage <- passDensityPlot(cov_align, 0.05) + labs(x = "percent coverage")
+test_coverage <- wilcoxWrapper(compareFirstSecW(run, "coverage_alignlen", "ProteinId"))
+run_coverage <- passDensityPlot(cov_align, 0.05) + labs(x = "percent coverage")
 
-c_indra_uniques <- passUniques(c_indra)
+run_uniques <- passUniques(run)
+percent_found <- merge(notMissing(run$first),
+                       notMissing(run$sec), by = 0) %>% `colnames<-`(c("col", "first", "sec"))
 
 
-has_mods <- c_indra$first %>% filter(!is.na(Mods))
+has_mods <- run$first %>% filter(!is.na(Mods))
 unique_mods <- has_mods$Mods %>%
   map(\(x) str_split_1(x, "\\|")) %>%
   unlist() %>%
@@ -135,3 +147,29 @@ unique_mods <- has_mods$Mods %>%
   unique() %>%
   discard(\(x) grepl("0$", x))
 # Make these into tbl columns
+
+
+m <- has_mods$Mods[34]
+has_mods <- distinct(has_mods)
+
+# Store modification info in a map of mod name -> count
+mod_df <- has_mods$Mods %>%
+  lapply(., \(m) {
+    map <- hash()
+    str_split_1(m, "\\|") %>% lapply(., \(x) {
+      split <- str_split_1(x, " ")
+      map[split[1]] <- split[2]
+    })
+    tb <- map %>% as.list() %>% as_tibble()
+    return(tb)
+  }) %>%
+  bind_rows() %>%
+  mutate(ProteinId = has_mods$ProteinId) %>%
+  relocate(ProteinId, .before = everything()) %>%
+  mutate(across(!contains("ProteinId"), as.numeric)) %>%
+  column_to_rownames(var = "ProteinId")
+
+mod_percent <- colSums(mod_df, na.rm = TRUE) / sum(mod_df, na.rm = TRUE) * 100
+
+# Test if modifications are associated with category???
+# Quantify go annotation shallowness

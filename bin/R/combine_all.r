@@ -21,6 +21,7 @@ HEADER_QUERIES <- list(
   transport = "pump|transport|channel",
   membrane = "membrane",
   translation = "ribosome|elongation|initiation|translation",
+  catalytic_activity = "ase",
   cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
   other = ""
 )

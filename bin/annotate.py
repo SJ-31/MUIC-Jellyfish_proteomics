@@ -377,6 +377,8 @@ def anno(args: dict):
         writeFasta(needs_annotating, "needs_annotating.fasta")
         # Any remaining unannotated sequences will be extracted and sent to
         # eggnog mapper for annotation
+    else:
+        subprocess.run("touch annotation_complete.fasta", shell=True)
 
     final = (
         pd.concat([ncbi_mapped, uniprot_entries])
@@ -386,6 +388,10 @@ def anno(args: dict):
         .rename({"query": "NCBI_ID", "length_x": "length"}, axis="columns")
     )
     final = pd.concat([final, needs_annotating])
+    final.drop_duplicates(
+        subset="ProteinId", inplace=True
+    )  # Online databases can
+    # sometimes have multiple entries for the same protein
     if not needs_annotating_ids.empty:
         final[final["ProteinId"].isin(needs_annotating_ids)].drop(
             "PFAMs", axis="columns"
@@ -466,6 +472,7 @@ def mergeAnnotatedInterpro(args):
     writeFasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])
     if unwanted := set(final.columns) & {"header_x", "header_y"}:
+        unwanted.add("query")
         for u in unwanted:
             final.drop(u, axis="columns", inplace=True)
     print("-" * 10)
