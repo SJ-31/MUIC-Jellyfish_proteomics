@@ -46,6 +46,25 @@ goOffspring <- function(term) {
   return(NULL)
 }
 
+countOffspring <- function(term) {
+  return(length(goOffspring(term)))
+}
+
+
+#' Get semantic value of  a GO term (from Wang's method)
+#'
+#' @description
+#' A wrapper function around the non-exported getSV function from GOSemSim
+getSV <- function(term) {
+  .GOSemSimEnv <- get(".GOSemSimEnv", envir = .GlobalEnv)
+  t <- GOTERM[[term]]
+  if (is.null(t)) return(NA);
+  ont <- t@Ontology
+  rel_df <- get("gotbl", envir = .GOSemSimEnv)
+  sv <- getFromNamespace("getSV", "GOSemSim")(term, ont, rel_df)
+  return(sum(sv))
+}
+
 
 #' Returns TRUE if term a is offspring of term b
 #'
