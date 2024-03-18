@@ -360,6 +360,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     bind_rows(dplyr::mutate(sample_tb, taxon = sample_name)) %>%
     dplyr::filter(!is.na(GO_IDs))
   data <- list()
+  data$sample_all <- readr::read_tsv(sample_data)
   data$sample_tb <- sample_tb
   data$ontologizer <- ontologizer
   data$all_tbs <- unip$all_tbs
@@ -426,17 +427,61 @@ getToxinProteins <- function(prot2go_map) {
 }
 
 # A list of important, higher-level GO categories (somewhat arbitrary)
+# Can have up to 20 to be visualized (due to restrictions with
+# color palettes)
 GO_CATEGORIES <- list(
-  venom_component = c("GO:0090719", "GO:0046930",
+  venom_component = c("GO:0090719", "GO:0046930", # 1
                       "GO:0031640", "GO:0015473"),
-  small_molecule_binding = "GO:0036094",
-  translation = "GO:0006412",
-  transport = "GO:0006810",
-  cell_projection = "GO:0042995",
-  cytoskeleton = "GO:0005856",
-  membrane = "GO:0016020"
+  small_molecule_binding = "GO:0036094", # 2
+  translation = "GO:0006412", # 3
+  transport = "GO:0006810", # 4
+  cell_projection = "GO:0042995", # 5
+  cytoskeleton = "GO:0005856", # 6
+  membrane = "GO:0016020", # 7
+  catalytic_activity = "GO:0003824", # 8
+  organelle = "GO:0043226" # 9
 )
 GO_CATEGORIES <- lapply(GO_CATEGORIES, \(x) {
   offspring <- lapply(x, goOffspring) %>% unlist()
   return(c(x, offspring))
 })
+
+headerFreqs <- function(header_vec) {
+  header_vec %>%
+    lapply(., str_split_1, pattern = " ") %>%
+    unlist() %>%
+    table() %>%
+    sort(decreasing = TRUE) %>%
+    as_tibble() %>%
+    rename(c("word" = ".", "count" = "n")) %>%
+    filter(!grepl("=", word),
+           nchar(word) > 2,
+           grepl("[A-Za-z]+", word),
+           !grepl("\\.|,", word))
+  # Remove database classifications
+  # Get rid of tiny words
+}
+
+#' Ranked gene set enrichment analysis
+#'
+#' @description
+#' Rank proteins in tb according to a specified column
+#' @param quant the column to rank proteins on
+fgseaWrapper <- function(quant, tb) {
+  ranked <- tb %>%
+    dplyr::select(ProteinId, quant) %>%
+    dplyr::mutate(ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))) %>%
+    dplyr::filter(!is.na(!!quant)) %>%
+    column_to_rownames(var = "ProteinId") %>%
+    (\(x) {
+      y <- as.vector(x[[quant]])
+      names(y) <- rownames(x)
+      return(y)
+    }) %>%
+    sort(., decreasing = TRUE)
+  fgsea <- fgsea(gene_sets, ranked, scoreType = "pos")
+  if (fgsea$pval > 0.05) {
+    message("fgsea results not significant!")
+  }
+  return(fgsea)
+}
