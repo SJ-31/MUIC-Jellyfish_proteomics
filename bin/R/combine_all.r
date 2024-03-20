@@ -280,6 +280,8 @@ main <- function(args) {
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
 
+  # Categories that cannot be assigned by header are assigned from
+  # the most specific GO id
   categories <- apply(combined, 1, \(x) {
     cat <- x["category"]
     if (cat == "unknown" | cat == "other") {

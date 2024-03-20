@@ -235,7 +235,8 @@ mergeCoverage <- function(tb_path, merge_into) {
     pattern = ".*_calculated.tsv"
   ) %>%
     map(., read_tsv) %>%
-    bind_rows()
+    bind_rows() %>%
+    distinct()
   tb <- inner_join(merge_into, coverage, by = join_by(ProteinId))
   return(tb)
 }

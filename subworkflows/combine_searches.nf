@@ -86,7 +86,7 @@ workflow 'combine_searches' {
     COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all,
                    "$outdir")
 
-    CLUSTER_UNMATCHED(unmatched_ch, "$outdir")
+    CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
 
 
