@@ -315,7 +315,8 @@ getUniprotData <- function(uniprot_data_dir) {
   ))
 }
 
-goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) {
+goDataGlobal <- function(uniprot_data_dir, sample_data,
+                         sample_name, onto_path, sample_only) {
   # Load sample data & ontologizer results
   sample_tb <- readr::read_tsv(sample_data) %>%
     filter(!is.na(GO_IDs)) %>%
@@ -323,47 +324,51 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
   # be the same as the database names
   ontologizer <- ontoResults(onto_path)
 
-  # Load Uniprot data into a list of tibbles
-  unip <- getUniprotData(uniprot_data_dir)
-  file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-                          full.names = TRUE
-  )
-
-  # Extract all GO terms from the list of tibbles
-  # Load into new combined tibble and merge with sample GO terms
-  # Load sample GO terms into separate tibble
-
   sample_gos <- goVector(sample_tb, go_column = "GO_IDs") %>% unique()
 
-  go_tb_all <- bind_rows(unip$go_tb, tibble(
-    GO_IDs = sample_gos,
-    taxon = sample_name
-  ))
-  # Taxa that have a higher (normalized) frequency of a given GO ID will be
-  # assigned that id
-  nested <- go_tb_all %>%
-    group_by(GO_IDs) %>%
-    nest()
-  taxa_counts <- go_tb_all$taxon %>% table()
-  go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-    go_id <- nested[x,]$GO_IDs
-    cur_nest <- nested[x,]$data[[1]] %>% table()
-    normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
-    if (dim(normalized) == 0) {
-      return(tibble())
-    }
-    most_frequent <- normalized %>%
-      as_tibble() %>%
-      arrange(desc(n)) %>%
-      dplyr::slice(1)
-    return(tibble(GO_IDs = go_id, taxon = most_frequent$taxon))
-  }) %>% bind_rows()
+  if (!sample_only) {
+    # Load Uniprot data into a list of tibbles
+    unip <- getUniprotData(uniprot_data_dir)
+    # Extract all GO terms from the list of tibbles
+    # Load into new combined tibble and merge with sample GO terms
+    # Load sample GO terms into separate tibble
+    go_tb_all <- bind_rows(unip$go_tb, tibble(
+      GO_IDs = sample_gos,
+      taxon = sample_name
+    ))
+    # Taxa that have a higher (normalized) frequency of a given GO ID will be
+    # assigned that id
+    nested <- go_tb_all %>%
+      group_by(GO_IDs) %>%
+      nest()
+    taxa_counts <- go_tb_all$taxon %>% table()
+    go_tb_all <- lapply(seq(nrow(nested)), \(x) {
+      go_id <- nested[x,]$GO_IDs
+      cur_nest <- nested[x,]$data[[1]] %>% table()
+      normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
+      if (dim(normalized) == 0) {
+        return(tibble())
+      }
+      most_frequent <- normalized %>%
+        as_tibble() %>%
+        arrange(desc(n)) %>%
+        dplyr::slice(1)
+      return(tibble(GO_IDs = go_id, taxon = most_frequent$taxon))
+    }) %>% bind_rows()
+
+    all_gos <- c(go_tb_all$GO_IDs, sample_gos) %>% unique()
+
+    prot_tb_all <- unip$all_tbs %>%
+      bind_rows() %>%
+      dplyr::rename(ProteinId = Entry) %>%
+      bind_rows(dplyr::mutate(sample_tb, taxon = sample_name)) %>%
+      dplyr::filter(!is.na(GO_IDs))
+  }
 
   # Load four vectors of GO terms:
   # 1. Sample, 2. All go terms, 3. GO terms from
   # eggnog proteins 4. GO terms in interpro proteins
 
-  all_gos <- c(go_tb_all$GO_IDs, sample_gos) %>% unique()
   interpro_gos <- goVector(sample_tb, go_column = "GO_IDs", "Anno_method", "interpro")
   eggnog_gos <- goVector(sample_tb, go_column = "GO_IDs", "Anno_method", "eggNOG")
 
@@ -372,29 +377,28 @@ goDataGlobal <- function(uniprot_data_dir, sample_data, sample_name, onto_path) 
     sig_downloaded_db = sample_gos %in% ontologizer$gos_from_downloads,
     sig_id_w_open = sample_gos %in% ontologizer$id_with_open
   )
+
   prot_tb_sample <- dplyr::select(sample_tb, c("ProteinId", "GO_IDs"))
-  prot_tb_all <- unip$all_tbs %>%
-    bind_rows() %>%
-    dplyr::rename(ProteinId = Entry) %>%
-    bind_rows(dplyr::mutate(sample_tb, taxon = sample_name)) %>%
-    dplyr::filter(!is.na(GO_IDs))
   data <- list()
   data$sample_all <- readr::read_tsv(sample_data)
   data$sample_tb <- sample_tb
   data$ontologizer <- ontologizer
-  data$all_tbs <- unip$all_tbs
-  data$go_tb$all <- go_tb_all
   data$go_tb$sample <- go_tb_sample
   data$go_vec$sample <- sample_gos
-  data$go_vec$all <- all_gos
   data$go_vec$interpro <- interpro_gos
   data$go_vec$eggnog <- eggnog_gos
-  data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
   data$protein$sample <- prot_tb_sample
-  data$prot_go_map$all <- unip$map
   data$prot_go_map$sample <- prot_tb_sample$GO_IDs %>%
     lapply(., str_split_1, pattern = ";") %>%
     `names<-`(prot_tb_sample$ProteinId)
+
+  if (sample_only) {
+    data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
+    data$prot_go_map$all <- unip$map
+    data$go_vec$all <- all_gos
+    data$go_tb$all <- go_tb_all
+    data$all_tbs <- unip$all_tbs
+  }
   return(data)
 }
 

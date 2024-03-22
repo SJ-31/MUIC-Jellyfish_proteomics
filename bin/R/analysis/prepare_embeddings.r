@@ -8,27 +8,57 @@ d <- goDataGlobal(
   uniprot_data_dir = args$uniprot_data_dir,
   onto_path = args$ontologizer_path,
   sample_data = args$combined_results,
-  sample_name = args$sample_name
+  sample_name = args$sample_name,
+  sample_only = SAMPLE_ONLY
 )
 
+embdFromPy <- function(go_vector) {
+  py$wanted_gos <- go_vector
+  py_run_string("wanted_gos = set(wanted_gos)")
+  embd <- py$loadEmbeddings(
+    args$embeddings_path, "embds",
+    py$wanted_gos
+  ) %>%
+    as_tibble() %>%
+    t() %>%
+    m2Tb(., first_col = "GO_IDs")
+  return(embd)
+}
+
 # Obtain embeddings from python
-py$wanted_gos <- d$go_vec$all
-py_run_string("wanted_gos = set(wanted_gos)")
-all_embd_go <- py$loadEmbeddings(
-  args$embeddings_path, "embds",
-  py$wanted_gos
-) %>%
-  as_tibble() %>%
-  t() %>%
-  m2Tb(., first_col = "GO_IDs")
-d$go_tb$all <- d$go_tb$all %>% dplyr::filter(GO_IDs %in% all_embd_go$GO_IDs)
+if (!SAMPLE_ONLY) {
+  all_embd_go <- embdFromPy(d$go_vec$all)
 
-uniprot_embd <- read_tsv(args$uniprot_embeddings)
-sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, all_embd_go, mean)
-all_embd_prot <- bind_rows(uniprot_embd, sample_prot_embd)
-rm(uniprot_embd)
+  d$go_tb$all <- d$go_tb$all %>%
+    dplyr::filter(GO_IDs %in% all_embd_go$GO_IDs)
 
-sample_embd_go <- all_embd_go %>% filter(GO_IDs %in% d$go_vec$sample)
+  uniprot_embd <- read_tsv(args$uniprot_embeddings)
+  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, all_embd_go, mean)
+  all_embd_prot <- bind_rows(uniprot_embd, sample_prot_embd)
+  rm(uniprot_embd)
+
+  all_go <- list(
+    data = all_embd_go,
+    tb = dplyr::filter(
+      d$go_tb$all,
+      is.element(
+        GO_IDs,
+        all_embd_go$GO_IDs
+      )
+    ),
+    color = "taxon"
+  )
+  all_protein <- list(
+    embd_type = args$protein_embedding_mode,
+    data = all_embd_prot,
+    tb = d$protein$all,
+    color = "taxon"
+  )
+  sample_embd_go <- all_embd_go %>% filter(GO_IDs %in% d$go_vec$sample)
+} else {
+  sample_embd_go <- embdFromPy(d$go_vec$sample)
+  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, sample_embd_go, mean)
+}
 sample_go <- list(
   data = sample_embd_go,
   tb = dplyr::filter(
@@ -46,20 +76,4 @@ sample_protein <- list(
   tb = d$sample_tb,
   color = c("Anno_method", "ID_method", "category")
 )
-all_go <- list(
-  data = all_embd_go,
-  tb = dplyr::filter(
-    d$go_tb$all,
-    is.element(
-      GO_IDs,
-      all_embd_go$GO_IDs
-    )
-  ),
-  color = "taxon"
-)
-all_protein <- list(
-  embd_type = args$protein_embedding_mode,
-  data = all_embd_prot,
-  tb = d$protein$all,
-  color = "taxon"
-)
+
