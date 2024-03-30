@@ -3,6 +3,7 @@ include { SEARCH_INTERSECT } from '../modules/search_intersect'
 include { COMBINE_PEP } from '../modules/combine_pep'
 include { BLASTP } from '../modules/blastp'
 include { SIGNALP } from '../modules/signalp'
+include { DEEPLOC } from '../modules/deeploc'
 include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
@@ -88,6 +89,7 @@ workflow 'combine_searches' {
 
     CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
+    DEEPLOC(SIGNALP.out.fasta, "$outdir/Deeploc")
 
 
     emit:
