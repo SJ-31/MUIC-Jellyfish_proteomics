@@ -26,7 +26,7 @@ workflow bk_decoys {
         }.set { bk_db }
     COMET(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Comet",
           "$params.results/2-Second_pass/Logs", bk_db.comet)
-    IDENTIPY(mzML_ch, "$params.results/2-Second_pass/Engines/Identipy",
+    IDENTIPY(mzML_ch.collect(), "$params.results/2-Second_pass/Engines/Identipy",
           "$params.results/2-Second_pass/Logs", bk_db.identipy.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml,
                 "$params.results/2-Second_pass/Engines/Identipy")

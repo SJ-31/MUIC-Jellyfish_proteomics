@@ -1,7 +1,6 @@
 // CONVENTION: the final protein/PSMs output file will be prefixed with the engine that produced them
 include { MSGF; MSGF_MERGE } from  '../modules/msgf'
 include { MSFRAGGER } from '../modules/msfragger'
-include { SMSNET } from '../modules/smsnet'
 include { COMET } from '../modules/comet'
 include { IDENTIPY; FORMAT_IDPY } from '../modules/identipy'
 include { METAMORPHEUS as METAMORPHEUS_DEFAULT } from '../modules/metamorpheus'
