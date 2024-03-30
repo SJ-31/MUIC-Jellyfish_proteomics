@@ -14,7 +14,7 @@ process RAWPARSE {
     def check = file("${outdir}/${rawfiles[0].baseName}.mzML")
     if (check.exists()) {
         """
-        cp ${outdir}/*.mzML .
+        mv -Z ${outdir}/*.mzML .
         """
     } else {
         """

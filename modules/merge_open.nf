@@ -20,10 +20,10 @@ process MERGE_OPEN {
     def check = file("${outdir}/database_hits.tsv")
     if (check.exists()) {
         '''
-        cp !{outdir}/unknown_hits.tsv .
-        cp !{outdir}/unknown.fasta .
-        cp !{outdir}/database_hits.tsv .
-        cp !{outdir}/unmatched_peptides.tsv .
+        mv -Z !{outdir}/unknown_hits.tsv .
+        mv -Z !{outdir}/unknown.fasta .
+        mv -Z !{outdir}/database_hits.tsv .
+        mv -Z !{outdir}/unmatched_peptides.tsv .
         '''
     } else {
         '''

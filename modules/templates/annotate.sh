@@ -11,7 +11,7 @@ previous_interpro="!{outdir}/${ipdir}"
 if [ -e needs_annotating.fasta ]; then
     mkdir ${eggdir}
     if [ ! -d "${previous_eggnog}" ]; then
-    mv needs_annotating* ${eggdir}; cd ${eggdir}
+    mv -Z needs_annotating* ${eggdir}; cd ${eggdir}
     export EGGNOG_DATA_DIR=!{params.eggnog_data_dir}
     conda run -n eggnog emapper.py -i needs_annotating.fasta \
         -m mmseqs \
@@ -20,8 +20,8 @@ if [ -e needs_annotating.fasta ]; then
     elif [ -e annotation_complete.fasta ]; then
         exit 0
     else
-        cp -r "${previous_eggnog}" .
-        mv needs_annotating* ${eggdir}; cd ${eggdir}
+        mv -Z "${previous_eggnog}" .
+        mv -Z needs_annotating* ${eggdir}; cd ${eggdir}
         touch eggnog_copied.txt
     fi
 

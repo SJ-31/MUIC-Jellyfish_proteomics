@@ -22,7 +22,7 @@ process ANNOTATE {
     check = file("${outdir}/${params.pref}_downloads_anno-3.tsv")
     if (check.exists()) {
         '''
-        cp -r !{outdir}/* .
+        mv -Z !{outdir}/* .
         '''
     } else {
         template 'annotate.sh'

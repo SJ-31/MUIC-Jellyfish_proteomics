@@ -23,7 +23,7 @@ process BLASTP {
     check = file("${outdir}/${blast_results}")
     if (check.exists()) {
         '''
-        cp !{outdir}/!{blast_results} .
+        mv -Z !{outdir}/!{blast_results} .
         '''
     } else {
         if (max == 35) {

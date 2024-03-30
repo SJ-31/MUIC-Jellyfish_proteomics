@@ -1,5 +1,5 @@
 process TIDE {
-    publishDir "$outdir", mode: "copy", pattern: "tide-search*"
+    publishDir "$outdir", mode: "copy", pattern: "tide_search*"
     publishDir "$percolatordir", mode: "copy", pattern: "*percolator*"
     publishDir "$logdir", mode: "copy", pattern: "*.log.txt"
     memory "35 GB"
@@ -25,8 +25,8 @@ process TIDE {
     def check = file("${outdir}/tide_search.target.txt")
     if (check.exists()) {
         '''
-        cp !{outdir}/tide_search* .
-        cp !{percolatordir}/tide_percolator* .
+        mv -Z !{outdir}/tide_search* .
+        mv -Z !{percolatordir}/tide_percolator* .
         '''
     } else {
         template 'tide.sh'

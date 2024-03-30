@@ -20,7 +20,7 @@ process EGGNOG {
     check = file("${outdir}/${params.pref}.emapper.seed_orthologs")
     if (check.exists()) {
         """
-        cp ${outdir}/${params.pref}.emapper* .
+        mv -Z ${outdir}/${params.pref}.emapper* .
         """
     } else {
         """
@@ -54,8 +54,8 @@ process SORT_EGGNOG {
     def check = file("${params.pref}_eggnog_matched.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/*${params.pref}_eggnog* .
-        cp ${outdir}/eggnog_*${params.pref}* .
+        mv -Z ${outdir}/*${params.pref}_eggnog* .
+        mv -Z ${outdir}/eggnog_*${params.pref}* .
         """
     } else {
         """

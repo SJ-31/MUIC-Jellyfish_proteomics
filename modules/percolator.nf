@@ -23,8 +23,8 @@ process PERCOLATOR {
     def check = file("${outdir}/${engine}_percolator_proteins.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/${engine}_percolator* .
-        cp ${outdir}/${engine}_psm2combined_PEP.tsv .
+        mv -Z ${outdir}/${engine}_percolator* .
+        mv -Z ${outdir}/${engine}_psm2combined_PEP.tsv .
         """
     } else {
         """

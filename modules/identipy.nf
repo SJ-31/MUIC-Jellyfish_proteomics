@@ -16,7 +16,7 @@ process IDENTIPY {
     def check = file("${outdir}/${mzML[0].baseName}.pep.xml")
     if (check.exists()) {
         '''
-        cp !{outdir}/*.pep.xml .
+        mv -Z !{outdir}/*.pep.xml .
         '''
     } else {
         template 'identipy.sh'

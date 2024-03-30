@@ -19,7 +19,6 @@ process MAKE_ORGDB {
         -c $annotations \
         -m "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
         -a "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
-        -p $comparison_data \
         -t $params.tax_id \
         -s ${splits[0]} \
         -g ${splits[1]}
@@ -28,3 +27,5 @@ process MAKE_ORGDB {
     """
     //
 }
+
+        // -p $comparison_data \

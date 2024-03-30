@@ -17,8 +17,8 @@ process SEARCH_INTERSECT {
     def check = file("${outdir}/unified_groups.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/unified_groups.tsv .
-        cp ${outdir}/intersected_searches.tsv .
+        mv -Z ${outdir}/unified_groups.tsv .
+        mv -Z ${outdir}/intersected_searches.tsv .
         """
     } else {
         """

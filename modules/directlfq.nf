@@ -43,9 +43,9 @@ process DIRECTLFQ {
     def check = file("${outdir}/directlfq_prot.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/directlfq_prot.tsv .
-        cp ${outdir}/directlfq_ions.tsv .
-        cp ${outdir}/directlfq.log .
+        mv -Z ${outdir}/directlfq_prot.tsv .
+        mv -Z ${outdir}/directlfq_ions.tsv .
+        mv -Z ${outdir}/directlfq.log .
         """
     } else {
         """
