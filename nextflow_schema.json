@@ -118,10 +118,6 @@
       "type": "string",
       "default": "rev_"
     },
-    "mappings": {
-      "type": "string",
-      "default": "/mnt/data/shannc/nf/data/protein_databases/header_mappings.tsv"
-    },
     "smsnetmodel": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/data/reference/SMSNet/smsnet.model.m/smsnet"
@@ -185,6 +181,10 @@
     "config_dir": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/config"
+    },
+    "signalp6model": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/reference/signalp6"
     }
   },
   "required": ["subworkflow", "manifest_file"]

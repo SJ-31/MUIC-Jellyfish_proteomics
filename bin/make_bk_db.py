@@ -1,15 +1,14 @@
 #!/usr/bin/env python
-import pandas as pd
-import numpy as np
-from random import randint
 from argparse import ArgumentParser
-from Bio import SeqIO
+from random import randint
+import pandas as pd
+
 parser = ArgumentParser(
     prog="bk_decoys",
     description="""
     Filter a database using Percolator protein identifications, populating it with
     decoys following Bern & Kil (2011)'s method
-    """
+    """,
 )
 parser.add_argument("percolator_valid")
 parser.add_argument("percolator_decoys")
@@ -28,7 +27,7 @@ for fasta in [matches, decoys]:
     for group in ids_list:
         hits.extend(group.split(","))
 
-map = (pd.read_csv(old_db, sep="\t", index_col=0))
+map = pd.read_csv(old_db, sep="\t", index_col=0)
 matched = map.loc[hits]
 matched["id"] = matched.index
 num_valid = sum(matched["id"].str[0:4] != "rev_")
@@ -39,7 +38,7 @@ extra = {"id": [], "seq": []}
 rounds = num_valid - num_decoys
 if rounds > 0:
     for r in range(rounds):
-        num = randint(0, valid_prot.shape[0]-1)
+        num = randint(0, valid_prot.shape[0] - 1)
         pick = valid_prot.iloc[num]
         extra["id"].append(f'rev_{pick["id"][1:]}_addedN{randint(0, 1000)}')
         extra["seq"].append(pick["seq"][::-1])
@@ -49,4 +48,4 @@ new_fasta = []
 for row in matched.iterrows():
     new_fasta.append(f'>{row[1]["id"]}\n{row[1]["seq"]}\n')
 with open(output, "w") as o:
-    o.write(''.join(new_fasta))
+    o.write("".join(new_fasta))

@@ -65,9 +65,9 @@ intersect_engines <- function(files, map_file) {
     unique()
   master_list <- master_list[!grepl("rev_", master_list)]
   matched_tables <- lapply(tables, function(x) {
-    return(x[x[[TARGET]] %in% master_list, ])
+    return(x[x[[TARGET]] %in% master_list,])
   })
-  mapped <- mappings[mappings$id %in% master_list, ]
+  mapped <- mappings[mappings$id %in% master_list,]
   return(list("tables" = matched_tables, "map_list" = mapped))
 }
 
@@ -80,7 +80,7 @@ merge_column <- function(column_name, dataframe) {
   cols <- grep(column_name, colnames(dataframe))
   selected <- select(dataframe, all_of(cols))
   all_vals <- lapply(1:dim(selected)[1], function(x) {
-    keep <- selected[x, ] %>% discard(~ all(is.na(.)))
+    keep <- selected[x,] %>% discard(~all(is.na(.)))
     collapsed <- paste0(keep, collapse = ";")
     return(gsub(" ", "", collapsed))
   }) %>%
@@ -108,20 +108,20 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-m", "--seq_header_file"),
-    type = "character",
-    help = "Path to seq-header mapping"
+                       type = "character",
+                       help = "Path to seq-header mapping"
   )
   parser <- add_option(parser, c("-p", "--path"),
-    type = "character",
-    help = "Path to Protein tsvs"
+                       type = "character",
+                       help = "Path to Protein tsvs"
   )
   parser <- add_option(parser, c("-r", "--r_source"),
-    type = "character",
-    help = "R source directory"
+                       type = "character",
+                       help = "R source directory"
   )
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "Output file name"
+                       type = "character",
+                       help = "Output file name"
   )
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
