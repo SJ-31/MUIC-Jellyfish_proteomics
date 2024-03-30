@@ -70,7 +70,7 @@ cleanGO <- function(go_vector) {
       if (is.na(x)) {
         return(x)
       }
-      s <- str_split_1(x, pattern = ",|;") %>% keep(grepl("GO:", .))
+      s <- str_split_1(x, pattern = ";") %>% keep(grepl("GO:", .))
       r <- unlist(lapply(s, gsub, pattern = "_.*", replacement = "")) %>% unique()
       return(paste0(r, collapse = ";"))
     }) %>%
@@ -241,10 +241,6 @@ main <- function(args) {
     all(is.na(combined[[x]]))
   })
 
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 227")
-  }
-
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
     mutate_all(~replace(., . == "-", NA)) %>%
@@ -263,23 +259,30 @@ main <- function(args) {
       }, USE.NAMES = FALSE),
     )
 
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 250")
-  }
 
   ## Filter by FDR and PEP
-  ## If a (standard) protein has at least two peptides are lower than the fdr
-  ## threshold, it is kept
+  ## If a (standard) protein has at least two peptides are lower than the fdr threshold, it is kept
   combined <- combined %>%
     dplyr::mutate(
       q_adjust = map_dbl(`q.value`, sortVals),
       pep_adjust = map_dbl(posterior_error_prob, sortVals),
-      GO_IDs = cleanGO(GO),
       category = map_chr(header, headerCategorize)
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
 
+  ## Map pfam domains to GO and get GO IDs
+  source_python(glue("{args$python_source}/interpro_api.py"))
+  combined <- py$mapPfams(
+    to_annotate = as.data.frame(combined),
+    p2g_path = args$pfam2go,
+    i2g_path = args$interpro2go,
+    pfam_db_path = args$pfam_db
+  ) %>%
+    as_tibble() %>%
+    dplyr::mutate(GO_IDs = cleanGO(GO))
+
+  ## Categorize
   # Categories that cannot be assigned by header are assigned from
   # the most specific GO id
   categories <- apply(combined, 1, \(x) {
@@ -289,10 +292,6 @@ main <- function(args) {
     } else return(cat)
   })
   combined$category <- categories
-
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 266")
-  }
 
   ## Record modifications
   if (args$sort_mods) {
@@ -309,19 +308,7 @@ main <- function(args) {
     ) %>% as_tibble()
     print("emPAI completed")
   }
-  ## Map pfam domains to GO
-  source_python(glue("{args$python_source}/interpro_api.py"))
-  combined <- py$mapPfams(
-    to_annotate = as.data.frame(combined),
-    p2g_path = args$pfam2go,
-    i2g_path = args$interpro2go,
-    pfam_db_path = args$pfam_db
-  ) %>% as_tibble()
 
-
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 299")
-  }
 
   ## Merge with quantification data
   print("Begin merging with quantification")
@@ -329,10 +316,6 @@ main <- function(args) {
   combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq")
   combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
 
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 306")
-  }
-  ## Categorize
 
   ## Arrange columns
   combined <- combined %>%
@@ -352,10 +335,6 @@ main <- function(args) {
     relocate(c(contains("GO"), "PANTHER")) %>%
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(all_of(FIRST_COLS))
-
-  if (hasDuplicates(combined)) {
-    print("Duplicates at 330")
-  }
 
   return(combined)
 }
