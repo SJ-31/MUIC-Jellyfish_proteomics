@@ -1,31 +1,28 @@
 library(glue)
 library(testthat)
 library(ggplot2)
-source("./bin/R/combine_all.r")
-dir_name <- "./results/jellyfish/1-First_pass"
-tests <- "./tests/results/"
+source("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R/combine_all.r")
 
-args <- list(
-  eggnog = glue::glue("{dir_name}/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv"),
-  interpro = glue::glue("{dir_name}/Unmatched/InterPro/jellyfish_interpro_matched.tsv"),
-  downloads =
-    glue::glue("{dir_name}/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv"),
-  coverage = FALSE,
-  sort_mods = TRUE,
-  empai = TRUE,
-  is_denovo = "true",
-  pfam2go = "./results/jellyfish/Databases/pfam2go",
-  interpro2go = "./results/jellyfish/Databases/interpro2go",
-  pfam_db = "./results/jellyfish/Databases/pfam_entries.tsv",
-  directlfq = glue::glue("{dir_name}/Quantify/sorted_directlfq.tsv"),
-  flashlfq = glue::glue("{dir_name}/Quantify/sorted_flashlfq.tsv"),
-  python_source = "./bin",
-  output = "./tests/testthat/output/combined-anno.tsv",
-  r_source = "./bin/R/",
-  fdr = 0.05,
-  pep_thresh = 1
-)
+setwd("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/debug/combine")
+
+args <- list(eggnog = "C_indra_eggnog_matched.tsv",
+             interpro = "C_indra_interpro_matched.tsv",
+             downloads = "C_indra_downloads_anno-3.tsv",
+             sort_mods = TRUE,
+             empai = TRUE,
+             pfam2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam2go",
+             interpro2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/interpro2go",
+             pfam_db = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam_entries.tsv",
+             is_denovo = "false",
+             fdr = 0.05,
+             pep_thresh = 1,
+             output = "C_indra_all.tsv",
+             directlfq = "sorted_directlfq.tsv",
+             maxlfq = "max_lfq.tsv",
+             flashlfq = "sorted_flashlfq.tsv",
+             r_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R", python_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
 source(glue("{args$r_source}/helpers.r"))
+source(glue("{args$r_source}/GO_helpers.r"))
 results <- main(args)
 all <- results$all
 found <- results$f
@@ -115,7 +112,7 @@ checkWanted <- function(x) {
   if (purrr::pluck_depth(evaluated) > 1) {
     any(lapply(seq_along(evaluated), \(x) {
       any(evaluated[[x]] %in%
-        UNWANTED_TYPES)
+            UNWANTED_TYPES)
     }) %>% unlist())
     return(FALSE)
   }
@@ -124,33 +121,3 @@ checkWanted <- function(x) {
 
 kept_vars <- ls() %>% keep(., checkWanted)
 with_vals <- lapply(kept_vars, get) %>% `names<-`(kept_vars)
-
-## test <- s[1, ]
-## algn <- test[["alignment"]] %>% splitWithGroups()
-## seq <- test[["seq"]] %>% str_split_1("")
-## mid <- c()
-## seq_new <- c()
-## algn_new <- c()
-## lapply(seq_along(seq), \(x) {
-##   if (algn[x] == seq[x]) {
-##     mid <<- c(mid, "|")
-##     algn_new <<- c(algn_new, algn[x])
-##     seq_new <<- c(seq_new, seq[x])
-##   } else if (grepl("\\[", algn[x])) {
-##     residues <- str_extract(algn[x], "\\[(.*)\\]", group = 1)
-##     midpoint <- median(seq_len(residues))
-##     if (str_length(algn[x]) %% 2 == 0) {
-##       midpoint <- ceiling(midpoint)
-##       residues <- R.utils::insert(residues, midpoint, "|")
-##     }
-##     padding <- str_dup(" ", (length(residues) - 1) / 2)
-##     algn_new <<- str_flatten(c("[", residues, "]"))
-##     seq_new <<- c(seq_new, glue("{padding}{seq[x]}{padding}"))
-##     mid <<- c(mid, glue("{padding}|{padding}"))
-##   } else {
-##     mid <<- c(mid, " ")
-##     algn_new <<- c(algn_new, algn[x])
-##     seq_new <<- c(seq_new, seq[x])
-##   }
-## })
-## full_algn <- lapply(list(seq_new, mid, algn_new), str_flatten) %>% unlist()

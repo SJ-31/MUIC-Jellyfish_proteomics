@@ -46,9 +46,9 @@ def myColumnsWith(regex: str, df, case=False):
         try:
             if (
                 df[col]
-                    .apply(str)
-                    .str.contains(regex, regex=True, case=case, na=False)
-                    .any()
+                .apply(str)
+                .str.contains(regex, regex=True, case=case, na=False)
+                .any()
             ):
                 contained.append(col)
         except AttributeError:

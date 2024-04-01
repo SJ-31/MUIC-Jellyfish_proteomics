@@ -22,9 +22,11 @@ d <- goDataGlobal(
   uniprot_data_dir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/protein_databases/comparison_taxa",
   sample_data = test_path,
   sample_name = sample_name,
-  onto_path = onto_path
+  onto_path = onto_path,
+  sample_only = FALSE
 )
 
+# Will use the number of children to quantify annotation shallowness
 
 #' Visualizing semantic similarity
 #'  Can calculate GO similarity between proteins, either as go lists
@@ -57,6 +59,31 @@ go_freq <- d$sample_tb$GO_IDs %>%
     ontology = map_chr(GO_ID, \(x)
       ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Ontology))
   )
+
+# Quantify annnotation shallowness
+countGO <- function(tb) {
+  count_tb <- tibble(
+    ProteinId = tb$ProteinId,
+    GO_count = map_dbl(tb$GO_IDs,
+                       \(x) ifelse(is.na(x), 0,
+                                   str_count(x, ";") + 1)),
+    # The highest Semantic value in a protein's set of GO terms
+    sum_SV = map_dbl(tb$GO_IDs,
+                     \(x) ifelse(is.na(x), 0,
+                                 str_split_1(x, ";") %>%
+                                   map_dbl(., getSV) %>%
+                                   max())
+    )
+
+  )
+  hist <- ggplot(count_tb, aes(x = GO_count)) + geom_histogram()
+  return(list(count_hist = hist,
+              count_tb = count_tb,
+              count_summary = summary(count_tb$GO_count),
+              sv_summary = summary(count_tb$sum_SV)
+  ))
+}
+
 
 rrvgo_sample <- reduceGOList(d$go_vec$sample)
 # # rrvgo_sample$reduced_matrix %>% lmap()
@@ -110,18 +137,6 @@ gene_sets <- list(
   toxins = names(getToxinProteins(d$prot_go_map$sample))
 ) %>% lapply(., \(x) map_chr(x, \(x) gsub("-SAMPLE", "", x)))
 
-# Ranked gene set enrichment analysis
-ranked <- d$sample_tb %>%
-  dplyr::select(ProteinId, directlfq_mean) %>%
-  dplyr::mutate(ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))) %>%
-  dplyr::filter(!is.na(directlfq_mean)) %>%
-  column_to_rownames(var = "ProteinId") %>%
-  (\(x) {
-    y <- as.vector(x$directlfq_mean)
-    names(y) <- rownames(x)
-    return(y)
-  }) %>%
-  sort(., decreasing = TRUE)
 
-
-fgsea(gene_sets, ranked, scoreType = "pos")
+fgseaWrapper("directlfq_mean", d$sample_tb)
+fgseaWrapper("directlfq_mean", d$sample_tb)

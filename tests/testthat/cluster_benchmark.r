@@ -1,6 +1,6 @@
-library(clv)
+# library(clv)
 library(fpc)
-library(clValid)
+# library(clValid)
 library(tidyverse)
 library(glue)
 library(dbscan)
@@ -26,12 +26,12 @@ args <- list(
   protein_embd_mode = "mean" # One of mean or sum
 )
 
-source("./bin/R/GO_helpers.r")
-source("./bin/R/DR_helpers.r")
+source(glue("{args$r_source}/GO_helpers.r"))
+source(glue("{args$r_source}/DR_helpers.r"))
 reticulate::use_condaenv(env)
 
 SAMPLE_ONLY <- TRUE
-source("./bin/R/analysis/prepare_embeddings.r")
+source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
 
 #' BM: Benchmarking functions for clustering methods intended to determine
 #' the best parameters, and to compare clustering methods against each
@@ -95,7 +95,7 @@ getPartition <- function(py_ptition) {
 # decrease size for testing
 # test <- sample_prot_embd %>% slice(1:500)
 
-sample_dist <- test %>%
+sample_dist <- sample_prot_embd %>%
   distinct() %>%
   t2Df(., "ProteinId") %>%
   dist()
@@ -118,7 +118,7 @@ sample_dist[sample_dist > dist_summary[["3rd Qu."]]] <- 0
 # Benchmark leiden
 reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
 la <- reticulate::import("leidenalg")
-py$graph <- createGraph(as.matrix(sample_dist), test$ProteinId)
+py$graph <- createGraph(as.matrix(sample_dist), sample_prot_embd$ProteinId)
 la_quality_funs <- list("Modularity" = la$ModularityVertexPartition,
                         "RBER" = la$RBERVertexPartition,
                         "RB" = la$RBConfigurationVertexPartition,
