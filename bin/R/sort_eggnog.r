@@ -2,6 +2,10 @@ library(seqinr)
 library(tidyverse)
 library(glue)
 
+
+REPLACE_COMMA <- c("EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs", "GO")
+
+
 # 1. Determine which proteins weren't matched by eggnog, then extract to a fasta file for further annotation by interpro
 # 2. Merge identified eggnog proteins with previous metadata from percolator to identify their origin e.g. from which de novo search engine and obtain metadata
 #
@@ -35,7 +39,7 @@ findStart <- function(file) {
 main <- function(args) {
   unmatched_blast <- read_tsv(args$blast)
   anno_df <- read_tsv(args$annotations, skip = findStart(args$annotations))
-  seed_df <- read_tsv(args$seeds, skip = findStart(args$seeds)) %>% select(-c("evalue"))
+  seed_df <- read_tsv(args$seeds, skip = findStart(args$seeds)) %>% select(-evalue)
   distinct_cols <- c(
     "#query", "evalue", "score", "bitscore",
     "pident", "qcov", "scov"
@@ -55,15 +59,22 @@ main <- function(args) {
   )
   # Get metadata for eggnog-identified proteins
   final <- mutate(with_blast,
-                  inferred_by = "eggNOG", GO = GOs,
+                  inferred_by = "eggNOG",
+                  GO = GOs,
                   KEGG_ko = unlist(lapply(KEGG_ko, gsub,
                                           pattern = "ko:",
-                                          replacement = ""
+                                          replacement = "",
+
                   ))
   ) %>% select(-c(
     "GOs", "bitscore", "pident", "qcov", "scov",
     "score", "evalue", "bitscore", "max_annot_lvl"
   ))
+  for (to_replace in REPLACE_COMMA) {
+    replaced <- purrr::map_chr(final[[to_replace]],
+                               \(x) str_replace_all(x, ",", ";"))
+    final <- dplyr::mutate(final, !!to_replace := replaced)
+  }
   u <- write_unmatched(unmatched_blast, final)
   return(list(all = final, unmatched = u))
 }
