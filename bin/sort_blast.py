@@ -182,7 +182,7 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["mass"] = blast_only["mass_y"]
     blast_only["length"] = blast_only["length_y"]
     blast_only["header"] = blast_only["header_y"]
-    blast_only["Anno_method"] = "blast"
+    blast_only["inferred_by"] = "blast"
     blast_only = blast_only.loc[
         :, ~blast_only.columns.str.contains("_[xy]", regex=True)
     ].loc[

@@ -423,7 +423,7 @@ def mergeAnnotatedEggnog(args):
     get_eggnog = anno.drop(list(unwanted), axis="columns").merge(
         eggnog_anno, on="ProteinId"
     )
-    get_eggnog["Anno_method"] = "eggNOG"
+    get_eggnog["inferred_by"] = "eggNOG"
     already_matched = anno[~anno["ProteinId"].isin(get_eggnog["ProteinId"])]
     merged = pd.concat([already_matched, get_eggnog])
     print("-" * 10)
@@ -467,7 +467,7 @@ def mergeAnnotatedInterpro(args):
     still_left = unannotated[
         ~unannotated["ProteinId"].isin(joined["ProteinId"])
     ]
-    joined["Anno_method"] = "interpro"
+    joined["inferred_by"] = "interpro"
     # Remaining proteins that are still unannotated
     writeFasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])

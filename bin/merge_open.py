@@ -20,22 +20,6 @@ def getFastaStr(df, col):
     return fasta_str
 
 
-# def clean(target, string):
-#     target = set(target)
-#     if string in target:
-#         target.remove(string)
-#     return list(target)
-
-
-# def cleanListCol(colname, frame, split):
-#     return (
-#         frame[colname]
-#         .apply(str.split, sep=split)
-#         .apply(clean, string="")
-#         .apply(clean, string="NA")
-#     )
-
-
 def parse_args():
     import argparse
 
@@ -97,7 +81,7 @@ def main(args: dict):
     ]
 
     final = pd.concat([shared, open_searches, proteins])
-    final["Anno_method"] = "initial_database"
+    final["inferred_by"] = "initial_database"
     db_hits = final.query("ProteinId.str.contains('P')")
     unknown_hits = final.query("ProteinId.str.contains('O|T|D')")
     fasta_str = getFastaStr(unknown_hits, "seq")

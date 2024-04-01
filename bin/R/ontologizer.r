@@ -29,8 +29,8 @@ ozFormat <- function(df, with_filter, col, val) {
     mutate(GO = sapply(GO, function(x) {
       s <- unlist(strsplit(x, "\\||;|,")) %>% discard(!grepl("GO:", .))
       x <- sapply(s, gsub,
-        pattern = "_.*", replacement = "",
-        USE.NAMES = FALSE
+                  pattern = "_.*", replacement = "",
+                  USE.NAMES = FALSE
       )
       return(paste0(x, collapse = ",")) # comma delimiter is required for ontologizer formatting
     }, USE.NAMES = FALSE)) %>%
@@ -43,7 +43,7 @@ prep <- function(args) {
   u <- ozFormat(combined, FALSE)
   io <- ozFormat(combined, TRUE, "ID_method", "open")
   sa <- ozFormat(
-    combined %>% dplyr::filter(Anno_method == "interpro" | Anno_method == "eggNOG", grepl("[UDT]", ProteinId)), FALSE
+    combined %>% dplyr::filter(inferred_by == "interpro" | inferred_by == "eggNOG", grepl("[UDT]", ProteinId)), FALSE
   )
   return(list(
     universe = u,

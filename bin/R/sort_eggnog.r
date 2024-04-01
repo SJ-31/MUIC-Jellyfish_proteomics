@@ -41,7 +41,7 @@ main <- function(args) {
     "pident", "qcov", "scov"
   )
   joined <- inner_join(anno_df, seed_df,
-    by = join_by(x$`#query` == y$`#qseqid`)
+                       by = join_by(x$`#query` == y$`#qseqid`)
   ) %>%
     select(-c("qstart", "qend", "sstart", "send", "sseqid")) %>%
     as_tibble()
@@ -51,15 +51,15 @@ main <- function(args) {
   # ortholog doesn't necessarily mean that they belong to the same protein.
   # They may belong to separate proteins that are ALL homologs of the seed ortholog
   with_blast <- inner_join(unmatched_blast, joined,
-    by = join_by(x$ProteinId == y$`#query`)
+                           by = join_by(x$ProteinId == y$`#query`)
   )
   # Get metadata for eggnog-identified proteins
   final <- mutate(with_blast,
-    Anno_method = "eggNOG", GO = GOs,
-    KEGG_ko = unlist(lapply(KEGG_ko, gsub,
-      pattern = "ko:",
-      replacement = ""
-    ))
+                  inferred_by = "eggNOG", GO = GOs,
+                  KEGG_ko = unlist(lapply(KEGG_ko, gsub,
+                                          pattern = "ko:",
+                                          replacement = ""
+                  ))
   ) %>% select(-c(
     "GOs", "bitscore", "pident", "qcov", "scov",
     "score", "evalue", "bitscore", "max_annot_lvl"
@@ -72,28 +72,28 @@ if (sys.nframe() == 0) {
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-f", "--output_fasta"),
-    type = "character",
-    help = "Output fasta file name (unmatched eggnog proteins)"
+                       type = "character",
+                       help = "Output fasta file name (unmatched eggnog proteins)"
   )
   parser <- add_option(parser, c("-u", "--output_unmatched"),
-    type = "character",
-    help = "Output unmatched tsv file name (unmatched eggnog proteins)"
+                       type = "character",
+                       help = "Output unmatched tsv file name (unmatched eggnog proteins)"
   )
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "output file name"
+                       type = "character",
+                       help = "output file name"
   )
   parser <- add_option(parser, c("-s", "--seeds"),
-    type = "character",
-    help = "eggNOG seed file"
+                       type = "character",
+                       help = "eggNOG seed file"
   )
   parser <- add_option(parser, c("-a", "--annotations"),
-    type = "character",
-    help = "eggNOG annotations file"
+                       type = "character",
+                       help = "eggNOG annotations file"
   )
   parser <- add_option(parser, c("-b", "--blast"),
-    type = "character",
-    help = "tsv containing unmatched blast hits originally given to eggnog"
+                       type = "character",
+                       help = "tsv containing unmatched blast hits originally given to eggnog"
   )
   ARGS <- parse_args(parser)
   m <- main(ARGS)
