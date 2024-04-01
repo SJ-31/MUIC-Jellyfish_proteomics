@@ -5,6 +5,6 @@
 + *Details*
   * /Exit status:/ $exit
   * /Task status:/ $status
-  * /Folder:/ $hash
+  * /Folder:/ $workdir
   * /Duration:/ $duration
   * /Memory:/ $memory

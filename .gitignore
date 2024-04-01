@@ -30,3 +30,4 @@ tools/*
 /*.sh
 docs/flow.{png,svg}
 docs/images/*
+tests/debug
