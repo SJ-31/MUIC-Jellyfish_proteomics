@@ -56,7 +56,10 @@ countOffspring <- function(term) {
 #' @description
 #' A wrapper function around the non-exported getSV function from GOSemSim
 getSV <- function(term) {
-  .GOSemSimEnv <- get(".GOSemSimEnv", envir = .GlobalEnv)
+  if (!exists(".GOSemSimEnv")) {
+    init <- getFromNamespace(".initial", "GOSemSim")
+    init()
+  }
   t <- GOTERM[[term]]
   if (is.null(t)) return(NA);
   ont <- t@Ontology
@@ -75,6 +78,7 @@ isGoOffspring <- function(a, b) {
   }
   return(a %in% offspring)
 }
+
 
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
@@ -163,14 +167,23 @@ markMatch <- function(tb, target_col, query, label) {
 }
 
 
-goVector <- function(df, column, filter, go_column) {
+#' Retrieve a vector of GO terms from a tibble where terms for a given
+#' protein have been combined by ";"
+#' 
+#' @description
+#' @param go_column the column of `tb` containing the terms
+#' @param filter optional filter criteria to use with `column`
+goVector <- function(tb, column, filter, go_column) {
+  if (any(is.na(tb[[go_column]]))) {
+    tb <- tb %>% dplyr::filter(!is.na(!!as.symbol(go_column)))
+  }
   if (!missing(go_column)) {
-    df <- df %>% dplyr::rename(GO_temp = go_column)
+    tb <- tb %>% dplyr::rename(GO_temp = go_column)
   }
   if (!missing(column)) {
-    df <- df %>% dplyr::filter(!!as.symbol(column) == filter)
+    tb <- tb %>% dplyr::filter(!!as.symbol(column) == filter)
   }
-  gos <- df$GO_temp %>%
+  gos <- tb$GO_temp %>%
     lapply(., str_split_1, pattern = ";") %>%
     unlist() %>%
     discard(is.na) %>%
@@ -294,7 +307,7 @@ getUniprotData <- function(uniprot_data_dir) {
   go_tb_all <- names(all_tbs) %>%
     lapply(., \(x) {
       tb <- all_tbs[[x]] %>% filter(!is.na(GO_IDs))
-      gos <- goVector(df = tb, go_column = "GO_IDs")
+      gos <- goVector(tbl = tb, go_column = "GO_IDs")
       return(tibble(GO_IDs = gos, taxon = gsub("_reviewed", "", x)))
     }) %>%
     bind_rows()
@@ -369,8 +382,8 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
   # 1. Sample, 2. All go terms, 3. GO terms from
   # eggnog proteins 4. GO terms in interpro proteins
 
-  interpro_gos <- goVector(sample_tb, go_column = "GO_IDs", "Anno_method", "interpro")
-  eggnog_gos <- goVector(sample_tb, go_column = "GO_IDs", "Anno_method", "eggNOG")
+  interpro_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "interpro")
+  eggnog_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "eggNOG")
 
   go_tb_sample <- tibble(
     GO_IDs = sample_gos,
@@ -392,7 +405,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
     lapply(., str_split_1, pattern = ";") %>%
     `names<-`(prot_tb_sample$ProteinId)
 
-  if (sample_only) {
+  if (!sample_only) {
     data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
     data$prot_go_map$all <- unip$map
     data$go_vec$all <- all_gos
