@@ -12,7 +12,11 @@ d <- goDataGlobal(
   sample_only = SAMPLE_ONLY
 )
 
+combineFun <- ifelse(args$protein_embd_mode == "mean",
+                     base::mean, base::sum)
+
 embdFromPy <- function(go_vector) {
+  reticulate::source_python(glue::glue("{args$python_source}/a2v.py"))
   py$wanted_gos <- go_vector
   py_run_string("wanted_gos = set(wanted_gos)")
   embd <- py$loadEmbeddings(
@@ -33,7 +37,7 @@ if (!SAMPLE_ONLY) {
     dplyr::filter(GO_IDs %in% all_embd_go$GO_IDs)
 
   uniprot_embd <- read_tsv(args$uniprot_embeddings)
-  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, all_embd_go, mean)
+  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, all_embd_go, combineFun)
   all_embd_prot <- bind_rows(uniprot_embd, sample_prot_embd)
   rm(uniprot_embd)
 
@@ -57,7 +61,7 @@ if (!SAMPLE_ONLY) {
   sample_embd_go <- all_embd_go %>% filter(GO_IDs %in% d$go_vec$sample)
 } else {
   sample_embd_go <- embdFromPy(d$go_vec$sample)
-  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, sample_embd_go, mean)
+  sample_prot_embd <- goEmbedding2Prot(d$prot_go_map$sample, sample_embd_go, combine_func = combineFun)
 }
 sample_go <- list(
   data = sample_embd_go,
@@ -74,6 +78,6 @@ sample_protein <- list(
   embd_type = args$protein_embedding_mode,
   data = sample_prot_embd,
   tb = d$sample_tb,
-  color = c("Anno_method", "ID_method", "category")
+  color = c("inferred_by", "ID_method", "category")
 )
 
