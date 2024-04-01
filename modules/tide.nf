@@ -25,8 +25,8 @@ process TIDE {
     def check = file("${outdir}/tide_search.target.txt")
     if (check.exists()) {
         '''
-        mv -Z !{outdir}/tide_search* .
-        mv -Z !{percolatordir}/tide_percolator* .
+        cp !{outdir}/tide_search* .
+        cp !{percolatordir}/tide_percolator* .
         '''
     } else {
         template 'tide.sh'

@@ -21,9 +21,9 @@ process MSFRAGGER {
     def check = file("${outdir}/${params.pref}${mode}_msfragger.tsv")
     if (check.exists()) {
         '''
-        mv -Z !{outdir}/!{params.pref}!{mode}_msfragger.tsv .
-        mv -Z !{outdir}/fragger_all_pins.temp .
-        mv -Z !{logdir}/!{params.pref}_msfragger.log . || touch !{params.pref}_msfragger_MISSING.log
+        cp !{outdir}/!{params.pref}!{mode}_msfragger.tsv .
+        cp !{outdir}/fragger_all_pins.temp .
+        cp !{logdir}/!{params.pref}_msfragger.log . || touch !{params.pref}_msfragger_MISSING.log
         '''
     } else {
         '''

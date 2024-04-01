@@ -15,7 +15,7 @@ process DEEPLOC {
     def check = file("deeploc_results.csv")
     if (check.exists()) {
     """
-    mv -Z ${outdir}/deeploc_results.csv .
+    cp ${outdir}/deeploc_results.csv .
     """
     } else {
     """

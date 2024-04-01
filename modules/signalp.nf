@@ -18,9 +18,9 @@ process SIGNALP {
     def check = file("${outdir}/processed_entries.fasta")
     if (check.exists()) {
         """
-        mv -Z ${outdir}/processed_entries.fasta .
-        mv -Z ${outdir}/prediction_results.txt .
-        mv -Z ${outdir}/*.gff3 .
+        cp ${outdir}/processed_entries.fasta .
+        cp ${outdir}/prediction_results.txt .
+        cp ${outdir}/*.gff3 .
         """
     } else {
         """

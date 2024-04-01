@@ -20,8 +20,8 @@ if [ -e needs_annotating.fasta ]; then
     elif [ -e annotation_complete.fasta ]; then
         exit 0
     else
-        mv -Z "${previous_eggnog}" .
-        mv -Z needs_annotating* ${eggdir}; cd ${eggdir}
+        cp -r "${previous_eggnog}" .
+        cp needs_annotating* ${eggdir}; cd ${eggdir}
         touch eggnog_copied.txt
     fi
 

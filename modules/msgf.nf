@@ -19,8 +19,8 @@ process MSGF {
     check = file("${outdir}/${name}_msgf.pin")
     if (check.exists()) {
         '''
-        mv -Z !{outdir}/*!{file.baseName}* .
-        mv -Z !{logdir}/*!{file.baseName}* .
+        cp !{outdir}/*!{file.baseName}* .
+        cp !{logdir}/*!{file.baseName}* .
         '''
     } else {
         '''

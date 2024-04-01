@@ -33,7 +33,7 @@ process COVERAGE_CALC {
     def check = file("${outdir}/${sequences.baseName}_calculated.tsv")
     if (check.exists()) {
         """
-        mv -Z ${outdir}/${sequences.baseName}_calculated.tsv .
+        cp ${outdir}/${sequences.baseName}_calculated.tsv .
         """
     } else {
         """

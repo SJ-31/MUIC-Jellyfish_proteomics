@@ -19,9 +19,9 @@ process COMET {
     def check = file("${outdir}/${params.pref}_comet.tsv")
     if (check.exists()) {
         '''
-        mv -Z !{outdir}/!{params.pref}_comet.tsv .
-        mv -Z !{outdir}/comet_all_pins.temp .
-        mv -Z !{logdir}/comet.log .
+        cp !{outdir}/!{params.pref}_comet.tsv .
+        cp !{outdir}/comet_all_pins.temp .
+        cp !{logdir}/comet.log .
         '''
     } else {
         '''

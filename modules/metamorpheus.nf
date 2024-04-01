@@ -26,11 +26,11 @@ process METAMORPHEUS {
     if (check && config =~ /gptmd/) { // For the "GPTMD" option, which prepares
         // an xml file
         '''
-        mv -Z !{outdir}/*xml .
+        cp !{outdir}/*xml .
         '''
     } else if (check) {
         '''
-        mv -Z !{outdir}/*{tsv,tab,txt} .
+        cp !{outdir}/*{tsv,tab,txt} .
         '''
     } else {
         template 'metamorpheus.sh'

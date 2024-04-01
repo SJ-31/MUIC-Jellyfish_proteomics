@@ -15,7 +15,7 @@ process INTERPROSCAN {
     check = file("${outdir}/${params.pref}_interpro.tsv")
     if (check.exists()) {
         '''
-        mv -Z !{outdir}/!{params.pref}_interpro.tsv .
+        cp !{outdir}/!{params.pref}_interpro.tsv .
         '''
     } else {
         '''

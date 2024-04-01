@@ -14,7 +14,7 @@ process MAX_LFQ {
     def check = file("${outdir}/max_lfq.tsv")
     if (check.exists()) {
         """
-        mv -Z ${outdir}/max_lfq.tsv .
+        cp ${outdir}/max_lfq.tsv .
         """
     } else {
         """
