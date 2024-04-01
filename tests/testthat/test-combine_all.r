@@ -27,6 +27,12 @@ results <- main(args)
 all <- results$all
 found <- results$f
 
+getDuplicates <- function(tb) {
+  dupes <- tb %>% group_by(ProteinId) %>% filter(n() > 1)
+  print(glue("N duplicates: {nrow(dupes)}"))
+  return(dupes)
+}
+
 
 checkNa <- function(matrx, name) {
   print(glue("testing {name}"))

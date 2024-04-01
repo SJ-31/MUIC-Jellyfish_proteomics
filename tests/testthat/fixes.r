@@ -26,12 +26,18 @@ cleanDuplicateIds <- function(tb) {
   return(tb)
 }
 
+fixSep <- function(tb) {
+  fixed <- tb %>% mutate(GO = map_chr(GOs,
+                                      \(x) str_replace_all(x, ",", ";")))
+}
+
 
 if (sys.nframe() == 0) {
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--input"))
   parser <- add_option(parser, c("-r", "--rename"), default = FALSE, action = "store_true")
+  parser <- add_option(parser, c("-c", "--check_go"), default = FALSE, action = "store_true")
   args <- parse_args(parser)
   tb <- read_tsv(args$input)
   if (!args$rename) {
