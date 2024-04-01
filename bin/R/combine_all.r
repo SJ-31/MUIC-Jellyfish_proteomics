@@ -11,8 +11,8 @@ OTHER_EGGNOG_COLS <- c(
 
 FIRST_COLS <- c(
   "ProteinId", "ProteinGroupId", "header", "category",
-  "Group", "matchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
-  "organism", "lineage", "ID_method", "Anno_method"
+  "Group", "MatchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
+  "organism", "lineage", "ID_method", "inferred_by"
 )
 
 HEADER_QUERIES <- list(
@@ -35,7 +35,7 @@ hasDuplicates <- function(tb) {
 }
 
 #' Assign a protein to a higher-level go category
-#' 
+#'
 #' @description
 #' Categorizes a protein based on the parent terms (in a specified list) of one of its GO terms
 #' If there are multiple hits, take the most specific term
@@ -77,25 +77,6 @@ cleanGO <- function(go_vector) {
     unlist()
 }
 
-##'   Splits an entry with multiple matched peptides so that a match
-##'   attempt to the quantification tibble is made with every peptide
-splitPeptidesMatch <- function(tb, quant_tb) {
-  split_up <- tibbleDuplicateAt(tb, "matchedPeptideIds", ";") %>%
-    nest(.by = ProteinId) %>%
-    apply(., 1, \(x) {
-      group_tb <- x[["data"]]
-      id <- x[["ProteinId"]]
-      duplicated <- group_tb[1,] %>% mutate(matchedPeptideIds = id)
-      return(bind_rows(duplicated, group_tb) %>%
-               mutate(
-                 ProteinId = id,
-                 .before = "ProteinGroupId"
-               ))
-    }) %>%
-    bind_rows()
-  return(left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId)))
-}
-
 
 ##' When there are multiple quantified peptides for a protein, take
 #' the top 3 peptides and average their values, reporting that as the
@@ -134,8 +115,10 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds) &
                                        ProteinId != matchedPeptideIds)
   if (nrow(has_multiple) != 0) {
-    has_multiple <- splitPeptidesMatch(has_multiple, quant_tb)
-    has_multiple <- meanTop3(has_multiple, quant_name = quant_name)
+    # Attempt to find quantification for every peptide that was matched to a given protein
+    split_up <- tibbleDuplicateAt(main_tb, "matchedPeptideIds", ";")
+    joined <- left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId))
+    has_multiple <- meanTop3(joined, quant_name = quant_name)
   }
   full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds) |
                                         ProteinId == matchedPeptideIds)
@@ -168,7 +151,7 @@ organismFromHeader <- function(row) {
 KEEP_AS_CHAR <- c(
   "ProteinId", "header", "NCBI_ID", "UniProtKB_ID", "organism", "ProteinGroupId",
   "lineage", "GO", "GO_evidence", "KEGG_Genes", "PANTHER", "matchedPeptideIds",
-  "peptideIds", "ID_method", "Anno_method", "seq",
+  "peptideIds", "ID_method", "inferred_by", "seq",
   "seed_ortholog", "eggNOG_OGs", "COG_category", "Description",
   "Preferred_name", "EC", "KEGG_ko", "PFAMs", "KEGG_Pathway",
   "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC",
@@ -177,7 +160,7 @@ KEEP_AS_CHAR <- c(
 )
 
 ANNO_COLS <- KEEP_AS_CHAR %>% discard(., \(x) {
-  x %in% c("seq", "peptideIds", "ID_method", "Anno_method")
+  x %in% c("seq", "peptideIds", "ID_method", "inferred_by")
 })
 
 sortVals <- function(values) {
@@ -213,6 +196,12 @@ getEvidence <- function(row) {
   return("IEA")
 }
 
+checkMatchedPeps <- function(tb) {
+  return(tb$matchedPeptideIds %>%
+           map_lgl(\(x) grepl("P", x)) %>%
+           any)
+}
+
 
 main <- function(args) {
   downloads <- loadFile(args$download) %>%
@@ -241,6 +230,7 @@ main <- function(args) {
     all(is.na(combined[[x]]))
   })
 
+
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
     mutate_all(~replace(., . == "-", NA)) %>%
@@ -257,6 +247,8 @@ main <- function(args) {
       num_unique_peps = sapply(unique_peptides, \(x) {
         return(str_count(x, ";") + 1)
       }, USE.NAMES = FALSE),
+      ID_method = purrr::map_chr(ID_method, \(x)
+        ifelse(grepl(";", x), "both", x))
     )
 
 
@@ -289,7 +281,9 @@ main <- function(args) {
     cat <- x["category"]
     if (cat == "unknown" | cat == "other") {
       return(goCategorize(x["GO_IDs"], cat))
-    } else return(cat)
+    } else {
+      return(cat)
+    }
   })
   combined$category <- categories
 
@@ -322,7 +316,8 @@ main <- function(args) {
     mutate(organism = apply(., 1, organismFromHeader)) %>%
     dplyr::rename(
       eggNOG_preferred_name = Preferred_name,
-      eggNOG_description = Description
+      eggNOG_description = Description,
+      MatchedPeptideIds = matchedPeptideIds
     ) %>%
     relocate(where(is.numeric),
              .after = where(is.character)
@@ -335,6 +330,7 @@ main <- function(args) {
     relocate(c(contains("GO"), "PANTHER")) %>%
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(all_of(FIRST_COLS))
+
 
   return(combined)
 }

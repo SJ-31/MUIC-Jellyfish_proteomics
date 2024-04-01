@@ -10,8 +10,8 @@ clean_interpro <- function(df) {
     mutate(
       interpro_db = paste0(member_db, ": ", db_accession),
       interpro_db = recode(interpro_db,
-        "Coils: Coil" = "Coil",
-        "MobiDBLite: mobidb-lite" = "MobiDBLite"
+                           "Coils: Coil" = "Coil",
+                           "MobiDBLite: mobidb-lite" = "MobiDBLite"
       ),
       interpro_description = paste0(
         description, "; ",
@@ -28,7 +28,7 @@ clean_interpro <- function(df) {
     )) %>%
     group_by(query) %>%
     ungroup() %>%
-    mutate(Anno_method = "interpro") %>%
+    mutate(inferred_by = "interpro") %>%
     rename(., all_of(c("interpro_pathways" = "pathways"))) %>%
     select(-c("member_db"))
   return(ip_df)
@@ -57,7 +57,7 @@ get_overlaps <- function(df, query_id) {
     return(list(OVERLAP1 = 1))
   }
   while (m <= num_searches) {
-    current <- query_df[m, ]
+    current <- query_df[m,]
     while (n <= num_searches) {
       if (m == n && num_searches == 1) {
         return(list(OVERLAP1 = 1))
@@ -66,7 +66,7 @@ get_overlaps <- function(df, query_id) {
         n <- n + 1
         next
       }
-      compare <- query_df[n, ]
+      compare <- query_df[n,]
       key <- paste0("OVERLAP", num_overlaps)
       if (compare$start <= current$stop) {
         overlapping[[key]] <- c(overlapping[[key]], m, n)
@@ -88,7 +88,7 @@ resolve_overlaps <- function(overlapping_indices, df) {
   # Resolve the overlapping annotations given by the specified rows
   # Intended for use with output of
   # "get_overlaps" function
-  current <- df[overlapping_indices, ]
+  current <- df[overlapping_indices,]
   current <- distinct(current, interpro_db, .keep_all = TRUE) # interpro_db is
   # the column to consider for distinct
   predictive <- c(
@@ -122,12 +122,11 @@ clean_annotations <- function(df) {
       arrange(start)
     current_overlaps <- get_overlaps(ip_df, x)
     current_sorted <- lapply(current_overlaps,
-      resolve_overlaps,
-      df = current_query
+                             resolve_overlaps,
+                             df = current_query
     ) %>%
       bind_rows() %>%
       distinct(., interpro_description, .keep_all = TRUE) %>%
-      mutate(matchedPeptideIds = query) %>%
       group_by(query) %>%
       mutate_at(., vars(-group_cols()), paste0, collapse = ";") %>%
       distinct() %>%
@@ -146,8 +145,8 @@ main <- function(args) {
   # Note that the true sequence of the protein that
   # the peptide has mapped to is unknown
   cleaned <- clean_annotations(interpro_df)
-  joined <- inner_join(select(eggnog_df, -Anno_method), cleaned,
-    by = join_by(x$ProteinId == y$query)
+  joined <- inner_join(select(eggnog_df, -inferred_by), cleaned,
+                       by = join_by(x$ProteinId == y$query)
   )
   blanks_removed <- unlist(lapply(joined$interpro_accession, function(x) {
     if (x == "") {
@@ -158,13 +157,16 @@ main <- function(args) {
   }))
   joined$interpro_accession <- blanks_removed
   still_unmatched <- eggnog_df[!(
-    eggnog_df$ProteinId %in% joined$ProteinId), ] %>%
-    select(-Anno_method)
+    eggnog_df$ProteinId %in% joined$ProteinId),] %>%
+    select(-inferred_by)
+  if (purrr::pluck_exists(joined, "query")) {
+    joined <- dplyr::select(joined, -query)
+  }
   return(list(unmatched = still_unmatched, all = joined))
 }
 
 
-writeUnmatched <- function(mapping, unmatched_peptides, unmatched, output) {
+writeUnmatched <- function(unmatched_peptides, unmatched, output) {
   # Find unmatched peptides
   unmatched_peptides <- filter(unmatched_peptides, ProteinId %in% unmatched$ProteinId) %>%
     rename(seq = peptideIds)
@@ -194,9 +196,8 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   results <- main(args)
   unmatched_peptides <- read_tsv(args$unmatched_peptides)
   write_tsv(results$unmatched, args$final_unmatched)
-  writeUnmatched(
-    full_mapping, unmatched_peptides, results$unmatched,
-    args$final_unmatched_fasta
+  writeUnmatched(unmatched_peptides, results$unmatched,
+                 args$final_unmatched_fasta
   )
   write_tsv(results$all, args$output)
 }
