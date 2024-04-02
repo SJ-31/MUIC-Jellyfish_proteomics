@@ -13,7 +13,7 @@ goVector <- function(df, column, filter) {
 writeOz <- function(file, df) {
   # Write ontologizer-formatted df to file
   header <- "GoStat IDs Format Version 1.0"
-  write_lines(df, file)
+  write_lines(header, file)
   write_tsv(df, file, append = TRUE)
 }
 
@@ -43,7 +43,9 @@ prep <- function(args) {
   u <- ozFormat(combined, FALSE)
   io <- ozFormat(combined, TRUE, "ID_method", "open")
   sa <- ozFormat(
-    combined %>% dplyr::filter(inferred_by == "interpro" | inferred_by == "eggNOG", grepl("[UDT]", ProteinId)), FALSE
+    combined %>% dplyr::filter(inferred_by == "interpro" |
+                                 inferred_by == "eggNOG" |
+                                 grepl("[UDT]", ProteinId)), FALSE
   )
   return(list(
     universe = u,
@@ -52,7 +54,7 @@ prep <- function(args) {
   ))
 }
 
-if (sys.nframe() == 0) {
+if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--input"))
