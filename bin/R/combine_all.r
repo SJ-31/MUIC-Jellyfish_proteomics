@@ -52,6 +52,21 @@ goCategorize <- function(go_list, original_category) {
 }
 
 
+#' Count of number unique GO terms assigned to each protein, and determine the maximum semantic value of the GO terms of that protein
+#'
+goCount <- function(go_vector) {
+  return(lapply(go_vector, \(x) {
+    row <- tibble(GO_count = 0, GO_max_sv = 0)
+    if (!is.na(x)) {
+      split <- unique(str_split_1(x, ";"))
+      row$GO_count <- length(split)
+      svs <- purrr::map_dbl(split, getSV)
+      row$GO_max_sv <- max(svs)
+    }
+    return(row)
+  }) %>% bind_rows())
+}
+
 #' Assign a protein into a loose category
 #'
 #' @description
@@ -70,7 +85,7 @@ cleanGO <- function(go_vector) {
       if (is.na(x)) {
         return(x)
       }
-      s <- str_split_1(x, pattern = ";") %>% keep(grepl("GO:", .))
+      s <- str_split_1(x, pattern = ";|,") %>% keep(grepl("GO:", .))
       r <- unlist(lapply(s, gsub, pattern = "_.*", replacement = "")) %>% unique()
       return(paste0(r, collapse = ";"))
     }) %>%
@@ -112,16 +127,14 @@ meanTop3 <- function(tb, quant_name) {
 # extracted and handled differently: the values are averaged
 # Compute average and median values across samples
 mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
-  has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds) &
-                                       ProteinId != matchedPeptideIds)
+  has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
-    split_up <- tibbleDuplicateAt(main_tb, "matchedPeptideIds", ";")
+    split_up <- tibbleDuplicateAt(has_multiple, "matchedPeptideIds", ";")
     joined <- left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId))
     has_multiple <- meanTop3(joined, quant_name = quant_name)
   }
-  full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds) |
-                                        ProteinId == matchedPeptideIds)
+  full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds))
   full_proteins <- left_join(full_proteins, quant_tb,
                              by = join_by(x$ProteinId == y$ProteinId)
   )
@@ -273,6 +286,10 @@ main <- function(args) {
   ) %>%
     as_tibble() %>%
     dplyr::mutate(GO_IDs = cleanGO(GO))
+  gc <- goCount(combined$GO_IDs)
+  combined$GO_counts <- gc$GO_count
+  combined$GO_max_sv <- gc$GO_max_sv
+
 
   ## Categorize
   # Categories that cannot be assigned by header are assigned from
