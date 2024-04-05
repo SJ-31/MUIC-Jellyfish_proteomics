@@ -17,13 +17,10 @@ writeOz <- function(file, df) {
   write_tsv(df, file, append = TRUE)
 }
 
-ozFormat <- function(df, with_filter, col, val) {
+ozFormat <- function(tb) {
   # Format df as input for ontologizer program
   # Optional filtering by specific columns and values
-  if (with_filter) {
-    df <- df %>% filter(!!as.symbol(col) == val)
-  }
-  prepped <- df %>%
+  prepped <- tb %>%
     select(c(ProteinId, GO)) %>%
     filter(!is.na(GO)) %>%
     mutate(GO = sapply(GO, function(x) {
@@ -40,12 +37,12 @@ ozFormat <- function(df, with_filter, col, val) {
 
 prep <- function(args) {
   combined <- read_tsv(args$input)
-  u <- ozFormat(combined, FALSE)
-  io <- ozFormat(combined, TRUE, "ID_method", "open")
+  u <- ozFormat(combined)
+  io <- ozFormat(dplyr::filter(combined, ID_method == "open" | !is.na(Mods)))
   sa <- ozFormat(
     combined %>% dplyr::filter(inferred_by == "interpro" |
                                  inferred_by == "eggNOG" |
-                                 grepl("[UDT]", ProteinId)), FALSE
+                                 grepl("[UDT]", ProteinId))
   )
   return(list(
     universe = u,
