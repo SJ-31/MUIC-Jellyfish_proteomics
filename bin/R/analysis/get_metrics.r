@@ -19,18 +19,20 @@ TABLES <- list()
 
 
 # Coverage metrics
-cov_align <- compareFirstSecL(run, "coverage_alignlen",
-                              TRUE, "ProteinId")
+cov_align <- compareFirstSecL(
+  run, "pcoverage_align",
+  TRUE, "ProteinId"
+)
 num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
-test_num_peps <- wilcoxWrapper(num_peps)
-test_coverage <- wilcoxWrapper(compareFirstSecW(run, "coverage_alignlen", "ProteinId"))
 GRAPHS$run_coverage <- passDensityPlot(cov_align, 0.05) + labs(x = "percent coverage")
 
 
 # Unique proteins to each run
 run_uniques <- passUniques(run)
-percent_found <- dplyr::bind_cols(notMissing(run$first),
-                                  notMissing(run$sec)) %>%
+percent_found <- dplyr::bind_cols(
+  notMissing(run$first),
+  notMissing(run$sec)
+) %>%
   `colnames<-`(c("first", "sec")) %>%
   tibble::rownames_to_column(., var = "metric") %>%
   as_tibble()
@@ -67,7 +69,7 @@ counts$sec <- getCounts(run$sec)
 # sv_compare <- tibble(sv = sv_first, pass = "first") %>%
 #   bind_rows(tibble(sv = sv_sec, pass = "sec"))
 
-wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps")
+wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
 
 avgStdevs <- function(tb, cols, stat) {
   result <- vector()
@@ -77,22 +79,35 @@ avgStdevs <- function(tb, cols, stat) {
   return(result)
 }
 
-avgStdevs(run$first, wanted_cols, base::mean)
 
+test_num_peps <- wilcoxWrapper(num_peps)
+test_coverage <- wilcoxWrapper(compareFirstSecW(run, "pcoverage_align", "ProteinId"))
+# Results per protein
+# Evaluate significance of each
 per_protein <- tibble(
-  metric = c("Stdev GO count", "Average GO count", "Stdev semantic value", "Avg (max) semantic value", "Stdev peptide count", "Avg peptide count")
+  metric = rep(wanted_cols, 2),
+  type = c(rep("mean", length(wanted_cols)), rep("stdev", length(wanted_cols))),
+  first = c(
+    avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))
+  ),
+  sec = c(
+    avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE))
+  ),
+  wilcox_result = c() # TODO: Add in this column after the results have
+  # come in
 )
+per_protein %>%
+  mutate(metric = paste0(metric, "_", type)) %>%
+  rename()
+pivot_longer(cols = c(first, sec)) %>%
+  ggplot(aes(x = metric, y = value, fill = name)) +
+  geom_bar(stat = "identity", position = "dodge")
 
-GO_counts <- list()
 
-
-# Counts of go terms per protein were recorded already in combine_all.r
-
-# Max sv per protein (better do this in combine_all
-
-p_rename <- c(NCBI_ID = "Accession Number", coverage_nmatch.prev = "Sequence coverage [%]")
-
-# Compare with previous
+# Compare with previous results
+p_rename <- c(NCBI_ID = "Accession Number", pcoverage_nmatch.prev = "Sequence coverage [%]")
 p_all <- read_tsv("./data/reference/previous_all.tsv") %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
@@ -102,17 +117,24 @@ p_toxins <- read_tsv("./data/reference/previous_toxins.tsv") %>%
 
 compare_all <- inner_join(p_all, run$first, by = join_by(NCBI_ID)) %>%
   left_join(., run$sec, by = join_by(NCBI_ID), suffix = JOIN_SUFFIX) %>%
-  select(c(NCBI_ID, header.first, category.first, coverage_nmatch.prev, coverage_nmatch.first, coverage_nmatch.sec)) %>%
-  mutate(coverage_nmatch.first = coverage_nmatch.first * 100,
-         coverage_nmatch.sec = coverage_nmatch.sec * 100)
+  select(c(NCBI_ID, header.first, category.first, pcoverage_nmatch.prev, coverage_nmatch.first, coverage_nmatch.sec)) %>%
+  mutate(
+    pcoverage_nmatch.first = pcoverage_nmatch.first * 100,
+    pcoverage_nmatch.sec = pcoverage_nmatch.sec * 100
+  )
 
 cov_longer <- compare_all %>%
   select(contains("coverage"), NCBI_ID) %>%
   rename_with(., \(x) purrr::map_chr(x, \(y) {
-    if (grepl("NCBI_ID", y)) return(y)
-    y <- gsub("coverage_nmatch", "", y)
-    if (y == ".prev") return("previous")
-    else if (y == ".first") return("first")
+    if (grepl("NCBI_ID", y)) {
+      return(y)
+    }
+    y <- gsub("pcoverage_nmatch", "", y)
+    if (y == ".prev") {
+      return("previous")
+    } else if (y == ".first") {
+      return("first")
+    }
     return("second")
   })) %>%
   pivot_longer(cols = !NCBI_ID) %>%
@@ -131,7 +153,9 @@ cov_longer <- cov_longer %>%
   nest()
 mask <- cov_longer %>% apply(1, \(x) {
   data <- x$data
-  if (all(data$value < threshold) | any(is.na(data$value))) return(FALSE)
+  if (all(data$value < threshold) | any(is.na(data$value))) {
+    return(FALSE)
+  }
   return(TRUE)
 })
 cov_longer <- cov_longer[mask,] %>% unnest()
@@ -143,8 +167,10 @@ GRAPHS$protein_wise_coverage <- cov_longer %>%
   stat_identity(geom = "text", colour = "black", size = 5, aes(label = value), position = position_stack(vjust = 0.5)) +
   ylab("Sequence coverage") +
   xlab(element_blank()) +
-  theme(axis.ticks.x = element_blank(),
-        axis.text.x = element_blank())
+  theme(
+    axis.ticks.x = element_blank(),
+    axis.text.x = element_blank()
+  )
 
 # Filter out new proteins
 compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
@@ -152,4 +178,28 @@ new_proteins <- run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
 new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 
+# Correlation between coverage and identifications by different engines
+num_ids <- bind_rows(run$first, run$sec) %>%
+  filter(ProteinGroupId != "U") %>%
+  select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
+  mutate(engine_number = purrr::map_dbl(ProteinGroupId, \(x) {
+    x <- gsub("[0-9]+", "", x)
+    x <- str_split_1(x, ";") %>%
+      base::unique() %>%
+      discard(\(x) x == "U")
+    return(length(x))
+  }))
+engine_cor <- cor.test(num_ids$engine_number, num_ids$pcoverage_nmatch) # A weak positive correlation, but statistically significant
+n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch) # A weak positive correlation, but statistically significant
 
+minMaxScaler <- function(vec) {
+  max <- max(vec, na.rm = TRUE)
+  min <- min(vec, na.rm = TRUE)
+  return(purrr::map_dbl(vec, \(x) (x - min) / (max - min)))
+}
+
+# Working with lfq
+target <- "mean"
+
+
+#' Analyzing

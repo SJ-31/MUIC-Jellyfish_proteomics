@@ -25,12 +25,12 @@ runData <- function(path, remove_dupes) {
     first = read_tsv(glue("{path}/1-First_pass/{name}_all_wcoverage.tsv")),
     sec = read_tsv(glue("{path}/2-Second_pass/{name}_all_wcoverage.tsv"))
   )
-  dl_f <- getDeeploc("{path}/1-First_pass/Deeploc/deeploc_results.csv",
-                     "{path}/1-First_pass/Combined/unified_groups.tsv")
-  dl_s <- getDeeploc("{path}/1-First_pass/Deeploc/deeploc_results.csv",
-                     "{path}/1-First_pass/Combined/unified_groups.tsv")
+  dl_f <- getDeeploc(glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
+                     glue("{path}/1-First_pass/Combined/unified_groups.tsv"))
+  dl_s <- getDeeploc(glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
+                     glue("{path}/1-First_pass/Combined/unified_groups.tsv"))
   results$first <- bind_rows(results$first, dl_f)
-  results$second <- bind_rows(results$second, dl_s)
+  results$sec <- bind_rows(results$sec, dl_s)
   if (!missing(remove_dupes) && remove_dupes) {
     results$first <- results$first %>% distinct(ProteinId, .keep_all = TRUE)
     results$sec <- results$sec %>% distinct(ProteinId, .keep_all = TRUE)
@@ -80,14 +80,29 @@ parseLineage <- function(lineage_str, level) {
 
 #' For a specified `col` of `tb`, where elements are concatenated by a separator
 #' specified with `pattern`, split the elements then return a tibble
-#' of their frequencies
-splitAndCount <- function(tb, col, pattern) {
+#' of their frequencies. Apply apply `func` to elements if supplied
+splitAndCount <- function(tb, col, pattern, unique_only, func = NULL) {
+  if (!missing(unique_only) && unique_only) {
+    uniq <- TRUE
+  } else uniq <- FALSE
   vec <- lapply(tb[[col]], \(x) {
     if (is.na(x)) return(x)
-    return(str_split_1(x, pattern))
+    split <- str_split_1(x, pattern)
+    if (uniq) {
+      split <- unique(split)
+    }
+    if (!is.null(func)) {
+      split <- lapply(split, func) %>% unlist()
+    }
+    return(split)
   }) %>%
     unlist()
   return(getFreqTb(vec, col))
+}
+
+
+removeDigits <- function(x) {
+  return(gsub("[0-9]+", "", x))
 }
 
 #' Count the frequencies of each element in the columns
@@ -101,6 +116,8 @@ getCounts <- function(tb) {
   }
   data$PANTHER <- splitAndCount(tb, "PANTHER", ";")
   data$go <- goVector(tb, go_column = "GO_IDs") %>% getFreqTb(., "GO")
+  data$matched_peptides <- splitAndCount(tb, "MatchedPeptideIds", ";",
+                                         func = removeDigits, unique_only = TRUE)
   data$lineage <- tb$lineage %>%
     purrr::map_chr(., \(x) parseLineage(x, 3)) %>%
     getFreqTb(., "lineage")
@@ -228,4 +245,21 @@ wilcoxWrapper <- function(first_sec) {
                              na.action = na.omit,
                              alternative = "less")
   return(list(two_sided = two_sided, sec_greater = sec_greater))
+}
+
+
+#' Combine lfq results from flashlfq, maxlfq and directlfq, which
+#' returns log2 intensity across the different tools
+#'
+#' @description
+#' @param target the metric to average, either "mean" or "median"
+mergeLfq <- function(tb, target) {
+  lfq_cols <- paste0(c("directlfq", "maxlfq", "flashlfq"), "_", target)
+  quant <- tb %>% dplyr::select(contains(lfq_cols))
+  is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
+  quant <- mutate(quant,
+                  log_intensity = pmap(list(maxlfq_mean, directlfq_mean, flashlfq_mean),
+                                       \(x, y, z) mean(c(x, y, z), na.rm = TRUE)) %>% unlist()
+  )
+  return(quant)
 }
