@@ -186,8 +186,8 @@ coverage <- function(protein, peps) {
     nmatch <- (total - str_count(vis, "-")) / total
   }
   result <- tibble(
-    coverage_nmatch = nmatch,
-    coverage_alignlen = sum_cov / chars,
+    pcoverage_nmatch = nmatch,
+    pcoverage_align = sum_cov / chars,
     alignment = vis
   )
   return(result)

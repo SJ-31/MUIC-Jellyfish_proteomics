@@ -1,4 +1,4 @@
-#' Helper functions for analyzing
+#' Helper functions for analyzing GO terms
 #' and semantic similarity
 #'
 
@@ -307,7 +307,7 @@ getUniprotData <- function(uniprot_data_dir) {
   go_tb_all <- names(all_tbs) %>%
     lapply(., \(x) {
       tb <- all_tbs[[x]] %>% filter(!is.na(GO_IDs))
-      gos <- goVector(tbl = tb, go_column = "GO_IDs")
+      gos <- goVector(tb = tb, go_column = "GO_IDs")
       return(tibble(GO_IDs = gos, taxon = gsub("_reviewed", "", x)))
     }) %>%
     bind_rows()
@@ -427,7 +427,6 @@ goQueryProt <- function(query_gos, tb, prot_go_map) {
 }
 
 
-# TODO: Ranked gene set enrichment analysis
 prepSorted <- function(df, col_spec, type) {
   select_vals <- df %>%
     dplyr::select(contains(glue("{col_spec}|ProteinId"))) %>%
@@ -498,12 +497,13 @@ headerFreqs <- function(header_vec) {
   # Get rid of tiny words
 }
 
+
 #' Ranked gene set enrichment analysis
 #'
 #' @description
 #' Rank proteins in tb according to a specified column
 #' @param quant the column to rank proteins on
-fgseaWrapper <- function(quant, tb) {
+fgseaWrapper <- function(quant, tb, gene_sets) {
   ranked <- tb %>%
     dplyr::select(ProteinId, quant) %>%
     dplyr::mutate(ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))) %>%
@@ -516,8 +516,8 @@ fgseaWrapper <- function(quant, tb) {
     }) %>%
     sort(., decreasing = TRUE)
   fgsea <- fgsea(gene_sets, ranked, scoreType = "pos")
-  if (fgsea$pval > 0.05) {
-    message("fgsea results not significant!")
-  }
+  # if (fgsea$pval > 0.05) {
+  #   message("fgsea results not significant!")
+  # }
   return(fgsea)
 }
