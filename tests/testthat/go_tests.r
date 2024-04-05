@@ -13,7 +13,7 @@ orgdb <- prepOrgDb(orgdb_pth)
 semdata <- lapply(ONTOLOGIES, \(x) {
   GOSemSim::godata(OrgDb = db_name, ont = x, keytype = "GID")
 }) %>% `names<-`(ONTOLOGIES)
-test_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/jellyfish/1-First_pass/jellyfish_all.tsv"
+test_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"
 embeddings_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/reference/go_embedded.npz"
 
 sample_name <- "C_indra"
@@ -85,7 +85,7 @@ countGO <- function(tb) {
 }
 
 
-rrvgo_sample <- reduceGOList(d$go_vec$sample)
+# rrvgo_sample <- reduceGOList(d$go_vec$sample)
 # # rrvgo_sample$reduced_matrix %>% lmap()
 # rrvgo_all <- reduceGOList(d$go_vec$all)
 # anno_method_pcoa <- pcoaWithTb(
@@ -129,14 +129,14 @@ rrvgo_sample <- reduceGOList(d$go_vec$sample)
 
 gene_sets <- list(
   unknown_to_db = d$sample_tb %>%
-    filter(Anno_method == "interpro" | Anno_method == "eggNOG", grepl("[UDT]", ProteinId)) %>%
+    filter(inferred_by == "interpro" | inferred_by == "eggNOG", grepl("[UDT]", ProteinId)) %>%
     pluck("ProteinId"),
-  from_open_search = d$sample_tb %>%
-    filter(ID_method == "open") %>%
+  has_mods = d$sample_tb %>%
+    filter(ID_method == "open" | !is.na(Mods)) %>%
     pluck("ProteinId"),
   toxins = names(getToxinProteins(d$prot_go_map$sample))
 ) %>% lapply(., \(x) map_chr(x, \(x) gsub("-SAMPLE", "", x)))
 
 
-fgseaWrapper("directlfq_mean", d$sample_tb)
-fgseaWrapper("directlfq_mean", d$sample_tb)
+fgsea <- fgseaWrapper("log_intensity", distinct(quant), gene_sets)
+# But how to resolve ties?

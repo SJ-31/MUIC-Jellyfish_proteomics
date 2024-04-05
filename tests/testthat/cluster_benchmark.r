@@ -58,7 +58,6 @@ hdbscanBM <- function(dist_t, min_points) {
   return(scans)
 }
 
-
 #' Compute clustering metrics, appending them to a list
 #'
 getClusterMetrics <- function(dist_t, cluster_list, method, metrics, var) {

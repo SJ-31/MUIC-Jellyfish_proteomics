@@ -5,22 +5,26 @@ source("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R/combine_all.r")
 
 setwd("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/debug/combine")
 
-args <- list(eggnog = "C_indra_eggnog_matched.tsv",
-             interpro = "C_indra_interpro_matched.tsv",
-             downloads = "C_indra_downloads_anno-3.tsv",
-             sort_mods = TRUE,
-             empai = TRUE,
-             pfam2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam2go",
-             interpro2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/interpro2go",
-             pfam_db = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam_entries.tsv",
-             is_denovo = "false",
-             fdr = 0.05,
-             pep_thresh = 1,
-             output = "C_indra_all.tsv",
-             directlfq = "sorted_directlfq.tsv",
-             maxlfq = "max_lfq.tsv",
-             flashlfq = "sorted_flashlfq.tsv",
-             r_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R", python_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
+args <- list(
+  eggnog = "C_indra_eggnog_matched.tsv",
+  interpro = "C_indra_interpro_matched.tsv",
+  downloads = "C_indra_downloads_anno-3.tsv",
+  sort_mods = TRUE,
+  empai = TRUE,
+  pfam2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam2go",
+  interpro2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/interpro2go",
+  ec2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/ec2go",
+  kegg2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/kegg_reaction2go",
+  pfam_db = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam_entries.tsv",
+  is_denovo = "false",
+  fdr = 0.05,
+  pep_thresh = 1,
+  output = "C_indra_all.tsv",
+  directlfq = "sorted_directlfq.tsv",
+  maxlfq = "max_lfq.tsv",
+  flashlfq = "sorted_flashlfq.tsv",
+  r_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R", python_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin"
+)
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/GO_helpers.r"))
 results <- main(args)
@@ -28,7 +32,9 @@ all <- results$all
 found <- results$f
 
 getDuplicates <- function(tb) {
-  dupes <- tb %>% group_by(ProteinId) %>% filter(n() > 1)
+  dupes <- tb %>%
+    group_by(ProteinId) %>%
+    filter(n() > 1)
   print(glue("N duplicates: {nrow(dupes)}"))
   return(dupes)
 }
@@ -118,7 +124,7 @@ checkWanted <- function(x) {
   if (purrr::pluck_depth(evaluated) > 1) {
     any(lapply(seq_along(evaluated), \(x) {
       any(evaluated[[x]] %in%
-            UNWANTED_TYPES)
+        UNWANTED_TYPES)
     }) %>% unlist())
     return(FALSE)
   }
