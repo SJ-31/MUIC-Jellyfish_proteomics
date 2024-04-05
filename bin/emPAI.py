@@ -60,17 +60,19 @@ def calculate_emPAI(df, m_range: tuple):
         .combine(df["seq"] == "-", lambda x, y: x or y)
     )
     full = df[~not_full & df["seq"].notna()]
-    full["peptideIds"] = full["peptideIds"].apply(
+    full["empai_peptides"] = full["unique_peptides"].apply(
         lambda x: ";".join([cleanPep(p) for p in x.split(";")])
     )
     other = df[not_full | df["seq"].isna()]
     full["observable_peps"] = full["seq"].apply(
         n_observable, mass_range=m_range
     )
-    full["observed_peps"] = full["peptideIds"].apply(n_observed)
+    full["observed_peps"] = full["empai_peptides"].apply(n_observed)
     full["emPAI"] = full.apply(
         lambda x: emPAI(x.observed_peps, x.observable_peps), axis=1
     )
-    full = full.drop(["observable_peps", "observed_peps"], axis="columns")
+    full = full.drop(
+        ["observable_peps", "observed_peps", "empai_peptides"], axis="columns"
+    )
     df = pd.concat([full, other])
     return df

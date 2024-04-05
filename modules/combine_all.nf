@@ -28,9 +28,11 @@ process COMBINE_ALL {
         --interpro $interpro \
         --downloads $downloads \
         --sort_mods TRUE \
-        --empai TRUE \
+        --empai FALSE \
         --pfam2go $params.pfam2go \
         --interpro2go $params.interpro2go \
+        --kegg2go $params.kegg2go \
+        --ec2go $params.ec2go \
         --pfam_db $params.pfam_entries \
         --is_denovo $params.denovo \
         --fdr $params.fdr \
