@@ -18,16 +18,16 @@ check_group <- function(group_list, group_record) {
 }
 
 # If a protein group has already been recorded, add the current protein and
-#  the groups that haven't been recorded into the unified group
+#  the groups that haven't been recorded into the existing unified group
 #   else, create a new unified group
-unify_groups <- function(combined_tib) {
+unify_groups <- function(combined_tb) {
   protein_record <- list()
   counter <- 1
-  for (index in seq_along(combined_tib$ProteinId)) {
-    current <- combined_tib[index, ]
+  for (index in seq_along(combined_tb$ProteinId)) {
+    current <- combined_tb[index,]
     current_groups <- strsplit((current$ProteinGroupId), ";") %>% unlist()
     current_groups <- current_groups[grep("NA", current_groups,
-      invert = TRUE
+                                          invert = TRUE
     )]
     checked <- check_group(current_groups, protein_record)
     if (!is.list(checked)) {
@@ -49,7 +49,10 @@ collect_in_group <- function(group_name, dataframe) {
 
 num_prot <- function(prot_list) {
   return(
-    prot_list %>% strsplit(";") %>% unlist() %>% length()
+    prot_list %>%
+      strsplit(";") %>%
+      unlist() %>%
+      length()
   )
 }
 
@@ -64,7 +67,7 @@ resolve_records <- function(combined_tib, records) {
   new <- combined_tib %>%
     mutate(Group = unlist(lapply(ProteinGroupId, function(x) {
       groups <- strsplit(x, ";")[[1]]
-      found <- intersect(groups, names(records))[1]
+      found <- intersect(groups, names(records))[1]  # Figures out which unified group the protein belongs to
       return(records[[found]])
     })))
   return(new)
@@ -83,12 +86,12 @@ if (sys.nframe() == 0) {
   library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "Output file name"
+                       type = "character",
+                       help = "Output file name"
   )
   parser <- add_option(parser, c("-i", "--input"),
-    type = "character",
-    help = "Input file name"
+                       type = "character",
+                       help = "Input file name"
   )
   parser <- add_option(parser, c("-s", "--search_type"), type = "character")
   parser <- add_option(parser, c("-p", "--group_prefix"), type = "character")

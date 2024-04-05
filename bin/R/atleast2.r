@@ -10,33 +10,6 @@ headers <- c(
 
 ID_LIST <- list()
 
-## splitDuplicates <- function(dupe_table, index) {
-##   # Split a Percolator row containing duplicate protein ids into several rows, one for each id
-##   dupes <- dupe_table[index, ]$ProteinId %>%
-##     strsplit(",") %>%
-##     unlist(use.names = FALSE)
-##   others <- select(dupe_table[index, ], -ProteinId)
-##   return(tibble(ProteinId = dupes, others))
-## }
-
-## sort_duplicates <- function(file_path) {
-##   # Read in a Percolator protein output file and sort duplicates, proteins
-##   # that are all known from the same set of peptides
-##   table <- read.delim(file_path, sep = "\t")
-##   engine <- gsub("_.*", "", file_path)
-##   duplicates <- table %>% filter(grepl(",", ProteinId))
-##   if (dim(duplicates)[1] == 0) {
-##     table <- table %>% mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
-##     return(table)
-##   }
-##   table <- table %>% filter(!grepl(",", ProteinId))
-##   duplicates <- lapply(1:dim(duplicates)[1], splitDuplicates, dupe_table = duplicates) %>%
-##     bind_rows()
-##   bound <- bind_rows(list(duplicates, table)) %>%
-##     as_tibble()
-##   return(bound)
-## }
-
 get_matches <- function(file_name) {
   engine <- gsub(".*/", "", file_name) %>% gsub("_.*", "", .)
   results <- tibbleDuplicateAt(read_tsv(file_name), "ProteinId", ",") %>%

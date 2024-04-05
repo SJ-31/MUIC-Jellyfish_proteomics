@@ -6,7 +6,6 @@ library(umap)
 library(tsne)
 library(plotly)
 library(reticulate)
-source_python(glue::glue("{args$python_source}/a2v.py"))
 source(glue::glue("{args$r_source}/rrvgo_modified.r"))
 
 #' Wrapper for sklearn.manifold's trustworthiness function
@@ -81,9 +80,11 @@ goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
   # combine_func
   purrr::map(names(protein_map), ~{
     dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
-      reframe(across(is.numeric, combine_func)) %>%
+      reframe(across(where(is.numeric), combine_func)) %>%
       mutate(ProteinId = .x, .before = V1)
-  }) %>% bind_rows()
+  }) %>%
+    bind_rows() %>%
+    dplyr::filter(!if_any(contains("V"), is.na)) # bug: This shouldn't be necessary
 }
 
 # Wrapper for tsne on "data", removing the non-numeric join_col
@@ -181,7 +182,7 @@ cosinePcoaAndJoin <- function(data, join_col) {
 #' Currently works with results from PCA or umap
 plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) {
   caption_str <- ifelse(labels$caption == "", "",
-    glue("-{gsub(' ', '_', labels$caption)}")
+                        glue("-{gsub(' ', '_', labels$caption)}")
   )
   prefix <- "V"
   if (pluck_exists(dr_result, "prcomp")) {
@@ -197,20 +198,20 @@ plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) 
     mutate(!!join_col := join_tb[[join_col]]) %>%
     inner_join(., join_tb, by = join_by(!!join_col))
   biplot <- biplotCustom(to_plot,
-    x = glue("{prefix}1"), y = glue("{prefix}2"),
-    colour_column = color_col,
-    labels = labels
+                         x = glue("{prefix}1"), y = glue("{prefix}2"),
+                         colour_column = color_col,
+                         labels = labels
   )
   mySaveFig(biplot, glue("{path}/{name}_biplot-{color_col}{caption_str}.png"))
   v1 <- to_plot[[glue("{prefix}1")]]
   v2 <- to_plot[[glue("{prefix}2")]]
   v3 <- to_plot[[glue("{prefix}3")]]
   plotly::plot_ly(to_plot,
-    x = v1,
-    y = v2,
-    z = v3, color = ~ base::get(color_col),
-    type = "scatter3d",
-    marker = list(size = 5)
+                  x = v1,
+                  y = v2,
+                  z = v3, color = ~base::get(color_col),
+                  type = "scatter3d",
+                  marker = list(size = 5)
   ) %>% mySaveFig(., glue("{path}/{name}_3d-{color_col}{caption_str}.html"))
   return(biplot)
 }
@@ -252,12 +253,12 @@ completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params, title, lab
   }
   dr_data$biplots <- purrr::map(dr_data$color, \(x) {
     plotDr(dr_result,
-      color_col = x,
-      labels = label,
-      join_tb = dr_data$tb,
-      join_col = join_on,
-      path = path_name,
-      name = paste0(prefix, "_", x)
+           color_col = x,
+           labels = label,
+           join_tb = dr_data$tb,
+           join_col = join_on,
+           path = path_name,
+           name = paste0(prefix, "_", x)
     )
   })
   dr_data$trustworthiness <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
@@ -273,7 +274,7 @@ completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params, title, lab
 #' @description
 #' Uses the function specified by "dist_func"
 distRows <- function(query, matrix, dist_func) {
-  distances <- map(rownames(matrix), \(x) dist_func(matrix[x, ], query)) %>%
+  distances <- map(rownames(matrix), \(x) dist_func(matrix[x,], query)) %>%
     `names<-`(rownames(matrix)) %>%
     unlist()
   return(distances)
@@ -296,7 +297,7 @@ nearestInDim <- function(query, k, data, dist_func, id_col) {
   }
   result_list <- list()
   for (q in seq_len(nrow(query))) {
-    result <- distRows(query[q, ], points, dist_func)
+    result <- distRows(query[q,], points, dist_func)
     result <- result %>%
       discard_at(\(x) x %in% rownames(query)) %>%
       sort() %>%

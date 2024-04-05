@@ -1,6 +1,7 @@
 library(tidyverse)
 library(optparse)
 
+
 main <- function(args) {
   flashlfq_header <- c(
     "File Name", "Scan Retention Time", "Precursor Charge",
@@ -29,8 +30,8 @@ main <- function(args) {
         unlist(lapply(`Base Sequence`, gsub, pattern = "X", replacement = "")),
       `Full Sequence` =
         unlist(lapply(`Full Sequence`, gsub,
-          pattern = "-\\.|\\.-",
-          replacement = ""
+                      pattern = "-\\.|\\.-",
+                      replacement = ""
         ))
     ) %>%
     filter(!is.na(`Protein Accession`))
@@ -59,12 +60,12 @@ main <- function(args) {
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- OptionParser()
   parser <- add_option(parser, c("-p", "--path"),
-    type = "character",
-    help = "Path to formatted files"
+                       type = "character",
+                       help = "Path to formatted files"
   )
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "Output file name"
+                       type = "character",
+                       help = "Output file name"
   )
   args <- parse_args(parser)
   o <- main(args)
