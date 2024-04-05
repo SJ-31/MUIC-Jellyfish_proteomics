@@ -142,8 +142,8 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   calcs <- bound %>%
     dplyr::rowwise() %>%
     dplyr::reframe(
-      "{quant_name}_mean" := mean(c_across(contains(quant_name))),
-      "{quant_name}_median" := median(c_across(contains(quant_name)))
+      "{quant_name}_mean" := mean(c_across(contains(quant_name)), na.rm = TRUE),
+      "{quant_name}_median" := median(c_across(contains(quant_name)), na.rm = TRUE)
     )
   return(bind_cols(bound, calcs))
 }
@@ -323,8 +323,8 @@ main <- function(args) {
 
   ## Merge with quantification data
   print("Begin merging with quantification")
-  combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq")
-  combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq")
+  combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>% mutate(across(contains("directlfq"), log2))
+  combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
   combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
 
 
