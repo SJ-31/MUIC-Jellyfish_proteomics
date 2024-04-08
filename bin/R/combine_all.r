@@ -108,13 +108,13 @@ meanTop3 <- function(tb, quant_name) {
         summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
       joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ";")
       id <- x[["ProteinId"]]
-      return(top_three[1,] %>%
-               select(-contains(quant_name)) %>%
-               mutate(.,
-                      matchedPeptideIds = joined_ids,
-                      ProteinId = id
-               ) %>%
-               bind_cols(means))
+      return(top_three[1, ] %>%
+        select(-contains(quant_name)) %>%
+        mutate(.,
+          matchedPeptideIds = joined_ids,
+          ProteinId = id
+        ) %>%
+        bind_cols(means))
     }) %>%
     bind_rows()
   return(tb)
@@ -136,7 +136,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   }
   full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds))
   full_proteins <- left_join(full_proteins, quant_tb,
-                             by = join_by(x$ProteinId == y$ProteinId)
+    by = join_by(x$ProteinId == y$ProteinId)
   )
   bound <- bind_rows(full_proteins, has_multiple)
   calcs <- bound %>%
@@ -211,8 +211,8 @@ getEvidence <- function(row) {
 
 checkMatchedPeps <- function(tb) {
   return(tb$matchedPeptideIds %>%
-           map_lgl(\(x) grepl("P", x)) %>%
-           any)
+    map_lgl(\(x) grepl("P", x)) %>%
+    any())
 }
 
 
@@ -246,8 +246,8 @@ main <- function(args) {
 
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
-    mutate_all(~replace(., . == "-", NA)) %>%
-    mutate_all(~replace(., . == NaN, NA)) %>%
+    mutate_all(~ replace(., . == "-", NA)) %>%
+    mutate_all(~ replace(., . == NaN, NA)) %>%
     mutate(
       GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
@@ -261,7 +261,7 @@ main <- function(args) {
         return(str_count(x, ";") + 1)
       }, USE.NAMES = FALSE),
       ID_method = purrr::map_chr(ID_method, \(x)
-        ifelse(grepl(";", x), "both", x))
+      ifelse(grepl(";", x), "both", x))
     )
 
 
@@ -277,10 +277,12 @@ main <- function(args) {
     filter(pep_adjust <= args$pep_thresh)
 
   ## Map pfam domains to GO and get GO IDs
-  source_python(glue("{args$python_source}/interpro_api.py"))
-  combined <- py$mapPfams(
+  source_python(glue("{args$python_source}/map2go.py"))
+  combined <- py$mapAllDb(
     to_annotate = as.data.frame(combined),
     p2g_path = args$pfam2go,
+    k2g_path = args$kegg2go,
+    ec2g_path = args$ec2go,
     i2g_path = args$interpro2go,
     pfam_db_path = args$pfam_db
   ) %>%
@@ -337,7 +339,7 @@ main <- function(args) {
       MatchedPeptideIds = matchedPeptideIds
     ) %>%
     relocate(where(is.numeric),
-             .after = where(is.character)
+      .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
     relocate(c("peptideIds", "SO_seq", "seq"), .after = where(is.numeric)) %>%
@@ -367,17 +369,19 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--flashlfq", type = "character")
   parser <- add_option(parser, "--maxlfq", type = "character")
   parser <- add_option(parser, "--interpro2go", type = "character")
+  parser <- add_option(parser, "--kegg2go", type = "character")
+  parser <- add_option(parser, "--ec2go", type = "character")
   parser <- add_option(parser, "--pfam2go", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
   parser <- add_option(parser, "--empai",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--sort_mods",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--r_source", type = "character")
   parser <- add_option(parser, "--python_source", type = "character")

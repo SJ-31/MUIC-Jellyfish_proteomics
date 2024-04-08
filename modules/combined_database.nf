@@ -14,6 +14,8 @@ process COMBINED_DATABASE {
     path("all_normal.fasta")
     path("interpro2go")
     path("pfam2go")
+    path("ec2go")
+    path("kegg_reaction2go")
     path("pfam_entries.tsv")
     path("all_decoys.fasta")
     path("blast_db")
@@ -43,6 +45,8 @@ process COMBINED_DATABASE {
     interpro_api.py --get_pfam pfam_entries.tsv
     curl http://current.geneontology.org/ontology/external2go/pfam2go > pfam2go
     curl http://current.geneontology.org/ontology/external2go/interpro2go > interpro2go
+    curl http://current.geneontology.org/ontology/external2go/kegg_reaction2go > kegg_reaction2go
+    curl http://current.geneontology.org/ontology/external2go/ec2go > ec2go
     '''
     //
 }
