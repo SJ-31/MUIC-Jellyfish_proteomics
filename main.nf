@@ -55,11 +55,13 @@ workflow {
                    db.seq_header_mapping);
             break;
         case "analyze":
-            analysis(Channel.fromPath(params.first_final, params.second_final),
+            first_final = "${params.results}/1-First_pass/${params.pref}_all_wcoverage.tsv"
+            second_final = "${params.results}/2-Second_pass/${params.pref}_all_wcoverage.tsv"
+            analysis(Channel.fromPath(first_final, second_final),
                 "${params.results}/Analysis");
             break;
         case "preprocess":
-            pre(manifest.raw, getDatabases().normal);
+            pre(manifest.raw, manifest.mzML, getDatabases().normal);
             break;
         case "combine_databases":
             println """

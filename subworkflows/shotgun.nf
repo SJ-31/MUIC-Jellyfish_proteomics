@@ -1,4 +1,6 @@
 // CONVENTION: the final protein/PSMs output file will be prefixed with the engine that produced them
+preprocessed_logs = "$params.results/Preprocessed/Logs"
+
 include { MSGF; MSGF_MERGE } from  '../modules/msgf'
 include { MSFRAGGER } from '../modules/msfragger'
 include { COMET } from '../modules/comet'
@@ -7,11 +9,11 @@ include { METAMORPHEUS as METAMORPHEUS_DEFAULT } from '../modules/metamorpheus'
 include { TIDE } from '../modules/tide'
 include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { PERCOLATOR } from '../modules/percolator'
-include { RAWPARSE } from '../modules/rawparse'
-include { DEISOTOPE } from '../modules/deisotope'
-include { MS_MAPPING } from '../modules/ms_mapping'
-include { CALIBRATE } from '../modules/calibrate'
-include { FALCON } from '../modules/falcon'
+include { RAWPARSE } from '../modules/rawparse' addParams(logdir: preprocessed_logs)
+include { DEISOTOPE } from '../modules/deisotope' addParams(logdir: preprocessed_logs)
+include { MS_MAPPING } from '../modules/ms_mapping' addParams(logdir: preprocessed_logs)
+include { CALIBRATE } from '../modules/calibrate' addParams(logdir: preprocessed_logs)
+include { FALCON } from '../modules/falcon' addParams(logdir: preprocessed_logs)
 include { bk_decoys } from './bk_decoys.nf'
 include { combine_searches as combine_searches_FIRST } from './combine_searches'
 include { combine_searches as combine_searches_SECOND } from './combine_searches'
@@ -23,15 +25,16 @@ include { open_search as open_search_SECOND } from './open_search'
 workflow 'pre' {
     take:
     raw
+    mzML
     normal_database
 
     main:
+    outdir = "$params.results/Preprocessed"
 
-    RAWPARSE(raw.collect(),"$params.results/Preprocessed/Converted")
-    DEISOTOPE(RAWPARSE.out.collect(),"$params.results/Preprocessed")
-    FALCON(RAWPARSE.out.collect(), "$params.results/Preprocessed/Falcon")
-    CALIBRATE(raw.collect(), normal_database,
-              "$params.results/Preprocessed/Metamorpheus")
+    RAWPARSE(raw.collect(),"$outdir/Converted")
+    DEISOTOPE(RAWPARSE.out.collect(),"$outdir/Proteowizard")
+    FALCON(RAWPARSE.out.collect(), "$outdir/Falcon")
+    CALIBRATE(mzML.collect(), normal_database, "$outdir/Metamorpheus")
 }
 
 workflow 'search' {
@@ -45,31 +48,28 @@ workflow 'search' {
 
 
     main:
+    p1 = "$params.results/1-First_pass"
+    p2 = "$params.results/2-Second_pass"
+
     MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    COMET(mzML.collect(), "$params.results/1-First_pass/Engines/Comet",
-          "$params.results/1-First_pass/Logs", db_plusdecoys)
+    COMET(mzML.collect(), "$p1/Engines/Comet", "$first_pass/Logs",
+          db_plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config_dir/MSFragger_params.params", "",
-              "$params.results/1-First_pass/Engines/MsFragger",
-              "$params.results/1-First_pass/Logs", db_plusdecoys)
-    IDENTIPY(mzML.collect(), "$params.results/1-First_pass/Engines/Identipy",
-             "$params.results/1-First_pass/Logs", db_plusdecoys.first())
+              "$p1/Engines/MsFragger", "$p1/Logs", db_plusdecoys)
+    IDENTIPY(mzML.collect(), "$p1/Engines/Identipy", "$first_pass/Logs",
+             db_plusdecoys.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml.collect(),
-                "$params.results/1-First_pass/Engines/Identipy")
-    METAMORPHEUS_DEFAULT(mgf.collect(),
-                         "$params.results/1-First_pass/Engines/Metamorpheus",
-                         "$params.results/1-First_pass/Logs", "",
+                "$p1/Engines/Identipy")
+    METAMORPHEUS_DEFAULT(mgf.collect(), "$p1/Engines/Metamorpheus", "$p1/Logs", "",
                          "$params.config_dir/metamorpheus_params.toml", db_normal)
-    MSGF(mzML, "$params.results/1-First_pass/Engines/MSGF",
-         "$params.results/1-First_pass/Logs", db_plusdecoys.first())
-    MSGF_MERGE(MSGF.out.pin.collect(),
-               "$params.results/1-First_pass/Engines/MSGF")
-    TIDE(mgf.collect(), "$params.results/1-First_pass/Engines/Tide",
-         "$params.results/1-First_pass/Logs",
-         "$params.results/1-First_pass/Percolator",
-    db_normal)
-    TIDE_COMBINED_PEP(TIDE.out.percolator, "$params.results/1-First_pass/Percolator")
+    MSGF(mzML, "$p1/Engines/MSGF", "$first_pass/Logs",
+         db_plusdecoys.first())
+    MSGF_MERGE(MSGF.out.pin.collect(), "$p1/Engines/MSGF")
+    TIDE(mgf.collect(), "$p1/Engines/Tide", "$first_pass/Logs", "$p1/Percolator",
+         db_normal)
+    TIDE_COMBINED_PEP(TIDE.out.percolator, "$p1/Percolator")
 
     // Post-processing with Percolator
     empty = Channel.empty()
@@ -80,9 +80,7 @@ workflow 'search' {
         MSFRAGGER.out.percolator,
         FORMAT_IDPY.out.percolator
     ).set { to_percolator }
-    PERCOLATOR(to_percolator, "$params.results/1-First_pass/Percolator",
-               "$params.results/1-First_pass/Logs",
-               db_plusdecoys.first())
+    PERCOLATOR(to_percolator, "$p1/Percolator", "$p1/Logs", db_plusdecoys.first())
 
     quantify_FIRST(MS_MAPPING.out,
                    mzML,
@@ -92,12 +90,12 @@ workflow 'search' {
                    TIDE.out.target,
                    PERCOLATOR.out.psm2combinedPEP
                        .mix(TIDE_COMBINED_PEP.out.psm2combinedPEP),
-                   "$params.results/1-First_pass/Quantify")
+                   "$p1/Quantify")
 
     open_search_FIRST(quantify_FIRST.out.unmatched_msms,
                       db_plusdecoys,
                       db_normal,
-                      "$params.results/1-First_pass/Open_search",
+                      "$p1/Open_search",
                       db_seq_header_mapping)
 
     combine_searches_FIRST(
@@ -109,7 +107,7 @@ workflow 'search' {
         quantify_FIRST.out.maxlfq,
         quantify_FIRST.out.directlfq,
         quantify_FIRST.out.unmatched_pep_tsv,
-        "$params.results/1-First_pass",
+        "$p1",
         db_seq_header_mapping,
         open_search_FIRST.out.open_results)
 
@@ -133,12 +131,12 @@ workflow 'search' {
                    bk_decoys.out.psm2combinedPEP.mix(
                        PERCOLATOR.out.psm2combinedPEP.filter( ~from_first ),
                        TIDE_COMBINED_PEP.out.psm2combinedPEP),
-                   "$params.results/2-Second_pass/Quantify")
+                   "$p2/Quantify")
 
     open_search_SECOND(quantify_SECOND.out.unmatched_msms,
                       db_plusdecoys,
                       db_normal,
-                      "$params.results/2-Second_pass/Open_search",
+                      "$p2/Open_search",
                       db_seq_header_mapping)
 
     combine_searches_SECOND(
@@ -152,7 +150,7 @@ workflow 'search' {
        quantify_SECOND.out.maxlfq,
        quantify_SECOND.out.directlfq,
        quantify_SECOND.out.unmatched_pep_tsv,
-       "$params.results/2-Second_pass",
+       "$p2",
        db_seq_header_mapping,
        open_search_SECOND.out.open_results)
 }
