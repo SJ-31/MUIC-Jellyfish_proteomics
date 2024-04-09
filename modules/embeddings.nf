@@ -1,5 +1,5 @@
 process EMBEDDINGS {
-    publishDir "$outdir", mode: ""
+    publishDir "$outdir", mode: "copy"
 
     input:
     path(results_tsv)

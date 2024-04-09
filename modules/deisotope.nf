@@ -10,12 +10,12 @@ process DEISOTOPE {
     output:
     path("*mzML")
     path("*mgf")
-    path("*msconvert.txt")
+    path("*msconvert.tsv")
     path("*log")
     //
 
     shell:
-    def check = file("${outdir}/${params.pref}.msconvert.txt")
+    def check = file("${outdir}/${params.pref}.msconvert.tsv")
     if (check.exists()) {
         '''
         cp !{outdir}/* .
@@ -43,7 +43,7 @@ process DEISOTOPE {
         cd ..
 
         make_manifest.py -f temp -t "!{projectDir}/!{params.manifest_file}" \
-            -o "!{params.pref}.msconvert.txt" \
+            -o "!{params.pref}.msconvert.tsv" \
             -p "!{outdir}"
 
         mv temp/*{mzML,mgf} .

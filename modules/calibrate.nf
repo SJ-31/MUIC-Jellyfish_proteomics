@@ -14,10 +14,11 @@ process CALIBRATE {
     output:
     path("*mzML")
     path("*log")
+    path("${params.pref}.calibrated.tsv")
     //
 
     shell:
-    def check = file("${params.pref}.calibrated.txt")
+    def check = file("${params.pref}.calibrated.tsv")
     if (check.exists()) {
         '''
         cp !{outdir}/* .
@@ -33,11 +34,12 @@ process CALIBRATE {
         -t !{params.config_dir}/CalibrateTaskconfig.toml \
         -d !{database}
 
-    make_manifest.py -f output -t !{projectDir}/!{params.manifest_file} \
-    -o !{params.pref}.calibrated.txt \
+    mv output/*/*mzML .
+
+    make_manifest.py -f . -t !{projectDir}/!{params.manifest_file} \
+    -o !{params.pref}.calibrated.tsv \
         -p !{outdir}
 
-    mv output/*/*mzML .
     cp .command.log calibrate.log
     '''
     }
