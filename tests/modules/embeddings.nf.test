@@ -1,0 +1,35 @@
+nextflow_process {
+
+    name "Test Process EMBEDDINGS"
+    script "modules/embeddings.nf"
+    process "EMBEDDINGS"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pref = "C_indra"
+                model = "esm"
+                pass = "1-First_pass"
+
+                input = "$baseDir/results/${params.pref}/${params.pass}/${params.pref}_all_wcoverage.tsv"
+                esm = "$baseDir/data/models/esm2_t36_3B_UR50D.pt"
+                prottrans = "baseDir/data/models/prot_t5_xl_uniref50"
+                outdir = "$baseDir/tests/nf-test-out/${params.pref}_${params.model}_embeddings"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath("$params.input")
+                input[1] = params.outdir
+                input[2] = params.model
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}
