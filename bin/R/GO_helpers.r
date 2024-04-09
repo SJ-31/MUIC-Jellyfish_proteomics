@@ -31,15 +31,15 @@ goOffspring <- function(term) {
     ontology <- query@Ontology
     secondary <- query@Secondary
     offspring <- switch(ontology,
-      CC = {
-        GOCCOFFSPRING[[term]]
-      },
-      BP = {
-        GOBPOFFSPRING[[term]]
-      },
-      MF = {
-        GOMFOFFSPRING[[term]]
-      }
+                        CC = {
+                          GOCCOFFSPRING[[term]]
+                        },
+                        BP = {
+                          GOBPOFFSPRING[[term]]
+                        },
+                        MF = {
+                          GOMFOFFSPRING[[term]]
+                        }
     )
     return(c(secondary, offspring))
   }
@@ -81,12 +81,17 @@ isGoOffspring <- function(a, b) {
   return(a %in% offspring)
 }
 
+#' Convert dataframe to tibble, moving row names into a named column
+df2Tb <- function(df, first_col) {
+  return(rownames_to_column(df, var = first_col) %>% as_tibble())
+}
+
 
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
-    tibble::rownames_to_column(var = first_col) %>%
-    as_tibble())
+           tibble::rownames_to_column(var = first_col) %>%
+           as_tibble())
 }
 
 #' Saves both 3d or 2d plots
@@ -210,12 +215,12 @@ prepOrgDb <- function(path) {
 reduceGOList <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
     rrvgo::calculateSimMatrix(go_list,
-      orgdb = db_name,
-      keytype = "GID",
-      ont = x,
-      method = "Wang" # Because the IC-based methods are based on the
-      # specific corpus of GO terms, this can introduce bias
-      # Wang's graph-based method does not have this limitation
+                              orgdb = db_name,
+                              keytype = "GID",
+                              ont = x,
+                              method = "Wang" # Because the IC-based methods are based on the
+                              # specific corpus of GO terms, this can introduce bias
+                              # Wang's graph-based method does not have this limitation
     )
   })
   names(sims) <- ONTOLOGIES
@@ -272,7 +277,7 @@ ontoResults <- function(ontologizer_dir) {
     unlist()
   names(onto_files) <- onto_files %>%
     lapply(., str_match,
-      pattern = ".*-(.*)\\.txt"
+           pattern = ".*-(.*)\\.txt"
     ) %>%
     lapply(., \(x) x[, 2]) %>%
     unlist()
@@ -289,7 +294,7 @@ ontoResults <- function(ontologizer_dir) {
 getUniprotData <- function(uniprot_data_dir) {
   # Load Uniprot data into a list of tibbles
   file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-    full.names = TRUE
+                          full.names = TRUE
   )
   all_tbs <- file_list %>%
     lapply(\(x) {
@@ -304,7 +309,7 @@ getUniprotData <- function(uniprot_data_dir) {
         dplyr::rename(length = Length)
     }) %>%
     `names<-`(lapply(file_list, gsub,
-      pattern = ".*/(.*)\\.tsv", replacement = "\\1"
+                     pattern = ".*/(.*)\\.tsv", replacement = "\\1"
     ))
   go_tb_all <- names(all_tbs) %>%
     lapply(., \(x) {
@@ -323,7 +328,7 @@ getUniprotData <- function(uniprot_data_dir) {
     `names<-`(prot_tb_all$ProteinId)
   return(list(
     map = prot_go_map,
-    all_tbs = all_tbs,
+    all_tb = bind_rows(all_tbs),
     go_vec = all_gos,
     prot_tb = prot_tb_all,
     go_tb = go_tb_all
@@ -358,8 +363,8 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
       nest()
     taxa_counts <- go_tb_all$taxon %>% table()
     go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-      go_id <- nested[x, ]$GO_IDs
-      cur_nest <- nested[x, ]$data[[1]] %>% table()
+      go_id <- nested[x,]$GO_IDs
+      cur_nest <- nested[x,]$data[[1]] %>% table()
       normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
       if (dim(normalized) == 0) {
         return(tibble())
@@ -412,7 +417,7 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
     data$prot_go_map$all <- unip$map
     data$go_vec$all <- all_gos
     data$go_tb$all <- go_tb_all
-    data$all_tbs <- unip$all_tbs
+    data$unip_all_tb <- unip$all_tb
   }
   return(data)
 }

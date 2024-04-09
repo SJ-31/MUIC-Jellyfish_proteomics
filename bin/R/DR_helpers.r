@@ -75,9 +75,9 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
   return(plotted)
 }
 
+# Combine GO terms assigned to each protein in protein_map using
+# combine_func
 goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
-  # Combine GO terms assigned to each protein in protein_map using
-  # combine_func
   purrr::map(names(protein_map), ~{
     dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
       reframe(across(where(is.numeric), combine_func)) %>%
@@ -88,7 +88,8 @@ goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
 }
 
 # Wrapper for tsne on "data", removing the non-numeric join_col
-tsneAndJoin <- function(data, join_col) {
+.tsne <- function(data, join_col) {
+  data <- purrr::pluck(data, "embd")
   data_only <- data %>% dplyr::select(-!!join_col)
   tsne <- tsne(data_only, k = 3)
   rownames(tsne) <- data[[join_col]]
@@ -114,9 +115,9 @@ tsneSkAndJoin <- function(data, join_col, params) {
 }
 
 # Perform umap on "data",
-umapAndJoin <- function(data, join_col, params) {
+.umap <- function(data, join_col, params) {
+  data <- purrr::pluck(data, "embd")
   if (!missing(params) && pluck_exists(params, "umap")) {
-    print(params)
     umap_params <- params$umap
   } else {
     umap_params <- umap.defaults
@@ -130,25 +131,10 @@ umapAndJoin <- function(data, join_col, params) {
   return(umap$layout)
 }
 
-#' Proof of data reconstruction by PCA
-#'
-#' @description
-#' Attempt to reconstruct original data from the pcs
-pcaReconstruct <- function(prcomp_obj, num_pcs) {
-  if (!missing(num_pcs)) {
-    xhat <- prcomp_obj$x[, 1:num_pcs] %*% t(prcomp_obj$rotation[, 1:num_pcs])
-  } else {
-    xhat <- prcomp_obj$x %*% t(prcomp_obj$rotation)
-  }
-  if (prcomp_obj$scale) {
-    xhat <- scale(xhat, center = FALSE, scale = 1 / prcomp_obj$scale)
-  }
-  xhat <- scale(xhat, center = -prcomp_obj$center, scale = FALSE)
-  return(xhat)
-}
 
 # Run pca on "data" and join scaled results with join_tb
-pcaAndJoin <- function(data, join_col) {
+.pca <- function(data, join_col) {
+  data <- purrr::pluck(data, "embd")
   results <- list()
   results$prcomp <- data %>%
     dplyr::select(-!!join_col) %>%
@@ -158,17 +144,14 @@ pcaAndJoin <- function(data, join_col) {
   return(results)
 }
 
-euclideanDistance <- function(v1, v2) {
-  return(sqrt(sum((v1 - v2)^2)))
-}
-
 
 #' Cosine dissimilarity plotted with PCOA
-#'
-cosinePcoaAndJoin <- function(data, join_col) {
-  dist <- cosineDissimilarity(data, join_col)
+#' @param dist: a matrix with rownames
+#' If "dist" is euclidean, performs PCA
+.cosinePCoA <- function(data, join_col) {
+  dist <- pluck(data, "cosine")
   pcoa <- vegan::wcmdscale(dist, eig = TRUE, add = TRUE)
-  rownames(pcoa$points) <- data[[join_col]]
+  rownames(pcoa$points) <- rownames(dist)
   pcoa$pe <- pcoaPerExplained(pcoa)
   return(pcoa)
 }
@@ -179,30 +162,21 @@ cosinePcoaAndJoin <- function(data, join_col) {
 #' Generic function for plotting dimensionality
 #' reduction results, highlighting on specific column
 #' Generates both 3d and 2d plots
-#' Currently works with results from PCA or umap
-plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) {
+plotDr <- function(to_plot, color_col, path, technique, labels) {
+  if (technique == "PCA") {
+    prefix <- "PC"
+  } else {
+    prefix <- "V"
+  }
   caption_str <- ifelse(labels$caption == "", "",
                         glue("-{gsub(' ', '_', labels$caption)}")
   )
-  prefix <- "V"
-  if (pluck_exists(dr_result, "prcomp")) {
-    prefix <- "PC"
-    dr_result <- dr_result$prcomp[["x"]]
-  } else if (any(class(dr_result) == "wcmdscale")) {
-    dr_result <- dr_result$points
-    colnames(dr_result) <- colnames(dr_result) %>%
-      map_chr(., \(x) gsub("Dim", "V", x))
-  }
-  to_plot <- dr_result %>%
-    as_tibble() %>%
-    mutate(!!join_col := join_tb[[join_col]]) %>%
-    inner_join(., join_tb, by = join_by(!!join_col))
   biplot <- biplotCustom(to_plot,
                          x = glue("{prefix}1"), y = glue("{prefix}2"),
                          colour_column = color_col,
                          labels = labels
   )
-  mySaveFig(biplot, glue("{path}/{name}_biplot-{color_col}{caption_str}.png"))
+  mySaveFig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
   v1 <- to_plot[[glue("{prefix}1")]]
   v2 <- to_plot[[glue("{prefix}2")]]
   v3 <- to_plot[[glue("{prefix}3")]]
@@ -212,7 +186,7 @@ plotDr <- function(dr_result, join_tb, join_col, color_col, path, name, labels) 
                   z = v3, color = ~base::get(color_col),
                   type = "scatter3d",
                   marker = list(size = 5)
-  ) %>% mySaveFig(., glue("{path}/{name}_3d-{color_col}{caption_str}.html"))
+  ) %>% mySaveFig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
   return(biplot)
 }
 
@@ -226,48 +200,58 @@ labelGen <- function(analysis_name, sample_name, caption) {
 #' Generic dimensionality reduction function
 #'
 #' @description
-#' Performs the DR technique specified by "dR" on the
+#' Performs the DR technique specified by "technique" on the
 #' proteins in the "sample" dataset and "all" dataset combined with
-#' other taxa
+#' other taxa.
+#' optionally write output to long-form tsv file ready to plot with ggplot
 #'
 #' @param dr_data - a list containing the data to apply DR to,
 #' (labelled "data"), the tibble to join on for coloring ("tb"),
 #' and the columns to color on ("color")
-#' Note data is a named vector, which will be iterated over
-completeDR <- function(dr_data, fig_dir, join_on, prefix, dR, params, title, label) {
-  data <- purrr::pluck(dr_data, "data")
-  if (!missing(params)) {
-    print("parameters passed")
-    dr_result <- dR(data, join_on, params)
-  } else {
-    dr_result <- dR(data, join_on)
+drWrapper <- function(dr_data, join_on, outdir, name, technique, params) {
+  if (!file.exists(outdir)) {
+    dir.create(outdir)
   }
-  if (missing(label)) {
-    label <- labelGen(title, glue("{prefix}"), caption = "")
-  }
-  dr_data$dr <- dr_result
-  if (!is.null(dr_data$embd_type)) {
-    path_name <- paste0(fig_dir)
-  } else {
-    path_name <- paste0(fig_dir, "_", dr_data$embd_type)
-  }
-  dr_data$biplots <- purrr::map(dr_data$color, \(x) {
-    plotDr(dr_result,
-           color_col = x,
-           labels = label,
-           join_tb = dr_data$tb,
-           join_col = join_on,
-           path = path_name,
-           name = paste0(prefix, "_", x)
-    )
-  })
-  dr_data$trustworthiness <- trustworthiness(column_to_rownames(data, var = join_on), dr_result)
-  cat(
-    dr_data$trustworthiness,
-    file = glue("{path_name}/{prefix}_trustworthiness.txt")
+  switch(technique,
+         "PCA" = { DR <- .pca },
+         "PCOA" = { DR <- .cosinePCoA },
+         "UMAP" = { DR <- .umap },
+         "TSNE" = { DR <- .tsne }
   )
-  return(dr_data)
+  metadata <- dr_data$data %>% select(join_on, dr_data$color)
+  if (!missing(params)) {
+    dr_result <- DR(dr_data, join_on, params)
+  } else {
+    dr_result <- DR(dr_data, join_on)
+  }
+  if (pluck_exists(dr_result, "prcomp")) {
+    data <- dr_result$prcomp[["x"]]
+  } else if (any(class(dr_result) == "wcmdscale")) {
+    data <- dr_result$points
+    colnames(data) <- colnames(data) %>%
+      map_chr(., \(x) gsub("Dim", "V", x))
+  } else {
+    data <- dr_result
+  }
+  if (technique == "PCA") {
+    write_tsv(dr_result$ve, glue("{outdir}/{name}-var_explained.tsv"))
+  } else if (technique == "PCOA") {
+    write_tsv(dr_result$pe, glue("{outdir}/{name}-p_explained.tsv"))
+  }
+  to_plot <- data %>%
+    as_tibble() %>%
+    mutate(!!join_on := metadata[[join_on]]) %>%
+    inner_join(., metadata, by = join_by(!!join_on))
+  trustworthiness <- trustworthiness(
+    column_to_rownames(dr_data$embd, var = join_on), dr_result)
+
+  write_tsv(to_plot, glue("{outdir}/{name}-DR_results.tsv"))
+  cat(trustworthiness, file = glue("{outdir}/{name}-trustworthiness.txt"))
+  return(list(to_plot = to_plot,
+              result = dr_result,
+              trustworthiness = trustworthiness))
 }
+
 
 #' Compute the distance of all rows in a matrix against one vector
 #'
@@ -309,4 +293,21 @@ nearestInDim <- function(query, k, data, dist_func, id_col) {
     unlist() %>%
     uniqueNames()
   return(result_list)
+}
+
+#' Proof of data reconstruction by PCA
+#'
+#' @description
+#' Attempt to reconstruct original data from the pcs
+pcaReconstruct <- function(prcomp_obj, num_pcs) {
+  if (!missing(num_pcs)) {
+    xhat <- prcomp_obj$x[, 1:num_pcs] %*% t(prcomp_obj$rotation[, 1:num_pcs])
+  } else {
+    xhat <- prcomp_obj$x %*% t(prcomp_obj$rotation)
+  }
+  if (prcomp_obj$scale) {
+    xhat <- scale(xhat, center = FALSE, scale = 1 / prcomp_obj$scale)
+  }
+  xhat <- scale(xhat, center = -prcomp_obj$center, scale = FALSE)
+  return(xhat)
 }
