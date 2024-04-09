@@ -28,7 +28,6 @@ results <- list()
 min_dist <- 0.1
 if (args$technique == "UMAP") {
   for (n_neighbors in seq(from = 5, to = 50, by = 10)) {
-    ## for (min_dist in seq(from = 0.1, to = 0.5, by = 0.1)) {
     params <- list(umap = umap.defaults)
     params$umap <- umap.defaults
     params$umap$n_neighbors <- n_neighbors
@@ -38,17 +37,16 @@ if (args$technique == "UMAP") {
     print(glue("Running umap with {n_neighbors} neighbors, min_dist: {min_dist}, {metric} distance"))
     path <- glue("{args$figure_path}/umap_optimization/{n_neighbors}nn_{min_dist}mind_{metric}")
     label <- labelGen("UMAP", "test", glue("n neighbors: {n_neighbors}, min dist: {min_dist}, metric: {metric}"))
-    dr <- completeDR(
+    dr <- drWrapper(
       dr_data = sample_protein,
-      fig_dir = path,
-      prefix = "sample",
+      outdir = path,
+      name = "sample",
       join_on = "ProteinId",
-      dR = umapAndJoin,
-      params = params,
-      label = label
+      technique = "UMAP",
+      params = params
     )
-    results <- append(results, dr$biplots)
-    ## }
+    bp <- plotDr(dr$to_plot, sample_protein$color, "UMAP", label)
+    results <- append(results, bp)
   }
 } else if (args$technique == "TSNE") {
   for (p in seq(from = 5, to = 50, by = 5)) {
@@ -59,20 +57,20 @@ if (args$technique == "UMAP") {
     print(glue("Running tsne with perplexity {p}, {metric} distance"))
     path <- glue("{args$figure_path}/tsne_optimization/{p}p_{metric}")
     label <- labelGen("T-SNE", "test", glue("perplexity: {p}, metric: {metric}"))
-    dr <- completeDR(
+    dr <- drWrapper(
       dr_data = sample_protein,
-      fig_dir = path,
-      prefix = "sample",
+      outdir = path,
+      name = "sample",
       join_on = "ProteinId",
-      dR = tsneSkAndJoin,
-      params = params,
-      label = label
+      technique = "TSNE",
+      params = params
     )
-    results <- append(results, dr$biplots)
+    bp <- plotDr(dr$to_plot, sample_protein$color, "TSNE", label)
+    results <- append(results, bp)
   }
 }
 comparison <- ggarrange(plotlist = results, common.legend = TRUE)
 ggsave(glue("{args$figure_path}/{args$technique}_{metric}_comparison.png"),
-  comparison,
-  width = 30, height = 25
+       comparison,
+       width = 30, height = 25
 )

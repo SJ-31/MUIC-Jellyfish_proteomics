@@ -28,8 +28,8 @@ args <- list(
   sample_name = "C_indra",
   protein_embd_mode = "mean", # One of mean or sum
   embd_type = "protein",
-  sample_embd = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/C_indra_esm_embeddings/embeddings.hdf5",
-  sample_embd_dist = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
+  sample_embd = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/embeddings.hdf5"),
+  sample_embd_dist = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5")
 )
 
 source(glue("{args$r_source}/GO_helpers.r"))
@@ -48,7 +48,12 @@ hierarchichalBM <- function(dist_t, method, height_vec) {
   trees <- list()
   clusters <- hclust(dist_t, method = method)
   for (height in height_vec) {
-    trees[[as.character(height)]] <- cutree(clusters, h = height)
+    cut <- tryCatch(
+      expr = cutree(clusters, h = height),
+      error = \(cnd) NULL)
+    if (!is.null(cut)) {
+      trees[[as.character(height)]] <- cut
+    }
   }
   return(trees)
 }
