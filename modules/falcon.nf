@@ -14,6 +14,12 @@ process FALCON {
     //
 
     shell:
+    def check = file("${outdir}/${params.pref}.falcon.txt")
+    if (check.exists()) {
+        '''
+        cp !{outdir}/* .
+        '''
+    } else {
     '''
     mkdir files; mv !{mzMLs} files
     falcon files/*.mzML  falcon \
@@ -24,5 +30,7 @@ process FALCON {
     make_manifest.py -f . -t !{projectDir}/!{params.manifest_file} \
         -o !{params.pref}.falcon.txt -p !{outdir}
     '''
+    }
+
     //
 }
