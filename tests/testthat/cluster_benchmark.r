@@ -1,6 +1,4 @@
-# library(clv)
 library(fpc)
-# library(clValid)
 library(tidyverse)
 library(glue)
 library(dbscan)
@@ -11,6 +9,11 @@ if (str_detect(getwd(), "Bio_SDD")) {
 } else {
   wd <- "/home/shannc/workflow"
   env <- "/home/shannc/anaconda3/envs/reticulate"
+}
+measure <- "euclidean"
+OUT <- glue("{wd}/tests/testthat/output/clusters_{measure}")
+if (!file.exists(OUT)) {
+  dir.create(OUT)
 }
 
 args <- list(
@@ -23,7 +26,10 @@ args <- list(
   embeddings_path = glue("{wd}/data/reference/go_embedded.npz"),
   ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
   sample_name = "C_indra",
-  protein_embd_mode = "mean" # One of mean or sum
+  protein_embd_mode = "mean", # One of mean or sum
+  embd_type = "protein",
+  sample_embd = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/C_indra_esm_embeddings/embeddings.hdf5",
+  sample_embd_dist = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
 )
 
 source(glue("{args$r_source}/GO_helpers.r"))
@@ -80,6 +86,24 @@ getClusterMetrics <- function(dist_t, cluster_list, method, metrics, var) {
   return(metrics)
 }
 
+#' Save cluster memberships from a cluster list into a tb, where
+#' each column denotes the membership of a given protein under that
+#' specific clustering method
+saveClusters <- function(cluster_list, method, var, previous_saved) {
+  for (cluster in names(cluster_list)) {
+    colname <- glue("{method}_{var}_{cluster}")
+    dat <- cluster_list[[cluster]]
+    tb <- tibble(ProteinId = names(dat),
+                 !!colname := dat)
+    if (is.null(previous_saved)) {
+      previous_saved <- tb
+    } else {
+      previous_saved <- inner_join(previous_saved, tb, by = join_by(ProteinId))
+    }
+  }
+  return(previous_saved)
+}
+
 
 #' Properly format cluster membership from a leidenalg.VertexPartition
 #' object i.e. converting it to a named vector
@@ -92,20 +116,21 @@ getPartition <- function(py_ptition) {
 
 
 # decrease size for testing
-# test <- sample_prot_embd %>% slice(1:500)
-
-sample_dist <- sample_prot_embd %>%
-  distinct() %>%
-  t2Df(., "ProteinId") %>%
-  dist()
-
+sample_dist <- sample_protein[[measure]]
+ids <- rownames(sample_dist)
+sample_dist <- dist(sample_dist)
 
 # Benchmark hierarchichal clustering & dbscan
 test_hc <- hierarchichalBM(sample_dist, "average",
                            seq(1, 6, by = 1))
 cluster_stats <- getClusterMetrics(sample_dist, test_hc, "hierarchichal_clustering", NULL, "height")
+cluster_members <- saveClusters(test_hc, "hc",
+                                "height", NULL)
+
 test_hdbscan <- hdbscanBM(sample_dist, seq(5, 30, by = 5))
 cluster_stats <- getClusterMetrics(sample_dist, test_hdbscan, "hdbscan", cluster_stats, "min_points")
+cluster_members <- saveClusters(test_hc, "hdbscan",
+                                "min_points", cluster_members)
 
 
 # Mask relationships with euclidean distances
@@ -117,7 +142,7 @@ sample_dist[sample_dist > dist_summary[["3rd Qu."]]] <- 0
 # Benchmark leiden
 reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
 la <- reticulate::import("leidenalg")
-py$graph <- createGraph(as.matrix(sample_dist), sample_prot_embd$ProteinId)
+py$graph <- createGraph(as.matrix(sample_dist), ids)
 la_quality_funs <- list("Modularity" = la$ModularityVertexPartition,
                         "RBER" = la$RBERVertexPartition,
                         "RB" = la$RBConfigurationVertexPartition,
@@ -133,9 +158,11 @@ for (type in names(la_quality_funs)) {
   la_metrics <- dplyr::bind_rows(la_metrics, row)
   test_la[[type]] <- getPartition(py$ptition)
 }
-
 cluster_stats <- getClusterMetrics(sample_dist, test_la, "leiden", cluster_stats, "quality_fun")
+cluster_members <- saveClusters(test_la, "leiden",
+                                "quality_fun", cluster_members)
 
-write_tsv(cluster_stats, "./cluster_stats.tsv")
-write_tsv(la_metrics, "./leiden_metrics.tsv")
+write_tsv(cluster_stats, glue("{OUT}/cluster_stats.tsv"))
+write_tsv(cluster_members, glue("{OUT}/cluster_members.tsv"))
+write_tsv(la_metrics, glue("{OUT}/leiden_metrics.tsv"))
 

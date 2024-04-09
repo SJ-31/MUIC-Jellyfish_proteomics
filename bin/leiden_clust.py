@@ -45,15 +45,3 @@ def partitionOptimise(graph: ig.Graph, p_type, it=10) -> la.VertexPartition:
     p = la.find_partition(graph, partition_type=p_type)
     optimiser.optimise_partition(partition=p, n_iterations=it)
     return p
-
-
-# m = pd.read_csv("/home/shannc/my_mat.txt", sep="\t")
-# m = m.iloc[0:2000, 0:2000]
-# nd = np.array(m)
-#
-# graph = createGraph(nd, m.index)
-# md = la.find_partition(graph, partition_type=la.ModularityVertexPartition)
-#
-# rb = partitionOptimise(graph, la.RBERVertexPartition)
-# nl = membershipWNames(rb)
-# rb_sets = clusterSets(rb)

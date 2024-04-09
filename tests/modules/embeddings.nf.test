@@ -9,7 +9,7 @@ nextflow_process {
         when {
             params {
                 pref = "C_indra"
-                model = "esm"
+                model = "prottrans"
                 pass = "1-First_pass"
 
                 input = "$baseDir/results/${params.pref}/${params.pass}/${params.pref}_all_wcoverage.tsv"
