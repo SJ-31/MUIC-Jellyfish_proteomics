@@ -185,6 +185,22 @@
     "signalp6model": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/data/reference/signalp6"
+    },
+    "kegg2go": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/results/UNSPECIFIED/Databases/kegg_reaction2go"
+    },
+    "ec2go": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/results/UNSPECIFIED/Databases/ec2go"
+    },
+    "esm": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/models/esm2_t36_3B_UR50D.pt"
+    },
+    "prottrans": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/models/prot_t5_xl_uniref50"
     }
   },
   "required": ["subworkflow", "manifest_file"]
