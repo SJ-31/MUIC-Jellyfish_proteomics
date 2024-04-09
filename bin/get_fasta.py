@@ -21,6 +21,7 @@ if __name__ == "__main__":
         df = pd.read_csv(args["input"], sep="\t")
     else:
         df = pd.read_csv(args["input"])
+    df.drop_duplicates(args["header_col"], inplace=True)
     seqs = df[args["sequence_col"]]
     headers = df[args["header_col"]]
     fasta = []

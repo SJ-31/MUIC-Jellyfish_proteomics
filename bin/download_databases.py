@@ -29,6 +29,7 @@ FIELDS = [
     "xref_eggnog",
     "reviewed",
     "lineage",
+    "sequence",
 ]
 FIELD_STR = functools.reduce(lambda x, y: f"{x}%2C{y}", FIELDS)
 COMPRESSION = "false"

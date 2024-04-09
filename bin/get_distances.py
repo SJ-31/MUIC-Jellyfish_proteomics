@@ -42,12 +42,12 @@ def getEmbeddingsOne(path) -> tuple:
 
 def getEmbeddings(paths: list) -> tuple:
     protein_ids = []
-    embeddings = np.array([])
+    embeddings = []
     for path in paths:
         n, e = getEmbeddingsOne(path)
         protein_ids.extend(n)
-        embeddings = np.concatenate((embeddings, e), axis=0)
-    return protein_ids, embeddings
+        embeddings.extend(e)
+    return protein_ids, np.array(embeddings)
 
 
 def getSaved(embd_path, dist_path) -> dict:
