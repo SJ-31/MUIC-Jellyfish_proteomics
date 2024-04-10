@@ -9,7 +9,10 @@ cd "$outdir" || exit
 for file in $(find "$uniprot_dir" -name "*reviewed.tsv"); do
     out=$(echo "${file}_seqs" | sed 's;.*/\(.*\).tsv;\1;')
     out="${out}.temp"
-    "$BIN"/get_fasta.py -i "$file" -s Sequence -d Entry -o "$out"
+    "$BIN"/get_fasta.py -i "$file" -s Sequence -d Entry \
+     --suffix UniProt -o "$out"
+    # Add suffix to avoid conflicts with custom names and uniprot ids
+    # which is possible
     echo "line count: $(wc -l "$file"), num seqs = $(seqkit stat "$out" -T | cut -f 4 | tail -n 1)"
 done
 

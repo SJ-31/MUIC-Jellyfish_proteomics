@@ -4,6 +4,7 @@ Script for downloading proteins of other taxa used in comparison
 """
 import re
 import pandas as pd
+from pathlib import Path
 import functools
 from urllib.error import HTTPError
 from io import StringIO
@@ -137,11 +138,24 @@ def main(output_folder):
     return taxa_dfs
 
 
+def combineTsvs(download_folder, output, glob="*_reviewed.tsv") -> None:
+    dfs = []
+    for file in Path(download_folder).glob(glob):
+        group = re.findall("(.*)_.*", file.name)[0]
+        df = pd.read_csv(file, sep="\t")
+        df["Taxon"] = group
+        dfs.append(df)
+    df = pd.concat(dfs)
+    df["Entry"] = df["Entry"].apply(lambda x: f"{x}-UniProt")
+    df.to_csv(output, sep="\t", index=False)
+
+
 def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output_folder", required=True)
+    parser.add_argument("--combined_file")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
@@ -149,3 +163,5 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     main(args["output_folder"])
+    combined = f'{args["output_folder"]}/{args["combined_file"]}'
+    combineTsvs(args["output_folder"], combined)

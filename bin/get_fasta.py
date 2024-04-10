@@ -10,6 +10,7 @@ def parseArgs():
     parser.add_argument("-i", "--input")
     parser.add_argument("-s", "--sequence_col")
     parser.add_argument("-d", "--header_col")
+    parser.add_argument("-f", "--suffix")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
     return args
@@ -26,7 +27,11 @@ if __name__ == "__main__":
     headers = df[args["header_col"]]
     fasta = []
     for h, s in zip(headers, seqs):
-        fasta.append(f">{h}\n{s}")
+        if args["suffix"]:
+            line = f">{h}-{args['suffix']}\n{s}"
+        else:
+            line = f">{h}\n{s}"
+        fasta.append(line)
     fasta.append("\n")
     with open(args["output"], "w", encoding="utf-8") as f:
         f.write("\n".join(fasta))
