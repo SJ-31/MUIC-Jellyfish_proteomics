@@ -111,6 +111,9 @@ def writeDistances(embeddings, names, file) -> None:
     Compute distance matrix from `embeddings`, and save all output
     to hdf5 file `file`
     """
+    embeddings = embeddings.astype(np.float32)
+    from sklearn import metrics
+
     euclidean = metrics.pairwise_distances(embeddings, metric="euclidean")
     cosine = metrics.pairwise_distances(embeddings, metric="cosine")
     with h5py.File(file, "w") as dfile:
@@ -128,7 +131,6 @@ def shuffleSample(df, n) -> pd.DataFrame:
 
 if __name__ == "__main__" and len(sys.argv) > 1:
     # Prevents reticulate from entering this chunk
-    from sklearn import metrics
 
     names: list
     emeddings: np.array

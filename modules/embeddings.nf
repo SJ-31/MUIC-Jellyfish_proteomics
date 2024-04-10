@@ -1,5 +1,6 @@
 process EMBEDDINGS {
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "*hdf5"
+    publishDir "$params.logdir", mode: "copy", pattern: "*log"
 
     input:
     path(results_tsv)
@@ -8,8 +9,9 @@ process EMBEDDINGS {
     //
 
     output:
-    path("embeddings.hdf5")
+    path("embeddings.hdf5"), emit: embd
     path("distances.hdf5")
+    path("*log")
     //
 
     script:
@@ -18,13 +20,14 @@ process EMBEDDINGS {
         """
         cp "$outdir/embeddings.hdf5" .
         cp "$outdir/distances.hdf5" .
+        cp "$params.logdir/${model}.log" .
         """
     } else {
         if (model == "prottrans") {
             """
             get_fasta.py -i ${results_tsv} -s seq -d ProteinId -o seqs.fasta
 
-            source activate /home/shannc/anaconda3/envs/protlm
+            source activate $params.protlm
             prott5_embedder.py --input seqs.fasta \
             --model "$params.prottrans" \
             --output embeddings.hdf5 \
@@ -33,12 +36,13 @@ process EMBEDDINGS {
             get_distances.py -i embeddings.hdf5 \
                 -o distances.hdf5
             conda deactivate
+            cp .command.log "${model}".log
             """
         } else if (model == "esm") {
             """
             get_fasta.py -i ${results_tsv} -s seq -d ProteinId -o seqs.fasta
 
-            source activate /home/shannc/anaconda3/envs/esmfold
+            source activate $params.esmfold
             mkdir output
             esm-extract "$params.esm" \
                 seqs.fasta \
@@ -49,6 +53,19 @@ process EMBEDDINGS {
                 -o distances.hdf5 \
                 -w embeddings.hdf5
             conda deactivate
+            cp .command.log "${model}".log
+            """
+        } else if (model == "a2v") {
+            """
+            Rscript $params.bin/R/analysis/prepare_embeddings.r \
+                --r_source "$params.bin/R" \
+                --python_source "$params.bin" \
+                --sample_tsv $results_tsv \
+                --embd_output embeddings.hdf5 \
+                --dist_output distances.hdf5 \
+                --embedding_path $params.go_embeddings
+
+            cp .command.log "${model}".log
             """
         }
     }

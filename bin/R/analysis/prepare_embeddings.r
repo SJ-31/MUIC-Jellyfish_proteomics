@@ -1,16 +1,21 @@
-# Working with go embeddings
+library(glue)
+# Working with go and protein-langauge model embeddings
 # Two sets of embeddings are being used here: "sample", which contains
 # GO terms/proteins found from the proteins identified in the shotgun
-# pipeline (i.e. from the C. indra data) and "all", which also
+# pipeline (i.e. from the C. indra data) and "compare", which also
 # contain GO terms/proteins of other taxa used for comparison
 
-d <- goDataGlobal(
-  uniprot_data_dir = args$uniprot_data_dir,
-  onto_path = args$ontologizer_path,
-  sample_data = args$combined_results,
-  sample_name = args$sample_name,
-  sample_only = SAMPLE_ONLY
-)
+# Combine GO terms assigned to each protein in protein_map using
+# combine_func
+goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
+  purrr::map(names(protein_map), ~{
+    dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
+      reframe(across(where(is.numeric), combine_func)) %>%
+      mutate(ProteinId = .x, .before = V1)
+  }) %>%
+    bind_rows() %>%
+    dplyr::filter(!if_any(contains("V"), is.na)) # bug: This shouldn't be necessary
+}
 
 
 getGOEmbd <- function(go_vector) {
@@ -18,118 +23,120 @@ getGOEmbd <- function(go_vector) {
   py$wanted_gos <- go_vector
   py_run_string("wanted_gos = set(wanted_gos)")
   embd <- py$loadEmbeddings(
-    args$embeddings_path, "embds",
+    args$embedding_path, "embds",
     py$wanted_gos
   ) %>%
-    as_tibble() %>%
-    t() %>%
-    m2Tb(., first_col = "GO_IDs")
-  return(embd)
+    as.data.frame() %>%
+    t()
+  rownames(embd) <- map_chr(rownames(embd),
+                            \(x) gsub("\\.", ":", x))
+  colnames(embd) <- paste0("V", seq(dim(embd)[2]))
+  return(as.data.frame(embd))
 }
-
-#' The functions below populate the global environment with the following 
-#' objects.
-#' - objects prefixed "all" are generated iff the constant SAMPLE_ONLY
-#' is false. They are the same as "sample", but for also include
-#' select reviewed uniprot proteins for comparison
-#' 
-#' sample_protein a list of the following
-#' - data: tb where each row is a sample protein and columns represent
-#' embeddings
-#'      - for GO embeddings, combining can be with "mean" or "max".
-#'      For protein embeddings,
-#'      combining is the mean of the embeddings of the protein's amino acid
-#'      residues
-#' - tb: original tb of sample proteins
-#'
-#' sample_go: a list of the following
-#' - data: tb where each row is a GO id and columns represent
-#' embeddings sample
-#' tb: a tb where rows are GO_IDs and columns denote statistical
-#' significance from ontologizer
-
-goEmbeddings <- function() {
-  combineFun <- ifelse(args$protein_embd_mode == "mean",
-                       base::mean, base::sum)
-  if (!SAMPLE_ONLY) {
-    all_embd_go <- getGOEmbd(d$go_vec$all)
-
-    d$go_tb$all <- d$go_tb$all %>%
-      dplyr::filter(GO_IDs %in% all_embd_go$GO_IDs)
-
-    uniprot_embd <- read_tsv(args$uniprot_embeddings)
-    sample_embd_prot <- goEmbedding2Prot(d$prot_go_map$sample, all_embd_go, combineFun)
-    all_embd_prot <- bind_rows(uniprot_embd, sample_embd_prot)
-    rm(uniprot_embd)
-
-    all_go <<- list(
-      data = all_embd_go,
-      tb = dplyr::filter(
-        d$go_tb$all,
-        is.element(
-          GO_IDs,
-          all_embd_go$GO_IDs
-        )
-      ),
-      color = "taxon"
-    )
-    all_protein <<- list(
-      embd_type = args$protein_embedding_mode,
-      data = all_embd_prot,
-      tb = d$protein$all,
-      color = "taxon"
-    )
-    sample_embd_go <- all_embd_go %>% filter(GO_IDs %in% d$go_vec$sample)
-  } else {
-    sample_embd_go <- getGOEmbd(d$go_vec$sample)
-    sample_embd_prot <- goEmbedding2Prot(d$prot_go_map$sample, sample_embd_go, combine_func = combineFun)
-  }
-  sample_go <<- list(
-    data = sample_embd_go,
-    tb = dplyr::filter(
-      d$go_tb$sample,
-      is.element(
-        GO_IDs,
-        sample_embd_go$GO_IDs
-      )
-    ),
-    color = c("sig_downloaded_db", "sig_id_w_open")
-  )
-  sample_protein <<- list(
-    embd_type = args$protein_embedding_mode,
-    data = sample_embd_prot,
-    tb = d$sample_tb,
-    color = c("inferred_by", "ID_method", "category")
-  )
-}
-
 
 getProtEmbd <- function(embd_path, dist_path) {
   reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
   results <- getSaved(embd_path, dist_path)
 }
 
-
-proteinEmbeddings <- function() {
-  if (!SAMPLE_ONLY) {
-    #TODO: Check this
-    all <- getProtEmbd(args$uniprot_embd, args$uniprot_embd_dist)
-    all$embeddings <- df2Tb(uniprot$embeddings, "ProteinId")
-    all$euclidean <- as.matrix(all$euclidean)
-    all$cosine <- as.matrix(all$cosine)
+combineGOEmbd <- function(embd_path, go_vector, map, write_distances) {
+  reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
+  # Retrieve embeddings per GO id
+  embd_go <- getGOEmbd(go_vector) %>%
+    rownames_to_column(., var = "GO_IDs") %>%
+    as_tibble()
+  combined <- goEmbedding2Prot(map, embd_go, base::mean)
+  names <- combined$ProteinId
+  embeddings <- combined %>%
+    dplyr::select(-ProteinId) %>%
+    as.matrix()
+  writeEmbeddingsHDF5(embd_path, names, embeddings)
+  if (!missing(write_distances) && !is.null(write_distances)) {
+    writeDistances(embeddings, names, write_distances)
   }
-  sp <- getProtEmbd(args$sample_embd, args$sample_embd_dist)
-  sp$embeddings <- df2Tb(sp$embeddings, "ProteinId")
-  sp$euclidean <- as.matrix(sp$euclidean)
-  sp$cosine <- as.matrix(sp$cosine)
-  sample_protein <<- list(data = sp$embeddings,
-                          euclidean = sp$euclidean,
-                          cosine = sp$cosine)
 }
 
+# Globally required args
+# - embd_type
+# - combined_results: results from sample run
+# - sample_name
+# - embedding_path
+# - dist_path
+# - comparison_meta
+embeddingData <- function(combined_results,
+                          sample_name,
+                          embedding_path,
+                          dist_path,
+                          sample_only,
+                          comparison_meta) {
+  data <- read_tsv(combined_results) %>%
+    distinct(ProteinId, .keep_all = TRUE) %>%
+    mutate(Taxon = sample_name)
+  py_embd <- getProtEmbd(embedding_path, dist_path)
+  py_embd$euclidean <- as.matrix(py_embd$euclidean)
+  py_embd$cosine <- as.matrix(py_embd$cosine)
+  if (!sample_only) {
+    comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
+    data <- bind_rows(data, comp_meta) %>%
+      select(c(ProteinId, Taxon)) %>%
+      filter(ProteinId %in% rownames(py_embd$embd))
+    color <- "Taxon"
+  } else {
+    color <- c("inferred_by", "ID_method", "category")
+  }
+  return(list(embd = py_embd$embeddings,
+              euclidean = py_embd$euclidean,
+              cosine = py_embd$cosine,
+              metadata = data,
+              color = color))
+}
+
+
 # Obtain GO embeddings from python
-if (args$embd_type == "GO") {
-  goEmbeddings()
-} else if (args$embd_type == "protein") {
-  proteinEmbeddings()
+
+if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
+  library("optparse")
+  parser <- OptionParser()
+  parser <- add_option(parser, "--r_source", type = "character")
+  parser <- add_option(parser, "--python_source", type = "character")
+  parser <- add_option(parser, "--sample_tsv", type = "character")
+  parser <- add_option(parser, "--embd_output", type = "character", help = "output file when writing embeddings")
+  parser <- add_option(parser, "--embedding_path", type = "character", help = "path to file containing embeddings for the proteins in sample_tsv")
+  parser <- add_option(parser, "--dist_output", type = "character")
+  parser <- add_option(parser, "--comparison_embd", type = "character")
+  parser <- add_option(parser, "--comparison_tsv", type = "character")
+  parser <- add_option(parser, "--sample_name", type = "character")
+
+  args <- parse_args(parser)
+  source(glue("{args$r_source}/GO_helpers.r"))
+  if (is.null(args$comparison_embd)) {
+    d <- goData(args$sample_tsv)
+    combineGOEmbd(args$embd_output, d$go_vec$sample, d$prot_go_map$sample, args$dist_output)
+  } else {
+    # If compare, filter only proteins of interest
+    id_col <- "ProteinId"
+    reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
+    d <- goData(args$sample_tsv, uniprot_tsv = args$uniprot_tsv,
+                sample_name = args$sample_name)
+    sample_embd <- hdf5ToDf(args$embedding_path)
+    comparison_embd <- hdf5ToDf(args$comparison_embd)
+    # Retrieve embeddings
+
+    # Apply filtering criteria
+    sample_meta <- d$sample_tb %>% filter(category == "venom_component")
+    min <- min(sample_meta$length)
+    comparison_meta <- d$protein$compare %>%
+      filter(Length >= min) %>%
+      adjustProteinNumbers(nrow(sample_meta), .)
+
+    combined <- comparison_embd %>%
+      df2Tb(., id_col) %>%
+      filter(ProteinId %in% comparison_meta$ProteinId) %>%
+      bind_rows(., df2Tb(sample_embd, id_col))
+
+    names <- combined$ProteinId
+    embd <- column_to_rownames(., id_col)
+    writeDistances(names, embd, args$dist_output)
+    writeEmbeddingsHDF5(args$embd_output, names, embd)
+  }
 }
