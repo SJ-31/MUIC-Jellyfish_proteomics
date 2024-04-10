@@ -1,4 +1,22 @@
 # File for testing out GO analysis
+if (str_detect(getwd(), "Bio_SDD")) {
+  wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
+  env <- "/home/shannc/Bio_SDD/miniconda3/envs/reticulate"
+} else {
+  wd <- "/home/shannc/workflow"
+  env <- "/home/shannc/anaconda3/envs/reticulate"
+}
+args <- list(
+  r_source = glue("{wd}/bin/R"),
+  python_source = glue("{wd}/bin"),
+  embd_type = "protein",
+  sample_name = "C_indra",
+  uniprot_data_dir = glue("{wd}//data/protein_databases/comparison_taxa"),
+  combined_results = glue("{wd}//results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"),
+  ontologizer_path = glue("{wd}//tests/nf-test-out/ontologizer/"),
+  embedding_path = glue("{wd}/data/reference/go_embedded.npz"),
+  dist_path = glue("{wd}//tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
+  ))
 
 ## Load samples
 source("./bin/R/GO_helpers.r")
@@ -6,59 +24,60 @@ source("./bin/R/rrvgo_modified.r")
 sample <- "./results/C_indra/1-First_pass/C_indra_all.tsv"
 onto_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/ontologizer/"
 orgdb_pth <- "./tests/testthat/output/org.Cindrasaksajiae.eg.db"
-rrvgo_path <- "./tests/testthat/output/rrvgo"
 db_name <- gsub(".*\\/", "", orgdb_pth, fixed = FALSE)
-orgdb <- prepOrgDb(orgdb_pth)
+rrvgo_path <- "./tests/testthat/output/rrvgo"
+# orgdb <- prepOrgDb(orgdb_pth)
+# semdata <- lapply(ONTOLOGIES, \(x) {
+#   GOSemSim::godata(OrgDb = db_name, ont = x, keytype = "GID")
+# }) %>% `names<-`(ONTOLOGIES)
 
-semdata <- lapply(ONTOLOGIES, \(x) {
-  GOSemSim::godata(OrgDb = db_name, ont = x, keytype = "GID")
-}) %>% `names<-`(ONTOLOGIES)
 test_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"
 embeddings_path <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/reference/go_embedded.npz"
+uniprot <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/protein_databases/comparison_taxa/reviewed_all.tsv"
 
 sample_name <- "C_indra"
 
-d <- goDataGlobal(
-  uniprot_data_dir = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/protein_databases/comparison_taxa",
-  sample_data = test_path,
-  sample_name = sample_name,
-  onto_path = onto_path,
-  sample_only = FALSE
-)
+
+u <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/protein_databases/uniprot_embeddings/a2v_embeddings.hdf5"
+reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
+d <- goData(test_path, onto_path = onto_path,
+            uniprot_tsv = uniprot, sample_name = sample_name)
+
 
 # Will use the number of children to quantify annotation shallowness
 
-#' Visualizing semantic similarity
-#'  Can calculate GO similarity between proteins, either as go lists
-#' GOSemSim::mgoSim(toy_list, toy_list2[1:5], semData = semdata$MF)
-#' or proteins themselves
+        #' Visualizing semantic similarity
+        #'  Can calculate GO similarity between proteins, either as go lists
+        #' GOSemSim::mgoSim(toy_list, toy_list2[1:5], semData = semdata$MF)
+        #' or proteins themselves
 
 # Protein clusters
 # GOSemSim::geneSim(one[1], one[2], semData = semdata$MF)
 # GOSemSim::clusterSim(one, two, semData = semdata$MF)
 
 # Obtain pairwise similarity between all proteins in list
-prot_dist_sample <- GOSemSim::mgeneSim(
-  genes = dplyr::mutate(d$sample_tb,
-                        ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))
-  )$ProteinId,
-  semData = semdata$MF, combine = "BMA",
-  drop = "NULL", measure = "Wang"
-)
-
-go_freq <- d$sample_tb$GO_IDs %>%
-  lapply(., str_split_1, pattern = ";") %>%
-  unlist() %>%
-  table() %>%
-  sort(decreasing = TRUE) %>%
-  as_tibble() %>%
-  rename(c("GO_ID" = ".", "count" = "n")) %>%
-  mutate(
-    term = map_chr(GO_ID, \(x)
-      ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Term)),
-    ontology = map_chr(GO_ID, \(x)
-      ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Ontology))
-  )
+# prot_dist_sample <- GOSemSim::mgeneSim(
+#   genes = dplyr::mutate(d$sample_tb,
+#                         ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))
+#   )$ProteinId,
+#   semData = semdata$MF, combine = "BMA",
+#   drop = "NULL", measure = "Wang"
+# )
+#
+# go_freq <- d$sample_tb$GO_IDs %>%
+#   lapply(., str_split_1, pattern = ";") %>%
+#   unlist() %>%
+#   table() %>%
+#   sort(decreasing = TRUE) %>%
+#   as_tibble() %>%
+#   rename(c("GO_ID" = ".", "count" = "n")) %>%
+#   mutate(
+#     term = map_chr(GO_ID, \(x)
+#       ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Term)),
+#     ontology = map_chr(GO_ID, \(x)
+#       ifelse(is.null(GOTERM[[x]]), NA, GOTERM[[x]]@Ontology))
+#   )
+#
 
 # Quantify annnotation shallowness
 countGO <- function(tb) {
@@ -127,16 +146,16 @@ countGO <- function(tb) {
 #
 #
 
-gene_sets <- list(
-  unknown_to_db = d$sample_tb %>%
-    filter(inferred_by == "interpro" | inferred_by == "eggNOG", grepl("[UDT]", ProteinId)) %>%
-    pluck("ProteinId"),
-  has_mods = d$sample_tb %>%
-    filter(ID_method == "open" | !is.na(Mods)) %>%
-    pluck("ProteinId"),
-  toxins = names(getToxinProteins(d$prot_go_map$sample))
-) %>% lapply(., \(x) map_chr(x, \(x) gsub("-SAMPLE", "", x)))
-
-
-fgsea <- fgseaWrapper("log_intensity", distinct(quant), gene_sets)
+# gene_sets <- list(
+#   unknown_to_db = d$sample_tb %>%
+#     filter(inferred_by == "interpro" | inferred_by == "eggNOG", grepl("[UDT]", ProteinId)) %>%
+#     pluck("ProteinId"),
+#   has_mods = d$sample_tb %>%
+#     filter(ID_method == "open" | !is.na(Mods)) %>%
+#     pluck("ProteinId"),
+#   toxins = names(getToxinProteins(d$prot_go_map$sample))
+# ) %>% lapply(., \(x) map_chr(x, \(x) gsub("-SAMPLE", "", x)))
+#
+#
+# fgsea <- fgseaWrapper("log_intensity", distinct(quant), gene_sets)
 # But how to resolve ties?

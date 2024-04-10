@@ -10,8 +10,9 @@ if (str_detect(getwd(), "Bio_SDD")) {
   wd <- "/home/shannc/workflow"
   env <- "/home/shannc/anaconda3/envs/reticulate"
 }
-measure <- "euclidean"
-OUT <- glue("{wd}/tests/testthat/output/clusters_{measure}")
+model <- "esm"
+MEASURE <- "euclidean"
+OUT <- glue("{wd}/tests/testthat/output/clusters_{MEASURE}_{model}")
 if (!file.exists(OUT)) {
   dir.create(OUT)
 }
@@ -26,10 +27,9 @@ args <- list(
   embeddings_path = glue("{wd}/data/reference/go_embedded.npz"),
   ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
   sample_name = "C_indra",
-  protein_embd_mode = "mean", # One of mean or sum
   embd_type = "protein",
-  sample_embd = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/embeddings.hdf5"),
-  sample_embd_dist = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5")
+  sample_embd = glue("{wd}/tests/nf-test-out/C_indra_{model}_embeddings/embeddings.hdf5"),
+  sample_embd_dist = glue("{wd}/tests/nf-test-out/C_indra_{model}_embeddings/distances.hdf5")
 )
 
 source(glue("{args$r_source}/GO_helpers.r"))

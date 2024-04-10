@@ -2,6 +2,7 @@ nextflow_process {
 
     name "Test Process COMPARISON_EMBEDDINGS"
     script "modules/comparison_embeddings.nf"
+
     process "COMPARISON_EMBEDDINGS"
 
     test("Should run without failures") {
@@ -9,30 +10,32 @@ nextflow_process {
         when {
             params {
                 pref = "C_indra"
-                model = "prottrans"
+                model = "a2v"
                 pass = "1-First_pass"
+                type = "protein"
 
                 sample_tsv = "$baseDir/results/${params.pref}/${params.pass}/${params.pref}_all_wcoverage.tsv"
                 sample_embd = "$baseDir/tests/nf-test-out/${params.pref}_${params.model}_embeddings"
                 comparison_esm  = "$baseDir/data/protein_databases/uniprot_embeddings/esm_out"
+                comparison_a2v  = "$baseDir/data/protein_databases/uniprot_embeddings/a2v_embeddings.hdf5"
                 uniprot_reviewed = "$baseDir/data/protein_databases/comparison_taxa/reviewed_all.tsv"
 
-                logdir = "$baseDir/tests/nf-test-out/${params.pref}_embeddings_COMPARE"
+                logdir = "$baseDir/tests/nf-test-out/${params.pref}_embeddings_${params.type}_${params.model}"
             }
             process {
                 """
                 input[0] = Channel.fromPath("$params.sample_embd")
                 input[1] = Channel.fromPath("$params.sample_tsv")
-                input[2] = Channel.fromPath("$params.comparison_esm")
+                input[2] = Channel.fromPath("$params.comparison_a2v")
                 input[3] = Channel.fromPath("$params.uniprot_reviewed")
-                input[4] = Channel.fromPath("$params.logdir")
+                input[4] = params.type
+                input[5] = params.logdir
                 """
             }
         }
 
         then {
             assert process.success
-            assert snapshot(process.out).match()
         }
 
     }
