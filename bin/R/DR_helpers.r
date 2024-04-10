@@ -148,17 +148,17 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
     dir.create(outdir)
   }
   switch(technique,
-         "PCA" = { DR <- `_pca` },
-         "PCOA" = { DR <- `_pcoa` },
-         "UMAP" = { DR <- `_umap` },
-         "TSNE" = { DR <- `_tsne` }
+         "pca" = { DR <- `_pca` },
+         "pcoa" = { DR <- `_pcoa` },
+         "umap" = { DR <- `_umap` },
+         "tsne" = { DR <- `_tsne` }
   )
-  metadata <- dr_data$data %>% select(c(join_on, dr_data$color))
+  metadata <- dr_data$metadata %>% dplyr::select(c(join_on, dr_data$color))
   dr_result <- DR(dr_data)
-  if (technique == "PCA") {
+  if (technique == "pca") {
     reduced <- dr_result$prcomp[["x"]]
     write_tsv(dr_result$ve, glue("{outdir}/{name}-var_explained.tsv"))
-  } else if (technique == "PCOA") {
+  } else if (technique == "pcoa") {
     reduced <- dr_result$points
     colnames(reduced) <- map_chr(colnames(reduced),
                                  \(x) gsub("Dim", "V", x))
@@ -248,7 +248,7 @@ pcaReconstruct <- function(prcomp_obj, num_pcs) {
 #' reduction results, highlighting on specific column
 #' Generates both 3d and 2d plots
 plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
-  if (technique == "PCA") {
+  if (technique == "pca") {
     prefix <- "PC"
   } else {
     prefix <- "V"

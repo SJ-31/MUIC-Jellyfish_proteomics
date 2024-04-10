@@ -69,12 +69,13 @@ embeddingData <- function(combined_results,
                           dist_path,
                           sample_only,
                           comparison_meta) {
-  data <- read_tsv(combined_results) %>%
-    distinct(ProteinId, .keep_all = TRUE) %>%
-    mutate(Taxon = sample_name)
   py_embd <- getProtEmbd(embedding_path, dist_path)
   py_embd$euclidean <- as.matrix(py_embd$euclidean)
   py_embd$cosine <- as.matrix(py_embd$cosine)
+  data <- read_tsv(combined_results) %>%
+    distinct(ProteinId, .keep_all = TRUE) %>%
+    mutate(Taxon = sample_name) %>%
+    filter(ProteinId %in% rownames(py_embd$embeddings))
   if (!sample_only) {
     comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
     data <- bind_rows(data, comp_meta) %>%

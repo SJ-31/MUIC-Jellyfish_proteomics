@@ -31,3 +31,4 @@ tools/*
 docs/flow.{png,svg}
 docs/images/*
 tests/debug
+.cache
