@@ -75,126 +75,60 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
   return(plotted)
 }
 
-# Combine GO terms assigned to each protein in protein_map using
-# combine_func
-goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
-  purrr::map(names(protein_map), ~{
-    dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
-      reframe(across(where(is.numeric), combine_func)) %>%
-      mutate(ProteinId = .x, .before = V1)
-  }) %>%
-    bind_rows() %>%
-    dplyr::filter(!if_any(contains("V"), is.na)) # bug: This shouldn't be necessary
-}
 
-# Wrapper for tsne on "data", removing the non-numeric join_col
-.tsne <- function(data, join_col) {
-  data <- purrr::pluck(data, "embd")
-  data_only <- data %>% dplyr::select(-!!join_col)
-  tsne <- tsne(data_only, k = 3)
-  rownames(tsne) <- data[[join_col]]
-  return(tsne)
-}
+PARAMS <- list(tsne = list(n_components = 2, perplexity = 30),
+               umap = list(n_components = 2,
+                           n_neighbors = 15,
+                           min_dist = 1))
+PARAMS$metric <- "euclidean"
 
-#' Wrapper for Scikit learn's more optimized tsne
-tsneSkAndJoin <- function(data, join_col, params) {
-  converted <- data %>% column_to_rownames(var = join_col)
-  mf <- import("sklearn.manifold")
-  if (missing(params)) {
-    tsne <- mf$TSNE(n_components = 3L)
-  } else {
-    tsne <- mf$TSNE(
-      n_components = 3L,
-      perplexity = params$perplexity,
-      metric = params$metric
-    )
-  }
-  result <- tsne$fit_transform(converted)
-  rownames(result) <- data[[join_col]]
+#' Dimensionality reduction functions for use with generic function
+#' With the exception of pca, each function expects `data` to be a list
+#' containing a pre-computed distance matrix
+#' (either cosine or euclidean)
+#' Which measure to use is specified with global variable PARAMS$metric
+
+`_tsne` <- function(data) {
+  mf <- reticulate::import("sklearn.manifold")
+  dist <- purrr::pluck(data, PARAMS$metric)
+  tsne <- mf$TSNE(
+    n_components = as.integer(PARAMS$tsne$n_components),
+    perplexity = as.integer(PARAMS$tsne$perplexity),
+    metric = "precomputed",
+    init = "random"
+  )
+  result <- tsne$fit_transform(dist) %>% as.data.frame()
+  rownames(result) <- rownames(dist)
   return(result)
 }
 
-# Perform umap on "data",
-.umap <- function(data, join_col, params) {
-  data <- purrr::pluck(data, "embd")
-  if (!missing(params) && pluck_exists(params, "umap")) {
-    umap_params <- params$umap
-  } else {
-    umap_params <- umap.defaults
-    umap_params$n_neighbors <- 10
-    umap_params$n_components <- 3
-    umap_params$min_dist <- 0.25
-  }
-  data_only <- data %>% dplyr::select(-!!join_col)
-  umap <- umap(data_only, config = umap_params)
-  rownames(umap$layout) <- data[[join_col]]
-  return(umap$layout)
+`_umap` <- function(data) {
+  umap <- reticulate::import("umap")
+  dist <- purrr::pluck(data, PARAMS$metric)
+  fit <- umap$UMAP(metric = "precomputed",
+                   n_components = as.integer(PARAMS$umap$n_components),
+                   n_neighbors = as.integer(PARAMS$umap$n_neighbors),
+                   min_dist = PARAMS$umap$min_dist)
+  result <- fit$fit_transform(dist) %>% as.data.frame()
+  rownames(result) <- rownames(dist)
+  return(result)
 }
 
-
-# Run pca on "data" and join scaled results with join_tb
-.pca <- function(data, join_col) {
+`_pca` <- function(data) {
   data <- purrr::pluck(data, "embd")
   results <- list()
-  results$prcomp <- data %>%
-    dplyr::select(-!!join_col) %>%
-    prcomp()
-  rownames(results$prcomp$x) <- data[[join_col]]
+  results$prcomp <- prcomp(data)
+  rownames(results$prcomp$x) <- rownames(data)
   results$ve <- pcaVarExplained(results$prcomp)
   return(results)
 }
 
-
-#' Cosine dissimilarity plotted with PCOA
-#' @param dist: a matrix with rownames
-#' If "dist" is euclidean, performs PCA
-.cosinePCoA <- function(data, join_col) {
+`_pcoa` <- function(data) {
   dist <- pluck(data, "cosine")
   pcoa <- vegan::wcmdscale(dist, eig = TRUE, add = TRUE)
   rownames(pcoa$points) <- rownames(dist)
   pcoa$pe <- pcoaPerExplained(pcoa)
   return(pcoa)
-}
-
-#' Plot dimensionality reduction results
-#'
-#' @description
-#' Generic function for plotting dimensionality
-#' reduction results, highlighting on specific column
-#' Generates both 3d and 2d plots
-plotDr <- function(to_plot, color_col, path, technique, labels) {
-  if (technique == "PCA") {
-    prefix <- "PC"
-  } else {
-    prefix <- "V"
-  }
-  caption_str <- ifelse(labels$caption == "", "",
-                        glue("-{gsub(' ', '_', labels$caption)}")
-  )
-  biplot <- biplotCustom(to_plot,
-                         x = glue("{prefix}1"), y = glue("{prefix}2"),
-                         colour_column = color_col,
-                         labels = labels
-  )
-  mySaveFig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
-  v1 <- to_plot[[glue("{prefix}1")]]
-  v2 <- to_plot[[glue("{prefix}2")]]
-  v3 <- to_plot[[glue("{prefix}3")]]
-  plotly::plot_ly(to_plot,
-                  x = v1,
-                  y = v2,
-                  z = v3, color = ~base::get(color_col),
-                  type = "scatter3d",
-                  marker = list(size = 5)
-  ) %>% mySaveFig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
-  return(biplot)
-}
-
-labelGen <- function(analysis_name, sample_name, caption) {
-  return(list(
-    title = glue("{analysis_name} of {sample_name}"),
-    caption = caption
-  ))
 }
 
 #' Generic dimensionality reduction function
@@ -203,50 +137,44 @@ labelGen <- function(analysis_name, sample_name, caption) {
 #' Performs the DR technique specified by "technique" on the
 #' proteins in the "sample" dataset and "all" dataset combined with
 #' other taxa.
-#' optionally write output to long-form tsv file ready to plot with ggplot
+#' Each function called by technique must either return
+#' Optionally write output to long-form tsv file ready to plot with ggplot
 #'
 #' @param dr_data - a list containing the data to apply DR to,
 #' (labelled "data"), the tibble to join on for coloring ("tb"),
 #' and the columns to color on ("color")
-drWrapper <- function(dr_data, join_on, outdir, name, technique, params) {
+drWrapper <- function(dr_data, join_on, outdir, name, technique) {
   if (!file.exists(outdir)) {
     dir.create(outdir)
   }
   switch(technique,
-         "PCA" = { DR <- .pca },
-         "PCOA" = { DR <- .cosinePCoA },
-         "UMAP" = { DR <- .umap },
-         "TSNE" = { DR <- .tsne }
+         "PCA" = { DR <- `_pca` },
+         "PCOA" = { DR <- `_pcoa` },
+         "UMAP" = { DR <- `_umap` },
+         "TSNE" = { DR <- `_tsne` }
   )
-  metadata <- dr_data$data %>% select(join_on, dr_data$color)
-  if (!missing(params)) {
-    dr_result <- DR(dr_data, join_on, params)
-  } else {
-    dr_result <- DR(dr_data, join_on)
-  }
-  if (pluck_exists(dr_result, "prcomp")) {
-    data <- dr_result$prcomp[["x"]]
-  } else if (any(class(dr_result) == "wcmdscale")) {
-    data <- dr_result$points
-    colnames(data) <- colnames(data) %>%
-      map_chr(., \(x) gsub("Dim", "V", x))
-  } else {
-    data <- dr_result
-  }
+  metadata <- dr_data$data %>% select(c(join_on, dr_data$color))
+  dr_result <- DR(dr_data)
   if (technique == "PCA") {
+    reduced <- dr_result$prcomp[["x"]]
     write_tsv(dr_result$ve, glue("{outdir}/{name}-var_explained.tsv"))
   } else if (technique == "PCOA") {
+    reduced <- dr_result$points
+    colnames(reduced) <- map_chr(colnames(reduced),
+                                 \(x) gsub("Dim", "V", x))
     write_tsv(dr_result$pe, glue("{outdir}/{name}-p_explained.tsv"))
+  } else {
+    reduced <- dr_result
   }
-  to_plot <- data %>%
+  to_plot <- reduced %>%
     as_tibble() %>%
     mutate(!!join_on := metadata[[join_on]]) %>%
     inner_join(., metadata, by = join_by(!!join_on))
-  trustworthiness <- trustworthiness(
-    column_to_rownames(dr_data$embd, var = join_on), dr_result)
+
+  trustworthiness <- trustworthiness(dr_data$embd, dr_result)
+  cat(trustworthiness, file = glue("{outdir}/{name}-trustworthiness.txt"))
 
   write_tsv(to_plot, glue("{outdir}/{name}-DR_results.tsv"))
-  cat(trustworthiness, file = glue("{outdir}/{name}-trustworthiness.txt"))
   return(list(to_plot = to_plot,
               result = dr_result,
               trustworthiness = trustworthiness))
@@ -311,3 +239,49 @@ pcaReconstruct <- function(prcomp_obj, num_pcs) {
   xhat <- scale(xhat, center = -prcomp_obj$center, scale = FALSE)
   return(xhat)
 }
+
+
+#' Plot dimensionality reduction results
+#'
+#' @description
+#' Generic function for plotting dimensionality
+#' reduction results, highlighting on specific column
+#' Generates both 3d and 2d plots
+plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
+  if (technique == "PCA") {
+    prefix <- "PC"
+  } else {
+    prefix <- "V"
+  }
+  caption_str <- ifelse(labels$caption == "", "",
+                        glue("-{gsub(' ', '_', labels$caption)}")
+  )
+  if (twod) {
+    biplot <- biplotCustom(to_plot,
+                           x = glue("{prefix}1"), y = glue("{prefix}2"),
+                           colour_column = color_col,
+                           labels = labels
+    )
+    mySaveFig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
+  } else {
+    v1 <- to_plot[[glue("{prefix}1")]]
+    v2 <- to_plot[[glue("{prefix}2")]]
+    v3 <- to_plot[[glue("{prefix}3")]]
+    plotly::plot_ly(to_plot,
+                    x = v1,
+                    y = v2,
+                    z = v3, color = ~base::get(color_col),
+                    type = "scatter3d",
+                    marker = list(size = 5)
+    ) %>% mySaveFig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
+  }
+  return(biplot)
+}
+
+labelGen <- function(analysis_name, sample_name, caption) {
+  return(list(
+    title = glue("{analysis_name} of {sample_name}"),
+    caption = caption
+  ))
+}
+

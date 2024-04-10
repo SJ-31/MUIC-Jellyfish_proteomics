@@ -6,7 +6,6 @@ library(paletteer)
 ONTOLOGIES <- c("MF", "BP", "CC")
 library(GO.db)
 library(reticulate)
-library(glue)
 library(fgsea)
 library(GOSemSim)
 library(vegan)
@@ -100,30 +99,11 @@ mySaveFig <- function(fig, filename) {
     ggsave(filename = filename, plot = fig)
   } else {
     htmlwidgets::saveWidget(fig, filename, selfcontained = TRUE)
+    extras <- gsub(".html", "_files", filename)
+    unlink(extras, recursive = TRUE)
   }
 }
 
-cosineDissimilarity <- function(tb, name_col) {
-  mat <- as.matrix(tb %>% dplyr::select(., -!!name_col))
-  sim <- mat / sqrt(rowSums(mat * mat))
-  sim <- sim %*% t(sim)
-  mat <- as.dist(1 - sim)
-  return(mat)
-}
-
-#' Compute euclidean distance matrix
-#'
-#' @description
-#' Wrapper function for R's dist function, returns a tibble
-euclideanDistance <- function(tb, name_col) {
-  return(
-    dplyr::select(tb, where(is.numeric)) %>%
-      dist(method = "euclidean") # %>%
-    # as.matrix() %>%
-    # as_tibble() %>%
-    # mutate(!!name_col := tb[[name_col]], .before = where(is.numeric))
-  )
-}
 
 #' Equalize the number of proteins between the sample and taxa being compared
 #'
@@ -134,7 +114,7 @@ euclideanDistance <- function(tb, name_col) {
 adjustProteinNumbers <- function(sample_tb, taxa_tb_list) {
   sample_num <- nrow(sample_tb)
   nested <- taxa_tb_list %>%
-    group_by(taxon) %>%
+    group_by(Taxon) %>%
     nest()
   nested$data <- nested$data %>% lapply(\(x) {
     nrows <- nrow(x)
@@ -246,23 +226,6 @@ reduceGOList <- function(go_list) {
 }
 
 
-makeDistMatrix <- function(v1, v2, dist_func) {
-  # Construct a distance matrix from vectors v1 and v2 by applying "dist_func"
-  # to each pair of elements
-  return(sapply(v1, \(x) {
-    sapply(v2, \(y) dist_func(y, x))
-  }))
-}
-
-### PCOA
-pcoaWithTb <- function(distances, join_on) {
-  # Perform principal coordinates analysis
-  # Merge with the annotation tibble
-  pcoa <- vegan::wcmdscale(distances, eig = TRUE)
-  return(pcoa)
-}
-
-
 ontoResults <- function(ontologizer_dir) {
   # Convenience function for aggregating statistically significant ontologizer results
   # There will be two different tibbles, containing GO terms known only
@@ -291,77 +254,55 @@ ontoResults <- function(ontologizer_dir) {
   return(onto_files)
 }
 
-getUniprotData <- function(uniprot_data_dir) {
-  # Load Uniprot data into a list of tibbles
-  file_list <- list.files(uniprot_data_dir, "*_reviewed.tsv",
-                          full.names = TRUE
-  )
-  all_tbs <- file_list %>%
-    lapply(\(x) {
-      read_tsv(x) %>%
-        mutate(
-          `Gene Ontology IDs` = unlist(lapply(
-            `Gene Ontology IDs`, gsub,
-            pattern = " ", replacement = "", .
-          )),
-          taxon = gsub(".*/(.*)_reviewed\\.tsv", "\\1", x)
-        ) %>%
-        dplyr::rename(length = Length)
-    }) %>%
-    `names<-`(lapply(file_list, gsub,
-                     pattern = ".*/(.*)\\.tsv", replacement = "\\1"
-    ))
-  go_tb_all <- names(all_tbs) %>%
-    lapply(., \(x) {
-      tb <- all_tbs[[x]] %>% filter(!is.na(GO_IDs))
-      gos <- goVector(tb = tb, go_column = "GO_IDs")
-      return(tibble(GO_IDs = gos, taxon = gsub("_reviewed", "", x)))
-    }) %>%
+getUniprotData <- function(uniprot_tsv_path) {
+  tb <- read_tsv(uniprot_tsv_path) %>%
+    filter(!is.na(GO_IDs)) %>%
+    rename(ProteinId = Entry)
+  go_tb_all <- tb %>%
+    group_by(Taxon) %>%
+    nest() %>%
+    apply(1,
+          \(x) {
+            taxon <- x$Taxon
+            cur <- x$data
+            return(tibble(GO_IDs = goVector(cur, go_column = "GO_IDs"),
+                          Taxon = taxon))
+          }) %>%
     bind_rows()
   all_gos <- go_tb_all$GO_IDs %>% unique()
-  prot_tb_all <- all_tbs %>%
-    bind_rows() %>%
-    dplyr::rename(ProteinId = Entry) %>%
-    dplyr::filter(!is.na(GO_IDs))
-  prot_go_map <- prot_tb_all$GO_IDs %>%
+  prot_go_map <- tb$GO_IDs %>%
     lapply(., str_split_1, pattern = ";") %>%
-    `names<-`(prot_tb_all$ProteinId)
+    `names<-`(tb$ProteinId)
   return(list(
     map = prot_go_map,
-    all_tb = bind_rows(all_tbs),
     go_vec = all_gos,
-    prot_tb = prot_tb_all,
+    prot_tb = tb,
     go_tb = go_tb_all
   ))
 }
 
-goDataGlobal <- function(uniprot_data_dir, sample_data,
-                         sample_name, onto_path, sample_only) {
+goDataGlobal <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
   # Load sample data & ontologizer results
-  sample_tb <- readr::read_tsv(sample_data) %>%
-    filter(!is.na(GO_IDs)) %>%
-    mutate(ProteinId = paste0(ProteinId, "-SAMPLE")) # Necessary because the custom names may
-  # be the same as the database names
-  ontologizer <- ontoResults(onto_path)
-
+  sample_tb <- readr::read_tsv(sample_path) %>%
+    filter(!is.na(GO_IDs))
   sample_gos <- goVector(sample_tb, go_column = "GO_IDs") %>% unique()
 
-  if (!sample_only) {
+  if (!missing(uniprot_tsv) && !is.null(uniprot_tsv)) {
     # Load Uniprot data into a list of tibbles
-    unip <- getUniprotData(uniprot_data_dir)
+    unip <- getUniprotData(uniprot_tsv)
     # Extract all GO terms from the list of tibbles
     # Load into new combined tibble and merge with sample GO terms
     # Load sample GO terms into separate tibble
     go_tb_all <- bind_rows(unip$go_tb, tibble(
       GO_IDs = sample_gos,
-      taxon = sample_name
+      Taxon = sample_name
     ))
     # Taxa that have a higher (normalized) frequency of a given GO ID will be
     # assigned that id
     nested <- go_tb_all %>%
       group_by(GO_IDs) %>%
       nest()
-    taxa_counts <- go_tb_all$taxon %>% table()
+    taxa_counts <- go_tb_all$Taxon %>% table()
     go_tb_all <- lapply(seq(nrow(nested)), \(x) {
       go_id <- nested[x,]$GO_IDs
       cur_nest <- nested[x,]$data[[1]] %>% table()
@@ -373,16 +314,10 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
         as_tibble() %>%
         arrange(desc(n)) %>%
         dplyr::slice(1)
-      return(tibble(GO_IDs = go_id, taxon = most_frequent$taxon))
+      return(tibble(GO_IDs = go_id, Taxon = most_frequent$Taxon))
     }) %>% bind_rows()
 
     all_gos <- c(go_tb_all$GO_IDs, sample_gos) %>% unique()
-
-    prot_tb_all <- unip$all_tbs %>%
-      bind_rows() %>%
-      dplyr::rename(ProteinId = Entry) %>%
-      bind_rows(dplyr::mutate(sample_tb, taxon = sample_name)) %>%
-      dplyr::filter(!is.na(GO_IDs))
   }
 
   # Load four vectors of GO terms:
@@ -392,18 +327,9 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
   interpro_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "interpro")
   eggnog_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "eggNOG")
 
-  go_tb_sample <- tibble(
-    GO_IDs = sample_gos,
-    sig_downloaded_db = sample_gos %in% ontologizer$gos_from_downloads,
-    sig_id_w_open = sample_gos %in% ontologizer$id_with_open
-  )
-
   prot_tb_sample <- dplyr::select(sample_tb, c("ProteinId", "GO_IDs"))
   data <- list()
-  data$sample_all <- readr::read_tsv(sample_data)
   data$sample_tb <- sample_tb
-  data$ontologizer <- ontologizer
-  data$go_tb$sample <- go_tb_sample
   data$go_vec$sample <- sample_gos
   data$go_vec$interpro <- interpro_gos
   data$go_vec$eggnog <- eggnog_gos
@@ -412,12 +338,22 @@ goDataGlobal <- function(uniprot_data_dir, sample_data,
     lapply(., str_split_1, pattern = ";") %>%
     `names<-`(prot_tb_sample$ProteinId)
 
-  if (!sample_only) {
-    data$protein$all <- adjustProteinNumbers(prot_tb_sample, prot_tb_all)
-    data$prot_go_map$all <- unip$map
-    data$go_vec$all <- all_gos
-    data$go_tb$all <- go_tb_all
-    data$unip_all_tb <- unip$all_tb
+  if (!missing(onto_path)) {
+    ontologizer <- ontoResults(onto_path)
+    go_tb <- tibble(
+      GO_IDs = sample_gos,
+      sig_downloaded_db = sample_gos %in% ontologizer$gos_from_downloads,
+      sig_id_w_open = sample_gos %in% ontologizer$id_with_open
+    )
+    data$ontologizer <- ontologizer
+    data$go_tb$sample <- go_tb
+  }
+  if (!missing(uniprot_tsv) && !is.null(uniprot_tsv)) {
+    data$protein$compare <- adjustProteinNumbers(prot_tb_sample, unip$prot_tb)
+    data$prot_go_map$compare <- unip$map
+    data$go_vec$compare <- all_gos
+    data$go_tb$compare <- go_tb_all
+    data$unip_tb <- unip$all_tb
   }
   return(data)
 }
