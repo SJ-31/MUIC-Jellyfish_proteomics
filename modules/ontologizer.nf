@@ -1,6 +1,7 @@
 process ONTOLOGIZER {
     // For overrepresentation analysis
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "*.txt"
+    publishDir "$params.logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(combined_tsv)
@@ -30,6 +31,7 @@ process ONTOLOGIZER {
             -m "Bonferroni-Holm"
     mv table-unknown_to_db* ontologizer-unknown_to_db.txt
     mv table-id_with_open* ontologizer-id_with_open.txt
+    cp .command.log ontologizer.log
     """
     //
 }

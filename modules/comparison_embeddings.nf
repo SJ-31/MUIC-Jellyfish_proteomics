@@ -1,5 +1,4 @@
 process COMPARISON_EMBEDDINGS {
-    conda "/home/shannc/anaconda3/envs/reticulate"
     publishDir "$outdir", mode: "copy"
 
     input:
@@ -7,6 +6,7 @@ process COMPARISON_EMBEDDINGS {
     path(sample_tsv)
     path(comparison_embeddings)
     path(comparison_tsv)
+    val(embedding_type)
     val(outdir)
     //
 
@@ -21,15 +21,31 @@ process COMPARISON_EMBEDDINGS {
         """
         cp $outdir/*hdf5 .
         """
-    } else {
+    } else if (embedding_type == "protein") {
         """
-        get_distances.py -i $sample_embeddings \
+        source activate $params.reticulate
+        get_distances.py \
+            -i $sample_embeddings \
             -o sample_with_comp_dist.hdf5 \
             --sample_tsv $sample_tsv \
             --filter_criteria "category == 'venom_component'" \
             --comparison_embd $comparison_embeddings \
             --comparison_tsv $comparison_tsv \
             --write_embd_file sample_with_comp_embd.hdf5
+        conda deactivate
+        """
+    } else if (embedding_type == "GO") {
+        """
+        Rscript $params.bin/R/analysis/prepare_embeddings.r \
+            --r_source "$params.bin/R" \
+            --python_source "$params.bin" \
+            --sample_tsv $sample_tsv \
+            --embedding_path $sample_embeddings \
+            --sample_name $params.prefix \
+            --comparison_tsv $comparison_tsv \
+            --comparison_embd $comparison_embeddings \
+            --embd_output sample_with_comp_embd.hdf5 \
+            --dist_output sample_with_comp_dist.hdf5
         """
     }
     //
