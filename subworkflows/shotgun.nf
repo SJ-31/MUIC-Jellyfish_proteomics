@@ -54,20 +54,20 @@ workflow 'search' {
     MS_MAPPING(mzML.collect(), "$params.results")
 
     // All searches
-    COMET(mzML.collect(), "$p1/Engines/Comet", "$first_pass/Logs",
+    COMET(mzML.collect(), "$p1/Engines/Comet", "$p1/Logs",
           db_plusdecoys)
     MSFRAGGER(mzML.collect(), "$params.config_dir/MSFragger_params.params", "",
               "$p1/Engines/MsFragger", "$p1/Logs", db_plusdecoys)
-    IDENTIPY(mzML.collect(), "$p1/Engines/Identipy", "$first_pass/Logs",
+    IDENTIPY(mzML.collect(), "$p1/Engines/Identipy", "$p1/Logs",
              db_plusdecoys.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml.collect(),
                 "$p1/Engines/Identipy")
     METAMORPHEUS_DEFAULT(mgf.collect(), "$p1/Engines/Metamorpheus", "$p1/Logs", "",
                          "$params.config_dir/metamorpheus_params.toml", db_normal)
-    MSGF(mzML, "$p1/Engines/MSGF", "$first_pass/Logs",
+    MSGF(mzML, "$p1/Engines/MSGF", "$p1/Logs",
          db_plusdecoys.first())
     MSGF_MERGE(MSGF.out.pin.collect(), "$p1/Engines/MSGF")
-    TIDE(mgf.collect(), "$p1/Engines/Tide", "$first_pass/Logs", "$p1/Percolator",
+    TIDE(mgf.collect(), "$p1/Engines/Tide", "$p1/Logs", "$p1/Percolator",
          db_normal)
     TIDE_COMBINED_PEP(TIDE.out.percolator, "$p1/Percolator")
 

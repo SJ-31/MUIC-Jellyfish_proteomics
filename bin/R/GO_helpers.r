@@ -111,24 +111,19 @@ mySaveFig <- function(fig, filename) {
 #' When a given taxon has more proteins than the sample, the proteins
 #' are sorted by length and selection is performed at regular intervals
 #' so that the taxon tibble has the same dimensions as the sample tb
-adjustProteinNumbers <- function(sample_tb, taxa_tb_list) {
-  sample_num <- nrow(sample_tb)
-  nested <- taxa_tb_list %>%
-    group_by(Taxon) %>%
-    nest()
-  nested$data <- nested$data %>% lapply(\(x) {
-    nrows <- nrow(x)
-    if (nrows <= sample_num) {
-      return(x)
-    }
-    step <- nrows / sample_num
-    wanted_indices <- round(seq(1, nrows, by = step))
-    data <- x %>%
-      arrange(by = length) %>%
-      dplyr::slice(wanted_indices)
-    return(data)
-  })
-  return(unnest(nested))
+adjustProteinNumbers <- function(target_num, tb) {
+  nested <- tb %>% group_by(Taxon) %>% nest()
+  picked <- nested %>%
+    apply(1,
+          \(x) {
+            data <- x$data
+            nrows <- nrow(data)
+            if (nrows <= target_num) return(data);
+            data <- data[sample(target_num),]
+            return(slice(data, 1:target_num))
+          }) %>%
+    bind_rows()
+  return(picked)
 }
 
 
@@ -276,15 +271,16 @@ getUniprotData <- function(uniprot_tsv_path) {
   return(list(
     map = prot_go_map,
     go_vec = all_gos,
-    prot_tb = tb,
+    prot_tb = ungroup(tb),
     go_tb = go_tb_all
   ))
 }
 
-goDataGlobal <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
+goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
   # Load sample data & ontologizer results
   sample_tb <- readr::read_tsv(sample_path) %>%
-    filter(!is.na(GO_IDs))
+    filter(!is.na(GO_IDs)) %>%
+    distinct(ProteinId, .keep_all = TRUE)
   sample_gos <- goVector(sample_tb, go_column = "GO_IDs") %>% unique()
 
   if (!missing(uniprot_tsv) && !is.null(uniprot_tsv)) {
@@ -349,7 +345,7 @@ goDataGlobal <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
     data$go_tb$sample <- go_tb
   }
   if (!missing(uniprot_tsv) && !is.null(uniprot_tsv)) {
-    data$protein$compare <- adjustProteinNumbers(prot_tb_sample, unip$prot_tb)
+    data$protein$compare <- unip$prot_tb
     data$prot_go_map$compare <- unip$map
     data$go_vec$compare <- all_gos
     data$go_tb$compare <- go_tb_all
