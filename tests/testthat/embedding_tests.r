@@ -22,9 +22,9 @@ args <- list(
 source("./bin/R/DR_helpers.r")
 source("./bin/R/analysis/prepare_embeddings.r")
 
-embeddingData(args$combined_results,
-              args$sample_name,
-              args$embedding_path,
-              args$dist_path, TRUE)
+e <- embeddingData(args$combined_results,
+                   args$sample_name,
+                   args$embedding_path,
+                   args$dist_path, TRUE)
 
 
