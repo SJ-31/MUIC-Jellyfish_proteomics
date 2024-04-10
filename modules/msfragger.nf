@@ -33,7 +33,7 @@ process MSFRAGGER {
         cp !{pars} .
         cat *.params | sed "s;database_name.*;database_name = $database;" > config.cfg
 
-        java -Xmx32g -jar ~/tools/MSFragger-3.7/MSFragger-3.7.jar  \
+        java -Xmx32g -jar !{params.msfragger}  \
             config.cfg \
             !{mzmls} > !{params.pref}_msfragger.log
 
