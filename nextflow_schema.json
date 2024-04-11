@@ -201,6 +201,42 @@
     "prottrans": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/data/models/prot_t5_xl_uniref50"
+    },
+    "p1": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/results/UNSPECIFIED/1-First_pass"
+    },
+    "p2": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/results/UNSPECIFIED/2-Second_pass"
+    },
+    "uniprot_reviewed": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/protein_databases/comparison_taxa/reviewed_all.tsv"
+    },
+    "comparison_esm": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/protein_databases/uniprot_embeddings/esm_out"
+    },
+    "comparison_prottrans": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/protein_databases/uniprot_embeddings/pt_embeddings.hdf5"
+    },
+    "reticulate": {
+      "type": "string",
+      "default": "/home/shannc/anaconda3/envs/reticulate"
+    },
+    "protlm": {
+      "type": "string",
+      "default": "/home/shannc/anaconda3/envs/protlm"
+    },
+    "esmfold": {
+      "type": "string",
+      "default": "/home/shannc/anaconda3/envs/esmfold"
+    },
+    "msfragger": {
+      "type": "string",
+      "default": "/home/shannc/workflow/tools/MSFragger-3.7/MSFragger-3.7.jar"
     }
   },
   "required": ["subworkflow", "manifest_file"]

@@ -25,6 +25,7 @@ workflow 'combine_searches' {
     outdir
     seq_header_mappings
     open_results
+    blast_db
 
     main:
     SEARCH_INTERSECT(prot2intersect,
@@ -39,9 +40,8 @@ workflow 'combine_searches' {
 
     ranges = Channel.from(tuple(0, 35), tuple(35, 50),
                             tuple(50, 85), tuple(85, 100000))
-    BLASTP(MERGE_OPEN.out.unknown_fasta.first(),
-            params.blast_db, ranges,
-            "$outdir/Unmatched/BLAST")
+    BLASTP(MERGE_OPEN.out.unknown_fasta.first(), blast_db,
+           ranges, "$outdir/Unmatched/BLAST")
         // 1. Match de novo, transcriptome and unmatched peptides against proteins
         //     in database
         // * To optimize the searches, queries will be partitioned into four ranges,
@@ -84,17 +84,13 @@ workflow 'combine_searches' {
 
     COVERAGE_SPLIT(COMBINE_ALL.out.all)
     COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(), "$outdir")
-    COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all,
-                   "$outdir")
+    COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
 
     CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
     DEEPLOC(SIGNALP.out.fasta, "$outdir/Deeploc")
 
-
     emit:
-    all_combined = Channel.empty()
-    all_combined = COMBINE_ALL.out.all
-    intersected_searches = SEARCH_INTERSECT.out.unsorted
-    combinedPEP_psm = COMBINE_PEP.out
+    result = COVERAGE_MERGE.out.tsv
+
 }
