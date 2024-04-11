@@ -1,0 +1,29 @@
+nextflow_process {
+
+    name "Test Process FILTER_DB"
+    script "modules/filter_db.nf"
+    process "FILTER_DB"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pref = "C_indra"
+                pass = "1-First_pass"
+                input = "$baseDir/results/${params.pref}_B/${params.pass}/${params.pref}_all_wcoverage.tsv"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath(params.input)
+                input[1] = "$baseDir/tests/nf-test-out"
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

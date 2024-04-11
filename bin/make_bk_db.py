@@ -27,8 +27,8 @@ for fasta in [matches, decoys]:
     for group in ids_list:
         hits.extend(group.split(","))
 
-map = pd.read_csv(old_db, sep="\t", index_col=0)
-matched = map.loc[hits]
+protein_map = pd.read_csv(old_db, sep="\t", index_col=0)
+matched = protein_map.loc[hits]
 matched["id"] = matched.index
 num_valid = sum(matched["id"].str[0:4] != "rev_")
 num_decoys = matched.shape[0] - num_valid
