@@ -6,10 +6,12 @@ getDeeploc <- function(deeploc_path, unmatched_path) {
   dl <- read_csv(deeploc_path)
   um <- read_tsv(unmatched_path)
   merged <- inner_join(um, dl,
-                       by = join_by(x$ProteinId == y$Protein_ID)) %>%
-    mutate(inferred_by = "deeploc",
-           localization = Localizations,
-           category = Signals,
+                       by = join_by(x$ProteinId == y$Protein_ID)
+  ) %>%
+    mutate(
+      inferred_by = "deeploc",
+      localization = Localizations,
+      category = Signals,
     ) %>%
     select(all_of(c(colnames(um), "inferred_by", "localization", "category")))
   return(merged)
@@ -19,16 +21,19 @@ getDeeploc <- function(deeploc_path, unmatched_path) {
 #' Helper function for collecting all the data from a single run for
 #' comparison
 #'
-runData <- function(path, remove_dupes) {
-  name <- gsub(".*/", "", path)
+runData <- function(prefix, remove_dupes, path) {
   results <- list(
-    first = read_tsv(glue("{path}/1-First_pass/{name}_all_wcoverage.tsv")),
-    sec = read_tsv(glue("{path}/2-Second_pass/{name}_all_wcoverage.tsv"))
+    first = read_tsv(glue("{path}/1-First_pass/{prefix}_all_wcoverage.tsv")),
+    sec = read_tsv(glue("{path}/2-Second_pass/{prefix}_all_wcoverage.tsv"))
   )
-  dl_f <- getDeeploc(glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
-                     glue("{path}/1-First_pass/Combined/unified_groups.tsv"))
-  dl_s <- getDeeploc(glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
-                     glue("{path}/1-First_pass/Combined/unified_groups.tsv"))
+  dl_f <- getDeeploc(
+    glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
+    glue("{path}/1-First_pass/Combined/unified_groups.tsv")
+  )
+  dl_s <- getDeeploc(
+    glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
+    glue("{path}/1-First_pass/Combined/unified_groups.tsv")
+  )
   results$first <- bind_rows(results$first, dl_f)
   results$sec <- bind_rows(results$sec, dl_s)
   if (!missing(remove_dupes) && remove_dupes) {
@@ -66,7 +71,9 @@ getFreqTb <- function(vec, name) {
 #' Get the clade at the specified level from an NCBI lineage string
 #' if the level is too specific for the given string, return the most specific clade less than the level
 parseLineage <- function(lineage_str, level) {
-  if (is.na(lineage_str)) return(NA)
+  if (is.na(lineage_str)) {
+    return(NA)
+  }
   split <- str_split_1(lineage_str, ";")
   len <- length(split)
   if (len >= level) {
@@ -84,9 +91,13 @@ parseLineage <- function(lineage_str, level) {
 splitAndCount <- function(tb, col, pattern, unique_only, func = NULL) {
   if (!missing(unique_only) && unique_only) {
     uniq <- TRUE
-  } else uniq <- FALSE
+  } else {
+    uniq <- FALSE
+  }
   vec <- lapply(tb[[col]], \(x) {
-    if (is.na(x)) return(x)
+    if (is.na(x)) {
+      return(x)
+    }
     split <- str_split_1(x, pattern)
     if (uniq) {
       split <- unique(split)
@@ -117,7 +128,8 @@ getCounts <- function(tb) {
   data$PANTHER <- splitAndCount(tb, "PANTHER", ";")
   data$go <- goVector(tb, go_column = "GO_IDs") %>% getFreqTb(., "GO")
   data$matched_peptides <- splitAndCount(tb, "MatchedPeptideIds", ";",
-                                         func = removeDigits, unique_only = TRUE)
+                                         func = removeDigits, unique_only = TRUE
+  )
   data$lineage <- tb$lineage %>%
     purrr::map_chr(., \(x) parseLineage(x, 3)) %>%
     getFreqTb(., "lineage")
@@ -136,7 +148,8 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
     }
     joined <- inner_join(first_sec$first,
                          first_sec$sec,
-                         by = join_by(!!join_on))
+                         by = join_by(!!join_on)
+    )
     f <- joined[[glue("{compare_col}.x")]]
     s <- joined[[glue("{compare_col}.y")]]
   } else {
@@ -145,9 +158,11 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
   }
   bound <- bind_rows(
     tibble(!!compare_col := f,
-           pass = "first"),
+           pass = "first"
+    ),
     tibble(!!compare_col := s,
-           pass = "second"),
+           pass = "second"
+    ),
   )
   return(bound)
 }
@@ -161,7 +176,8 @@ compareFirstSecW <- function(first_sec, compare_col, join_on, drop_na) {
   joined <- full_join(first_sec$first,
                       first_sec$sec,
                       by = join_by(!!join_on),
-                      suffix = JOIN_SUFFIX)
+                      suffix = JOIN_SUFFIX
+  )
   cols <- paste0(compare_col, JOIN_SUFFIX)
   chosen <- joined %>%
     select(all_of(c(join_on, cols)))
@@ -179,7 +195,6 @@ passUniques <- function(first_sec) {
   first <- first_sec$first %>%
     filter(!ProteinId %in% first_sec$sec$ProteinId)
   return(list(first = first, sec = sec))
-
 }
 
 #' Get protein modification metrics
@@ -200,7 +215,9 @@ modMetrics <- function(run_df) {
         split <- str_split_1(x, " ")
         map[split[1]] <- split[2]
       })
-      tb <- map %>% as.list() %>% as_tibble()
+      tb <- map %>%
+        as.list() %>%
+        as_tibble()
       return(tb)
     }) %>%
     bind_rows() %>%
@@ -221,8 +238,10 @@ passDensityPlot <- function(pass_tb, bw) {
   col <- pass_tb %>%
     colnames() %>%
     discard(\(x) x == "pass")
-  plot <- ggplot(pass_tb, aes(x = .data[[col]], after_stat(density),
-                              color = pass)) +
+  plot <- ggplot(pass_tb, aes(
+    x = .data[[col]], after_stat(density),
+    color = pass
+  )) +
     geom_freqpoly(binwidth = bw)
   return(plot)
 }
@@ -239,11 +258,15 @@ wilcoxWrapper <- function(first_sec) {
     gsub(pattern = ".first", replacement = "", .)
   first <- first_sec[[glue("{col}.first")]]
   second <- first_sec[[glue("{col}.sec")]]
-  two_sided <- wilcox.test(first, second, paired = TRUE,
-                           na.action = na.omit)
-  sec_greater <- wilcox.test(first, second, paired = TRUE,
+  two_sided <- wilcox.test(first, second,
+                           paired = TRUE,
+                           na.action = na.omit
+  )
+  sec_greater <- wilcox.test(first, second,
+                             paired = TRUE,
                              na.action = na.omit,
-                             alternative = "less")
+                             alternative = "less"
+  )
   return(list(two_sided = two_sided, sec_greater = sec_greater))
 }
 
@@ -255,11 +278,18 @@ wilcoxWrapper <- function(first_sec) {
 #' @param target the metric to average, either "mean" or "median"
 mergeLfq <- function(tb, target) {
   lfq_cols <- paste0(c("directlfq", "maxlfq", "flashlfq"), "_", target)
-  quant <- tb %>% dplyr::select(contains(lfq_cols))
+  quant <- tb %>% dplyr::select(ProteinId, contains(lfq_cols))
   is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
   quant <- mutate(quant,
-                  log_intensity = pmap(list(maxlfq_mean, directlfq_mean, flashlfq_mean),
-                                       \(x, y, z) mean(c(x, y, z), na.rm = TRUE)) %>% unlist()
+                  log_intensity = pmap(
+                    list(maxlfq_mean, directlfq_mean, flashlfq_mean),
+                    \(x, y, z) mean(c(x, y, z), na.rm = TRUE)
+                  ) %>% unlist()
   )
   return(quant)
+}
+
+
+replaceNaAll <- function(df, value = 0) {
+  df %>% mutate_all(~replace(., is.na(.), value))
 }
