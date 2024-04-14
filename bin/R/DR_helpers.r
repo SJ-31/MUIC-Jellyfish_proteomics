@@ -145,7 +145,7 @@ PARAMS$metric <- "euclidean"
 #' and the columns to color on ("color")
 drWrapper <- function(dr_data, join_on, outdir, name, technique) {
   if (!file.exists(outdir)) {
-    dir.create(outdir)
+    dir.create(outdir, recursive = TRUE)
   }
   switch(technique,
          "pca" = { DR <- `_pca` },
@@ -248,6 +248,9 @@ pcaReconstruct <- function(prcomp_obj, num_pcs) {
 #' reduction results, highlighting on specific column
 #' Generates both 3d and 2d plots
 plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
+  if (!file.exists(path)) {
+    dir.create(path, recursive = TRUE)
+  }
   if (technique == "pca") {
     prefix <- "PC"
   } else {

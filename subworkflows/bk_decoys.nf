@@ -27,7 +27,7 @@ workflow bk_decoys {
         msgf: it.baseName =~ /msgf*/
         }.set { bk_db }
     COMET(mzML_ch.collect(), "$params.p2/Engines/Comet", logs, bk_db.comet)
-    IDENTIPY(mzML_ch.collect(), "params.p2/Engines/Identipy", logs,
+    IDENTIPY(mzML_ch.collect(), "$params.p2/Engines/Identipy", logs,
              bk_db.identipy.first())
     FORMAT_IDPY(IDENTIPY.out.pepxml,
                 "$params.p2/Engines/Identipy")

@@ -472,7 +472,6 @@ def mergeAnnotatedInterpro(args):
     writeFasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])
     if unwanted := set(final.columns) & {"header_x", "header_y"}:
-        unwanted.add("query")
         for u in unwanted:
             final.drop(u, axis="columns", inplace=True)
     print("-" * 10)
@@ -506,4 +505,6 @@ if __name__ == "__main__":
         m = mergeAnnotatedInterpro(args)
     else:
         m = anno(args)
+    if "query" in m.columns:
+        m.drop("query", axis="columns", inplace=True)
     m.to_csv(args["output"], sep="\t", index=False, na_rep="NA")

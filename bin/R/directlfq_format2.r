@@ -14,7 +14,7 @@ medIntensity <- function(intensity_col) {
   unlist(lapply(intensity_col, \(x) {
     unique(str_split_1(x, ";")) %>%
       as.double() %>%
-      median()
+      median(., na.rm = TRUE)
   }))
 }
 
@@ -64,7 +64,7 @@ main <- function(args) {
   # Group up proteins that share an ion
   prot <- joined %>% select(grep("protein", colnames(joined)))
   prot_col <- lapply(seq_along(1:dim(prot)[1]), function(x) {
-    filtered <- prot[x, ][grepl("[a-zA-Z1-9]+", prot[x, ])]
+    filtered <- prot[x,][grepl("[a-zA-Z1-9]+", prot[x,])]
     return(paste0(filtered, collapse = ";"))
   }) %>% unlist()
   joined <- joined %>% mutate(protein = prot_col)
@@ -77,7 +77,7 @@ main <- function(args) {
   final_frame <- tibble(protein = prot_col, ion = joined$ion) %>%
     bind_cols(as_tibble(intensities)) %>%
     filter(protein != "") %>%
-    mutate_all(~ replace(., is.na(.), 0))
+    mutate_all(~replace(., is.na(.), 0))
 
   final_frame <- final_frame %>%
     group_by(ion) %>%
@@ -93,16 +93,16 @@ main <- function(args) {
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- OptionParser()
   parser <- add_option(parser, c("-p", "--path"),
-    type = "character",
-    help = "Path to formatted files"
+                       type = "character",
+                       help = "Path to formatted files"
   )
   parser <- add_option(parser, c("-o", "--output"),
-    type = "character",
-    help = "Output file name"
+                       type = "character",
+                       help = "Output file name"
   )
   parser <- add_option(parser, c("-m", "--mapping"),
-    type = "character",
-    help = "Mapping file name"
+                       type = "character",
+                       help = "Mapping file name"
   )
   args <- parse_args(parser)
   f <- main(args)
