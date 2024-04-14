@@ -67,6 +67,19 @@ process EMBEDDINGS {
 
             cp .command.log "${model}".log
             """
+        } else if (model == "a2v_go") {
+            """
+            Rscript $params.bin/R/analysis/prepare_embeddings.r \
+                --r_source "$params.bin/R" \
+                --python_source "$params.bin" \
+                --sample_tsv $results_tsv \
+                --embd_output embeddings.hdf5 \
+                --dist_output distances.hdf5 \
+                --embedding_path $params.go_embeddings \
+                --go_only
+
+            cp .command.log "${model}".log
+            """
         }
     }
     //
