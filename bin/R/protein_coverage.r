@@ -8,6 +8,7 @@ writeAlignments <- function(row, file_name) {
   header <- ifelse(row[["header"]] == "unknown", row[["ProteinId"]],
     row[["header"]]
   )
+  header <- glue("{row[['ProteinId']]}:{header}")
   pep_count <- row[["num_unique_peps"]]
   write.fasta(row[["seq"]], header, open = "a", file.out = file_name)
   write.fasta(row[["alignment"]],
