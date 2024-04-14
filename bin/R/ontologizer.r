@@ -38,12 +38,17 @@ ozFormat <- function(tb) {
 prep <- function(args) {
   combined <- read_tsv(args$input)
   u <- ozFormat(combined)
-  io <- ozFormat(dplyr::filter(combined, ID_method == "open" | !is.na(Mods)))
+  # Protein universe
+  io <- ozFormat(dplyr::filter(combined, ID_method == "open" |
+    ID_method == "both" |
+    !is.na(Mods)))
+  # Modified proteins or identified in open search
   sa <- ozFormat(
     combined %>% dplyr::filter(inferred_by == "interpro" |
                                  inferred_by == "eggNOG" |
                                  grepl("[UDT]", ProteinId))
   )
+  # Proteins not known to database, inferred with eggNOG and interpro
   return(list(
     universe = u,
     id_open = io,
