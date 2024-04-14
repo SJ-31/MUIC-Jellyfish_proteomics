@@ -8,7 +8,7 @@ import annotate as an
 import test_verify_output as vo
 import pandas as pd
 
-pth = f"{dir}/results/jellyfish/1-First_pass/"
+pth = f"{dir}/results/C_indra/1-First_pass/"
 dirname = f"{dir}/results/Unmatched/Database-annotated"
 nftest = f"{dir}/tests/nf-test-out/annotate"
 test = f"{dir}/tests/results/Unmatched/Database-annotated"
@@ -26,24 +26,16 @@ def test_anno():
     import os
 
     args = {
-        "input": f"{pth}/Unmatched/BLAST/jellyfish_blast_matched.tsv",
-        # "input": f"{dir}/jellyfish_blast_matched-SHORTENED.tsv",
+        "input": f"{pth}/Unmatched/BLAST/C_indra_blast_matched.tsv",
         "annotate_extra": True,
     }
     f = an.anno(args)
     t = pd.read_csv("needs_annotating.tsv", sep="\t")
     os.remove("needs_annotating.fasta")
     os.remove("needs_annotating.tsv")
-    # args["annotate_extra"] = False
-    # fn = an.anno(args)
-    # tn = pd.read_csv("needs_annotating.tsv", sep="\t")
-    # os.remove("needs_annotating.fasta")
-    # os.remove("needs_annotating.tsv")
     return {
         "annotated_extra": f,
         "needs_annotating_extra": t,
-        # "annotated_normal": fn,
-        # "needs_annotating_normal": tn,
     }
 
 
@@ -86,5 +78,5 @@ for name, df in a.items():
 #     index=False,
 #     na_rep="NaN",
 # )
-eggnog = test_merge_eggnog()
+# eggnog = test_merge_eggnog()
 # i = test_merge_interpro()

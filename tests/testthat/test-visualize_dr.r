@@ -7,10 +7,10 @@ if (str_detect(getwd(), "Bio_SDD")) {
   wd <- "/home/shannc/workflow"
   env <- "/home/shannc/anaconda3/envs/reticulate"
 }
-t <- "pca"
+t <- "umap"
 model <- "prottrans"
 args <- list(
-  figure_path = "./output/figures/test_viz",
+  figure_path = glue("./output/figures/test_viz_{t}"),
   sample_name = "C_indra",
   compare = FALSE,
   technique = t,
@@ -19,7 +19,7 @@ args <- list(
   r_source = glue("{wd}/bin/R"),
   python_source = glue("{wd}/bin"),
   results_prefix = "testing",
-  combined_results = glue("{wd}/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"),
+  combined_results = glue("{wd}/results/C_indra_B/1-First_pass/C_indra_all_wcoverage.tsv"),
   uniprot_data = glue("{wd}/data/protein_databases/comparison_taxa/reviewed_all.tsv")
 )
 source(glue("{wd}/bin/R/analysis/visualize_dr.r"))

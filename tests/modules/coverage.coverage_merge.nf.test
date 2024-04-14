@@ -1,0 +1,34 @@
+nextflow_process {
+
+    name "Test Process COVERAGE_MERGE"
+    script "modules/coverage.nf"
+    process "COVERAGE_MERGE"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pref = "C_indra"
+                // pass = "1-First_pass"
+                pass = "2-Second_pass"
+
+                combined = "$baseDir/results/${params.pref}_A/${params.pass}/${params.pref}_all_wcoverage.tsv"
+                coverage = "$baseDir/results/${params.pref}_A/${params.pass}/.coverage/*"
+                outdir = "$baseDir/tests/nf-test-out/coverage_merge"
+            }
+            process {
+                """
+                input[0] = Channel.fromPath(params.coverage).collect()
+                input[1] = Channel.fromPath(params.combined)
+                input[2] = params.outdir
+                """
+            }
+        }
+
+        then {
+            assert process.success
+        }
+
+    }
+
+}

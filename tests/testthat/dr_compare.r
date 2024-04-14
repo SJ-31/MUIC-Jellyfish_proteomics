@@ -25,12 +25,29 @@ e <- embeddingData(
   args$combined_results,
   args$sample_name,
   args$embedding_path,
-  args$dist_path, TRUE
+  args$dist_path,
 )
+ARRANGE <- TRUE
 
-sample_protein$color <- "category"
+e$color <- "category"
 results <- list()
 min_dist <- 0.1
+
+if (args$technique == "pca" || args$technique == "pcoa") {
+  path <- glue("{args$figure_path}/{args$technique}")
+  dr <- drWrapper(
+    dr_data = e,
+    outdir = path,
+    name = "sample",
+    join_on = "ProteinId",
+    technique = args$technique
+  )
+  label <- labelGen(args$technique, "test", "")
+  bp <- plotDr(dr$to_plot, e$color, path, args$technique, label, TRUE)
+  ARRANGE <- FALSE
+}
+
+
 if (args$technique == "umap") {
   for (n_neighbors in seq(from = 5, to = 50, by = 10)) {
     PARAMS$umap$n_neighbors <- n_neighbors
@@ -47,7 +64,7 @@ if (args$technique == "umap") {
       join_on = "ProteinId",
       technique = "umap"
     )
-    bp <- plotDr(dr$to_plot, sample_protein$color, path, "umap", label, TRUE)
+    bp <- plotDr(dr$to_plot, e$color, path, "umap", label, TRUE)
     results <- append(results, bp)
   }
 } else if (args$technique == "tsne") {
@@ -59,19 +76,22 @@ if (args$technique == "umap") {
     path <- glue("{args$figure_path}/tsne_optimization/{p}p_{metric}")
     label <- labelGen("T-SNE", "test", glue("perplexity: {p}, metric: {metric}"))
     dr <- drWrapper(
-      dr_data = sample_protein,
+      dr_data = e,
       outdir = path,
       name = "sample",
       join_on = "ProteinId",
       technique = "tsne"
     )
-    bp <- plotDr(dr$to_plot, sample_protein$color, path, "tsne", label, TRUE)
+    bp <- plotDr(dr$to_plot, e$color, path, "tsne", label, TRUE)
     results <- append(results, bp)
   }
 }
 
-comparison <- ggarrange(plotlist = results, common.legend = TRUE)
-ggsave(glue("{args$figure_path}/{args$technique}_{metric}_comparison.png"),
-       comparison,
-       width = 30, height = 25
-)
+
+if (ARRANGE) {
+  comparison <- ggarrange(plotlist = results)
+  ggsave(glue("{args$figure_path}/{args$technique}_{metric}_comparison.png"),
+         comparison,
+         width = 30, height = 25
+  )
+}
