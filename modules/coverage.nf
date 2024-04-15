@@ -57,6 +57,8 @@ process COVERAGE_MERGE {
     output:
     path("${combined_file.baseName}_wcoverage.tsv"), emit: tsv
     path("aligned_peptides.fasta")
+    path("alignment_metrics.tsv")
+    path("all_replacements.tsv")
     //
 
     script:
@@ -67,5 +69,10 @@ process COVERAGE_MERGE {
         --input_path . \
         --output_path "${combined_file.baseName}_wcoverage".tsv \
         --alignment_file aligned_peptides.fasta
+
+    parse_alignment.py \
+        -i aligned_peptides.fasta \
+        -m alignment_metrics.tsv \
+        -r all_replacements.tsv
     """
 }
