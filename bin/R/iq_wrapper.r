@@ -4,11 +4,8 @@ library(iq)
 
 main <- function(dlfq_input) {
   dlfq <- read_tsv(dlfq_input)
-  sample_prefix <- colnames(dlfq) %>%
-    purrr::discard(grepl("protein|ion", .)) %>%
-    magrittr::extract(1) %>%
-    gsub("[0-9]*", "", .)
-  sample_cols <- colnames(dlfq) %>% keep(grepl(sample_prefix, .))
+  sample_cols <- colnames(dlfq) %>%
+    purrr::discard(grepl("protein|ion", .))
   names(sample_cols) <- paste0("maxlfq-", sample_cols)
   dlfq <- dlfq %>% tibbleDuplicateAt(.,
     col = "protein",
