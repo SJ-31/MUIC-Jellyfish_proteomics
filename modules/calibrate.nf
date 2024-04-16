@@ -13,6 +13,7 @@ process CALIBRATE {
 
     output:
     path("*mzML")
+    path("*mgf")
     path("*log")
     path("${params.pref}.calibrated.tsv")
     //
@@ -35,6 +36,12 @@ process CALIBRATE {
         -d !{database}
 
     mv output/*/*mzML .
+
+    find $(pwd)/ -name "*-calib.mzML" > convert.txt
+
+    msconvert -f convert.txt \
+            -o . \
+            --mgf
 
     make_manifest.py -f . -t !{projectDir}/!{params.manifest_file} \
     -o !{params.pref}.calibrated.tsv \
