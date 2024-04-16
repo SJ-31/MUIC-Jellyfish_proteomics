@@ -309,3 +309,32 @@ mergeLfq <- function(tb, target) {
 replaceNaAll <- function(df, value = 0) {
   df %>% mutate_all(~replace(., is.na(.), value))
 }
+
+minMaxScaler <- function(vec) {
+  max <- max(vec, na.rm = TRUE)
+  min <- min(vec, na.rm = TRUE)
+  return(purrr::map_dbl(vec, \(x) (x - min) / (max - min)))
+}
+
+#' Returns
+#' 1. a list mapping KEGG pathways to the proteins of `tb` that participate
+#' in them
+#' 2. A tibble mapping ProteinIds->KEGG Pathways, used to generate 1
+#' Optionally filter pathways that have fewer than the `minimum` proteins
+groupPathways <- function(tb, minimum = 20) {
+  id2pathway <- tb %>%
+    filter(!is.na(KEGG_Pathway)) %>%
+    dplyr::select(ProteinId, KEGG_Pathway) %>%
+    tibbleDuplicateAt("KEGG_Pathway", "[;,]")
+  pathway_lists <- id2pathway %>%
+    group_by(KEGG_Pathway) %>%
+    nest() %>%
+    apply(1, \(x) {
+      lst <- list()
+      lst[[x$KEGG_Pathway]] <- x$data$ProteinId
+      return(lst)
+    }) %>%
+    do.call(c, .) %>%
+    discard(\(x) length(x) < minimum)
+  return(list(map = id2pathway, grouped = pathway_lists))
+}
