@@ -56,19 +56,14 @@ combineGOEmbd <- function(embd_path, go_vector, map, write_distances) {
   }
 }
 
-# Globally required args
-# - embd_type
-# - combined_results: results from sample run
-# - sample_name
-# - embedding_path
-# - dist_path
-# - comparison_meta
 embeddingData <- function(combined_results,
                           sample_name,
                           embedding_path,
-                          dist_path,
-                          sample_only,
-                          comparison_meta) {
+                          # Path to embeddings in hdf5
+                          dist_path, # Path to distance matrix in hdf5
+                          comparison_meta # Add this argument when
+                          # comparing sample proteins against external
+) {
   py_embd <- getProtEmbd(embedding_path, dist_path)
   py_embd$euclidean <- as.matrix(py_embd$euclidean)
   py_embd$cosine <- as.matrix(py_embd$cosine)
@@ -76,7 +71,7 @@ embeddingData <- function(combined_results,
     distinct(ProteinId, .keep_all = TRUE) %>%
     mutate(Taxon = sample_name) %>%
     filter(ProteinId %in% rownames(py_embd$embeddings))
-  if (!sample_only) {
+  if (!missing(comparison_meta)) {
     comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
     data <- bind_rows(data, comp_meta) %>%
       select(c(ProteinId, Taxon)) %>%
@@ -106,11 +101,19 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- add_option(parser, "--dist_output", type = "character")
   parser <- add_option(parser, "--comparison_embd", type = "character")
   parser <- add_option(parser, "--comparison_tsv", type = "character")
+  parser <- add_option(parser, "--go_only", action = "store_true")
   parser <- add_option(parser, "--sample_name", type = "character")
 
   args <- parse_args(parser)
   source(glue("{args$r_source}/GO_helpers.r"))
-  if (is.null(args$comparison_embd)) {
+  if (args$go_only) {
+    d <- goData(args$sample_tsv)
+    gos <- getGOEmbd(d$go_vec$sample)
+    reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
+    names <- rownames(gos)
+    writeDistances(gos, names, args$dist_output)
+    writeEmbeddingsHDF5(args$embd_output, names, as.matrix(gos))
+  } else if (is.null(args$comparison_embd)) {
     d <- goData(args$sample_tsv)
     combineGOEmbd(args$embd_output, d$go_vec$sample, d$prot_go_map$sample, args$dist_output)
   } else {
@@ -138,6 +141,6 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     names <- combined$ProteinId
     embd <- column_to_rownames(., id_col)
     writeDistances(names, embd, args$dist_output)
-    writeEmbeddingsHDF5(args$embd_output, names, embd)
+    writeEmbeddingsHDF5(args$embd_output, names, as.matrix(embd))
   }
 }

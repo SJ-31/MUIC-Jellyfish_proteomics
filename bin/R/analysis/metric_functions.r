@@ -43,6 +43,22 @@ runData <- function(prefix, remove_dupes, path) {
   return(results)
 }
 
+alignmentData <- function(path) {
+  passes <- c("1-First_pass", "2-Second_pass")
+  names <- c("first", "sec")
+  data <- list(replacements = tibble(),
+               metrics = tibble())
+  for (i in c(1, 2)) {
+    r <- read_tsv(glue("{path}/{passes[i]}/all_replacements.tsv")) %>%
+      mutate(pass = names[i])
+    m <- read_tsv(glue("{path}/{passes[i]}/alignment_metrics.tsv")) %>%
+      mutate(pass = names[i])
+    data$replacements <- bind_rows(data$replacements, r)
+    data$metrics <- bind_rows(data$metrics, m)
+  }
+  return(data)
+}
+
 
 notMissing <- function(tb) {
   colSums(!is.na(tb)) %>%
