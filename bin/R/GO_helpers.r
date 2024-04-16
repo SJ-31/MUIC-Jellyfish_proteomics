@@ -444,12 +444,12 @@ headerFreqs <- function(header_vec) {
 #' Ranked gene set enrichment analysis
 #'
 #' @description
-#' Rank proteins in tb according to a specified column
+#' Rank proteins in tb according to a specified column, in
+#' descending fashion
 #' @param quant the column to rank proteins on
 fgseaWrapper <- function(quant, tb, gene_sets) {
   ranked <- tb %>%
     dplyr::select(ProteinId, quant) %>%
-    dplyr::mutate(ProteinId = map_chr(ProteinId, \(x) gsub("-SAMPLE", "", x))) %>%
     dplyr::filter(!is.na(!!quant)) %>%
     column_to_rownames(var = "ProteinId") %>%
     (\(x) {
@@ -458,9 +458,19 @@ fgseaWrapper <- function(quant, tb, gene_sets) {
       return(y)
     }) %>%
     sort(., decreasing = TRUE)
-  fgsea <- fgsea(gene_sets, ranked, scoreType = "pos")
-  # if (fgsea$pval > 0.05) {
-  #   message("fgsea results not significant!")
-  # }
-  return(fgsea)
+  fgsea <- fgsea(pathways = gene_sets, ranked, scoreType = "pos")
+  # Recommended to switch to "pos"
+  return(list(result = fgsea, ranked = ranked))
+}
+
+plotFgsea <- function(gene_sets, ranked_list, fgsea_result) {
+  fgsea_plots <- list()
+  fgsea_plots$ALL <- plotGseaTable(gene_sets,
+                                   ranked_list, fgsea_result)
+  for (n in seq(nrow(fgsea_result))) {
+    set <- fgsea_result[n,]$pathway
+    padjust <- round(fgsea_result[n,]$padj, 6)
+    fgsea_plots[[set]] <- plotEnrichment(gene_sets[[set]], ranked_list) + labs(title = glue("Set: {set}, adjusted p-value = {padjust}"))
+  }
+  return(fgsea_plots)
 }
