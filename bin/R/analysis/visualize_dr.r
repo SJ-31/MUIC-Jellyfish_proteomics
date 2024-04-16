@@ -2,6 +2,8 @@ library("optparse")
 library("glue")
 
 main <- function(args) {
+  library(reticulate)
+  reticulate::use_condaenv("reticulate")
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/DR_helpers.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
@@ -9,7 +11,7 @@ main <- function(args) {
     e <- embeddingData(args$combined_results,
                        args$sample_name,
                        args$embedding_path,
-                       args$dist_path, FALSE,
+                       args$dist_path,
                        comparison_meta = args$uniprot_data
     )
   } else {
@@ -17,7 +19,7 @@ main <- function(args) {
       args$combined_results,
       args$sample_name,
       args$embedding_path,
-      args$dist_path, TRUE
+      args$dist_path
     )
   }
 
@@ -35,15 +37,16 @@ main <- function(args) {
                       glue("{args$sample_name} comparison"),
                       glue("{args$sample_name} sample")
   )
-
   for (color in e$color) {
     label <- labelGen(args$technique, title_str, "")
-    plotDr(to_plot = result$to_plot,
-           color_col = color,
-           path = args$figure_path,
-           technique = args$technique,
-           labels = label,
-           twod = TRUE)
+    plotDr(
+      to_plot = result$to_plot,
+      color_col = color,
+      path = args$figure_path,
+      technique = args$technique,
+      labels = label,
+      twod = TRUE
+    )
   }
 }
 

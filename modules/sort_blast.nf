@@ -8,7 +8,8 @@ process SORT_BLAST {
     path(database_hits) // Combined database proteins to merge accepted blast
     // results into
     path(blast_results)
-    path(mapping)
+    path(mapping) // Mapping file of ProteinId->Sequence, for retrieving metadata about
+    // proteins newly inferred with blast
     path(blast_query)
     val(outdir)
     //

@@ -74,5 +74,6 @@ process COVERAGE_MERGE {
         -i aligned_peptides.fasta \
         -m alignment_metrics.tsv \
         -r all_replacements.tsv
+
     """
 }
