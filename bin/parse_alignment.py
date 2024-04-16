@@ -54,9 +54,13 @@ def recordAlignment(header: str, seq, alignment) -> tuple:
             possible_replacements = alignment[indices[0] : indices[1]]
             n_replacements += 1
             for r in possible_replacements:
-                replacements = pd.concat(
-                    [replacements, recordReplacement(protein_id, old, r, i)]
-                )
+                if old != r:
+                    replacements = pd.concat(
+                        [
+                            replacements,
+                            recordReplacement(protein_id, old, r, i),
+                        ]
+                    )
             alignment = (
                 alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
             )
