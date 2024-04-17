@@ -13,7 +13,10 @@ source(glue("{args$r_source}/analysis/metric_functions.r"))
 EGGNOG_COLS <- c("EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs")
 
 
-run <- runData("C_indra", TRUE, "./results/C_indra_A")
+PATH <- "./results/C_indra_A"
+run <- runData("C_indra", TRUE, PATH)
+OUTDIR <- glue("{PATH}/Analysis")
+alignments <- alignmentData(PATH)
 GRAPHS <- list()
 TABLES <- list()
 
@@ -80,6 +83,7 @@ chi$none <- no_mods
 # Create 2 x 2 contingency table with mods as columns and categories as rows
 # But since mods are not mutually exclusive, will need to test each
 # modification individually against the categories
+# TODO: Need to format this nicely
 chosen <- "Met_Oxidation"
 tab <- table(chi$category, chi[[chosen]])
 ptm_tests <- list()
@@ -89,7 +93,6 @@ for (mod in UNIQUE_MODS) {
   ptm_tests[[mod]]$table <- table(chi$category, chi[[mod]])
   print(ptm_tests[[mod]])
 }
-
 
 # --------------------------------------------------------
 
@@ -217,16 +220,6 @@ new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 
 # --------------------------------------------------------
-#' Split and a ProteinGroupId string by the ";", optionally remove the
-#' numbers and leave unique groups
-#'
-splitGroupStr <- function(group_str, remove_nums = FALSE, unique = FALSE) {
-  if (remove_nums)
-    group_str <- gsub("[0-9]+", "", group_str);
-  split <- str_split_1(group_str, ";")
-  if (unique) split <- base::unique(split)
-  return(split)
-}
 
 # Engine analysis
 num_ids <- bind_rows(run$first, run$sec) %>%
@@ -250,6 +243,7 @@ engine_counts <- num_ids$ProteinGroupId %>%
 # "isolated" than others? i.e. engine B tends to identify proteins that other
 # engine don't. But also remember that in your setup each protein needs to
 # be identified by at least two standard engines (only one in open search)
+# TODO: Format the results nicely
 tb <- run$first
 engine_hits <- tb %>%
   select(ProteinId, ProteinGroupId) %>%
@@ -273,7 +267,6 @@ engine_hits <- engine_hits %>%
   filter(n() > 30) %>%
   ungroup()
 
-
 categories <- unique(engine_hits$category)
 current <- "comet"
 tl <- table(engine_hits$category, engine_hits[[current]])
@@ -287,7 +280,7 @@ if (test$p.value < 0.05) {
     print(tst)
   }
 }
-# TODO: Wrap this in a function
+# TODO: Wrap this stuff- the chi square analysis in a function
 
 
 # Correlation between no. identifications by engines and coverage
@@ -298,9 +291,22 @@ n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch) # A we
 
 # --------------------------------------------------------
 
-minMaxScaler <- function(vec) {
-  max <- max(vec, na.rm = TRUE)
-  min <- min(vec, na.rm = TRUE)
-  return(purrr::map_dbl(vec, \(x) (x - min) / (max - min)))
+# Grouping proteins by their participation in KEGG pathways
+current <- run$first
+pwy <- groupPathways(current)
+
+# --------------------------------------------------------
+
+# --------------------------------------------------------
+# Investigating trends in missing quantification
+current <- run$first
+cq <- c("directlfq", "maxlfq", "flashlfq")
+missing_quant_tests <- list()
+for (q in cq) {
+  noq <- current %>% filter(is.na(!!as.symbol(glue("{cq}_mean"))))
+  hasq <- current %>% filter(!ProteinId %in% noq$ProteinId)
+  missing_quant_tests[[q]] <- wilcox.test(noq$num_peps, hasq$num_peps,
+                                          alternative = "l")
 }
+capture.output(missing_quant_tests, glue("{OUTDIR}/missing_quantification_tests.txt"))
 
