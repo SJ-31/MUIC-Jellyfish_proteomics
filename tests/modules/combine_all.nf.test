@@ -8,16 +8,36 @@ nextflow_process {
 
         when {
             params {
-                pth = "$baseDir/results/jellyfish/1-First_pass/"
+                prefix = "C_indra"
+                pass = "1-First_pass"
+
+                pth = "$baseDir/results/C_indra_A"
+                wpass = "$params.pth/${params.pass}"
+                u = "$params.wpass/Unmatched"
+
+                downloads = "${params.u}/Database-annotated/${params.prefix}_downloads_anno-3.tsv"
+                eggnog_result = "${params.u}/eggNOG/${params.prefix}_eggnog_matched.tsv"
+                interpro_result = "${params.u}/InterPro/${params.prefix}_interpro_matched.tsv"
+                flashlfq_result = "$params.wpass/Quantify/sorted_flashlfq.tsv"
+                dlfq_result = "$params.wpass/Quantify/sorted_directlfq.tsv"
+                denovo = true
+                pfam_entries = "$params.pth/Databases/pfam_entries.tsv"
+                interpro2go = "$params.pth/Databases/interpro2go"
+                ec2go = "$params.pth/Databases/ec2go"
+                pfam2go = "$params.pth/Databases/pfam2go"
+                kegg2go = "$params.pth/Databases/kegg_reaction2go"
+                bin = "$baseDir/bin"
             }
             process {
                 """
-                input[0] = Channel.fromPath("$params.pth/Unmatched/Database-annotated/jellyfish_downloads_anno-3.tsv")
-                input[1] = Channel.fromPath("$params.pth/Unmatched/eggNOG/jellyfish_eggnog_matched.tsv")
-                input[2] = Channel.fromPath("$params.pth/Unmatched/InterPro/jellyfish_interpro_matched.tsv")
-                input[3] = Channel.fromPath("$params.pth/Quantify/sorted_directlfq.tsv")
-                input[4] = Channel.fromPath("$params.pth/Quantify/sorted_flashlfq.tsv")
-                input[5] = "$baseDir/results/tests/nf-test-out/combined"
+                input[0] = Channel.fromPath(params.downloads)
+                input[1] = Channel.fromPath(params.eggnog_result)
+                input[2] = Channel.fromPath(params.interpro_result)
+                input[3] = Channel.fromPath(params.dlfq_result)
+                input[4] = Channel.fromPath(params.flashlfq_result)
+                input[5] = Channel.fromPath("$params.wpass/Quantify/max_lfq.tsv")
+                input[6] = "$baseDir/tests/nf-test-out/combined"
+                input[7] = "$baseDir/tests/nf-test-out/combined"
                 """
             }
         }

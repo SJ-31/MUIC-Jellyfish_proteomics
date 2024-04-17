@@ -9,8 +9,8 @@ nextflow_process {
         when {
             params {
                 pref = "C_indra"
-                // pass = "1-First_pass"
-                pass = "2-Second_pass"
+                pass = "1-First_pass"
+                // pass = "2-Second_pass"
 
                 combined = "$baseDir/results/${params.pref}_A/${params.pass}/${params.pref}_all_wcoverage.tsv"
                 coverage = "$baseDir/results/${params.pref}_A/${params.pass}/.coverage/*"

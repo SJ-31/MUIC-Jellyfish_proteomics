@@ -43,23 +43,9 @@ d <- goData(args$combined_results,
 sample_tb <- read_tsv(args$combined_results)
 
 
-# Will use the number of children to quantify annotation shallowness
-        #' Visualizing semantic similarity
-        #'  Can calculate GO similarity between proteins, either as go lists
-        #' GOSemSim::mgoSim(toy_list, toy_list2[1:5], semData = semdata$MF)
-        #' or proteins themselves
-
 # Protein clusters
 # GOSemSim::geneSim(one[1], one[2], semData = semdata$MF)
 # GOSemSim::clusterSim(one, two, semData = semdata$MF)
-
-# Obtain pairwise similarity between all proteins in list
-# prot_dist_sample <- GOSemSim::mgeneSim(
-#   genes = sample_tb$ProteinId,
-#   semData = semdata$MF, combine = "BMA",
-#   drop = "NULL", measure = "Wang"
-# )
-
 
 # go_freq <- d$sample_tb$GO_IDs %>%
 #   lapply(., str_split_1, pattern = ";") %>%
@@ -102,19 +88,68 @@ sample_tb <- read_tsv(args$combined_results)
 #   }
 # }
 
+flattenJoined <- function(vec, split) {
+  vec %>%
+    discard(is.na) %>%
+    lapply(., \(x) str_split_1(x, split)) %>%
+    unlist()
+}
+
 ## TODO: Protein set profiling
 groups <- groupGO(
   gene = d$sample_tb$ProteinId, OrgDb = db_name,
   ont = "MF", level = 2, keyType = "GID"
 )
-# group_df <- as_tibble(groups@result)
-#
-# pcoa <- as.data.frame(vegan::wcmdscale(distances, k = 2)) %>%
-#   tibble::rownames_to_column(var = "ProteinId") %>%
-#   as_tibble()
-# pcoa <- inner_join(pcoa, cur_df, by = join_by(x$ProteinId == y$ProteinId))
-# x <- "V1"
-# y <- "V2"
-# ggplot(pcoa, aes(x = .data[[x]], y = .data[[y]]))
-#
-#
+
+sample <- read_tsv("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/combined/UNSPECIFIED_all.tsv")
+tb <- sample
+library(ggkegg)
+spwy <- "ko01502"
+ALL_KOS <- flattenJoined(tb$KEGG_ko, "[;,]") %>%
+  unique() %>%
+  paste0("ko:", .)
+ALL_PATHWAYS <- flattenJoined(tb$KEGG_Pathway, "[;,]") %>%
+  unique() %>%
+  paste0("path:", .)
+g <- ggkegg::pathway(spwy, directory = ".temp")
+nodes <- g %>%
+  activate(nodes) %>%
+  as_tibble() %>%
+  pluck("name") %>%
+  flattenJoined(., " ")
+percent_found <- sum(nodes %in% c(ALL_KOS, ALL_PATHWAYS)) / length(nodes)
+# This percentage isn't necessarily indicative of the pathway completeness,
+# as some pathway components could be optional or swapped out for others
+
+# Filter graph so that only nodes that were found get retained
+# Then
+filtered <- g %>%
+  activate(nodes) %>%
+  filter(map_lgl(name, \(x) {
+    split <- str_split_1(x, " ")
+    return(any(split %in% c(ALL_KOS, ALL_PATHWAYS)))
+  }))
+
+gg <- ggraph(filtered, layout = "manual", x = x, y = y) +
+  geom_node_rect(fill = "red", aes(filter = type == "ortholog")) +
+  overlay_raw_map(spwy) +
+  theme_void()
+
+
+# Check module completeness
+ALL_MODULES <- flattenJoined(tb$KEGG_Module, "[;,]") %>% unique()
+check_complete <- lapply(ALL_MODULES, \(x) {
+  mk <- tryCatch(
+    expr = ggkegg::module(x),
+    error = \(cnd) NULL
+  )
+  if (!is.null(mk)) {
+    completeness <- ggkegg::module_completeness(mk, ALL_KOS)
+    completeness$module <- mk@ID
+    completeness$name <- mk@name
+    return(completeness)
+  } else {
+    return(NULL)
+  }
+})
+
