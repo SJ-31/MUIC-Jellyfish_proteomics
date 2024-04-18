@@ -75,7 +75,7 @@ embeddingData <- function(combined_results,
     comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
     data <- bind_rows(data, comp_meta) %>%
       select(c(ProteinId, Taxon)) %>%
-      filter(ProteinId %in% rownames(py_embd$embd))
+      filter(ProteinId %in% rownames(py_embd$embeddings))
     color <- "Taxon"
   } else {
     color <- c("inferred_by", "ID_method", "category")
@@ -88,8 +88,11 @@ embeddingData <- function(combined_results,
 }
 
 
-# Obtain GO embeddings from python
-
+#' When called from the command line, the script extracts
+#' anc2vec's pre-downloaded GO embeddings (not protein)
+#' If `go_only`, then the embeddings of the GO terms in the sample
+#' are retrieved. Otherwise, the embeddings for GO terms are combined
+#' for a protein-level representation using the mean
 if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   library("optparse")
   parser <- OptionParser()

@@ -3,11 +3,10 @@ library("glue")
 
 main <- function(args) {
   library(reticulate)
-  reticulate::use_condaenv("reticulate")
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/DR_helpers.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
-  if (args$compare) {
+  if (!is.null(args$compare) && args$compare) {
     e <- embeddingData(args$combined_results,
                        args$sample_name,
                        args$embedding_path,
@@ -22,7 +21,6 @@ main <- function(args) {
       args$dist_path
     )
   }
-
 
   prefix <- ifelse(is.null(args$results_prefix), args$sample_name,
                    args$results_prefix
@@ -59,7 +57,8 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- add_option(parser, c("-t", "--technique"))
   parser <- add_option(parser, c("-e", "--embedding_path"))
   parser <- add_option(parser, c("-r", "--r_source"))
-  parser <- add_option(parser, c("-r", "--python_source"))
+  parser <- add_option(parser, c("-d", "--dist_path"))
+  parser <- add_option(parser, c("-p", "--python_source"))
   parser <- add_option(parser, "--results_prefix")
   parser <- add_option(parser, "--compare", action = "store_true")
   parser <- add_option(parser, c("-c", "--combined_results"))

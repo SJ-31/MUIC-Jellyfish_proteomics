@@ -76,11 +76,11 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
 }
 
 
-PARAMS <- list(tsne = list(n_components = 2, perplexity = 30),
+PARAMS <- list(tsne = list(n_components = 2, perplexity = 40),
                umap = list(n_components = 2,
                            n_neighbors = 15,
                            min_dist = 1))
-PARAMS$metric <- "euclidean"
+PARAMS$metric <- "cosine"
 
 #' Dimensionality reduction functions for use with generic function
 #' With the exception of pca, each function expects `data` to be a list
