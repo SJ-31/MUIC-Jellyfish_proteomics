@@ -63,6 +63,15 @@ def removeDuplicates(string) -> NAType | str:
 def keggItemFromGenes(gene_str, db) -> NAType | str:
     items = set()
     splits = re.split("[;,]", gene_str)
+    match db:
+        case "ko":
+            get_rid = "ko:"
+        case "enzyme":
+            get_rid = "ec:"
+        case "module":
+            get_rid = "md:"
+        case _:
+            get_rid = ""
     if db == "pathway":
         for gene in splits:
             items.add(gene2pathway(gene, ALL_MAPPINGS))
@@ -74,10 +83,7 @@ def keggItemFromGenes(gene_str, db) -> NAType | str:
                 found: dict = kpm.entries_link([s], db)
                 for query, result in found.items():
                     for r in result:
-                        if db == "ko":
-                            items.add(re.sub("ko:", "", r))
-                        else:
-                            items.add(re.sub(".*_", "", r))
+                        items.add(re.sub(get_rid, "", r))
             except RuntimeError:
                 print(f"WARNING: KEGG item {s} failed mapping")
                 continue
@@ -132,3 +138,4 @@ if __name__ == "__main__" and len(sys.argv) > 1:
     df = pd.read_csv(args["input"], sep="\t")
     mapped = mapInDf(df, "pathway", "KEGG_Pathway")
     mapped.to_csv(args["output"], sep="\t", index=False)
+
