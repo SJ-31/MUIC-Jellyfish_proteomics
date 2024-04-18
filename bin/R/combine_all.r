@@ -292,6 +292,13 @@ main <- function(args) {
   combined$GO_counts <- gc$GO_count
   combined$GO_max_sv <- gc$GO_max_sv
 
+  ## Map KEGG Genes to KEGG pathways
+  source_python(glue("{args$python_source}/map2kegg.py"))
+  combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
+  combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
+  combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
+  combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
+
 
   ## Categorize
   # Categories that cannot be assigned by header are assigned from

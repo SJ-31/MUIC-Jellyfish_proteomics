@@ -172,5 +172,5 @@ def mapAllDb(
         axis=1,
     )
     join_up = to_annotate["GO"].combine(retrieved_gos, addGos)
-    (to_annotate)["GO"] = join_up
+    to_annotate["GO"] = join_up
     return to_annotate
