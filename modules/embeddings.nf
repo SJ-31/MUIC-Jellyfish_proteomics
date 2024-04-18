@@ -10,7 +10,7 @@ process EMBEDDINGS {
 
     output:
     path("embeddings.hdf5"), emit: embd
-    path("distances.hdf5")
+    path("distances.hdf5"), emit: dist
     path("*log")
     //
 

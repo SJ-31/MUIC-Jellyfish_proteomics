@@ -3,7 +3,6 @@ process MAKE_ORGDB {
 
     input:
     path(annotations)
-    val(comparison_data)
     val(outdir)
     //
 
@@ -28,4 +27,3 @@ process MAKE_ORGDB {
     //
 }
 
-        // -p $comparison_data \

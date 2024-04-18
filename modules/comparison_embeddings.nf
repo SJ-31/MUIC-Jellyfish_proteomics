@@ -11,8 +11,8 @@ process COMPARISON_EMBEDDINGS {
     //
 
     output:
-    path("sample_with_comp_dist.hdf5")
-    path("sample_with_comp_embd.hdf5")
+    path("sample_with_comp_dist.hdf5"), emit: dist
+    path("sample_with_comp_embd.hdf5"), emit: embd
     //
 
     script:

@@ -41,7 +41,7 @@ workflow 'combine_searches' {
     ranges = Channel.from(tuple(0, 35), tuple(35, 50),
                             tuple(50, 85), tuple(85, 100000))
     BLASTP(MERGE_OPEN.out.unknown_fasta.first(), blast_db,
-           ranges, "$outdir/Unmatched/BLAST")
+        ranges, "$outdir/Unmatched/BLAST")
         // 1. Match de novo, transcriptome and unmatched peptides against proteins
         //     in database
         // * To optimize the searches, queries will be partitioned into four ranges,
@@ -59,6 +59,7 @@ workflow 'combine_searches' {
     //      i.e. if a peptide A was matched to protein B, then A is added to the list of
     //      B's peptides in the main database search results
     // 2. Extract queries that weren't matched by blast
+
     EGGNOG(SORT_BLAST.out.unmatched,
             "$outdir/Unmatched/eggNOG")
     SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched
