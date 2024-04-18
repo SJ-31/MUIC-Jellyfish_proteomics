@@ -13,18 +13,17 @@ args <- list(
   python_source = glue("{wd}/bin"),
   embd_type = "protein",
   sample_name = "C_indra",
-  uniprot_data_dir = glue("{wd}//data/protein_databases/comparison_taxa"),
-  combined_results = glue("{wd}//results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"),
-  ontologizer_path = glue("{wd}//tests/nf-test-out/ontologizer/"),
+  uniprot_data_dir = glue("{wd}/data/protein_databases/comparison_taxa"),
+  combined_results = glue("{wd}/results/C_indra_A/1-First_pass/C_indra_all_wcoverage.tsv"),
+  ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
   embedding_path = glue("{wd}/data/reference/go_embedded.npz"),
-  dist_path = glue("{wd}//tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
+  dist_path = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
   ))
 
 ## Load samples
 source("./bin/R/GO_helpers.r")
 source("./bin/R/analysis/metric_functions.r")
 source("./bin/R/rrvgo_modified.r")
-sample <- "./results/C_indra/1-First_pass/C_indra_all.tsv"
 orgdb_pth <- "./tests/testthat/output/org.Cindrasaksajiae.eg.db"
 db_name <- gsub(".*\\/", "", orgdb_pth, fixed = FALSE)
 rrvgo_path <- "./tests/testthat/output/rrvgo"
@@ -40,7 +39,7 @@ sample_name <- "C_indra"
 
 d <- goData(args$combined_results,
             onto_path = args$ontologizer_path)
-sample_tb <- read_tsv(args$combined_results)
+tb <- read_tsv(args$combined_results)
 
 
 # Protein clusters
@@ -101,16 +100,12 @@ groups <- groupGO(
   ont = "MF", level = 2, keyType = "GID"
 )
 
-sample <- read_tsv("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/nf-test-out/combined/UNSPECIFIED_all.tsv")
-tb <- sample
 library(ggkegg)
 spwy <- "ko01502"
 ALL_KOS <- flattenJoined(tb$KEGG_ko, "[;,]") %>%
-  unique() %>%
-  paste0("ko:", .)
+  unique()
 ALL_PATHWAYS <- flattenJoined(tb$KEGG_Pathway, "[;,]") %>%
-  unique() %>%
-  paste0("path:", .)
+  unique()
 g <- ggkegg::pathway(spwy, directory = ".temp")
 nodes <- g %>%
   activate(nodes) %>%
@@ -138,18 +133,48 @@ gg <- ggraph(filtered, layout = "manual", x = x, y = y) +
 
 # Check module completeness
 ALL_MODULES <- flattenJoined(tb$KEGG_Module, "[;,]") %>% unique()
-check_complete <- lapply(ALL_MODULES, \(x) {
-  mk <- tryCatch(
-    expr = ggkegg::module(x),
+ALL_MODULES <- lapply(ALL_MODULES, \(x) {
+  return(tryCatch(
+    expr = ggkegg::module(x, use_cache = TRUE),
     error = \(cnd) NULL
-  )
-  if (!is.null(mk)) {
+  ))
+}) %>% `names<-`(ALL_MODULES)
+
+check_complete <- ALL_MODULES %>%
+  lmap(., \(x) {
+    mk <- x[[1]]
+    if (is.null(mk)) return(list(NULL))
     completeness <- ggkegg::module_completeness(mk, ALL_KOS)
     completeness$module <- mk@ID
     completeness$name <- mk@name
     return(completeness)
-  } else {
-    return(NULL)
-  }
-})
+  }) %>%
+  discard(is.null) %>%
+  bind_rows() %>%
+  filter(present_num > 0)
 
+found <- ALL_MODULES %>% discard(is.null)
+found$M00001 %>%
+  module_text() %>%
+  plot_module_text() %>%
+  geom_node_rect()
+
+
+# Get pathway metadata for summarizing the proteome i.e. discussing what
+# pathway categories there are but also to assess pathway completeness
+# Completeness could be based on which modules are present?
+keggGetSlowly <- slowly(\(x) keggGet(x), rate = rate_delay(0.5))
+# Essential or the API will block you
+pathway_info <- lapply(ALL_PATHWAYS, \(x) {
+  get <- NULL
+  Sys.sleep(0.5)
+  try(expr = get <- keggGetSlowly(x))
+  return(get[[1]])
+}) %>% discard(is.null)
+names(pathway_info) <- lapply(pathway_info, \(x) x)
+
+
+
+# You can use this to get a bunch of entries, if the entry fails it won't appear
+# in the list
+test <- keggGet("hsa01100")

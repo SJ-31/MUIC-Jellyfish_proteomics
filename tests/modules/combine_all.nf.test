@@ -8,18 +8,19 @@ nextflow_process {
 
         when {
             params {
-                prefix = "C_indra"
+                pref = "C_indra"
                 pass = "1-First_pass"
 
                 pth = "$baseDir/results/C_indra_A"
                 wpass = "$params.pth/${params.pass}"
                 u = "$params.wpass/Unmatched"
 
-                downloads = "${params.u}/Database-annotated/${params.prefix}_downloads_anno-3.tsv"
-                eggnog_result = "${params.u}/eggNOG/${params.prefix}_eggnog_matched.tsv"
-                interpro_result = "${params.u}/InterPro/${params.prefix}_interpro_matched.tsv"
+                downloads = "${params.u}/Database-annotated/${params.pref}_downloads_anno-3.tsv"
+                eggnog_result = "${params.u}/eggNOG/${params.pref}_eggnog_matched.tsv"
+                interpro_result = "${params.u}/InterPro/${params.pref}_interpro_matched.tsv"
                 flashlfq_result = "$params.wpass/Quantify/sorted_flashlfq.tsv"
                 dlfq_result = "$params.wpass/Quantify/sorted_directlfq.tsv"
+                maxlfq_result = "$params.wpass/Quantify/max_lfq.tsv"
                 denovo = true
                 pfam_entries = "$params.pth/Databases/pfam_entries.tsv"
                 interpro2go = "$params.pth/Databases/interpro2go"
@@ -35,7 +36,7 @@ nextflow_process {
                 input[2] = Channel.fromPath(params.interpro_result)
                 input[3] = Channel.fromPath(params.dlfq_result)
                 input[4] = Channel.fromPath(params.flashlfq_result)
-                input[5] = Channel.fromPath("$params.wpass/Quantify/max_lfq.tsv")
+                input[5] = Channel.fromPath(params.maxlfq_result)
                 input[6] = "$baseDir/tests/nf-test-out/combined"
                 input[7] = "$baseDir/tests/nf-test-out/combined"
                 """

@@ -1,0 +1,39 @@
+nextflow_workflow {
+
+    name "Test Workflow analyze"
+    script "subworkflows/analysis.nf"
+    workflow "analyze"
+
+    test("Should run without failures") {
+
+        when {
+            params {
+                pref = "C_indra"
+                pass = "1-First_pass"
+                pth = "$baseDir/results/C_indra_A"
+                wpass = "${params.pth}/${params.pass}"
+                data = "$baseDir/data"
+                esm = "${params.data}/models/esm2_t36_3B_UR50D.pt"
+
+                results = "$baseDir/tests/nf-test-out/analysis_subworkflow/Logs"
+                prottrans = "${params.data}/models/prot_t5_xl_uniref50"
+                uniprot_reviewed = "${params.data}/protein_databases/comparison_taxa/reviewed_all.tsv"
+                comparison_esm  = "${params.data}/protein_databases/uniprot_embeddings/esm_out"
+                comparison_prottrans = "${params.data}/protein_databases/uniprot_embeddings/pt_embeddings.hdf5"
+                bin = "$baseDir/bin"
+            }
+            workflow {
+                """
+                input[0] = Channel.fromPath("${params.wpass}/${params.pref}_all_wcoverage.tsv")
+                input[1] = "$baseDir/tests/nf-test-out/analysis_subworkflow"
+                """
+            }
+        }
+
+        then {
+            assert workflow.success
+        }
+
+    }
+
+}
