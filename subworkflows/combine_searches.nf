@@ -32,7 +32,7 @@ workflow 'combine_searches' {
                      "$outdir/Combined", seq_header_mappings)
     COMBINE_PEP(psm2combinedPEP, true,
                     "$outdir/Combined")
-    MERGE_OPEN(SEARCH_INTERSECT.out.sorted, open_results,
+    MERGE_OPEN(SEARCH_INTERSECT.out.unsorted, open_results,
                 unmatched_pep_tsv,
                // 1. Merge combined database hits with results from open search
                // 2. Extract unmatched|denovo|transcriptome peptides as fasta file

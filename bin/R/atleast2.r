@@ -92,12 +92,16 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
                        type = "character",
                        help = "R source directory"
   )
+  parser <- add_option(parser, c("-s", "--search_type"),
+                       type = "character",
+                       help = "Search type to label results with"
+  )
   parser <- add_option(parser, c("-o", "--output"),
                        type = "character",
                        help = "Output file name"
   )
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
-  m <- main(args$seq_header_file, args$path)
+  m <- main(args$seq_header_file, args$path) %>% mutate(ID_method = args$search_type)
   write_delim(m, args$output, delim = "\t")
 }

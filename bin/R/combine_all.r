@@ -336,6 +336,10 @@ main <- function(args) {
   combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
   combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
 
+  ## Find new groups
+  source_python(glue("{args$python_source}/unify_groups.py"))
+  combined <- py$findNewGroups(df = as.data.frame(combined)) %>% as_tibble()
+
 
   ## Arrange columns
   combined <- combined %>%

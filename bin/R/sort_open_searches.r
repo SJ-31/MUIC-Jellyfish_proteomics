@@ -27,18 +27,6 @@ cleanNA <- function(vector) {
   return(unlist(cleaned, use.names = FALSE))
 }
 
-## sortDuplicates <- function(df) {
-##   dupes <- df %>% filter(grepl(",", df$ProteinId))
-##   if (dim(dupes)[1] == 0) {
-##     return(df)
-##   }
-##   no_dupes <- df[!(df$ProteinId %in% dupes$ProteinId), ]
-##   split <- lapply(seq_len(dim(dupes)[1]), splitDuplicates,
-##     dupe_table = dupes
-##   ) %>% bind_rows()
-##   return(bind_rows(split, no_dupes))
-## }
-
 cleanUp <- function(path) {
   # Format protein rows with multiple peptides (duplicates)
   # Separate duplicates into separate rows
@@ -91,6 +79,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   )
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
-  m <- main(args)
+  m <- main(args) %>% mutate(ID_method = "open")
   write_delim(m, args$output, delim = "\t")
 }

@@ -9,15 +9,13 @@ process SEARCH_INTERSECT {
     //
 
     output:
-    path("unified_groups.tsv"), emit: sorted
     path("intersected_searches.tsv"), emit: unsorted
     //
 
     script:
-    def check = file("${outdir}/unified_groups.tsv")
+    def check = file("${outdir}/intersected_searches.tsv")
     if (check.exists()) {
         """
-        cp ${outdir}/unified_groups.tsv .
         cp ${outdir}/intersected_searches.tsv .
         """
     } else {
@@ -26,13 +24,8 @@ process SEARCH_INTERSECT {
             -m ${seq_header_mappings} \
             -p . \
             -r $params.bin/R \
-            -o intersected_searches.tsv
-
-        Rscript $params.bin/R/unify_groups.r \
-            -i intersected_searches.tsv \
-            -o unified_groups.tsv \
-            -s standard \
-            -p G
+            -o intersected_searches.tsv \
+            -s standard
         """
     }
     // Leave the filtering for the combining module
