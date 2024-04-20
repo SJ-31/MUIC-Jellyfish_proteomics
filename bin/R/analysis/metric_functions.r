@@ -147,7 +147,7 @@ getCounts <- function(tb) {
                                          func = removeDigits, unique_only = TRUE
   )
   data$lineage <- tb$lineage %>%
-    purrr::map_chr(., \(x) parseLineage(x, 3)) %>%
+    purrr::map_chr(., \(x) parseLineage(x, 5)) %>%
     getFreqTb(., "lineage")
   return(data)
 }
@@ -262,28 +262,34 @@ passDensityPlot <- function(pass_tb, bw) {
   return(plot)
 }
 
-#' Perform Wilcoxon signed-rank test between passes
+#' Perform Wilcoxon signed-rank test between passes: x is first, y is
+#' second
 #'
 #' @description
 #' Wrapper function for making tests more convenient, needs wide-format
 #' data
-wilcoxWrapper <- function(first_sec) {
+wilcoxWrapper <- function(first_sec, paired, metric) {
   col <- first_sec %>%
     colnames() %>%
     keep(\(x) grepl(".first", x)) %>%
     gsub(pattern = ".first", replacement = "", .)
   first <- first_sec[[glue("{col}.first")]]
   second <- first_sec[[glue("{col}.sec")]]
-  two_sided <- wilcox.test(first, second,
-                           paired = TRUE,
-                           na.action = na.omit
-  )
-  sec_greater <- wilcox.test(first, second,
-                             paired = TRUE,
-                             na.action = na.omit,
-                             alternative = "less"
-  )
-  return(list(two_sided = two_sided, sec_greater = sec_greater))
+  tests <- list()
+  hypotheses <- c("two.sided", "less", "greater")
+  for (h in hypotheses) {
+    tests[[h]] <- wilcox.test(first, second,
+                              paired = paired,
+                              na.action = na.omit,
+                              alternative = h)
+  }
+  tb <- tibble(alternative = hypotheses,
+               metric = rep(metric, 3),
+               p_value = map_dbl(tests, \(x) x$p.value),
+               statistic = map_dbl(tests, \(x) x$statistic)) %>%
+    mutate(reject_null = map_chr(p_value,
+                                 \(x) ifelse(x < 0.05, "Y", "N")))
+  return(tb)
 }
 
 
@@ -337,4 +343,89 @@ groupPathways <- function(tb, minimum = 20) {
     do.call(c, .) %>%
     discard(\(x) length(x) < minimum)
   return(list(map = id2pathway, grouped = pathway_lists))
+}
+
+#' Split and a ProteinGroupId string by the ";", optionally remove the
+#' numbers and leave unique groups
+#'
+splitGroupStr <- function(group_str, remove_nums = FALSE, unique = FALSE) {
+  if (remove_nums)
+    group_str <- gsub("[0-9]+", "", group_str);
+  split <- str_split_1(group_str, ";")
+  if (unique) split <- base::unique(split)
+  return(split)
+}
+
+#' For a nxm contingency table, return a table depicting the expected values used
+#' by the chi square test of independence
+showExpectedChi <- function(table) {
+  mat <- matrix(table, nrow = nrow(table), ncol = ncol(table))
+  s <- sum(mat)
+  ct <- colSums(mat)
+  rt <- rowSums(mat)
+  for (i in seq_len(ncol(mat))) {
+    for (j in seq_len(nrow(mat))) {
+      mat[j, i] <- (ct[i] * rt[j]) / s
+    }
+  }
+  table <- as.table(mat) %>%
+    `colnames<-`(colnames(table)) %>%
+    `rownames<-`(rownames(table))
+  return(table)
+}
+
+
+formatEngineContingency <- function(table, category, w_expected = FALSE) {
+  formatted <- table %>%
+    as_tibble(.name_repair = "unique") %>%
+    pivot_wider(names_from = `...2`, values_from = n)
+  if (!missing(category)) {
+    formatted <- dplyr::mutate(formatted, `...1` = c(glue("not {category}"), glue("is {category}")), .before = dplyr::everything())
+  } else {
+    formatted <- dplyr::mutate(formatted, `...1` = c("TRUE", "FALSE"), .before = dplyr::everything())
+  }
+  formatted <- dplyr::rename(formatted, was_hit = "TRUE",
+                             not_hit = "FALSE", "category" = `...1`)
+  if (!w_expected) return(formatted)
+  expected <- formatEngineContingency(showExpectedChi(table),
+                                      FALSE) %>%
+    mutate(across(is.double, \(x) paste0(" (", round(x, 2), ")")))
+  return(formatted %>% mutate(not_hit = paste0(not_hit, expected$not_hit),
+                              was_hit = paste0(was_hit, expected$was_hit)))
+}
+
+#' Compute the odds ratio from a 2x2 contingency table, or the
+#' upper and lower 95% CIs of that ratio
+#'
+oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
+    a <- ctable[1, 1]
+    d <- ctable[2, 2]
+    b <- ctable[1, 2]
+    c <- ctable[2, 1]
+    odds_ratio <- (a * d) / (c * b)
+    if (!CI) {
+      return(odds_ratio)
+    }
+    if (side == "upper") {
+      x <- log(odds_ratio) + 1.96 * sqrt(1/a + 1/b + 1/c + 1/d)
+    } else {
+      x <- log(odds_ratio) - 1.96 * sqrt(1/a + 1/b + 1/c + 1/d)
+    }
+    return(exp(1)^x)
+}
+
+
+
+#' Get a list of vectors in specific groups
+#'
+#' @description
+#' Given a vector of unique values `v` from a column `col_from`, this function
+#' groups the tibble `tb` by each value, and extracts the all values from a specified
+#' column `target_col`. The result is a named list grouping the values of `target_col`
+#' by `v`
+groupListFromTb <- function(tb, v, col_from, target_col) {
+  list <- lapply(v, \(x) dplyr::filter(tb, !!as.symbol(col_from) == x) %>%
+                          purrr::pluck(target_col) %>% discard(is.na)
+                 ) %>% `names<-`(v)
+  return(list)
 }

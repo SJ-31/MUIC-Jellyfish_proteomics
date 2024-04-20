@@ -1,3 +1,4 @@
+library(gt)
 library(tidyverse)
 library(ggplot2)
 library(ggridges)
@@ -16,17 +17,19 @@ EGGNOG_COLS <- c("EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction"
 PATH <- "./results/C_indra_A"
 run <- runData("C_indra", TRUE, PATH)
 OUTDIR <- glue("{PATH}/Analysis")
+if (!dir.exists(OUTDIR)) {
+  dir.create(OUTDIR)
+}
 alignments <- alignmentData(PATH)
 GRAPHS <- list()
 TABLES <- list()
 
 
-# Coverage metrics
+##-# Coverage metrics
 cov_align <- compareFirstSecL(
   run, "pcoverage_align",
   TRUE, "ProteinId"
 )
-num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
 GRAPHS$run_coverage <- passDensityPlot(cov_align, 0.05) + labs(x = "percent coverage")
 
 
@@ -45,11 +48,33 @@ GRAPHS$percent_found <- percent_found %>%
   pivot_longer(cols = c("first", "sec")) %>%
   ggplot(aes(x = metric, y = value, fill = name)) +
   geom_bar(position = "dodge", stat = "identity") +
-  ylab("% not missing")
+  ylab("% not missing") +
+  scale_fill_discrete("Pass")
+
+# Check if coverage and intensity differs significantly between protein groups
+# for confirmation only (we expect them to differ)
+tb <- run$first
+grouping_metric <- "category"
+lfq <- inner_join(dplyr::select(tb, all_of(grouping_metric), ProteinId),
+                  mergeLfq(tb, "mean"))
+apply_over <- tb[[grouping_metric]] %>% table() %>% discard(., \(x) x < 100) %>% names()
+cov_list <- groupListFromTb(tb, v = apply_over, col_from = grouping_metric,
+                            target_col = "pcoverage_nmatch")
+intensity_list <- groupListFromTb(lfq, apply_over, grouping_metric, "log_intensity")
+GRAPHS$intensity_categories <- ggplotNumericDist(intensity_list, "boxplot") +
+  labs(y = "log intensity", x = "category")
+GRAPHS$coverage_categories <- ggplotNumericDist(cov_list, "boxplot") +
+  labs(y = "coverage (%)", x = "category")
+cov_test <- kruskal.test(cov_list)
+intensity_test <- kruskal.test(intensity_list)
+
+# Top ten most intense proteins
+top_ten <- lfq %>% arrange(desc(log_intensity)) %>% slice(1:10)
+
 
 # --------------------------------------------------------
 
-# PTMs
+##-# PTM analysis
 has_mods <- run$first %>% filter(!is.na(Mods))
 UNIQUE_MODS <- run$first$Mods %>%
   discard(is.na) %>%
@@ -88,7 +113,6 @@ chosen <- "Met_Oxidation"
 tab <- table(chi$category, chi[[chosen]])
 ptm_tests <- list()
 for (mod in UNIQUE_MODS) {
-  print(glue("Testing {mod}"))
   ptm_tests[[mod]]$test <- chisq.test(chi$category, chi[[mod]])
   ptm_tests[[mod]]$table <- table(chi$category, chi[[mod]])
   print(ptm_tests[[mod]])
@@ -97,17 +121,10 @@ for (mod in UNIQUE_MODS) {
 # --------------------------------------------------------
 
 
-# Annotation metrics
+##-# Annotation metrics
 counts <- list()
 counts$first <- getCounts(run$first)
 counts$sec <- getCounts(run$sec)
-# sv_first <- counts$first$go$GO %>%
-#   purrr::map_dbl(getSV)
-# sv_sec <- counts$sec$go$GO %>% purrr::map_dbl(getSV)
-# sv_compare <- tibble(sv = sv_first, pass = "first") %>%
-#   bind_rows(tibble(sv = sv_sec, pass = "sec"))
-
-wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
 
 avgStdevs <- function(tb, cols, stat) {
   result <- vector()
@@ -118,30 +135,42 @@ avgStdevs <- function(tb, cols, stat) {
 }
 
 
-test_num_peps <- wilcoxWrapper(num_peps)
-test_coverage <- wilcoxWrapper(compareFirstSecW(run, "pcoverage_align", "ProteinId"))
+wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
+# Run Wilcox tests between on the metrics defined above, pairing up proteins that
+# were identified in both runs
+WILCOX <- lapply(wanted_cols, \(x) {
+  compare_tb <- compareFirstSecW(run, x, "ProteinId", TRUE)
+  test_tb <- wilcoxWrapper(compare_tb, TRUE, x)
+  return(test_tb)
+}) %>%
+  bind_rows() %>%
+  mutate(alternative = map_chr(alternative, \(x)
+    ifelse(x == "two.sided", x, paste0("first_", x))))
+
+
 # Results per protein
 # Evaluate significance of each
 per_protein <- tibble(
   metric = rep(wanted_cols, 2),
   type = c(rep("mean", length(wanted_cols)), rep("stdev", length(wanted_cols))),
-  first = c(
-    avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-    avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))
-  ),
-  sec = c(
-    avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-    avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE))
-  ),
-  wilcox_result = c() # TODO: Add in this column after the results have
-  # come in
-)
-# per_protein %>%
-#   mutate(metric = paste0(metric, "_", type)) %>%
-#   rename()
-# pivot_longer(cols = c(first, sec)) %>%
-#   ggplot(aes(x = metric, y = value, fill = name)) +
-#   geom_bar(stat = "identity", position = "dodge")
+  first = c(avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+            avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))),
+  sec = c(avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+          avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE)))
+) %>%
+  mutate(percent_change = (sec - first) / first) %>%
+  mutate(across(is.double, \(x) round(x, 3)))
+per_protein %>%
+  gt() %>%
+  tab_header("Comparison between first and second passes") %>%
+  gtsave(glue("{OUTDIR}/per_protein_metrics.tex"))
+write_tsv(per_protein, file = glue("{OUTDIR}/per_protein_metrics.tsv"))
+
+GRAPHS$per_protein_change <- per_protein %>%
+  mutate(metric = paste0(metric, "_", type)) %>%
+  pivot_longer(cols = c(first, sec)) %>%
+  ggplot(aes(y = percent_change, x = metric, fill = metric)) +
+  geom_bar(stat = "identity")
 
 
 # Compare with previous results
@@ -212,17 +241,32 @@ GRAPHS$protein_wise_coverage <- cov_longer %>%
     axis.text.x = element_blank()
   )
 
+p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev, compare_all$pcoverage_nmatch.first, paired = TRUE, alternative = "less")
+WILCOX <- bind_rows(WILCOX, tibble(alternative = "prev_less_than_first",
+                                   metric = "coverage",
+                                   statistic = p_test$statistic,
+                                   p_value = p_test$p.value,
+                                   reject_null = ifelse(p_test$p.value < 0.05, "Y", "N")))
+write_tsv(WILCOX, file = glue("{OUTDIR}/wilcox_tests.tsv"))
+
 
 # Filter out new proteins
 compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
 new_proteins <- run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
 new_toxins <- new_proteins %>% filter(category == "venom_component")
 
+# --------------------------------------------------------
+# Lineage metrics
+
 
 # --------------------------------------------------------
 
-# Engine analysis
-num_ids <- bind_rows(run$first, run$sec) %>%
+num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
+
+##-#  Engine analysis
+##
+tb <- run$first
+num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
   mutate(engine_count = purrr::map_dbl(ProteinGroupId, \(x) {
@@ -243,7 +287,6 @@ engine_counts <- num_ids$ProteinGroupId %>%
 # "isolated" than others? i.e. engine B tends to identify proteins that other
 # engine don't. But also remember that in your setup each protein needs to
 # be identified by at least two standard engines (only one in open search)
-# TODO: Format the results nicely
 tb <- run$first
 engine_hits <- tb %>%
   select(ProteinId, ProteinGroupId) %>%
@@ -268,19 +311,89 @@ engine_hits <- engine_hits %>%
   ungroup()
 
 categories <- unique(engine_hits$category)
+
+# An example of what the contingency table for the tests would look like,
+# and what the expected values would be under the chi-square test of independence
 current <- "comet"
 tl <- table(engine_hits$category, engine_hits[[current]])
-test <- chisq.test(tl)
-# If there is some significant association, collapse the table
-# in order to find which one specifically
-if (test$p.value < 0.05) {
+ct <- "membrane"
+show_contigency <- table(engine_hits$category == ct, engine_hits[[current]])
+expected <- formatEngineContingency(show_contigency, ct, TRUE)
+expected %>%
+  gt() %>%
+  tab_header(title = glue("Engine: {current}, Category: {ct}"),
+             subtitle = "Expected values under chi-square in parentheses")
+
+engines <- colnames(engine_hits)[!colnames(engine_hits) %in% c("U", "category")]
+engine_chi <- tibble()
+engine_table_list <- list()
+for (engine in engines) {
+  engine_table_list[[engine]] <- list()
   for (cat in categories) {
-    t <- table(engine_hits$category == cat, engine_hits[[current]])
+    t <- table(engine_hits$category == cat, engine_hits[[engine]])
+    engine_table_list[[engine]][[cat]] <- t
+    print(formatEngineContingency(t, TRUE))
     tst <- chisq.test(t)
-    print(tst)
+    row <- tibble(engine = engine, category = cat, p_value = tst$p.value)
+    engine_chi <- bind_rows(engine_chi, row)
   }
 }
-# TODO: Wrap this stuff- the chi square analysis in a function
+engine_chi <- engine_chi %>% mutate(p_adjust = p.adjust(p_value, "holm"),
+                                    is_significant = ifelse(p_value < 0.05, TRUE, FALSE))
+
+# Compute effect size for significant hits, using the odds ratio
+# This represents how much more likely the engine is to identify
+# peptides from a protein of the given category
+odds_ratios <- engine_chi %>%
+  apply(1, \(x) {
+    if (!as.logical(x["is_significant"])) {
+      return(tibble(OR = NA, OR_upper_ci = NA, OR_lower_ci = NA))
+    }
+    e <- x["engine"]
+    c <- x["category"]
+    table <- engine_table_list[[e]][[c]]
+    odds_ratio <- oddsRatio(table)
+    odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
+    odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
+    row <- tibble(OR = odds_ratio,
+                  OR_upper_ci = odds_ratio_ci_u,
+                  OR_lower_ci = odds_ratio_ci_l)
+    return(row)
+  }) %>% bind_rows()
+engine_chi <- bind_cols(engine_chi, odds_ratios)
+engine_chi %>%
+  gt() %>%
+  tab_header(title = "Association between engine hits and protein GO category",
+                                   subtitle = "Tested using chi-square") %>%
+  gtsave(., glue("{OUTDIR}/engine_association_results.html"))
+
+
+# Record all results
+engine_table_tb <- tibble(category = categories)
+remove_cat <- FALSE
+for (e in names(engine_table_list)) {
+  e_list <- engine_table_list[[e]]
+  temp_lst <- list()
+  for (ct in names(e_list)) {
+    tb <- formatEngineContingency(e_list[[ct]], w_expected = TRUE)
+    if (remove_cat) {
+      tb <- dplyr::select(tb, -category)
+    }
+    tb <- tb %>%
+      gt() %>%
+      tab_options(column_labels.hidden = TRUE) %>%
+      as_raw_html()
+    temp_lst <- c(temp_lst, tb)
+  }
+  temp_tb <- tibble(!!e := temp_lst)
+  engine_table_tb <- bind_cols(engine_table_tb, temp_tb)
+  remove_cat <- TRUE
+}
+engine_table_tb %>% gt() %>% fmt_markdown(columns = everything()) %>%
+  tab_header(title = md("**Contingency tables used in chi-square analysis of engine bias**"),
+             subtitle = "For each table, misses are on the left, hits on the right.
+Expected values are in parentheses") %>%
+  gtsave(., glue("{OUTDIR}/engine_category_contingency.html"))
 
 
 # Correlation between no. identifications by engines and coverage
@@ -308,5 +421,6 @@ for (q in cq) {
   missing_quant_tests[[q]] <- wilcox.test(noq$num_peps, hasq$num_peps,
                                           alternative = "l")
 }
-capture.output(missing_quant_tests, glue("{OUTDIR}/missing_quantification_tests.txt"))
+capture.output(missing_quant_tests, file = glue("{OUTDIR}/missing_quantification_tests.txt"))
+# --------------------------------------------------------
 
