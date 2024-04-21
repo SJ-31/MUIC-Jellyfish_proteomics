@@ -44,7 +44,7 @@ process COMBINE_ALL {
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
 
-    cp .command.log combine_all.log
+    cat .command.log >> combine_all.log
     """
     //
 }

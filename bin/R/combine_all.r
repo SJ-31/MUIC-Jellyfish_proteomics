@@ -216,6 +216,8 @@ checkMatchedPeps <- function(tb) {
 }
 
 
+LOGFILE <- "./combine_all.log"
+
 main <- function(args) {
   downloads <- loadFile(args$download) %>%
     mutate(header = replace(header, header == "NaN", "unknown"))
@@ -277,22 +279,33 @@ main <- function(args) {
     filter(pep_adjust <= args$pep_thresh)
 
   ## Map pfam domains to GO and get GO IDs
-  source_python(glue("{args$python_source}/map2go.py"))
-  combined <- py$mapAllDb(
-    to_annotate = as.data.frame(combined),
-    p2g_path = args$pfam2go,
-    k2g_path = args$kegg2go,
-    ec2g_path = args$ec2go,
-    i2g_path = args$interpro2go,
-    pfam_db_path = args$pfam_db
-  ) %>%
-    as_tibble() %>%
-    dplyr::mutate(GO_IDs = cleanGO(GO))
-  gc <- goCount(combined$GO_IDs)
-  combined$GO_counts <- gc$GO_count
-  combined$GO_max_sv <- gc$GO_max_sv
+  cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+  tryCatch(
+    expr = {
+      source_python(glue("{args$python_source}/map2go.py"))
+      combined <- py$mapAllDb(
+        to_annotate = as.data.frame(combined),
+        p2g_path = args$pfam2go,
+        k2g_path = args$kegg2go,
+        ec2g_path = args$ec2go,
+        i2g_path = args$interpro2go,
+        pfam_db_path = args$pfam_db
+      ) %>%
+        as_tibble() %>%
+        dplyr::mutate(GO_IDs = cleanGO(GO))
+      gc <- goCount(combined$GO_IDs)
+      combined$GO_counts <- gc$GO_count
+      combined$GO_max_sv <- gc$GO_max_sv
+    },
+    error = \(cnd) {
+      print(reticulate::py_last_error())
+      stop("Caught reticulate error")
+    }
+  )
+  cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
 
   ## Map KEGG Genes to KEGG pathways
+  cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
   source_python(glue("{args$python_source}/map2kegg.py"))
   tryCatch(
     expr = {
@@ -306,6 +319,7 @@ main <- function(args) {
       stop("Caught reticulate error")
     }
   )
+  cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
 
 
   ## Categorize
@@ -327,35 +341,45 @@ main <- function(args) {
     combined <- sortModsMain(combined, FALSE)
   }
   ## Calculate empai using python script
-  if (args$empai) {
-    print("Begin emPAI")
-    source_python(glue("{args$python_source}/emPAI.py"))
-    combined <- py$calculate_emPAI(
-      df = as.data.frame(combined),
-      m_range = list(360L, 1600L)
-    ) %>% as_tibble()
-    print("emPAI completed")
-  }
+  # if (args$empai) {
+  #   print("Begin emPAI")
+  #   source_python(glue("{args$python_source}/emPAI.py"))
+  #   combined <- py$calculate_emPAI(
+  #     df = as.data.frame(combined),
+  #     m_range = list(360L, 1600L)
+  #   ) %>% as_tibble()
+  #   print("emPAI completed")
+  # }
 
 
   ## Merge with quantification data
-  print("Begin merging with quantification")
+  cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
   combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>% mutate(across(contains("directlfq"), log2))
   combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
   combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
+  cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
 
   ## Find new groups
+  cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
   source_python(glue("{args$python_source}/unify_groups.py"))
-  unmatched_only <- combined %>%
-    filter(nchar(ProteinGroupId) == 1) %>%
-    mutate(Group == "U")
-  has_others <- combined %>%
-    filter(nchar(ProteinGroupId) > 1) %>%
-    as.data.frame() %>%
-    py$findNewGroups() %>%
-    as_tibble()
-  combined <- bind_rows(has_others, unmatched_only)
-
+  tryCatch(
+    expr = {
+      unmatched_only <- combined %>%
+        filter(nchar(ProteinGroupId) == 1) %>%
+        mutate(Group == "U")
+      has_others <- combined %>%
+        filter(nchar(ProteinGroupId) > 1) %>%
+        as.data.frame() %>%
+        py$findNewGroups() %>%
+        as_tibble()
+      combined <- bind_rows(has_others, unmatched_only)
+    },
+    error = \(cnd) {
+      print(reticulate::py_last_error())
+      stop("Caught reticulate error")
+    }
+  )
+  cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
 
   ## Arrange columns
   combined <- combined %>%
