@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import re
 
 import pandas as pd
 import scipy.cluster.hierarchy as scipy
@@ -10,6 +11,7 @@ def findNewGroups(df: pd.DataFrame) -> None:
     id_to_group = {}
     # Establish groups and find roots
     for pid, t in zip(df["ProteinId"], df["ProteinGroupId"]):
+        t = re.sub("U", "", t)
         splits = t.split(";")
         first = splits[0]
         gs.add(first)

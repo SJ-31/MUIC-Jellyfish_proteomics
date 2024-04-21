@@ -108,13 +108,13 @@ meanTop3 <- function(tb, quant_name) {
         summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
       joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ";")
       id <- x[["ProteinId"]]
-      return(top_three[1, ] %>%
-        select(-contains(quant_name)) %>%
-        mutate(.,
-          matchedPeptideIds = joined_ids,
-          ProteinId = id
-        ) %>%
-        bind_cols(means))
+      return(top_three[1,] %>%
+               select(-contains(quant_name)) %>%
+               mutate(.,
+                      matchedPeptideIds = joined_ids,
+                      ProteinId = id
+               ) %>%
+               bind_cols(means))
     }) %>%
     bind_rows()
   return(tb)
@@ -136,7 +136,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   }
   full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds))
   full_proteins <- left_join(full_proteins, quant_tb,
-    by = join_by(x$ProteinId == y$ProteinId)
+                             by = join_by(x$ProteinId == y$ProteinId)
   )
   bound <- bind_rows(full_proteins, has_multiple)
   calcs <- bound %>%
@@ -211,8 +211,8 @@ getEvidence <- function(row) {
 
 checkMatchedPeps <- function(tb) {
   return(tb$matchedPeptideIds %>%
-    map_lgl(\(x) grepl("P", x)) %>%
-    any())
+           map_lgl(\(x) grepl("P", x)) %>%
+           any())
 }
 
 
@@ -246,8 +246,8 @@ main <- function(args) {
 
   combined <- combined %>%
     select(-names(redundant[redundant])) %>%
-    mutate_all(~ replace(., . == "-", NA)) %>%
-    mutate_all(~ replace(., . == NaN, NA)) %>%
+    mutate_all(~replace(., . == "-", NA)) %>%
+    mutate_all(~replace(., . == NaN, NA)) %>%
     mutate(
       GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
@@ -261,7 +261,7 @@ main <- function(args) {
         return(str_count(x, ";") + 1)
       }, USE.NAMES = FALSE),
       ID_method = purrr::map_chr(ID_method, \(x)
-      ifelse(grepl(";", x), "both", x))
+        ifelse(grepl(";", x), "both", x))
     )
 
 
@@ -294,10 +294,18 @@ main <- function(args) {
 
   ## Map KEGG Genes to KEGG pathways
   source_python(glue("{args$python_source}/map2kegg.py"))
-  combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
-  combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
-  combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
-  combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
+  tryCatch(
+    expr = {
+      combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
+      combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
+      combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
+      combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
+    },
+    error = \(cnd) {
+      print(reticulate::py_last_error())
+      stop("Caught reticulate error")
+    }
+  )
 
 
   ## Categorize
@@ -338,7 +346,15 @@ main <- function(args) {
 
   ## Find new groups
   source_python(glue("{args$python_source}/unify_groups.py"))
-  combined <- py$findNewGroups(df = as.data.frame(combined)) %>% as_tibble()
+  unmatched_only <- combined %>%
+    filter(nchar(ProteinGroupId) == 1) %>%
+    mutate(Group == "U")
+  has_others <- combined %>%
+    filter(nchar(ProteinGroupId) > 1) %>%
+    as.data.frame() %>%
+    py$findNewGroups() %>%
+    as_tibble()
+  combined <- bind_rows(has_others, unmatched_only)
 
 
   ## Arrange columns
@@ -350,7 +366,7 @@ main <- function(args) {
       MatchedPeptideIds = matchedPeptideIds
     ) %>%
     relocate(where(is.numeric),
-      .after = where(is.character)
+             .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
     relocate(c("peptideIds", "SO_seq", "seq"), .after = where(is.numeric)) %>%
@@ -385,14 +401,14 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--pfam2go", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
   parser <- add_option(parser, "--empai",
-    type = "character",
-    default = TRUE,
-    action = "store_true"
+                       type = "character",
+                       default = TRUE,
+                       action = "store_true"
   )
   parser <- add_option(parser, "--sort_mods",
-    type = "character",
-    default = TRUE,
-    action = "store_true"
+                       type = "character",
+                       default = TRUE,
+                       action = "store_true"
   )
   parser <- add_option(parser, "--r_source", type = "character")
   parser <- add_option(parser, "--python_source", type = "character")

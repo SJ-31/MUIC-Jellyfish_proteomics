@@ -32,3 +32,4 @@ docs/flow.{png,svg}
 docs/images/*
 tests/debug
 .cache
+tests/pytest/__pycache__
