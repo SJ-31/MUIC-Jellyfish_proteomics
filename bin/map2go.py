@@ -124,7 +124,10 @@ def parseGoMapping(path, has_name):
             if has_name:
                 acc_split = acc.split(" ")
                 acc = acc_split[0]
-                name = acc_split[1]
+                if len(acc_split) > 1:
+                    name = acc_split[1]
+                else:
+                    name = "NA"
             acc = re.sub(".*:", "", acc)
             go_id = splits[-1]
             if has_name:
@@ -174,3 +177,4 @@ def mapAllDb(
     join_up = to_annotate["GO"].combine(retrieved_gos, addGos)
     to_annotate["GO"] = join_up
     return to_annotate
+
