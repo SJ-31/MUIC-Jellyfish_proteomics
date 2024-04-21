@@ -1,4 +1,5 @@
 library(tidyverse)
+library(glue)
 
 # Temporary fixes for bugs in `sort_interpro` script
 # - Removes duplicate ids from `matchedPeptideIds` column
@@ -31,21 +32,36 @@ fixSep <- function(tb) {
                                       \(x) str_replace_all(x, ",", ";")))
 }
 
-
-if (sys.nframe() == 0) {
-  library("optparse")
-  parser <- OptionParser()
-  parser <- add_option(parser, c("-i", "--input"))
-  parser <- add_option(parser, c("-r", "--rename"), default = FALSE, action = "store_true")
-  parser <- add_option(parser, c("-c", "--check_go"), default = FALSE, action = "store_true")
-  args <- parse_args(parser)
-  tb <- read_tsv(args$input)
-  if (!args$rename) {
-    ## if (purrr::pluck_exists(tb, "query")) {
-    ##   tb <- dplyr::select(tb, -query)
-    ## }
-    write_tsv(cleanDuplicateIds(tb), args$input)
+filesToFix <- function(pattern) {
+  if (str_detect(getwd(), "Bio_SDD")) {
+    wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
   } else {
-    write_tsv(dplyr::rename(tb, inferred_by = Anno_method), args$input)
+    wd <- "/home/shannc/workflow"
+  }
+  return(list.files(glue("{wd}/results"), pattern = pattern, full.names = TRUE,
+                    recursive = TRUE))
+}
+
+fix <- function(filename, fix) {
+  tb <- read_tsv(filename)
+  if (fix == "unify_groups") {
+    # Sat Apr 20 18:01:36 2024
+    # Fix for the error in `unify_groups`
+    # Remove the "Group" column in "grouped_open_searches" files
+    # Add "ID_method" in "intersected_searches" files
+    if (grepl("grouped", filename)) {
+      new_name <- gsub("grouped_", "", filename)
+      tb %>% select(-Group) %>% write_tsv(., new_name)
+     } else if (str_detect(filename, "intersected")) {
+       tb %>% mutate(ID_method = "standard") %>% write_tsv(., filename)
+     } else {
+       tb %>% select(-Group) %>% write_tsv(., filename)
+     }
   }
 }
+
+applyFixes <- function(file_list, fix_name) {
+  lapply(file_list, \(x) fix(x, fix_name))
+}
+
+

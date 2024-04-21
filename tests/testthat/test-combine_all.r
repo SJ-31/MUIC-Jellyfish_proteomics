@@ -3,20 +3,20 @@ library(testthat)
 library(ggplot2)
 source("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R/combine_all.r")
 
-setwd("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/debug/combine")
+setwd("/home/shannc/Downloads/combine_error")
 
 args <- list(
-  eggnog = "C_indra_eggnog_matched.tsv",
-  interpro = "C_indra_interpro_matched.tsv",
-  downloads = "C_indra_downloads_anno-3.tsv",
+  eggnog = list.files(".", pattern = "eggnog_matched.tsv"),
+  interpro = list.files(".", pattern = "interpro_matched.tsv"),
+  downloads = list.files(".", pattern = "downloads_anno"),
   sort_mods = TRUE,
-  empai = TRUE,
+  empai = FALSE,
   pfam2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam2go",
   interpro2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/interpro2go",
   ec2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/ec2go",
   kegg2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/kegg_reaction2go",
   pfam_db = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam_entries.tsv",
-  is_denovo = "false",
+  is_denovo = "TRUE",
   fdr = 0.05,
   pep_thresh = 1,
   output = "C_indra_all.tsv",
@@ -27,9 +27,20 @@ args <- list(
 )
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/GO_helpers.r"))
-results <- main(args)
-all <- results$all
-found <- results$f
+# results <- main(args)
+
+
+source_python("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/pytest/test_reticulate.py")
+tryCatch(
+  expr = {
+    print("hello")
+    py$giveError()
+  },
+  error = \(cnd) {
+    print(reticulate::py_last_error())
+    stop("Caught reticulate error")
+  }
+)
 
 getDuplicates <- function(tb) {
   dupes <- tb %>%
@@ -124,7 +135,7 @@ checkWanted <- function(x) {
   if (purrr::pluck_depth(evaluated) > 1) {
     any(lapply(seq_along(evaluated), \(x) {
       any(evaluated[[x]] %in%
-        UNWANTED_TYPES)
+            UNWANTED_TYPES)
     }) %>% unlist())
     return(FALSE)
   }

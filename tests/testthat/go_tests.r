@@ -122,7 +122,7 @@ filtered <- g %>%
   activate(nodes) %>%
   filter(map_lgl(name, \(x) {
     split <- str_split_1(x, " ")
-    return(any(split %in% c(ALL_KOS, ALL_PATHWAYS)))
+    return(any(split %in% c(paste0("ko:", ALL_KOS), paste0("pathway:", ALL_PATHWAYS))))
   }))
 
 gg <- ggraph(filtered, layout = "manual", x = x, y = y) +
@@ -156,7 +156,7 @@ check_complete <- ALL_MODULES %>%
 found <- ALL_MODULES %>% discard(is.null)
 found$M00001 %>%
   module_text() %>%
-  plot_module_text() %>%
+  plot_module_text() +
   geom_node_rect()
 
 
@@ -172,7 +172,6 @@ pathway_info <- lapply(ALL_PATHWAYS, \(x) {
   return(get[[1]])
 }) %>% discard(is.null)
 names(pathway_info) <- lapply(pathway_info, \(x) x)
-
 
 
 # You can use this to get a bunch of entries, if the entry fails it won't appear
