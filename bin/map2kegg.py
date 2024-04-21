@@ -10,34 +10,6 @@ ALL_MAPPINGS: dict = {}  # Dictionary containing dictonaries of all
 # organism-specific mappings
 
 
-def flattenRec(collection) -> list:
-    """
-    Recursively flatten nested lists
-    """
-    if not collection:
-        return []
-    current = collection[0]
-    if isinstance(current, set):
-        current = list(current)
-    if isinstance(current, list):
-        return flattenRec(current) + flattenRec(collection[1:])
-    return collection[:1] + flattenRec(collection[1:])
-
-
-def flattenedJoined(
-    collection: pd.Series | list | tuple, splt: str = None
-) -> list[str]:
-    """
-    Flatten a collection of strings completely, optionally splitting apart
-    entries by according to the regex `splt`
-    If a series, any NA entries are ignored
-    """
-    if isinstance(collection, pd.Series):
-        collection = collection[collection.notna()]
-    if splt:
-        return [x for y in collection for x in re.split(splt, y)]
-
-
 def gene2pathway(
     kegg_gene: str, all_mappings: dict, sep: str = ";"
 ) -> NAType | str:
@@ -138,4 +110,3 @@ if __name__ == "__main__" and len(sys.argv) > 1:
     df = pd.read_csv(args["input"], sep="\t")
     mapped = mapInDf(df, "pathway", "KEGG_Pathway")
     mapped.to_csv(args["output"], sep="\t", index=False)
-

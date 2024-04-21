@@ -53,3 +53,24 @@ mostAbund <- function(grouped_df) {
   }
   return(choices)
 }
+
+ggplotNumericDist <- function(lst, method = "hist") {
+  if (is.null(names(lst))) {
+    names(lst) <- LETTERS[seq_along(lst)]
+  }
+  tb <- purrr::lmap(lst, \(x) tibble(freq = x[[1]], id = names(x))) %>%
+    bind_rows()
+  if (method == "boxplot") {
+    plot <- tb %>% ggplot(aes(x = id, y = freq, color = id)) +
+      geom_boxplot()
+  } else if (method == "hist") {
+    plot <- tb %>% ggplot(aes(x = freq, color = id, fill = id)) +
+      geom_histogram()
+  } else if (method == "freq_poly") {
+    plot <- tb %>% ggplot(aes(x = freq, color = id)) +
+      geom_freqpoly()
+  } else {
+    warning("No supported method given")
+  }
+  return(plot)
+}
