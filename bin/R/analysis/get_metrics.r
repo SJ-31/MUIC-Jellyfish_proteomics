@@ -6,6 +6,7 @@ library(venn)
 library(Peptides)
 library(glue)
 args <- list(r_source = "./bin/R")
+FDR <- 0.01
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/GO_helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
@@ -25,7 +26,7 @@ GRAPHS <- list()
 TABLES <- list()
 
 
-##-# Coverage metrics
+## -# Coverage metrics
 cov_align <- compareFirstSecL(
   run, "pcoverage_align",
   TRUE, "ProteinId"
@@ -55,26 +56,42 @@ GRAPHS$percent_found <- percent_found %>%
 # for confirmation only (we expect them to differ)
 tb <- run$first
 grouping_metric <- "category"
-lfq <- inner_join(dplyr::select(tb, all_of(grouping_metric), ProteinId),
-                  mergeLfq(tb, "mean"))
-apply_over <- tb[[grouping_metric]] %>% table() %>% discard(., \(x) x < 100) %>% names()
-cov_list <- groupListFromTb(tb, v = apply_over, col_from = grouping_metric,
-                            target_col = "pcoverage_nmatch")
+lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>% inner_join(., mergeLfq(tb, "mean"))
+
+apply_over <- tb[[grouping_metric]] %>%
+  table() %>%
+  discard(., \(x) x < 100) %>%
+  names()
+cov_list <- groupListFromTb(tb,
+  v = apply_over, col_from = grouping_metric,
+  target_col = "pcoverage_nmatch"
+)
 intensity_list <- groupListFromTb(lfq, apply_over, grouping_metric, "log_intensity")
 GRAPHS$intensity_categories <- ggplotNumericDist(intensity_list, "boxplot") +
   labs(y = "log intensity", x = "category")
 GRAPHS$coverage_categories <- ggplotNumericDist(cov_list, "boxplot") +
   labs(y = "coverage (%)", x = "category")
-cov_test <- kruskal.test(cov_list)
-intensity_test <- kruskal.test(intensity_list)
+
+
+with_category <- inner_join(tb, lfq) %>%
+  select(ProteinId, log_intensity, category) %>%
+  filter(!is.na(log_intensity)) %>%
+  arrange(log_intensity) %>%
+  mutate(rank = seq_len(nrow(.)))
+GRAPHS$category_ranks <- with_category %>%
+  ggplot(aes(x = rank, y = log_intensity, color = category)) +
+  geom_point() +
+  labs(x = "Rank", y = "Log intensity")
 
 # Top ten most intense proteins
-top_ten <- lfq %>% arrange(desc(log_intensity)) %>% slice(1:10)
+top_ten <- lfq %>%
+  arrange(desc(log_intensity)) %>%
+  slice(1:10)
 
 
 # --------------------------------------------------------
 
-##-# PTM analysis
+## PTM analysis
 has_mods <- run$first %>% filter(!is.na(Mods))
 UNIQUE_MODS <- run$first$Mods %>%
   discard(is.na) %>%
@@ -121,7 +138,7 @@ for (mod in UNIQUE_MODS) {
 # --------------------------------------------------------
 
 
-##-# Annotation metrics
+## -# Annotation metrics
 counts <- list()
 counts$first <- getCounts(run$first)
 counts$sec <- getCounts(run$sec)
@@ -145,7 +162,7 @@ WILCOX <- lapply(wanted_cols, \(x) {
 }) %>%
   bind_rows() %>%
   mutate(alternative = map_chr(alternative, \(x)
-    ifelse(x == "two.sided", x, paste0("first_", x))))
+  ifelse(x == "two.sided", x, paste0("first_", x))))
 
 
 # Results per protein
@@ -153,10 +170,14 @@ WILCOX <- lapply(wanted_cols, \(x) {
 per_protein <- tibble(
   metric = rep(wanted_cols, 2),
   type = c(rep("mean", length(wanted_cols)), rep("stdev", length(wanted_cols))),
-  first = c(avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-            avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))),
-  sec = c(avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-          avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE)))
+  first = c(
+    avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))
+  ),
+  sec = c(
+    avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE))
+  )
 ) %>%
   mutate(percent_change = (sec - first) / first) %>%
   mutate(across(is.double, \(x) round(x, 3)))
@@ -166,6 +187,7 @@ per_protein %>%
   gtsave(glue("{OUTDIR}/per_protein_metrics.tex"))
 write_tsv(per_protein, file = glue("{OUTDIR}/per_protein_metrics.tsv"))
 
+# Change in metrics from the first to the second pass
 GRAPHS$per_protein_change <- per_protein %>%
   mutate(metric = paste0(metric, "_", type)) %>%
   pivot_longer(cols = c(first, sec)) %>%
@@ -204,8 +226,10 @@ cov_longer <- compare_all %>%
     }
     return("second")
   })) %>%
-  mutate(first_diff = first - previous,
-         second_diff = second - previous) %>%
+  mutate(
+    first_diff = first - previous,
+    second_diff = second - previous
+  ) %>%
   select(-c(first, second, previous)) %>%
   pivot_longer(cols = !NCBI_ID) %>%
   mutate(value = round(value, 2))
@@ -228,7 +252,7 @@ mask <- cov_longer %>% apply(1, \(x) {
   }
   return(TRUE)
 })
-cov_longer <- cov_longer[mask,] %>% unnest()
+cov_longer <- cov_longer[mask, ] %>% unnest()
 cov_longer$name <- factor(cov_longer$name, levels = c("previous", "first", "second"))
 
 GRAPHS$protein_wise_coverage <- cov_longer %>%
@@ -242,11 +266,13 @@ GRAPHS$protein_wise_coverage <- cov_longer %>%
   )
 
 p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev, compare_all$pcoverage_nmatch.first, paired = TRUE, alternative = "less")
-WILCOX <- bind_rows(WILCOX, tibble(alternative = "prev_less_than_first",
-                                   metric = "coverage",
-                                   statistic = p_test$statistic,
-                                   p_value = p_test$p.value,
-                                   reject_null = ifelse(p_test$p.value < 0.05, "Y", "N")))
+WILCOX <- bind_rows(WILCOX, tibble(
+  alternative = "prev_less_than_first",
+  metric = "coverage",
+  statistic = p_test$statistic,
+  p_value = p_test$p.value,
+  reject_null = ifelse(p_test$p.value < 0.05, "Y", "N")
+))
 write_tsv(WILCOX, file = glue("{OUTDIR}/wilcox_tests.tsv"))
 
 
@@ -263,7 +289,7 @@ new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
 
-##-#  Engine analysis
+## -#  Engine analysis
 ##
 tb <- run$first
 num_ids <- tb %>%
@@ -291,8 +317,10 @@ tb <- run$first
 engine_hits <- tb %>%
   select(ProteinId, ProteinGroupId) %>%
   apply(1, \(x) {
-    groups <- splitGroupStr(x["ProteinGroupId"],
-                            TRUE, TRUE)
+    groups <- splitGroupStr(
+      x["ProteinGroupId"],
+      TRUE, TRUE
+    )
     row <- tibble(ProteinId = x["ProteinId"])
     for (g in groups) {
       row <- add_column(row, !!g := TRUE)
@@ -321,8 +349,10 @@ show_contigency <- table(engine_hits$category == ct, engine_hits[[current]])
 expected <- formatEngineContingency(show_contigency, ct, TRUE)
 expected %>%
   gt() %>%
-  tab_header(title = glue("Engine: {current}, Category: {ct}"),
-             subtitle = "Expected values under chi-square in parentheses")
+  tab_header(
+    title = glue("Engine: {current}, Category: {ct}"),
+    subtitle = "Expected values under chi-square in parentheses"
+  )
 
 engines <- colnames(engine_hits)[!colnames(engine_hits) %in% c("U", "category")]
 engine_chi <- tibble()
@@ -338,8 +368,10 @@ for (engine in engines) {
     engine_chi <- bind_rows(engine_chi, row)
   }
 }
-engine_chi <- engine_chi %>% mutate(p_adjust = p.adjust(p_value, "holm"),
-                                    is_significant = ifelse(p_value < 0.05, TRUE, FALSE))
+engine_chi <- engine_chi %>% mutate(
+  p_adjust = p.adjust(p_value, "holm"),
+  is_significant = ifelse(p_value < 0.05, TRUE, FALSE)
+)
 
 # Compute effect size for significant hits, using the odds ratio
 # This represents how much more likely the engine is to identify
@@ -355,16 +387,21 @@ odds_ratios <- engine_chi %>%
     odds_ratio <- oddsRatio(table)
     odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
     odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
-    row <- tibble(OR = odds_ratio,
-                  OR_upper_ci = odds_ratio_ci_u,
-                  OR_lower_ci = odds_ratio_ci_l)
+    row <- tibble(
+      OR = odds_ratio,
+      OR_upper_ci = odds_ratio_ci_u,
+      OR_lower_ci = odds_ratio_ci_l
+    )
     return(row)
-  }) %>% bind_rows()
+  }) %>%
+  bind_rows()
 engine_chi <- bind_cols(engine_chi, odds_ratios)
 engine_chi %>%
   gt() %>%
-  tab_header(title = "Association between engine hits and protein GO category",
-                                   subtitle = "Tested using chi-square") %>%
+  tab_header(
+    title = "Association between engine hits and protein GO category",
+    subtitle = "Tested using chi-square"
+  ) %>%
   gtsave(., glue("{OUTDIR}/engine_association_results.html"))
 
 
@@ -374,25 +411,32 @@ remove_cat <- FALSE
 for (e in names(engine_table_list)) {
   e_list <- engine_table_list[[e]]
   temp_lst <- list()
+  remove_col_label <- FALSE
   for (ct in names(e_list)) {
     tb <- formatEngineContingency(e_list[[ct]], w_expected = TRUE)
     if (remove_cat) {
       tb <- dplyr::select(tb, -category)
     }
-    tb <- tb %>%
-      gt() %>%
-      tab_options(column_labels.hidden = TRUE) %>%
-      as_raw_html()
-    temp_lst <- c(temp_lst, tb)
+    tb <- gt(tb)
+    if (!remove_col_label) {
+      remove_col_label <- TRUE
+    } else {
+      tb <- tb %>% tab_options(column_labels.hidden = TRUE)
+    }
+    temp_lst <- c(temp_lst, as_raw_html(tb))
   }
   temp_tb <- tibble(!!e := temp_lst)
   engine_table_tb <- bind_cols(engine_table_tb, temp_tb)
   remove_cat <- TRUE
 }
-engine_table_tb %>% gt() %>% fmt_markdown(columns = everything()) %>%
-  tab_header(title = md("**Contingency tables used in chi-square analysis of engine bias**"),
-             subtitle = "For each table, misses are on the left, hits on the right.
-Expected values are in parentheses") %>%
+engine_table_tb %>%
+  gt() %>%
+  fmt_markdown(columns = everything()) %>%
+  tab_header(
+    title = md("**Contingency tables used in chi-square analysis of engine bias**"),
+    subtitle = "For each table, misses are on the left, hits on the right.
+Expected values are in parentheses"
+  ) %>%
   gtsave(., glue("{OUTDIR}/engine_category_contingency.html"))
 
 
@@ -419,8 +463,8 @@ for (q in cq) {
   noq <- current %>% filter(is.na(!!as.symbol(glue("{cq}_mean"))))
   hasq <- current %>% filter(!ProteinId %in% noq$ProteinId)
   missing_quant_tests[[q]] <- wilcox.test(noq$num_peps, hasq$num_peps,
-                                          alternative = "l")
+    alternative = "l"
+  )
 }
 capture.output(missing_quant_tests, file = glue("{OUTDIR}/missing_quantification_tests.txt"))
 # --------------------------------------------------------
-
