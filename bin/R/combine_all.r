@@ -1,3 +1,7 @@
+MAP_PFAMS <- TRUE
+MAP_KEGG <- TRUE
+UNIFY <- TRUE
+MERGE_QUANT <- TRUE
 library(seqinr)
 library(reticulate)
 library(tidyverse)
@@ -279,47 +283,51 @@ main <- function(args) {
     filter(pep_adjust <= args$pep_thresh)
 
   ## Map pfam domains to GO and get GO IDs
-  cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
-  tryCatch(
-    expr = {
-      source_python(glue("{args$python_source}/map2go.py"))
-      combined <- py$mapAllDb(
-        to_annotate = as.data.frame(combined),
-        p2g_path = args$pfam2go,
-        k2g_path = args$kegg2go,
-        ec2g_path = args$ec2go,
-        i2g_path = args$interpro2go,
-        pfam_db_path = args$pfam_db
-      ) %>%
-        as_tibble() %>%
-        dplyr::mutate(GO_IDs = cleanGO(GO))
-      gc <- goCount(combined$GO_IDs)
-      combined$GO_counts <- gc$GO_count
-      combined$GO_max_sv <- gc$GO_max_sv
-    },
-    error = \(cnd) {
-      print(reticulate::py_last_error())
-      stop("Caught reticulate error")
-    }
-  )
-  cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+  if (MAP_PFAMS) {
+    cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+    tryCatch(
+      expr = {
+        source_python(glue("{args$python_source}/map2go.py"))
+        combined <- py$mapAllDb(
+          to_annotate = as.data.frame(combined),
+          p2g_path = args$pfam2go,
+          k2g_path = args$kegg2go,
+          ec2g_path = args$ec2go,
+          i2g_path = args$interpro2go,
+          pfam_db_path = args$pfam_db
+        ) %>%
+          as_tibble() %>%
+          dplyr::mutate(GO_IDs = cleanGO(GO))
+        gc <- goCount(combined$GO_IDs)
+        combined$GO_counts <- gc$GO_count
+        combined$GO_max_sv <- gc$GO_max_sv
+      },
+      error = \(cnd) {
+        print(reticulate::py_last_error())
+        stop("Caught reticulate error")
+      }
+    )
+    cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+  }
 
   ## Map KEGG Genes to KEGG pathways
-  cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
-  source_python(glue("{args$python_source}/map2kegg.py"))
-  tryCatch(
-    expr = {
-      combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
-      combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
-      combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
-      combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
-    },
-    error = \(cnd) {
-      print(reticulate::py_last_error())
-      stop("Caught reticulate error")
-    }
-  )
-  cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
+  if (MAP_KEGG) {
+    cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
+    source_python(glue("{args$python_source}/map2kegg.py"))
+    tryCatch(
+      expr = {
+        combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
+        combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
+        combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
+        combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
+      },
+      error = \(cnd) {
+        print(reticulate::py_last_error())
+        stop("Caught reticulate error")
+      }
+    )
+    cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
+  }
 
 
   ## Categorize
@@ -340,6 +348,7 @@ main <- function(args) {
     source(glue("{args$r_source}/sort_mods.r"))
     combined <- sortModsMain(combined, FALSE)
   }
+
   ## Calculate empai using python script
   # if (args$empai) {
   #   print("Begin emPAI")
@@ -353,33 +362,37 @@ main <- function(args) {
 
 
   ## Merge with quantification data
-  cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
-  combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>% mutate(across(contains("directlfq"), log2))
-  combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
-  combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
-  cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
+  if (MERGE_QUANT) {
+    cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
+    combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>% mutate(across(contains("directlfq"), log2))
+    combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
+    combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
+    cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
+  }
 
   ## Find new groups
-  cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
-  source_python(glue("{args$python_source}/unify_groups.py"))
-  tryCatch(
-    expr = {
-      unmatched_only <- combined %>%
-        filter(nchar(ProteinGroupId) == 1) %>%
-        mutate(Group == "U")
-      has_others <- combined %>%
-        filter(nchar(ProteinGroupId) > 1) %>%
-        as.data.frame() %>%
-        py$findNewGroups() %>%
-        as_tibble()
-      combined <- bind_rows(has_others, unmatched_only)
-    },
-    error = \(cnd) {
-      print(reticulate::py_last_error())
-      stop("Caught reticulate error")
-    }
-  )
-  cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
+  if (UNIFY) {
+    cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
+    source_python(glue("{args$python_source}/unify_groups.py"))
+    tryCatch(
+      expr = {
+        unmatched_only <- combined %>%
+          filter(nchar(ProteinGroupId) == 1) %>%
+          mutate(Group = "U")
+        has_others <- combined %>%
+          filter(nchar(ProteinGroupId) > 1) %>%
+          as.data.frame() %>%
+          py$findNewGroups() %>%
+          as_tibble()
+        combined <- bind_rows(has_others, unmatched_only)
+      },
+      error = \(cnd) {
+        print(reticulate::py_last_error())
+        stop("Caught reticulate error")
+      }
+    )
+    cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
+  }
 
   ## Arrange columns
   combined <- combined %>%
