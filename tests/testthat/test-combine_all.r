@@ -27,7 +27,7 @@ args <- list(
 )
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/GO_helpers.r"))
-# results <- main(args)
+results <- main(args)
 
 
 source_python("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/pytest/test_reticulate.py")

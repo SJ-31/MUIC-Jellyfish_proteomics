@@ -2,7 +2,7 @@ library(glue)
 source("./bin/R/make_orgdb.r")
 
 args <- list(
-  combined_annotations = "./results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv",
+  combined_annotations = "./results/C_indra_A/1-First_pass/C_indra_all_wcoverage.tsv",
   maintainer = "Shann Chongwattananukul <shann.cho@student.mahidol.edu>",
   author = "Shann Chongwattananukul <shann.cho@student.mahidol.edu>",
   path_to_extra = "NONE",

@@ -95,6 +95,7 @@ if (grepl("Bio_SDD", getwd())) {
 } else {
   wd <- "/home/shannc/workflow/tests"
 }
+# Plot variance explained
 library(paletteer)
 outdir <- glue("{wd}/testthat/output/protein_dr")
 pca_pcoa <- list.files(outdir, full.names = TRUE) %>%

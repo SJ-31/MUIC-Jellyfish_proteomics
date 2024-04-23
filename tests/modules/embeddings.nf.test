@@ -12,7 +12,8 @@ nextflow_process {
                 model = "a2v_go"
                 pass = "1-First_pass"
 
-                input = "$baseDir/results/${params.pref}_B/${params.pass}/${params.pref}_all_wcoverage.tsv"
+                input = "$baseDir/results/${params.pref}_A/${params.pass}/${params.pref}_all_wcoverage.tsv"
+                go_embeddings = "/mnt/data/shannc/nf/data/reference/go_embedded.npz"
                 esm = "$baseDir/data/models/esm2_t36_3B_UR50D.pt"
                 prottrans = "$baseDir/data/models/prot_t5_xl_uniref50"
                 logdir = "$baseDir/tests/nf-test-out/${params.pref}_${params.model}_embeddings"
