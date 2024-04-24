@@ -220,6 +220,12 @@ reduceGOList <- function(go_list) {
   ))
 }
 
+termOntology <- function(term) {
+  ontology <- ifelse(is.null(GOTERM[[term]]),
+                     "NONE", GOTERM[[term]]@Ontology)
+  return(ontology)
+}
+
 
 ontoResults <- function(ontologizer_dir) {
   # Convenience function for aggregating statistically significant ontologizer results
@@ -240,13 +246,34 @@ ontoResults <- function(ontologizer_dir) {
     lapply(., \(x) x[, 2]) %>%
     unlist()
   onto_files <- lapply(onto_files, readr::read_tsv)
-  onto_files$gos_from_downloads <- onto_files$unknown_to_db %>%
+  onto_files$unknown_to_db_GO <- onto_files$unknown_to_db %>%
     filter(!is.trivial) %>%
     goVector(go_column = "ID")
-  onto_files$gos_from_open <- onto_files$id_with_open %>%
+  onto_files$id_with_open_GO <- onto_files$id_with_open %>%
     filter(!is.trivial) %>%
     goVector(go_column = "ID")
   return(onto_files)
+}
+
+
+#' Create a tibble containing information about specific GO terms
+#'
+goInfoTb <- function(go_vector, go_path, go_slim_path) {
+  tb <- lapply(go_vector, \(x) {
+    slims <- getGoSlim(x, go_path, go_slim_path)
+    direct <- ifelse(is_empty(slims$direct), NA, slims$direct[1])
+    row <- tibble(id = x, term = NA,
+                  definition = NA, ontology = NA,
+                  slims = direct)
+    find_info <- GOTERM[[x]]
+    if (is.null(find_info)) {
+      return(row)
+    }
+    row$term <- find_info@Term
+    row$ontology <- find_info@Ontology
+    row$definition <- find_info@Definition
+    return(row)
+  }) %>% bind_rows()
 }
 
 getUniprotData <- function(uniprot_tsv_path) {
@@ -458,6 +485,7 @@ fgseaWrapper <- function(quant, tb, gene_sets) {
       return(y)
     }) %>%
     sort(., decreasing = TRUE)
+  # You could use dense_rank for unifying ranks later, but for now, just use seq
   fgsea <- fgsea(pathways = gene_sets, ranked, scoreType = "pos")
   # Recommended to switch to "pos"
   return(list(result = fgsea, ranked = ranked))
@@ -474,3 +502,24 @@ plotFgsea <- function(gene_sets, ranked_list, fgsea_result) {
   }
   return(fgsea_plots)
 }
+
+GO_DAG <- NULL
+GO_SLIM_DAG <- NULL
+
+getGoSlim <- function(go_term, go_path, go_slim_path) {
+  op <- reticulate::import("goatools.obo_parser")
+  ms <- reticulate::import("goatools.mapslim")
+  if (is.null(GO_DAG)) {
+    GO_DAG <<- op$GODag(go_path)
+    GO_SLIM_DAG <<- op$GODag(go_slim_path)
+  }
+  py$slims <- NULL
+  try(expr = py$slims <- ms$mapslim(go_term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG))
+  if (is.null(py$slims)) {
+    return(list(direct = NA, all = NA))
+  }
+  reticulate::py_run_string("direct = list(slims[0])")
+  reticulate::py_run_string("all = list(slims[1])")
+  return(list(direct = py$direct, all = py$all))
+}
+
