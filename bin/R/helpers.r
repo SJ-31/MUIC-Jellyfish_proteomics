@@ -74,3 +74,7 @@ ggplotNumericDist <- function(lst, method = "hist") {
   }
   return(plot)
 }
+
+addPrefix <- function(vector, prefix) {
+  map_chr(vector, \(x) glue("{prefix}{x}"))
+}

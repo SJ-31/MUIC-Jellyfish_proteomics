@@ -17,7 +17,8 @@ source(glue::glue("{args$r_source}/rrvgo_modified.r"))
 # n_neighbors int, default=5
 # The number of neighbors that will be considered. Should be fewer than n_samples / 2 to ensure the trustworthiness to lies within [0, 1], as mentioned in [1]. An error will be raised otherwise.
 # Considers the first three components by default
-trustworthiness <- function(X, X_embedded) {
+trustworthiness <- function(X, X_embedded, precomputed = FALSE) {
+  n_neighbors <- 5L
   if (pluck_exists(X_embedded, "prcomp")) {
     X_embedded <- X_embedded$prcomp$x
   } else if (any(class(X_embedded) == "wcmdscale")) {
@@ -25,7 +26,11 @@ trustworthiness <- function(X, X_embedded) {
   }
   X_embedded <- X_embedded[, c(1, 2)]
   mf <- import("sklearn.manifold")
-  return(mf$trustworthiness(X, X_embedded, n_neighbors = 5L))
+  if (precomputed) {
+    return(mf$trustworthiness(X, X_embedded, n_neighbors = n_neighbors,
+                              metric = "precomputed"))
+  }
+  return(mf$trustworthiness(X, X_embedded, n_neighbors = n_neighbors))
 }
 
 
@@ -61,17 +66,25 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
   } else {
     p <- palette
   }
-  plotted <- ggplot(ordination_tb, aes(
-    x = .data[[x]], y = .data[[y]],
-    colour = .data[[colour_column]]
-  )) +
-    geom_point(size = 1, stroke = 1) +
-    scale_color_paletteer_d(p) +
-    theme_bw() +
-    labs(
-      title = labels$title,
-      caption = labels$caption
-    )
+  tryCatch(expr = {
+    plotted <- ggplot(ordination_tb, aes(
+      x = .data[[x]], y = .data[[y]],
+      colour = .data[[colour_column]]
+    )) +
+      geom_point(size = 1, stroke = 1) +
+      scale_color_paletteer_d(p) +
+      theme_bw() +
+      labs(
+        title = labels$title,
+        caption = labels$caption
+      )
+  },
+           error = \(cnd) {
+             message("Error in plotting")
+             print(ordination_tb)
+             stop()
+           }
+  )
   return(plotted)
 }
 
@@ -90,7 +103,11 @@ PARAMS$metric <- "cosine"
 
 `_tsne` <- function(data) {
   mf <- reticulate::import("sklearn.manifold")
-  dist <- purrr::pluck(data, PARAMS$metric)
+  if (pluck_exists(data, "cosine")) {
+    dist <- purrr::pluck(data, "cosine")
+  } else {
+    dist <- purrr::pluck(data, "dist")
+  }
   tsne <- mf$TSNE(
     n_components = as.integer(PARAMS$tsne$n_components),
     perplexity = as.integer(PARAMS$tsne$perplexity),
@@ -103,15 +120,40 @@ PARAMS$metric <- "cosine"
 }
 
 `_umap` <- function(data) {
+  if (pluck_exists(data, "cosine")) {
+    dist <- purrr::pluck(data, "cosine")
+  } else {
+    dist <- purrr::pluck(data, "dist")
+  }
   umap <- reticulate::import("umap")
-  dist <- purrr::pluck(data, PARAMS$metric)
   fit <- umap$UMAP(metric = "precomputed",
                    n_components = as.integer(PARAMS$umap$n_components),
                    n_neighbors = as.integer(PARAMS$umap$n_neighbors),
                    min_dist = PARAMS$umap$min_dist)
-  result <- fit$fit_transform(dist) %>% as.data.frame()
+  tryCatch(expr = {
+    result <- fit$fit_transform(dist) %>% as.data.frame()
+  },
+           error = \(cnd) {
+             message("UMAP fit failed, inspect problematic df as FAILED")
+             FAILED <<- dist
+             stop()
+           }
+  )
   rownames(result) <- rownames(dist)
   return(result)
+}
+
+simToDist <- function(matrix) {
+  max_sim <- max(matrix)
+  matrix <- max_sim - matrix
+  return(matrix)
+}
+
+filterDistMatrix <- function(matrix, labels_to_keep) {
+  colnames(matrix) <- rownames(matrix)
+  matrix <- matrix[rownames(matrix) %in% labels_to_keep,
+                   colnames(matrix) %in% labels_to_keep]
+  return(matrix)
 }
 
 `_pca` <- function(data) {
@@ -124,7 +166,11 @@ PARAMS$metric <- "cosine"
 }
 
 `_pcoa` <- function(data) {
-  dist <- pluck(data, "cosine")
+  if (pluck_exists(data, "cosine")) {
+    dist <- purrr::pluck(data, "cosine")
+  } else {
+    dist <- purrr::pluck(data, "dist")
+  }
   pcoa <- vegan::wcmdscale(dist, eig = TRUE, add = TRUE)
   rownames(pcoa$points) <- rownames(dist)
   pcoa$pe <- pcoaPerExplained(pcoa)
@@ -171,7 +217,12 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
     mutate(!!join_on := metadata[[join_on]]) %>%
     inner_join(., metadata, by = join_by(!!join_on))
 
-  trustworthiness <- trustworthiness(dr_data$embd, dr_result)
+  if (purrr::pluck_exists(dr_data, "embd")) {
+    trustworthiness <- trustworthiness(dr_data$embd, dr_result)
+  } else {
+    trustworthiness <- trustworthiness(dr_data$dist, dr_result,
+                                       precomputed = TRUE)
+  }
   cat(trustworthiness, file = glue("{outdir}/{name}-trustworthiness.txt"))
 
   write_tsv(to_plot, glue("{outdir}/{name}-DR_results.tsv"))
@@ -179,6 +230,7 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
               result = dr_result,
               trustworthiness = trustworthiness))
 }
+
 
 
 #' Compute the distance of all rows in a matrix against one vector
