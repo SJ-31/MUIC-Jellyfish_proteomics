@@ -34,80 +34,11 @@ args <- list(
 
 source(glue("{args$r_source}/GO_helpers.r"))
 source(glue("{args$r_source}/DR_helpers.r"))
+source(glue("{args$r_source}/cluster_helpers.r"))
 reticulate::use_condaenv(env)
 
 SAMPLE_ONLY <- TRUE
 source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
-
-#' BM: Benchmarking functions for clustering methods intended to determine
-#' the best parameters, and to compare clustering methods against each
-#' other
-#' @param dist_t a distance matrix of the embeddings
-#'
-hierarchichalBM <- function(dist_t, method, height_vec) {
-  trees <- list()
-  clusters <- hclust(dist_t, method = method)
-  for (height in height_vec) {
-    cut <- tryCatch(
-      expr = cutree(clusters, h = height),
-      error = \(cnd) NULL)
-    if (!is.null(cut)) {
-      trees[[as.character(height)]] <- cut
-    }
-  }
-  return(trees)
-}
-
-hdbscanBM <- function(dist_t, min_points) {
-  scans <- list()
-  for (m in min_points) {
-    hdb <- dbscan::hdbscan(dist_t, minPts = m)
-    membership <- hdb$cluster + 1 # fpc stats uses different indices
-    names(membership) <- names(hdb$coredist)
-    scans[[as.character(m)]] <- membership
-  }
-  return(scans)
-}
-
-#' Compute clustering metrics, appending them to a list
-#'
-getClusterMetrics <- function(dist_t, cluster_list, method, metrics, var) {
-  for (n in names(cluster_list)) {
-    stats <- tryCatch(
-      expr = fpc::cluster.stats(dist_t, clustering = cluster_list[[n]]),
-      error = \(cnd) NULL
-    )
-    if (!is.null(stats)) {
-      current <- discard(stats, \(x) length(x) > 1 || is.null(x))
-      current$parameter <- paste0(var, "=", n)
-      current$method <- method
-      if (is.null(metrics)) {
-        metrics <- as.data.frame(current)
-      } else {
-        metrics <- dplyr::bind_rows(metrics, as.data.frame(current))
-      }
-    }
-  }
-  return(metrics)
-}
-
-#' Save cluster memberships from a cluster list into a tb, where
-#' each column denotes the membership of a given protein under that
-#' specific clustering method
-saveClusters <- function(cluster_list, method, var, previous_saved) {
-  for (cluster in names(cluster_list)) {
-    colname <- glue("{method}_{var}_{cluster}")
-    dat <- cluster_list[[cluster]]
-    tb <- tibble(ProteinId = names(dat),
-                 !!colname := dat)
-    if (is.null(previous_saved)) {
-      previous_saved <- tb
-    } else {
-      previous_saved <- inner_join(previous_saved, tb, by = join_by(ProteinId))
-    }
-  }
-  return(previous_saved)
-}
 
 
 #' Properly format cluster membership from a leidenalg.VertexPartition

@@ -78,9 +78,16 @@ if (EMBEDDING_TYPE == "protein") {
     simToDist()
 }
 
+if (EMBEDDING_TYPE == "go"){
+  join_on <- "id"
+} else {
+  join_on <- "ProteinId"
+}
+
 d$sample_tb <- d$sample_tb %>% filter(ProteinId %in% rownames(sem_dist_matrix))
 e$embd <- e$embd[rownames(e$embd) %in% rownames(sem_dist_matrix),]
 e$metadata <- e$metadata %>% filter(ProteinId %in% rownames(sem_dist_matrix))
+
 e$euclidean <- filterDistMatrix(e$euclidean, rownames(sem_dist_matrix))
 e$cosine <- filterDistMatrix(e$cosine, rownames(sem_dist_matrix))
 
@@ -90,11 +97,11 @@ sem <- list(
   color = e$color
 )
 if (EMBEDDING_TYPE == "go") {
-  e$metadata <- go_meta
-  sem$metadata <- go_meta
+  e$metadata <- go_meta %>% filter(id %in% rownames(sem$dist))
+  sem$metadata <- e$metadata
 }
 
-PLOT <- FALSE
+PLOT <- TRUE
 if (PLOT) {
   for (t in techniques) {
     sem_path <- glue("{args$figure_path}/semantic")
@@ -102,10 +109,10 @@ if (PLOT) {
     slabel <- labelGen(glue("{EMBEDDING_TYPE}-level {t}"), "test", "Using semantic distances")
     alabel <- labelGen(glue("{EMBEDDING_TYPE}-level {t}"), "test", "Using a2v distances")
 
-    sem_dr <- drWrapper(sem, "ProteinId", glue("{sem_path}/{t}"), "sem", t)
+    sem_dr <- drWrapper(sem, join_on = join_on, glue("{sem_path}/{t}"), "sem", t)
     plotDr(sem_dr$to_plot, e$color, sem_path, t, slabel, TRUE)
 
-    a2v_dr <- drWrapper(e, "ProteinId", glue("{a2v_path}/{t}"), "a2v", t)
+    a2v_dr <- drWrapper(e, join_on = join_on, glue("{a2v_path}/{t}"), "a2v", t)
     plotDr(a2v_dr$to_plot, e$color, a2v_path, t, alabel, TRUE)
   }
 }

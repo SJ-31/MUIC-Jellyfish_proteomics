@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import pathlib
 import shutil
 from subprocess import Popen
 from pathlib import Path
@@ -7,6 +8,7 @@ import pandas as pd
 import re
 
 DIST = ["euclidean", "cosine"]
+TECHNIQUES = ["tsne", "pcoa", "umap"]
 
 
 def rreplace(string: str, old: str, new: str, count: int = 1) -> str:
@@ -229,14 +231,66 @@ def getTrustWorthiness(input_path, output_path) -> None:
     t_df.to_csv(f"{output_path}/trustworthiness.tsv", sep="\t", index=False)
 
 
+def listFiles(directory: str | pathlib.PosixPath, pattern: str):
+    if isinstance(directory, pathlib.PosixPath):
+        return [str(f) for f in Path(directory).rglob(pattern)]
+    return [str(f) for f in Path(directory).rglob(pattern)]
+
+
 if "Bio_SDD" in str(Path(".").absolute()):
     wd = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests"
 else:
     wd = "/home/shannc/workflow/tests"
-outdir = Path(f"{wd}/testthat/output/protein_dr")
-all_arranged = outdir.joinpath("all_compared")
 
-# getTrustWorthiness(outdir, all_arranged)
-# getPcaPcoa(outdir, all_arranged)
-# arrangeMultiple("tsne", outdir, all_arranged)
-# arrangeMultiple("umap", outdir, all_arranged)
+
+COMPARE_PROTEIN_EMBEDDINGS = False
+if COMPARE_PROTEIN_EMBEDDINGS:
+    # Arrange protein embedding DR
+    outdir = Path(f"{wd}/testthat/output/protein_dr")
+    all_arranged = outdir.joinpath("all_compared")
+    getTrustWorthiness(outdir, all_arranged)
+    getPcaPcoa(outdir, all_arranged)
+    arrangeMultiple("tsne", outdir, all_arranged)
+    arrangeMultiple("umap", outdir, all_arranged)
+
+
+def compareSsA2v(outdir):
+    arranged = []
+    for v in ["semantic", "a2v"]:
+        figures = listFiles(outdir.joinpath(v), "*png")
+        joined = arrangeImages(
+            figures, f"{outdir}/{v}_joined.png", "horizontal"
+        )
+        arranged.append(joined)
+    arrangeImages(arranged, f"{outdir}/comparison.png", "vertical", True)
+
+
+def whichTechnique(file_path):
+    for t in TECHNIQUES:
+        if t in file_path:
+            return t
+
+
+def ssA2vGetTrustWorthiness(outdir):
+    comparison_dict = {"type": [], "trustworthiness": [], "technique": []}
+    for v in ["semantic", "a2v"]:
+        ss = outdir.joinpath(v)
+        files = listFiles(ss, "*trustworthiness*")
+        for file in files:
+            comparison_dict["type"].append(v)
+            comparison_dict["technique"].append(whichTechnique(file))
+            with open(file, "r") as f:
+                trst = f.read()
+            comparison_dict["trustworthiness"].append(trst)
+    pd.DataFrame(comparison_dict).to_csv(
+        f"{outdir}/trustworthiness.tsv", sep="\t", index=False
+    )
+
+
+COMPARE_SS_A2V = True
+if COMPARE_SS_A2V:
+    # Arrange images for ss and a2v comparison
+    # outdir = Path(f"{wd}/testthat/output/go_dr_protein_level")
+    outdir = Path(f"{wd}/testthat/output/go_dr_go_level")
+    compareSsA2v(outdir)
+    ssA2vGetTrustWorthiness(outdir)
