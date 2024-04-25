@@ -1,4 +1,5 @@
 library(fpc)
+library(clValid)
 library(tidyverse)
 library(glue)
 library(dbscan)
@@ -8,55 +9,100 @@ library(dbscan)
 #' other
 #' @param dist_t a distance matrix of the embeddings
 #'
-hierarchichalBM <- function(dist_t, method, height_vec) {
-  trees <- list()
-  clusters <- hclust(dist_t, method = method)
-  for (height in height_vec) {
-    cut <- tryCatch(
-      expr = cutree(clusters, h = height),
-      error = \(cnd) NULL)
-    message(glue("hclust at height {height} completed"))
-    if (!is.null(cut)) {
-      trees[[as.character(height)]] <- cut
-    }
-  }
-  return(trees)
+`_hclustSkLearn` <- function(dist, height) {
+  sc <- reticulate::import("sklearn.cluster")
+  hc <- sc$AgglomerativeClustering(distance_threshold = height,
+                                   n_clusters = NULL,
+                                   linkage = "average",
+                                   metric = "precomputed")
+  membership <- hc$fit_predict(dist)
+  names(membership) <- rownames(dist)
+  return(membership + 1)
 }
 
-hdbscanBM <- function(dist_t, min_points) {
-  scans <- list()
-  for (m in min_points) {
-    hdb <- dbscan::hdbscan(dist_t, minPts = m)
-    membership <- hdb$cluster + 1 # fpc stats uses different indices
-    names(membership) <- names(hdb$coredist)
-    scans[[as.character(m)]] <- membership
-    message(glue("hdbscan at min_points {m} completed"))
-  }
-  return(scans)
+`_hclust` <- function(dist, height) {
+  clusters <- hclust(dist, method = "average")
+  cut <- NULL
+  try(cut <- cutree(clusters, h = height))
+  return(cut)
 }
 
-silhouetteScore <- function(dist_t, cluster_labels) {
+`_hdbscan` <- function(dist, min_points) {
+  hdb <- dbscan::hdbscan(dist, minPts = min_points)
+  membership <- hdb$cluster + 1 # fpc stats uses different indices
+  names(membership) <- names(hdb$coredist)
+  return(membership)
+}
+
+GRAPH_CREATED <- FALSE
+LEIDEN_METRICS <- data.frame()
+
+`_leiden` <- function(dist, partition_type) {
+  reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
+  la <- reticulate::import("leidenalg")
+  la_quality_funs <- list("Modularity" = la$ModularityVertexPartition,
+                          "RBER" = la$RBERVertexPartition,
+                          "RB" = la$RBConfigurationVertexPartition,
+                          "CPM" = la$CPMVertexPartition,
+                          "Surprise" = la$SurpriseVertexPartition)
+  if (!GRAPH_CREATED) {
+    GRAPH_CREATED <<- TRUE
+    ids <- rownames(dist)
+    py$graph <<- createGraph(as.matrix(dist), ids)
+  }
+  py$ptition <- partitionOptimise(py$graph,
+                                  la_quality_funs[[partition_type]])
+  row <- as.data.frame(partitionMetrics(py$ptition))
+  row$type <- type
+  LEIDEN_METRICS <<- dplyr::bind_rows(LEIDEN_METRICS, row)
+}
+
+#' Generic cluster benchmarking function
+#'
+#' @description
+#' @param cluster_fun A function that returns the cluster membership of the
+#' elements in dist. This should be a wrapper function on a clustering method
+#' that accepts two arguments only: the distance matrix for the clustering
+#' and the value of the parameter beign changed
+#' @param_vector Vector containing the parameters that will be varied
+benchmarker <- function(dist, clusterFun, param_vector, param_name, method_name) {
+  clusterings <- list()
+  for (p in param_vector) {
+    clusters <- clusterFun(dist, p)
+    message(glue("{method_name} at {param_name} {p} completed"))
+    clusterings[[as.character(p)]] <- clusters
+  }
+  return(clusterings)
+}
+
+sklearnInternalMetrics <- function(dist, cluster_labels, method) {
   smc <- reticulate::import("sklearn.metrics.cluster")
-  result <- smc$silhouette_score(dist_t, cluster_labels, metric = "precomputed")
-  return(result)
+  if (method == "silhouette") {
+    return(smc$silhouette_score(dist, cluster_labels, metric = "precomputed"))
+  } else if (method == "calinhara") {
+    return(smc$calinski_harabasz_score(dist, cluster_labels))
+  } else if (method == "davies_bouldin") {
+    return(smc$davies_bouldin_score(dist, cluster_labels))
+  }
 }
 
-internalMetrics <- function(dist_t, cluster_labels) {
-  stats <- list()
-  try(stats <- fpc::cluster.stats(dist_t, clustering = cluster_labels, silhouette = FALSE))
-  stats$silhouette <- silhouetteScore(dist_t, cluster_labels)
-  if (length(stats) == 0) {
-    return(NULL)
-  }
+
+internalMetricsAll <- function(dist_t, cluster_labels) {
+  stats <- list(
+    silhouette_width = sklearnInternalMetrics(dist_t, cluster_labels, "silhouette"),
+    ch = sklearnInternalMetrics(dist_t, cluster_labels, "calinhara"),
+    db = sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin"),
+    dunn = clValid::dunn(distance = dist_t, clusters = cluster_labels),
+    connectivity = clValid::connectivity(distance = sample, clusters = clusters)
+  )
   return(stats)
 }
-
 
 #' Compute clustering metrics, appending them to a list
 #'
 getClusterMetrics <- function(dist_t, cluster_labels, method, metrics, var) {
   for (n in names(cluster_labels)) {
-    current <- internalMetrics(dist_t, cluster_labels[[n]])
+    current <- internalMetricsAll(dist_t, cluster_labels[[n]])
     current$parameter <- paste0(var, "=", n)
     current$method <- method
     if (is.null(metrics)) {
@@ -82,16 +128,15 @@ getPartition <- function(py_ptition) {
 #' Save cluster memberships from a cluster list into a tb, where
 #' each column denotes the membership of a given protein under that
 #' specific clustering method
-saveClusters <- function(cluster_list, method, var, previous_saved) {
+saveClusters <- function(cluster_list, method, var, previous_saved, join_col) {
   for (cluster in names(cluster_list)) {
     colname <- glue("{method}_{var}_{cluster}")
-    dat <- cluster_list[[cluster]]
-    tb <- tibble(ProteinId = names(dat),
-                 !!colname := dat)
+    tb <- tibble(!!join_col := names(cluster_list[[cluster]]),
+                 !!colname := as.double(cluster_list[[cluster]]))
     if (is.null(previous_saved)) {
       previous_saved <- tb
     } else {
-      previous_saved <- inner_join(previous_saved, tb, by = join_by(ProteinId))
+      previous_saved <- inner_join(previous_saved, tb, by = join_by(!!join_col))
     }
   }
   return(previous_saved)
