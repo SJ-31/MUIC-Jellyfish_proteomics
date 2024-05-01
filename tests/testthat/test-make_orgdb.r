@@ -1,4 +1,5 @@
 library(glue)
+setwd("/home/shannc/Bio_SDD/MUIC_senior_project/workflow")
 source("./bin/R/make_orgdb.r")
 
 args <- list(

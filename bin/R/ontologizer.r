@@ -40,8 +40,7 @@ prep <- function(args) {
   u <- ozFormat(combined)
   # Protein universe
   io <- ozFormat(dplyr::filter(combined, ID_method == "open" |
-    ID_method == "both" |
-    !is.na(Mods)))
+    ID_method == "both"))
   # Modified proteins or identified in open search
   sa <- ozFormat(
     combined %>% dplyr::filter(inferred_by == "interpro" |

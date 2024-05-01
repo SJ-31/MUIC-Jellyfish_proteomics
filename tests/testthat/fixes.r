@@ -1,5 +1,6 @@
 library(tidyverse)
 library(glue)
+args <- list(python_source = "./bin")
 
 # Temporary fixes for bugs in `sort_interpro` script
 # - Removes duplicate ids from `matchedPeptideIds` column
@@ -57,6 +58,15 @@ fix <- function(filename, fix) {
      } else {
        tb %>% select(-Group) %>% write_tsv(., filename)
      }
+  }
+  if (fix == "sort_groups") {
+    # Fri Apr 26 14:16:53 2024
+    # Apply the correct grouping using the new unification method
+    library(reticulate)
+    source("./bin/R/combine_all.r")
+    tb <- select(tb, -Group)
+    tb <- unifyGroups(tb) %>% relocate(Group, .after = category)
+    tb %>% write_tsv(., file = filename)
   }
 }
 
