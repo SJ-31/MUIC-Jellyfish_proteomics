@@ -105,8 +105,9 @@ read_tide <- function(tide_file, mapping) {
 ##    The scan number will let you match retention time
 comet_scans <- function(comet_id_str) {
   path_removed <- gsub(".*/", "", comet_id_str)
-  name_cleared <- strsplit(path_removed, "_") %>% unlist(use.names = FALSE)
-  return(glue("{name_cleared[1]}.{name_cleared[2]}"))
+  name <- gsub("(.*)_([0-9]+)_[0-9]+_[0-9]+", "\\1.\\2",
+               path_removed)
+  return(name)
 }
 
 msfragger_scans <- function(msfragger_id_str) {

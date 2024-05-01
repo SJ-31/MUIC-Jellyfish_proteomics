@@ -27,7 +27,7 @@ prepDf <- function(annotation_file, path_to_extra) {
         unlist()
       evidence <- x["GO_evidence"]
       if (!is.na(evidence)) {
-        evidence <- str_split_1(evidence, ",") %>%
+        evidence <- str_split_1(evidence, ";") %>%
           lapply(., gsub, pattern = ":.*", replacement = "") %>%
           unlist()
       } else {

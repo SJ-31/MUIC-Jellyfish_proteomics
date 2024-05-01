@@ -57,9 +57,7 @@ def filterEmbeddings(path, tsv, criteria, id_col="ProteinId") -> tuple:
 
 def hdf5ToDf(path) -> pd.DataFrame:
     names, embeddings = getEmbeddings(path)
-    embd_df = pd.DataFrame(embeddings).rename(
-        lambda x: f"V{x}", axis="columns"
-    )
+    embd_df = pd.DataFrame(embeddings).rename(lambda x: f"V{x}", axis="columns")
     embd_df.index = names
     return embd_df
 
@@ -129,7 +127,7 @@ def shuffleSample(df, n) -> pd.DataFrame:
     return shuffled.sample(n=n, random_state=SAMPLE_SEED)
 
 
-if __name__ == "__main__" and len(sys.argv) > 1:
+if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:
     # Prevents reticulate from entering this chunk
 
     names: list

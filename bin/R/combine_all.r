@@ -165,6 +165,27 @@ organismFromHeader <- function(row) {
   return(organism)
 }
 
+unifyGroups <-  function(tb) {
+  source_python(glue("{args$python_source}/unify_groups.py"))
+  tryCatch(
+    expr = {
+      unmatched_only <- tb %>%
+        filter(nchar(ProteinGroupId) == 1) %>%
+        mutate(Group = "U")
+      has_others <- tb %>%
+        filter(nchar(ProteinGroupId) > 1) %>%
+        as.data.frame() %>%
+        py$findNewGroups() %>%
+        as_tibble()
+      bind_rows(has_others, unmatched_only)
+    },
+    error = \(cnd) {
+      print(reticulate::py_last_error())
+      stop("Caught reticulate error")
+    }
+  )
+}
+
 KEEP_AS_CHAR <- c(
   "ProteinId", "header", "NCBI_ID", "UniProtKB_ID", "organism", "ProteinGroupId",
   "lineage", "GO", "GO_evidence", "KEGG_Genes", "PANTHER", "matchedPeptideIds",
@@ -373,24 +394,7 @@ main <- function(args) {
   ## Find new groups
   if (UNIFY) {
     cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
-    source_python(glue("{args$python_source}/unify_groups.py"))
-    tryCatch(
-      expr = {
-        unmatched_only <- combined %>%
-          filter(nchar(ProteinGroupId) == 1) %>%
-          mutate(Group = "U")
-        has_others <- combined %>%
-          filter(nchar(ProteinGroupId) > 1) %>%
-          as.data.frame() %>%
-          py$findNewGroups() %>%
-          as_tibble()
-        combined <- bind_rows(has_others, unmatched_only)
-      },
-      error = \(cnd) {
-        print(reticulate::py_last_error())
-        stop("Caught reticulate error")
-      }
-    )
+    combined <- unifyGroups(combined)
     cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
   }
 

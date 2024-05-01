@@ -27,8 +27,10 @@ trustworthiness <- function(X, X_embedded, precomputed = FALSE) {
   X_embedded <- X_embedded[, c(1, 2)]
   mf <- import("sklearn.manifold")
   if (precomputed) {
-    return(mf$trustworthiness(X, X_embedded, n_neighbors = n_neighbors,
-                              metric = "precomputed"))
+    return(mf$trustworthiness(X, X_embedded,
+      n_neighbors = n_neighbors,
+      metric = "precomputed"
+    ))
   }
   return(mf$trustworthiness(X, X_embedded, n_neighbors = n_neighbors))
 }
@@ -66,33 +68,38 @@ biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
   } else {
     p <- palette
   }
-  tryCatch(expr = {
-    plotted <- ggplot(ordination_tb, aes(
-      x = .data[[x]], y = .data[[y]],
-      colour = .data[[colour_column]]
-    )) +
-      geom_point(size = 1, stroke = 1) +
-      scale_color_paletteer_d(p) +
-      theme_bw() +
-      labs(
-        title = labels$title,
-        caption = labels$caption
-      )
-  },
-           error = \(cnd) {
-             message("Error in plotting")
-             print(ordination_tb)
-             stop()
-           }
+  tryCatch(
+    expr = {
+      plotted <- ggplot(ordination_tb, aes(
+        x = .data[[x]], y = .data[[y]],
+        colour = .data[[colour_column]]
+      )) +
+        geom_point(size = 1, stroke = 1) +
+        scale_color_paletteer_d(p) +
+        theme_bw() +
+        labs(
+          title = labels$title,
+          caption = labels$caption
+        )
+    },
+    error = \(cnd) {
+      message("Error in plotting")
+      print(ordination_tb)
+      stop()
+    }
   )
   return(plotted)
 }
 
 
-PARAMS <- list(tsne = list(n_components = 2, perplexity = 40),
-               umap = list(n_components = 2,
-                           n_neighbors = 15,
-                           min_dist = 1))
+PARAMS <- list(
+  tsne = list(n_components = 2, perplexity = 40),
+  umap = list(
+    n_components = 2,
+    n_neighbors = 15,
+    min_dist = 1
+  )
+)
 PARAMS$metric <- "cosine"
 
 #' Dimensionality reduction functions for use with generic function
@@ -126,18 +133,21 @@ PARAMS$metric <- "cosine"
     dist <- purrr::pluck(data, "dist")
   }
   umap <- reticulate::import("umap")
-  fit <- umap$UMAP(metric = "precomputed",
-                   n_components = as.integer(PARAMS$umap$n_components),
-                   n_neighbors = as.integer(PARAMS$umap$n_neighbors),
-                   min_dist = PARAMS$umap$min_dist)
-  tryCatch(expr = {
-    result <- fit$fit_transform(dist) %>% as.data.frame()
-  },
-           error = \(cnd) {
-             message("UMAP fit failed, inspect problematic df as FAILED")
-             FAILED <<- dist
-             stop()
-           }
+  fit <- umap$UMAP(
+    metric = "precomputed",
+    n_components = as.integer(PARAMS$umap$n_components),
+    n_neighbors = as.integer(PARAMS$umap$n_neighbors),
+    min_dist = PARAMS$umap$min_dist
+  )
+  tryCatch(
+    expr = {
+      result <- fit$fit_transform(dist) %>% as.data.frame()
+    },
+    error = \(cnd) {
+      message("UMAP fit failed, inspect problematic df as FAILED")
+      FAILED <<- dist
+      stop()
+    }
   )
   rownames(result) <- rownames(dist)
   return(result)
@@ -151,8 +161,10 @@ simToDist <- function(matrix) {
 
 filterDistMatrix <- function(matrix, labels_to_keep) {
   colnames(matrix) <- rownames(matrix)
-  matrix <- matrix[rownames(matrix) %in% labels_to_keep,
-                   colnames(matrix) %in% labels_to_keep]
+  matrix <- matrix[
+    rownames(matrix) %in% labels_to_keep,
+    colnames(matrix) %in% labels_to_keep
+  ]
   return(matrix)
 }
 
@@ -194,10 +206,18 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
     dir.create(outdir, recursive = TRUE)
   }
   switch(technique,
-         "pca" = { DR <- `_pca` },
-         "pcoa" = { DR <- `_pcoa` },
-         "umap" = { DR <- `_umap` },
-         "tsne" = { DR <- `_tsne` }
+    "pca" = {
+      DR <- `_pca`
+    },
+    "pcoa" = {
+      DR <- `_pcoa`
+    },
+    "umap" = {
+      DR <- `_umap`
+    },
+    "tsne" = {
+      DR <- `_tsne`
+    }
   )
   metadata <- dr_data$metadata %>% dplyr::select(c(join_on, dr_data$color))
   dr_result <- DR(dr_data)
@@ -206,8 +226,10 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
     write_tsv(dr_result$ve, glue("{outdir}/{name}-var_explained.tsv"))
   } else if (technique == "pcoa") {
     reduced <- dr_result$points
-    colnames(reduced) <- map_chr(colnames(reduced),
-                                 \(x) gsub("Dim", "V", x))
+    colnames(reduced) <- map_chr(
+      colnames(reduced),
+      \(x) gsub("Dim", "V", x)
+    )
     write_tsv(dr_result$pe, glue("{outdir}/{name}-p_explained.tsv"))
   } else {
     reduced <- dr_result
@@ -221,14 +243,17 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
     trustworthiness <- trustworthiness(dr_data$embd, dr_result)
   } else {
     trustworthiness <- trustworthiness(dr_data$dist, dr_result,
-                                       precomputed = TRUE)
+      precomputed = TRUE
+    )
   }
   cat(trustworthiness, file = glue("{outdir}/{name}-trustworthiness.txt"))
 
   write_tsv(to_plot, glue("{outdir}/{name}-DR_results.tsv"))
-  return(list(to_plot = to_plot,
-              result = dr_result,
-              trustworthiness = trustworthiness))
+  return(list(
+    to_plot = to_plot,
+    result = dr_result,
+    trustworthiness = trustworthiness
+  ))
 }
 
 
@@ -238,7 +263,7 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
 #' @description
 #' Uses the function specified by "dist_func"
 distRows <- function(query, matrix, dist_func) {
-  distances <- map(rownames(matrix), \(x) dist_func(matrix[x,], query)) %>%
+  distances <- map(rownames(matrix), \(x) dist_func(matrix[x, ], query)) %>%
     `names<-`(rownames(matrix)) %>%
     unlist()
   return(distances)
@@ -261,7 +286,7 @@ nearestInDim <- function(query, k, data, dist_func, id_col) {
   }
   result_list <- list()
   for (q in seq_len(nrow(query))) {
-    result <- distRows(query[q,], points, dist_func)
+    result <- distRows(query[q, ], points, dist_func)
     result <- result %>%
       discard_at(\(x) x %in% rownames(query)) %>%
       sort() %>%
@@ -309,13 +334,13 @@ plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
     prefix <- "V"
   }
   caption_str <- ifelse(labels$caption == "", "",
-                        glue("-{gsub(' ', '_', labels$caption)}")
+    glue("-{gsub(' ', '_', labels$caption)}")
   )
   if (twod) {
     biplot <- biplotCustom(to_plot,
-                           x = glue("{prefix}1"), y = glue("{prefix}2"),
-                           colour_column = color_col,
-                           labels = labels
+      x = glue("{prefix}1"), y = glue("{prefix}2"),
+      colour_column = color_col,
+      labels = labels
     )
     mySaveFig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
   } else {
@@ -323,11 +348,11 @@ plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
     v2 <- to_plot[[glue("{prefix}2")]]
     v3 <- to_plot[[glue("{prefix}3")]]
     plotly::plot_ly(to_plot,
-                    x = v1,
-                    y = v2,
-                    z = v3, color = ~base::get(color_col),
-                    type = "scatter3d",
-                    marker = list(size = 5)
+      x = v1,
+      y = v2,
+      z = v3, color = ~ base::get(color_col),
+      type = "scatter3d",
+      marker = list(size = 5)
     ) %>% mySaveFig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
   }
   return(biplot)
@@ -339,4 +364,3 @@ labelGen <- function(analysis_name, sample_name, caption) {
     caption = caption
   ))
 }
-
