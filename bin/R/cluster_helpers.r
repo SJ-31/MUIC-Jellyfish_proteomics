@@ -11,14 +11,18 @@ library(dbscan)
 #'
 `_hclustSkLearn` <- function(dist, height) {
   sc <- reticulate::import("sklearn.cluster")
-  hc <- sc$AgglomerativeClustering(distance_threshold = height,
-                                   n_clusters = NULL,
-                                   linkage = "average",
-                                   metric = "precomputed")
+  hc <- sc$AgglomerativeClustering(
+    distance_threshold = height,
+    n_clusters = NULL,
+    linkage = "average",
+    metric = "precomputed"
+  )
   membership <- hc$fit_predict(dist)
   names(membership) <- rownames(dist)
   return(membership + 1)
 }
+
+
 
 `_hclust` <- function(dist, height) {
   clusters <- hclust(dist, method = "average")
@@ -34,27 +38,35 @@ library(dbscan)
   return(membership)
 }
 
-GRAPH_CREATED <- FALSE
-LEIDEN_METRICS <- data.frame()
 
-`_leiden` <- function(dist, partition_type) {
-  reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
-  la <- reticulate::import("leidenalg")
-  la_quality_funs <- list("Modularity" = la$ModularityVertexPartition,
-                          "RBER" = la$RBERVertexPartition,
-                          "RB" = la$RBConfigurationVertexPartition,
-                          "CPM" = la$CPMVertexPartition,
-                          "Surprise" = la$SurpriseVertexPartition)
+GRAPH_CREATED <- FALSE
+leidenCreateGraph <- function(dist) {
   if (!GRAPH_CREATED) {
     GRAPH_CREATED <<- TRUE
     ids <- rownames(dist)
-    py$graph <<- createGraph(as.matrix(dist), ids)
   }
-  py$ptition <- partitionOptimise(py$graph,
-                                  la_quality_funs[[partition_type]])
+  return(createGraph(as.matrix(dist), ids))
+}
+
+LEIDEN_METRICS <- data.frame()
+`_leiden` <- function(dist, partition_type) {
+  if (!GRAPH_CREATED) {
+    stop("Need to create graph first!")
+  }
+  reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
+  la <- reticulate::import("leidenalg")
+  la_quality_funs <- list(
+    "Modularity" = la$ModularityVertexPartition,
+    "RBER" = la$RBERVertexPartition,
+    "RB" = la$RBConfigurationVertexPartition,
+    "CPM" = la$CPMVertexPartition,
+    "Surprise" = la$SurpriseVertexPartition
+  )
+  py$ptition <- partitionOptimise(py$graph, la_quality_funs[[partition_type]])
   row <- as.data.frame(partitionMetrics(py$ptition))
-  row$type <- type
+  row$type <- partition_type
   LEIDEN_METRICS <<- dplyr::bind_rows(LEIDEN_METRICS, row)
+  return(getPartition(py$ptition))
 }
 
 #' Generic cluster benchmarking function
@@ -86,14 +98,42 @@ sklearnInternalMetrics <- function(dist, cluster_labels, method) {
   }
 }
 
+showError <- function(expression, if_failed = NA, label = NULL) {
+  tryCatch(expr = expression, error = \(cnd) {
+    if (!is.null(label)) {
+      warn <- glue("Ignored error: {label}")
+    } else {
+      warn <- "Ignored error"
+    }
+    message(glue("------\n{warn}\n\tCall: "))
+    message(conditionCall(cnd))
+    message("------")
+    return(if_failed)
+  })
+}
+
+showError(log("3"))
 
 internalMetricsAll <- function(dist_t, cluster_labels) {
+  n_unique_labels <- length(unique(cluster_labels))
+  if (n_unique_labels == 1) { # don't bother when clustering failed
+    return(NULL)
+  } else if (n_unique_labels == length(rownames(dist_t))) {
+    return(NULL) # Another way the clustering fails is if every
+    # element is in a unique cluster
+  }
+  dunn <- showError(clValid::dunn(distance = dist_t, clusters = cluster_labels),
+    label = "dunn calculation"
+  )
+  connectivity <- showError(clValid::connectivity(distance = sample, clusters = clusters),
+    label = "connectivity calculation"
+  )
   stats <- list(
     silhouette_width = sklearnInternalMetrics(dist_t, cluster_labels, "silhouette"),
-    ch = sklearnInternalMetrics(dist_t, cluster_labels, "calinhara"),
-    db = sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin"),
-    dunn = clValid::dunn(distance = dist_t, clusters = cluster_labels),
-    connectivity = clValid::connectivity(distance = sample, clusters = clusters)
+    calinhara = sklearnInternalMetrics(dist_t, cluster_labels, "calinhara"),
+    davies_bouldin = sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin"),
+    dunn = dunn,
+    connectivity = connectivity
   )
   return(stats)
 }
@@ -103,6 +143,9 @@ internalMetricsAll <- function(dist_t, cluster_labels) {
 getClusterMetrics <- function(dist_t, cluster_labels, method, metrics, var) {
   for (n in names(cluster_labels)) {
     current <- internalMetricsAll(dist_t, cluster_labels[[n]])
+    if (is.null(current)) {
+      next
+    }
     current$parameter <- paste0(var, "=", n)
     current$method <- method
     if (is.null(metrics)) {
@@ -131,8 +174,10 @@ getPartition <- function(py_ptition) {
 saveClusters <- function(cluster_list, method, var, previous_saved, join_col) {
   for (cluster in names(cluster_list)) {
     colname <- glue("{method}_{var}_{cluster}")
-    tb <- tibble(!!join_col := names(cluster_list[[cluster]]),
-                 !!colname := as.double(cluster_list[[cluster]]))
+    tb <- tibble(
+      !!join_col := names(cluster_list[[cluster]]),
+      !!colname := as.double(cluster_list[[cluster]])
+    )
     if (is.null(previous_saved)) {
       previous_saved <- tb
     } else {
