@@ -36,9 +36,10 @@ orgdb_pth <- "./output/org.Cindrasaksajiae.eg.db"
 db_name <- gsub(".*\\/", "", orgdb_pth, fixed = FALSE)
 
 DIST_TYPE <- "semantic"
-EMBEDDING_TYPE <- "go"
+EMBEDDING_TYPE <- "protein"
 # LOG
 # 2024-05-01 Finished with dist_type = "a2v" and embedding_type = "go"
+# 2024-05-01 Finished with dist_type = "semantic" and embedding_type = "go"
 
 d <- goData(args$combined_results)
 gos <- d$go_vec$sample

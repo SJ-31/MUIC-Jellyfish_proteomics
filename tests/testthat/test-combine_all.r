@@ -3,7 +3,7 @@ library(testthat)
 library(ggplot2)
 source("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R/combine_all.r")
 
-setwd("/home/shannc/Downloads/combine_error")
+setwd("/home/shannc/Downloads/thesis_testzone/combine_error")
 
 args <- list(
   eggnog = list.files(".", pattern = "eggnog_matched.tsv"),
