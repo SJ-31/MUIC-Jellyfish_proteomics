@@ -119,40 +119,6 @@ appendAllList <- function(lst, to_append) {
   return(new)
 }
 
-
-# resolveAlignment2 <- function(seq1, seq2) {
-#   if (length(seq1) > 1) {
-#     extra <- seq1[[2]]
-#   } else {
-#     extra <- NULL
-#   }
-#   if (class(seq1) == "list") {
-#     seq1 <- seq1[[1]]
-#   }
-#   algns <- list()
-#   split1 <- str_split_1(seq1, "")
-#   split2 <- str_split_1(seq2, "")
-#   sapply(seq_along(split1), \(x) {
-#     if (split1[x] == "-" && split2[x] == "-") {
-#       algns <<- appendAllList(algns, "-")
-#     } else if (split1[x] != "-" && split2[x] == "-") {
-#       algns <<- appendAllList(algns, split1[x])
-#     } else if (split1[x] == "-" && split2[x] != "-") {
-#       algns <<- appendAllList(algns, split2[x])
-#     } else if (split1[x] == split2[x]) {
-#       algns <<- appendAllList(algns, split2[x])
-#     } else {
-#       if (length(algns) == 1) {
-#         algns[[2]] <<- algns[[1]]
-#       }
-#       algns <<- appendAllList(algns, c(split1[x], split2[x]))
-#     }
-#   })
-#   algns <- c(algns, extra)
-#   algns <- lapply(algns, paste0, collapse = "")
-#   return(algns)
-# }
-
 coverage <- function(protein, peps) {
   # Using alignment percent identity for the coverage
   # calculation takes into account gaps and mismatches
@@ -186,20 +152,31 @@ coverage <- function(protein, peps) {
     total <- nchar(vis)
     nmatch <- (total - str_count(vis, "-")) / total
   }
-  result <- tibble(
-    pcoverage_nmatch = nmatch,
-    pcoverage_align = sum_cov / chars,
-    alignment = vis
+  result <- list(
+    tb = tibble(
+      pcoverage_nmatch = nmatch,
+      pcoverage_align = sum_cov / chars,
+      alignment = vis
+    ),
+    seqs = aligned(align)
   )
   return(result)
 }
 
+
+ALIGNMENT_TB <- tibble()
 appliedCoverage <- function(row) {
   peps <- str_split_1(row[["unique_peptides"]], ";")
   prot <- row[["seq"]]
-  return(coverage(prot, peps))
+  cov <- coverage(prot, peps)
+  alignment_row <- tibble(
+    alignment = purrr::map_chr(cov$seqs, as.character),
+    ProteinId = row[["ProteinId"]],
+    UniProtKB_ID = row[["UniProtKB_ID"]]
+  )
+  ALIGNMENT_TB <<- dplyr::bind_rows(ALIGNMENT_TB, alignment_row)
+  return(cov$tb)
 }
-
 
 coverageCalc <- function(prot_df) {
   # Coverage calculation will only be performed on full-length proteins
@@ -210,11 +187,10 @@ coverageCalc <- function(prot_df) {
   return(cov_info)
 }
 
-
 #' Split the dataframe to take advantage of parallelism
 #'
 splitForCoverage <- function(tb, path) {
-  tb <- dplyr::filter(tb, !is.na(seq)) %>% dplyr::select(c(ProteinId, unique_peptides, seq))
+  tb <- dplyr::filter(tb, !is.na(seq)) %>% dplyr::select(c(ProteinId, unique_peptides, seq, UniProtKB_ID))
   size <- 500
   num_rows <- nrow(tb)
   window <- c(0, size)
@@ -230,16 +206,19 @@ splitForCoverage <- function(tb, path) {
   }
 }
 
-mergeCoverage <- function(tb_path, merge_into) {
-  coverage <- list.files(tb_path,
-    full.names = TRUE,
-    pattern = ".*_calculated.tsv"
-  ) %>%
+mergeWithPattern <- function(path, pattern) {
+  list.files(path, full.names = TRUE, pattern = pattern) %>%
     map(., read_tsv) %>%
-    bind_rows() %>%
+    dplyr::bind_rows()
+}
+
+mergeCoverage <- function(tb_path, merge_into) {
+  coverage <- mergeWithPattern(tb_path, ".*_calculated.tsv") %>%
+    distinct()
+  alignments <- mergeWithPattern(tb_path, ".*_alignments.tsv") %>%
     distinct()
   tb <- inner_join(merge_into, coverage, by = join_by(ProteinId))
-  return(tb)
+  return(list(coverage = tb, alignment = alignments))
 }
 
 if (sys.nframe() == 0) {
@@ -258,7 +237,10 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-s", "--split"),
     action = "store_true", default = FALSE
   )
-  parser <- add_option(parser, "--alignment_file",
+  parser <- add_option(parser, "--alignment_fasta",
+    type = "character"
+  )
+  parser <- add_option(parser, "--alignment_tsv",
     type = "character"
   )
   parser <- add_option(parser, c("-c", "--calculate"),
@@ -277,13 +259,19 @@ if (sys.nframe() == 0) {
       "\\.tsv",
       "_calculated.tsv", args$input
     )
+    alignment_file <- gsub(
+      "\\.tsv",
+      "_alignments.tsv", args$input
+    )
+    write_tsv(ALIGNMENT_TB, alignment_file)
     write_tsv(calculated, new_name)
   } else if (args$merge) {
-    merged <- mergeCoverage(args$input_path, input)
-    apply(dplyr::filter(merged, !is.na(seq)), 1, writeAlignments,
-      file_name = args$alignment_file
+    m <- mergeCoverage(args$input_path, input)
+    apply(dplyr::filter(m$coverage, !is.na(seq)), 1, writeAlignments,
+      file_name = args$alignment_fasta
     )
-    merged <- dplyr::select(merged, -alignment)
+    merged <- dplyr::select(m$coverage, -alignment)
     write_tsv(merged, args$output_path)
+    write_tsv(m$alignment, args$alignment_tsv)
   }
 }
