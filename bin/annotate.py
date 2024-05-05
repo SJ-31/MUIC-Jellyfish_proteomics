@@ -19,9 +19,7 @@ from requests.adapters import HTTPAdapter, Retry
 POLLING_INTERVAL = 3
 API_URL = "https://rest.uniprot.org"
 
-retries = Retry(
-    total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504]
-)
+retries = Retry(total=5, backoff_factor=0.25, status_forcelist=[500, 502, 503, 504])
 session = requests.Session()
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
@@ -101,11 +99,7 @@ def decode_results(response, file_format, compressed):
             j = json.loads(decompressed.decode("utf-8"))
             return j
         elif file_format == "tsv":
-            return [
-                line
-                for line in decompressed.decode("utf-8").split("\n")
-                if line
-            ]
+            return [line for line in decompressed.decode("utf-8").split("\n") if line]
         elif file_format == "xlsx":
             return [decompressed]
         elif file_format == "xml":
@@ -137,9 +131,7 @@ def get_id_mapping_results_search(url, file_format):
         size = 500
         query["size"] = size
     compressed = (
-        query["compressed"][0].lower() == "true"
-        if "compressed" in query
-        else False
+        query["compressed"][0].lower() == "true" if "compressed" in query else False
     )
     parsed = parsed._replace(query=urlencode(query, doseq=True))
     url = parsed.geturl()
@@ -205,9 +197,7 @@ def map_list(id_list, origin_db: str):
     Return dictionary containing metadata for each id, as well as any failed
         ids
     """
-    job_id = submit_id_mapping(
-        from_db=origin_db, to_db="UniProtKB", ids=id_list
-    )
+    job_id = submit_id_mapping(from_db=origin_db, to_db="UniProtKB", ids=id_list)
     anno_dict: dict = {
         "query": [],
         "UniProtKB_ID": [],
@@ -257,9 +247,7 @@ def map_list(id_list, origin_db: str):
             go = from_db("GO", databases)
             anno_dict["GO"].append(go["GO"])
             anno_dict["GO_evidence"].append(go["evidence"])
-            anno_dict["PANTHER"].append(
-                from_db("PANTHER", databases)["PANTHER"]
-            )
+            anno_dict["PANTHER"].append(from_db("PANTHER", databases)["PANTHER"])
         else:
             for key in [
                 "KEGG_Genes",
@@ -294,9 +282,7 @@ def idFromHeader(row):
 def writeFasta(needs_annotating: pd.DataFrame, file_name: str):
     query_string = ""
     for row in needs_annotating.iterrows():
-        query_string = (
-            query_string + f'>{row[1]["ProteinId"]}\n{row[1]["seq"]}\n'
-        )
+        query_string = query_string + f'>{row[1]["ProteinId"]}\n{row[1]["seq"]}\n'
     with open(file_name, "w") as a:
         a.write(query_string)
 
@@ -369,9 +355,9 @@ def anno(args: dict):
         needs_annotating = to_map.merge(needs_annotating, on="ProteinId").drop(
             "dbId", axis="columns"
         )
-        needs_annotating_headers = needs_annotating.apply(
-            idFromHeader, axis=1
-        ).apply(lambda x: x[1])
+        needs_annotating_headers = needs_annotating.apply(idFromHeader, axis=1).apply(
+            lambda x: x[1]
+        )
         needs_annotating["NCBI_ID"] = needs_annotating_headers
         needs_annotating_ids = needs_annotating["ProteinId"]
         writeFasta(needs_annotating, "needs_annotating.fasta")
@@ -388,9 +374,7 @@ def anno(args: dict):
         .rename({"query": "NCBI_ID", "length_x": "length"}, axis="columns")
     )
     final = pd.concat([final, needs_annotating])
-    final.drop_duplicates(
-        subset="ProteinId", inplace=True
-    )  # Online databases can
+    final.drop_duplicates(subset="ProteinId", inplace=True)  # Online databases can
     # sometimes have multiple entries for the same protein
     if not needs_annotating_ids.empty:
         final[final["ProteinId"].isin(needs_annotating_ids)].drop(
@@ -417,9 +401,9 @@ def mergeAnnotatedEggnog(args):
         lambda x: x[1]
     )
     anno = pd.read_csv(args["more_anno"], sep="\t")
-    unwanted = set(
-        eggnog_anno.columns[eggnog_anno.columns.isin(anno.columns)]
-    ) - {"ProteinId"}
+    unwanted = set(eggnog_anno.columns[eggnog_anno.columns.isin(anno.columns)]) - {
+        "ProteinId"
+    }
     get_eggnog = anno.drop(list(unwanted), axis="columns").merge(
         eggnog_anno, on="ProteinId"
     )
@@ -439,24 +423,18 @@ def mergeAnnotatedInterpro(args):
     command = "Rscript -e 'source(\"{r_source}/sort_interpro.r\")'".format(
         r_source=args["r_source"]
     )
-    command = command + " -e 'df <- read_tsv(\"{input}\")'".format(
-        input=args["input"]
-    )
+    command = command + " -e 'df <- read_tsv(\"{input}\")'".format(input=args["input"])
     command = command + " -e 'cleaned <- clean_annotations(df)'"
     command = command + " -e 'write_tsv(cleaned, \"sorted.tsv\")'"
     subprocess.run(command, shell=True)
     ip_sorted = pd.read_csv("./sorted.tsv", sep="\t")
     anno = pd.read_csv(args["more_anno"], sep="\t", low_memory=False)
     with open(args["interpro_query"], "r") as u:
-        query_headers = [
-            u.strip().replace(">", "") for u in u.readlines() if ">" in u
-        ]
+        query_headers = [u.strip().replace(">", "") for u in u.readlines() if ">" in u]
         query_headers = pd.Series(query_headers)
     unannotated = anno[anno["ProteinId"].isin(query_headers)]
     # Merge with metadata and drop redundant columns
-    joined = ip_sorted.merge(
-        unannotated, left_on="query", right_on="ProteinId"
-    )
+    joined = ip_sorted.merge(unannotated, left_on="query", right_on="ProteinId")
     duplicate_cols_x = joined.columns[joined.columns.str.contains("_x")]
     underscore_removed = [re.sub("_[xy]", "", c) for c in duplicate_cols_x]
     joined = joined.rename(
@@ -464,9 +442,7 @@ def mergeAnnotatedInterpro(args):
     ).drop([re.sub("_x", "_y", c) for c in duplicate_cols_x], axis="columns")
 
     annotated = anno[~(anno["ProteinId"].isin(query_headers))]
-    still_left = unannotated[
-        ~unannotated["ProteinId"].isin(joined["ProteinId"])
-    ]
+    still_left = unannotated[~unannotated["ProteinId"].isin(joined["ProteinId"])]
     joined["inferred_by"] = "interpro"
     # Remaining proteins that are still unannotated
     writeFasta(still_left, "still_unannotated.fasta")

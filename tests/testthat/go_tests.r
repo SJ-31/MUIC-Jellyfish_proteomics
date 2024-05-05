@@ -17,8 +17,8 @@ args <- list(
   combined_results = glue("{wd}/results/C_indra_A/1-First_pass/C_indra_all_wcoverage.tsv"),
   ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
   embedding_path = glue("{wd}/data/reference/go_embedded.npz"),
-  dist_path = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"
-  ))
+  dist_path = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5")
+)
 
 ## Load samples
 source("./bin/R/GO_helpers.r")
@@ -39,7 +39,8 @@ sample_name <- "C_indra"
 
 
 d <- goData(args$combined_results,
-            onto_path = args$ontologizer_path)
+  onto_path = args$ontologizer_path
+)
 tb <- read_tsv(args$combined_results)
 
 
@@ -49,4 +50,4 @@ flattenJoined <- function(vec, split) {
     lapply(., \(x) str_split_1(x, split)) %>%
     unlist()
 }
-
+?emapplot
