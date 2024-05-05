@@ -76,7 +76,7 @@ def getSaved(embd_path, dist_path) -> dict:
     with h5py.File(dist_path, "r") as dfile:
         output["euclidean"] = pd.DataFrame(dfile["metric/euclidean"])
         output["euclidean"].index = embd_df.index
-        output["cosine"] = pd.DataFrame(dfile["metric/euclidean"])
+        output["cosine"] = pd.DataFrame(dfile["metric/cosine"])
         output["cosine"].index = embd_df.index
     return output
 
@@ -112,7 +112,7 @@ def writeDistances(embeddings, names, file) -> None:
     embeddings = embeddings.astype(np.float32)
     from sklearn import metrics
 
-    euclidean = metrics.pairwise_distances(embeddings, metric="euclidean")
+    euclidean = metrics.pairwise_distances(embeddings, metric="sqeuclidean")
     cosine = metrics.pairwise_distances(embeddings, metric="cosine")
     with h5py.File(file, "w") as dfile:
         dfile.create_dataset("metric/euclidean", data=euclidean)
