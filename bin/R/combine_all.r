@@ -56,7 +56,8 @@ goCategorize <- function(go_list, original_category) {
 }
 
 
-#' Count of number unique GO terms assigned to each protein, and determine the maximum semantic value of the GO terms of that protein
+#' Count of number unique GO terms assigned to each protein, and
+#' determine the maximum semantic value of the GO terms of that protein
 #'
 goCount <- function(go_vector) {
   return(lapply(go_vector, \(x) {
@@ -69,6 +70,22 @@ goCount <- function(go_vector) {
     }
     return(row)
   }) %>% bind_rows())
+}
+
+#' Correct the "NCBI_ID" entry for database proteins that were originally derived
+#' from UniProt
+correctIds <- function(tb) {
+  from_uniprot <- local({
+    mapped <- map2_lgl(
+      # Due to how the NCBI_ID column was generated, proteins from
+      # UniProt would have the same entry in these two columns
+      tb$UniProtKB_ID, tb$NCBI_ID,
+      \(x, y) str_detect(x, y)
+    )
+    replace_na(mapped, FALSE)
+  })
+  tb[from_uniprot, ]$NCBI_ID <- NA
+  return(tb)
 }
 
 #' Assign a protein into a loose category
@@ -112,13 +129,13 @@ meanTop3 <- function(tb, quant_name) {
         summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
       joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ";")
       id <- x[["ProteinId"]]
-      return(top_three[1,] %>%
-               select(-contains(quant_name)) %>%
-               mutate(.,
-                      matchedPeptideIds = joined_ids,
-                      ProteinId = id
-               ) %>%
-               bind_cols(means))
+      return(top_three[1, ] %>%
+        select(-contains(quant_name)) %>%
+        mutate(.,
+          matchedPeptideIds = joined_ids,
+          ProteinId = id
+        ) %>%
+        bind_cols(means))
     }) %>%
     bind_rows()
   return(tb)
@@ -140,7 +157,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   }
   full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds))
   full_proteins <- left_join(full_proteins, quant_tb,
-                             by = join_by(x$ProteinId == y$ProteinId)
+    by = join_by(x$ProteinId == y$ProteinId)
   )
   bound <- bind_rows(full_proteins, has_multiple)
   calcs <- bound %>%
@@ -165,7 +182,7 @@ organismFromHeader <- function(row) {
   return(organism)
 }
 
-unifyGroups <-  function(tb) {
+unifyGroups <- function(tb) {
   source_python(glue("{args$python_source}/unify_groups.py"))
   tryCatch(
     expr = {
@@ -236,8 +253,8 @@ getEvidence <- function(row) {
 
 checkMatchedPeps <- function(tb) {
   return(tb$matchedPeptideIds %>%
-           map_lgl(\(x) grepl("P", x)) %>%
-           any())
+    map_lgl(\(x) grepl("P", x)) %>%
+    any())
 }
 
 
@@ -254,6 +271,7 @@ main <- function(args) {
     combined <- downloads
   }
   combined[combined == ""] <- NA
+  combined <- correctIds(combined)
   combined <- combined %>% mutate(
     num_peps = sapply(peptideIds, function(x) {
       return(str_count(x, ";") + 1)
@@ -266,15 +284,10 @@ main <- function(args) {
       }
     }, USE.NAMES = FALSE)
   )
-  redundant <- sapply(colnames(combined), function(x) {
-    all(is.na(combined[[x]]))
-  })
-
 
   combined <- combined %>%
-    select(-names(redundant[redundant])) %>%
-    mutate_all(~replace(., . == "-", NA)) %>%
-    mutate_all(~replace(., . == NaN, NA)) %>%
+    mutate_all(~ replace(., . == "-", NA)) %>%
+    mutate_all(~ replace(., . == NaN, NA)) %>%
     mutate(
       GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
@@ -287,8 +300,10 @@ main <- function(args) {
       num_unique_peps = sapply(unique_peptides, \(x) {
         return(str_count(x, ";") + 1)
       }, USE.NAMES = FALSE),
-      ID_method = purrr::map_chr(ID_method, \(x)
-        ifelse(grepl(";", x), "both", x))
+      ID_method = purrr::map_chr(
+        ID_method,
+        \(x) ifelse(grepl(";", x), "both", x)
+      )
     )
 
 
@@ -302,6 +317,16 @@ main <- function(args) {
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
+
+  redundant <- local({
+    cols <- sapply(
+      colnames(combined),
+      function(x) all(is.na(combined[[x]]))
+    )
+    names(cols[cols])
+  })
+
+  combined <- select(combined, -all_of(redundant))
 
   ## Map pfam domains to GO and get GO IDs
   if (MAP_PFAMS) {
@@ -370,23 +395,13 @@ main <- function(args) {
     combined <- sortModsMain(combined, FALSE)
   }
 
-  ## Calculate empai using python script
-  # if (args$empai) {
-  #   print("Begin emPAI")
-  #   source_python(glue("{args$python_source}/emPAI.py"))
-  #   combined <- py$calculate_emPAI(
-  #     df = as.data.frame(combined),
-  #     m_range = list(360L, 1600L)
-  #   ) %>% as_tibble()
-  #   print("emPAI completed")
-  # }
-
-
   ## Merge with quantification data
   if (MERGE_QUANT) {
     cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
-    combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>% mutate(across(contains("directlfq"), log2))
-    combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>% mutate(across(contains("flashlfq"), log2))
+    combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>%
+      mutate(across(contains("directlfq"), log2))
+    combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>%
+      mutate(across(contains("flashlfq"), log2))
     combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
     cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
   }
@@ -407,7 +422,7 @@ main <- function(args) {
       MatchedPeptideIds = matchedPeptideIds
     ) %>%
     relocate(where(is.numeric),
-             .after = where(is.character)
+      .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
     relocate(c("peptideIds", "SO_seq", "seq"), .after = where(is.numeric)) %>%
@@ -441,15 +456,10 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--ec2go", type = "character")
   parser <- add_option(parser, "--pfam2go", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
-  parser <- add_option(parser, "--empai",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
-  )
   parser <- add_option(parser, "--sort_mods",
-                       type = "character",
-                       default = TRUE,
-                       action = "store_true"
+    type = "character",
+    default = TRUE,
+    action = "store_true"
   )
   parser <- add_option(parser, "--r_source", type = "character")
   parser <- add_option(parser, "--python_source", type = "character")
