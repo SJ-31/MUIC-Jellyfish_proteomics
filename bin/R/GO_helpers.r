@@ -30,15 +30,15 @@ goOffspring <- function(term) {
     ontology <- query@Ontology
     secondary <- query@Secondary
     offspring <- switch(ontology,
-                        CC = {
-                          GOCCOFFSPRING[[term]]
-                        },
-                        BP = {
-                          GOBPOFFSPRING[[term]]
-                        },
-                        MF = {
-                          GOMFOFFSPRING[[term]]
-                        }
+      CC = {
+        GOCCOFFSPRING[[term]]
+      },
+      BP = {
+        GOBPOFFSPRING[[term]]
+      },
+      MF = {
+        GOMFOFFSPRING[[term]]
+      }
     )
     return(c(secondary, offspring))
   }
@@ -89,8 +89,8 @@ df2Tb <- function(df, first_col) {
 #' Converts a matrix into a tibble, moving the row names into a column
 m2Tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
-           tibble::rownames_to_column(var = first_col) %>%
-           as_tibble())
+    tibble::rownames_to_column(var = first_col) %>%
+    as_tibble())
 }
 
 #' Saves both 3d or 2d plots
@@ -112,16 +112,22 @@ mySaveFig <- function(fig, filename) {
 #' are sorted by length and selection is performed at regular intervals
 #' so that the taxon tibble has the same dimensions as the sample tb
 adjustProteinNumbers <- function(target_num, tb) {
-  nested <- tb %>% group_by(Taxon) %>% nest()
+  nested <- tb %>%
+    group_by(Taxon) %>%
+    nest()
   picked <- nested %>%
-    apply(1,
-          \(x) {
-            data <- x$data
-            nrows <- nrow(data)
-            if (nrows <= target_num) return(data);
-            data <- data[sample(target_num),]
-            return(slice(data, 1:target_num))
-          }) %>%
+    apply(
+      1,
+      \(x) {
+        data <- x$data
+        nrows <- nrow(data)
+        if (nrows <= target_num) {
+          return(data)
+        }
+        data <- data[sample(target_num), ]
+        return(slice(data, 1:target_num))
+      }
+    ) %>%
     bind_rows()
   return(picked)
 }
@@ -186,16 +192,17 @@ prepOrgDb <- function(path) {
 #'  Returns three types of results: the matrix of representative go terms,
 #'  the similarity matrix and the associated scatter plot
 #'  There are three for each ontology in the GO
-#' Wtihout scores, it relies on term uniqueness
+#' Without scores, it relies on term uniqueness
+#' @param go_list A named vector (names are GO terms) of scores
 reduceGOList <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
-    rrvgo::calculateSimMatrix(go_list,
-                              orgdb = db_name,
-                              keytype = "GID",
-                              ont = x,
-                              method = "Wang" # Because the IC-based methods are based on the
-                              # specific corpus of GO terms, this can introduce bias
-                              # Wang's graph-based method does not have this limitation
+    rrvgo::calculateSimMatrix(names(go_list),
+      orgdb = DB_NAME,
+      keytype = "GID",
+      ont = x,
+      method = "Wang" # Because the IC-based methods are based on the
+      # specific corpus of GO terms, this can introduce bias
+      # Wang's graph-based method does not have this limitation
     )
   })
   names(sims) <- ONTOLOGIES
@@ -204,7 +211,8 @@ reduceGOList <- function(go_list) {
     close <- myReduceSimMatrix(
       x,
       threshold = 0.9,
-      orgdb = db_name,
+      orgdb = DB_NAME,
+      scores = go_list,
       keytype = "GID"
     )
     return(as_tibble(close))
@@ -212,6 +220,7 @@ reduceGOList <- function(go_list) {
   names(reduce_matrices) <- ONTOLOGIES
   plots <- lapply(ONTOLOGIES, \(x) {
     scatterPlot(sims[[x]], reduce_matrices[[x]])
+    # Applies PCoA to the similarity matrix
   }) %>% `names<-`(ONTOLOGIES)
   return(list(
     reduced_matrix = reduce_matrices,
@@ -222,7 +231,8 @@ reduceGOList <- function(go_list) {
 
 termOntology <- function(term) {
   ontology <- ifelse(is.null(GOTERM[[term]]),
-                     "NONE", GOTERM[[term]]@Ontology)
+    "NONE", GOTERM[[term]]@Ontology
+  )
   return(ontology)
 }
 
@@ -241,17 +251,20 @@ ontoResults <- function(ontologizer_dir) {
     unlist()
   names(onto_files) <- onto_files %>%
     lapply(., str_match,
-           pattern = ".*-(.*)\\.txt"
+      pattern = ".*-(.*)\\.txt"
     ) %>%
     lapply(., \(x) x[, 2]) %>%
     unlist()
   onto_files <- lapply(onto_files, readr::read_tsv)
-  onto_files$unknown_to_db_GO <- onto_files$unknown_to_db %>%
-    filter(!is.trivial) %>%
-    goVector(go_column = "ID")
-  onto_files$id_with_open_GO <- onto_files$id_with_open %>%
-    filter(!is.trivial) %>%
-    goVector(go_column = "ID")
+  getNamedGO <- function(tb) {
+    filtered <- dplyr::filter(tb, !is.trivial)
+    filtered %>%
+      purrr::pluck("p.adjusted") %>%
+      `names<-`(filtered$ID)
+  }
+  # Named vector of GO terms where values are adjusted p_values
+  onto_files$unknown_to_db_GO <- getNamedGO(onto_files$unknown_to_db)
+  onto_files$id_with_open_GO <- getNamedGO(onto_files$id_with_open)
   return(onto_files)
 }
 
@@ -262,9 +275,11 @@ goInfoTb <- function(go_vector, go_path, go_slim_path) {
   tb <- lapply(go_vector, \(x) {
     slims <- getGoSlim(x, go_path, go_slim_path)
     direct <- ifelse(is_empty(slims$direct), NA, slims$direct[1])
-    row <- tibble(id = x, term = NA,
-                  definition = NA, ontology = NA,
-                  slims = direct)
+    row <- tibble(
+      id = x, term = NA,
+      definition = NA, ontology = NA,
+      slims = direct
+    )
     find_info <- GOTERM[[x]]
     if (is.null(find_info)) {
       return(row)
@@ -283,13 +298,17 @@ getUniprotData <- function(uniprot_tsv_path) {
   go_tb_all <- tb %>%
     group_by(Taxon) %>%
     nest() %>%
-    apply(1,
-          \(x) {
-            taxon <- x$Taxon
-            cur <- x$data
-            return(tibble(GO_IDs = goVector(cur, go_column = "GO_IDs"),
-                          Taxon = taxon))
-          }) %>%
+    apply(
+      1,
+      \(x) {
+        taxon <- x$Taxon
+        cur <- x$data
+        return(tibble(
+          GO_IDs = goVector(cur, go_column = "GO_IDs"),
+          Taxon = taxon
+        ))
+      }
+    ) %>%
     bind_rows()
   all_gos <- go_tb_all$GO_IDs %>% unique()
   prot_go_map <- tb$GO_IDs %>%
@@ -327,8 +346,8 @@ goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
       nest()
     taxa_counts <- go_tb_all$Taxon %>% table()
     go_tb_all <- lapply(seq(nrow(nested)), \(x) {
-      go_id <- nested[x,]$GO_IDs
-      cur_nest <- nested[x,]$data[[1]] %>% table()
+      go_id <- nested[x, ]$GO_IDs
+      cur_nest <- nested[x, ]$data[[1]] %>% table()
       normalized <- cur_nest / taxa_counts[names(taxa_counts) %in% names(cur_nest)]
       if (dim(normalized) == 0) {
         return(tibble())
@@ -491,35 +510,68 @@ fgseaWrapper <- function(quant, tb, gene_sets) {
   return(list(result = fgsea, ranked = ranked))
 }
 
+# See here for more plotting
+# https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html
 plotFgsea <- function(gene_sets, ranked_list, fgsea_result) {
   fgsea_plots <- list()
-  fgsea_plots$ALL <- plotGseaTable(gene_sets,
-                                   ranked_list, fgsea_result)
-  for (n in seq(nrow(fgsea_result))) {
-    set <- fgsea_result[n,]$pathway
-    padjust <- round(fgsea_result[n,]$padj, 6)
-    fgsea_plots[[set]] <- plotEnrichment(gene_sets[[set]], ranked_list) + labs(title = glue("Set: {set}, adjusted p-value = {padjust}"))
+  fgsea_plots$ALL <- plotGseaTable(
+    gene_sets,
+    ranked_list, fgsea_result
+  )
+  for (n in seq_len(nrow(fgsea_result))) {
+    set <- fgsea_result[n, ]$pathway
+    padjust <- round(fgsea_result[n, ]$padj, 6)
+    fgsea_plots[[set]] <- plotEnrichment(gene_sets[[set]], ranked_list) +
+      labs(title = glue("Set: {set}, adjusted p-value = {padjust}"))
   }
   return(fgsea_plots)
 }
 
 GO_DAG <- NULL
 GO_SLIM_DAG <- NULL
-
-getGoSlim <- function(go_term, go_path, go_slim_path) {
+getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULl) {
   op <- reticulate::import("goatools.obo_parser")
   ms <- reticulate::import("goatools.mapslim")
   if (is.null(GO_DAG)) {
     GO_DAG <<- op$GODag(go_path)
     GO_SLIM_DAG <<- op$GODag(go_slim_path)
   }
-  py$slims <- NULL
-  try(expr = py$slims <- ms$mapslim(go_term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG))
-  if (is.null(py$slims)) {
-    return(list(direct = NA, all = NA))
+  getOneSlim <- function(term) {
+    py$slims <- NULL
+    try(expr = py$slims <- ms$mapslim(term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG))
+    if (is.null(py$slims)) {
+      return(list(direct = NA, all = NA))
+    }
+    reticulate::py_run_string("direct = list(slims[0])")
+    reticulate::py_run_string("all = list(slims[1])")
+    result <- list(direct = py$direct, all = py$all)
+    if (!is.null(which) && which == "direct") {
+      return(result$direct)
+    } else if (!is.null(which) && which == "all") {
+      return(result$all)
+    } else {
+      return(result)
+    }
   }
-  reticulate::py_run_string("direct = list(slims[0])")
-  reticulate::py_run_string("all = list(slims[1])")
-  return(list(direct = py$direct, all = py$all))
+  slims <- lapply(go_terms, getOneSlim) %>% `names<-`(go_terms)
+  return(slims)
 }
 
+#' Split a string of GO terms joined by ";" and return their slims joined together
+slimsFromGoString <- function(term_str) {
+  if (is.na(term_str)) {
+    return(NA)
+  }
+  slims <- str_split_1(term_str, ";") %>%
+    lapply(
+      ., \(g) getGoSlim(g, args$go_path, args$go_slim_path, "all")
+    ) %>%
+    unlist() %>%
+    unique() %>%
+    discard(is.na) %>%
+    paste0(collapse = ";")
+  if (slims == "") {
+    return(NA)
+  }
+  return(slims)
+}

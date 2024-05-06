@@ -1,6 +1,10 @@
 library(tidyverse)
 library(glue)
-args <- list(python_source = "./bin")
+args <- list(
+  python_source = "./bin",
+  go_path = "./data/reference/go.obo",
+  go_slim_path = "./data/reference/goslim_generic.obo"
+)
 
 
 #' Correct the "NCBI_ID" entry for database proteins that were originally derived
@@ -100,6 +104,13 @@ fix <- function(filename, fix) {
     # 2024-05-04 Fixed the identical entries in NCBI_ID and UniProtKB_ID
     source("./bin/R/combine_all.r")
     tb <- correctIds(tb)
+    tb %>% write_tsv(., file = filename)
+  }
+  if (fix == "get_slims") {
+    source("./bin/R/GO_helpers.r")
+    tb <- tb %>%
+      mutate(GO_slims = map_chr(GO_IDs, slimsFromGoString)) %>%
+      relocate(., GO_slims, .after = GO_IDs)
     tb %>% write_tsv(., file = filename)
   }
 }

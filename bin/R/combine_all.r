@@ -355,6 +355,8 @@ main <- function(args) {
     )
     cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
   }
+  combined$GO_slims <- combined$GO_IDs %>% lapply(., \(x) slimsFromGoString)
+
 
   ## Map KEGG Genes to KEGG pathways
   if (MAP_KEGG) {
