@@ -6,7 +6,7 @@ getDeeploc <- function(deeploc_path, unmatched_path) {
   dl <- read_csv(deeploc_path)
   um <- read_tsv(unmatched_path)
   merged <- inner_join(um, dl,
-                       by = join_by(x$ProteinId == y$Protein_ID)
+    by = join_by(x$ProteinId == y$Protein_ID)
   ) %>%
     mutate(
       inferred_by = "deeploc",
@@ -21,42 +21,57 @@ getDeeploc <- function(deeploc_path, unmatched_path) {
 #' Helper function for collecting all the data from a single run for
 #' comparison
 #'
-runData <- function(prefix, remove_dupes, path) {
-  results <- list(
-    first = read_tsv(glue("{path}/1-First_pass/{prefix}_all_wcoverage.tsv")),
-    sec = read_tsv(glue("{path}/2-Second_pass/{prefix}_all_wcoverage.tsv"))
-  )
-  dl_f <- getDeeploc(
-    glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
-    glue("{path}/1-First_pass/Combined/unified_groups.tsv")
-  )
-  dl_s <- getDeeploc(
-    glue("{path}/1-First_pass/Deeploc/deeploc_results.csv"),
-    glue("{path}/1-First_pass/Combined/unified_groups.tsv")
-  )
-  results$first <- bind_rows(results$first, dl_f)
-  results$sec <- bind_rows(results$sec, dl_s)
-  if (!missing(remove_dupes) && remove_dupes) {
-    results$first <- results$first %>% distinct(ProteinId, .keep_all = TRUE)
-    results$sec <- results$sec %>% distinct(ProteinId, .keep_all = TRUE)
+runData <- function(prefix, path, remove_dupes = TRUE, which = "both") {
+  passData <- function(pass) {
+    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>% filter(q_adjust < FDR)
+    deeploc <- getDeeploc(
+      glue("{path}/{pass}/Deeploc/deeploc_results.csv"),
+      glue("{path}/{pass}/Combined/unified_groups.tsv")
+    )
+    tb <- bind_rows(tb, deeploc)
+    if (remove_dupes) {
+      tb <- tb %>% distinct(ProteinId, .keep_all = TRUE)
+    }
+    return(tb)
   }
-  return(results)
+  if (which == "both") {
+    return(list(first = passData("1-First_pass"), second = passData("2-Second_pass")))
+  } else if (which == "first") {
+    return(passData("1-First_pass"))
+  } else {
+    return(passData("2-Second_pass"))
+  }
 }
 
-alignmentData <- function(path) {
-  passes <- c("1-First_pass", "2-Second_pass")
-  names <- c("first", "sec")
-  data <- list(replacements = tibble(),
-               metrics = tibble())
-  for (i in c(1, 2)) {
-    r <- read_tsv(glue("{path}/{passes[i]}/all_replacements.tsv")) %>%
-      mutate(pass = names[i])
-    m <- read_tsv(glue("{path}/{passes[i]}/alignment_metrics.tsv")) %>%
-      mutate(pass = names[i])
-    data$replacements <- bind_rows(data$replacements, r)
-    data$metrics <- bind_rows(data$metrics, m)
+alignmentData <- function(path, which = "combine") {
+  helper <- function(pass) {
+    lst <- list(
+      replacements = read_tsv(glue("{path}/{pass}/all_replacements.tsv")),
+      metrics = read_tsv(glue("{path}/{pass}/alignment_metrics.tsv")),
+      peptides = read_tsv(glue("{path}/{pass}/aligned_peptides.tsv"))
+    )
+    return(lst)
   }
-  return(data)
+  passes <- c("1-First_pass", "2-Second_pass")
+  if (which == "combine") {
+    names <- c("first", "sec")
+    result <- list(
+      replacements = tibble(),
+      metrics = tibble(),
+      peptides = tibble()
+    )
+    for (i in c(1, 2)) {
+      lst <- helper(passes[i]) %>% lapply(., \(x) mutate(x, pass = names[i]))
+      for (i in names(result)) {
+        result[[i]] <- bind_rows(result[[i]], lst[[i]])
+      }
+    }
+    return(result)
+  } else if (which == "first") {
+    return(helper(passes[1]))
+  } else {
+    return(helper(passes[2]))
+  }
 }
 
 
@@ -114,6 +129,9 @@ splitAndCount <- function(tb, col, pattern, unique_only, func = NULL) {
     if (is.na(x)) {
       return(x)
     }
+    if (is.logical(x)) {
+      browser()
+    }
     split <- str_split_1(x, pattern)
     if (uniq) {
       split <- unique(split)
@@ -138,13 +156,17 @@ getCounts <- function(tb) {
   data <- list()
   data$category <- getFreqTb(tb$category, "category")
   data$organism <- getFreqTb(tb$organism, "organism")
-  for (col in EGGNOG_COLS) {
-    data[[col]] <- splitAndCount(tb, col, ";|,")
-  }
+  # TODO: Restore this once you've figured out the error with
+  # the columns being logicals
+  # for (col in EGGNOG_COLS) {
+  # if (col in colnames(tb)) {
+  #   data[[col]] <- splitAndCount(tb, col, ";|,")
+  # }
+  # }
   data$PANTHER <- splitAndCount(tb, "PANTHER", ";")
   data$go <- goVector(tb, go_column = "GO_IDs") %>% getFreqTb(., "GO")
   data$matched_peptides <- splitAndCount(tb, "MatchedPeptideIds", ";",
-                                         func = removeDigits, unique_only = TRUE
+    func = removeDigits, unique_only = TRUE
   )
   data$lineage <- tb$lineage %>%
     purrr::map_chr(., \(x) parseLineage(x, 5)) %>%
@@ -163,8 +185,8 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
       stop('Missing "join_on" argument')
     }
     joined <- inner_join(first_sec$first,
-                         first_sec$sec,
-                         by = join_by(!!join_on)
+      first_sec$sec,
+      by = join_by(!!join_on)
     )
     f <- joined[[glue("{compare_col}.x")]]
     s <- joined[[glue("{compare_col}.y")]]
@@ -174,10 +196,10 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
   }
   bound <- bind_rows(
     tibble(!!compare_col := f,
-           pass = "first"
+      pass = "first"
     ),
     tibble(!!compare_col := s,
-           pass = "second"
+      pass = "second"
     ),
   )
   return(bound)
@@ -190,9 +212,9 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
 #' second passes from "runData". By necessity, must join pass data
 compareFirstSecW <- function(first_sec, compare_col, join_on, drop_na) {
   joined <- full_join(first_sec$first,
-                      first_sec$sec,
-                      by = join_by(!!join_on),
-                      suffix = JOIN_SUFFIX
+    first_sec$sec,
+    by = join_by(!!join_on),
+    suffix = JOIN_SUFFIX
   )
   cols <- paste0(compare_col, JOIN_SUFFIX)
   chosen <- joined %>%
@@ -279,16 +301,21 @@ wilcoxWrapper <- function(first_sec, paired, metric) {
   hypotheses <- c("two.sided", "less", "greater")
   for (h in hypotheses) {
     tests[[h]] <- wilcox.test(first, second,
-                              paired = paired,
-                              na.action = na.omit,
-                              alternative = h)
+      paired = paired,
+      na.action = na.omit,
+      alternative = h
+    )
   }
-  tb <- tibble(alternative = hypotheses,
-               metric = rep(metric, 3),
-               p_value = map_dbl(tests, \(x) x$p.value),
-               statistic = map_dbl(tests, \(x) x$statistic)) %>%
-    mutate(reject_null = map_chr(p_value,
-                                 \(x) ifelse(x < 0.05, "Y", "N")))
+  tb <- tibble(
+    alternative = hypotheses,
+    metric = rep(metric, 3),
+    p_value = map_dbl(tests, \(x) x$p.value),
+    statistic = map_dbl(tests, \(x) x$statistic)
+  ) %>%
+    mutate(reject_null = map_chr(
+      p_value,
+      \(x) ifelse(x < 0.05, "Y", "N")
+    ))
   return(tb)
 }
 
@@ -303,17 +330,31 @@ mergeLfq <- function(tb, target) {
   quant <- tb %>% dplyr::select(ProteinId, contains(lfq_cols))
   is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
   quant <- mutate(quant,
-                  log_intensity = pmap(
-                    list(maxlfq_mean, directlfq_mean, flashlfq_mean),
-                    \(x, y, z) mean(c(x, y, z), na.rm = TRUE)
-                  ) %>% unlist()
+    log_intensity = pmap(
+      list(maxlfq_mean, directlfq_mean, flashlfq_mean),
+      \(x, y, z) mean(c(x, y, z), na.rm = TRUE)
+    ) %>% unlist()
   )
   return(quant)
 }
 
+#' Combines lfq results more flexibly, considering each lfq column
+#' rather than their means/medians
+#'
+#' @description
+#' @param combineFun A function that receives a tibble/df as its only
+#' argument
+mergeLfqCustom <- function(tb, combineFun) {
+  quant <- tb %>%
+    select(matches("directlfq|flashlfq|maxlfq")) %>%
+    select(-matches("mean|median"))
+  is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
+  return(combineFun(quant))
+}
+
 
 replaceNaAll <- function(df, value = 0) {
-  df %>% mutate_all(~replace(., is.na(.), value))
+  df %>% mutate_all(~ replace(., is.na(.), value))
 }
 
 minMaxScaler <- function(vec) {
@@ -349,8 +390,9 @@ groupPathways <- function(tb, minimum = 20) {
 #' numbers and leave unique groups
 #'
 splitGroupStr <- function(group_str, remove_nums = FALSE, unique = FALSE) {
-  if (remove_nums)
-    group_str <- gsub("[0-9]+", "", group_str);
+  if (remove_nums) {
+    group_str <- gsub("[0-9]+", "", group_str)
+  }
   split <- str_split_1(group_str, ";")
   if (unique) split <- base::unique(split)
   return(split)
@@ -382,38 +424,45 @@ formatEngineContingency <- function(table, category, w_expected = FALSE) {
   if (!missing(category)) {
     formatted <- dplyr::mutate(formatted, `...1` = c(glue("not {category}"), glue("is {category}")), .before = dplyr::everything())
   } else {
-    formatted <- dplyr::mutate(formatted, `...1` = c("TRUE", "FALSE"), .before = dplyr::everything())
+    formatted <- dplyr::mutate(formatted, `...1` = c("FALSE", "TRUE"), .before = dplyr::everything())
   }
-  formatted <- dplyr::rename(formatted, was_hit = "TRUE",
-                             not_hit = "FALSE", "category" = `...1`)
-  if (!w_expected) return(formatted)
-  expected <- formatEngineContingency(showExpectedChi(table),
-                                      FALSE) %>%
+  formatted <- dplyr::rename(formatted,
+    was_hit = "TRUE",
+    not_hit = "FALSE", "category" = `...1`
+  )
+  if (!w_expected) {
+    return(formatted)
+  }
+  expected <- formatEngineContingency(
+    showExpectedChi(table),
+    FALSE
+  ) %>%
     mutate(across(is.double, \(x) paste0(" (", round(x, 2), ")")))
-  return(formatted %>% mutate(not_hit = paste0(not_hit, expected$not_hit),
-                              was_hit = paste0(was_hit, expected$was_hit)))
+  return(formatted %>% mutate(
+    not_hit = paste0(not_hit, expected$not_hit),
+    was_hit = paste0(was_hit, expected$was_hit)
+  ))
 }
 
 #' Compute the odds ratio from a 2x2 contingency table, or the
 #' upper and lower 95% CIs of that ratio
 #'
 oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
-    a <- ctable[1, 1]
-    d <- ctable[2, 2]
-    b <- ctable[1, 2]
-    c <- ctable[2, 1]
-    odds_ratio <- (a * d) / (c * b)
-    if (!CI) {
-      return(odds_ratio)
-    }
-    if (side == "upper") {
-      x <- log(odds_ratio) + 1.96 * sqrt(1/a + 1/b + 1/c + 1/d)
-    } else {
-      x <- log(odds_ratio) - 1.96 * sqrt(1/a + 1/b + 1/c + 1/d)
-    }
-    return(exp(1)^x)
+  a <- ctable[1, 1]
+  d <- ctable[2, 2]
+  b <- ctable[1, 2]
+  c <- ctable[2, 1]
+  odds_ratio <- (a * d) / (c * b)
+  if (!CI) {
+    return(odds_ratio)
+  }
+  if (side == "upper") {
+    x <- log(odds_ratio) + 1.96 * sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+  } else {
+    x <- log(odds_ratio) - 1.96 * sqrt(1 / a + 1 / b + 1 / c + 1 / d)
+  }
+  return(exp(1)^x)
 }
-
 
 
 #' Get a list of vectors in specific groups
@@ -425,7 +474,15 @@ oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
 #' by `v`
 groupListFromTb <- function(tb, v, col_from, target_col) {
   list <- lapply(v, \(x) dplyr::filter(tb, !!as.symbol(col_from) == x) %>%
-                          purrr::pluck(target_col) %>% discard(is.na)
-                 ) %>% `names<-`(v)
+    purrr::pluck(target_col) %>%
+    discard(is.na)) %>% `names<-`(v)
   return(list)
+}
+
+avgStdevs <- function(tb, cols, stat) {
+  result <- vector()
+  for (col in cols) {
+    result <- c(result, stat(tb[[col]]))
+  }
+  return(result)
 }

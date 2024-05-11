@@ -8,7 +8,7 @@ library(glue)
 # Combine GO terms assigned to each protein in protein_map using
 # combine_func
 goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
-  purrr::map(names(protein_map), ~{
+  purrr::map(names(protein_map), ~ {
     dplyr::filter(embedding_tb, GO_IDs %in% protein_map[[.x]]) %>%
       reframe(across(where(is.numeric), combine_func)) %>%
       mutate(ProteinId = .x, .before = V1)
@@ -18,7 +18,7 @@ goEmbedding2Prot <- function(protein_map, embedding_tb, combine_func) {
 }
 
 
-getGOEmbd <- function(go_vector) {
+a2vGetGOEmbd <- function(go_vector) {
   reticulate::source_python(glue::glue("{args$python_source}/a2v.py"))
   py$wanted_gos <- go_vector
   py_run_string("wanted_gos = set(wanted_gos)")
@@ -28,8 +28,10 @@ getGOEmbd <- function(go_vector) {
   ) %>%
     as.data.frame() %>%
     t()
-  rownames(embd) <- map_chr(rownames(embd),
-                            \(x) gsub("\\.", ":", x))
+  rownames(embd) <- map_chr(
+    rownames(embd),
+    \(x) gsub("\\.", ":", x)
+  )
   colnames(embd) <- paste0("V", seq(dim(embd)[2]))
   return(as.data.frame(embd))
 }
@@ -42,7 +44,7 @@ getProtEmbd <- function(embd_path, dist_path) {
 combineGOEmbd <- function(embd_path, go_vector, map, write_distances) {
   reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
   # Retrieve embeddings per GO id
-  embd_go <- getGOEmbd(go_vector) %>%
+  embd_go <- a2vGetGOEmbd(go_vector) %>%
     rownames_to_column(., var = "GO_IDs") %>%
     as_tibble()
   combined <- goEmbedding2Prot(map, embd_go, base::mean)
@@ -56,14 +58,15 @@ combineGOEmbd <- function(embd_path, go_vector, map, write_distances) {
   }
 }
 
-embeddingData <- function(combined_results,
-                          sample_name,
-                          embedding_path,
-                          # Path to embeddings in hdf5
-                          dist_path, # Path to distance matrix in hdf5
-                          comparison_meta # Add this argument when
-                          # comparing sample proteins against external
-) {
+embeddingData <- function(
+    combined_results,
+    sample_name,
+    embedding_path,
+    # Path to embeddings in hdf5
+    dist_path, # Path to distance matrix in hdf5
+    comparison_meta # Add this argument when
+    # comparing sample proteins against external
+    ) {
   py_embd <- getProtEmbd(embedding_path, dist_path)
   py_embd$euclidean <- as.matrix(py_embd$euclidean)
   py_embd$cosine <- as.matrix(py_embd$cosine)
@@ -80,11 +83,13 @@ embeddingData <- function(combined_results,
   } else {
     color <- c("inferred_by", "ID_method", "category")
   }
-  return(list(embd = py_embd$embeddings,
-              euclidean = py_embd$euclidean,
-              cosine = py_embd$cosine,
-              metadata = data,
-              color = color))
+  return(list(
+    embd = py_embd$embeddings,
+    euclidean = py_embd$euclidean,
+    cosine = py_embd$cosine,
+    metadata = data,
+    color = color
+  ))
 }
 
 
@@ -100,18 +105,21 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- add_option(parser, "--python_source", type = "character")
   parser <- add_option(parser, "--sample_tsv", type = "character")
   parser <- add_option(parser, "--embd_output", type = "character", help = "output file when writing embeddings")
-  parser <- add_option(parser, "--embedding_path", type = "character", help = "path to file containing embeddings for the proteins in sample_tsv")
+  parser <- add_option(parser, "--embedding_path",
+    type = "character",
+    help = "path to file containing embeddings for the proteins in sample_tsv"
+  )
   parser <- add_option(parser, "--dist_output", type = "character")
   parser <- add_option(parser, "--comparison_embd", type = "character")
   parser <- add_option(parser, "--comparison_tsv", type = "character")
-  parser <- add_option(parser, "--go_only", action = "store_true")
+  parser <- add_option(parser, "--go_only", action = "store_true", default = FALSE)
   parser <- add_option(parser, "--sample_name", type = "character")
 
   args <- parse_args(parser)
   source(glue("{args$r_source}/GO_helpers.r"))
   if (args$go_only) {
     d <- goData(args$sample_tsv)
-    gos <- getGOEmbd(d$go_vec$sample)
+    gos <- a2vGetGOEmbd(d$go_vec$sample)
     reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
     names <- rownames(gos)
     writeDistances(gos, names, args$dist_output)
@@ -123,8 +131,10 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     # If compare, filter only proteins of interest
     id_col <- "ProteinId"
     reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
-    d <- goData(args$sample_tsv, uniprot_tsv = args$uniprot_tsv,
-                sample_name = args$sample_name)
+    d <- goData(args$sample_tsv,
+      uniprot_tsv = args$uniprot_tsv,
+      sample_name = args$sample_name
+    )
     sample_embd <- hdf5ToDf(args$embedding_path)
     comparison_embd <- hdf5ToDf(args$comparison_embd)
     # Retrieve embeddings
