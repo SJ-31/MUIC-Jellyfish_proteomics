@@ -3,6 +3,9 @@ import sys
 
 # Compute cosine and euclidean distance matrices from given embeddings
 
+import goatools.semantic as sem
+import sklearn.metrics as metrics
+from goatools.obo_parser import GODag
 import numpy as np
 import h5py
 from pathlib import Path
@@ -12,9 +15,47 @@ h5py.get_config().track_order = True
 SHUFFLE_SEED = 312002
 SAMPLE_SEED = 14324
 
+GO_DAG = None
+
 
 def firstKey(d: dict) -> str:
     return list(d.keys())[0]
+
+
+def distanceMatrix(array, distFun, array2=None) -> np.array:
+    """
+    Calculates pairwise distance matrix for all elements in `array`
+    with arbitrary distance function (slow)
+    If array2 is provided, then return the distance matrix of all pairwise
+    distances
+    """
+    n = len(array)
+    has_second = False
+    if array2 is not None:
+        has_second = True
+        m = len(array2)
+        dist_matrix = np.zeros((n, m))
+    else:
+        dist_matrix = np.zeros((n, n))
+    if not has_second:
+        for i in range(n):
+            for j in range(i, n):
+                dist_matrix[i, j] = distFun(array[i], array[j])
+                dist_matrix[j, i] = dist_matrix[i, j]
+    else:
+        for i in range(n):
+            for j in range(m):
+                dist_matrix[i, j] = distFun(array[i], array2[j])
+    return dist_matrix
+
+
+def semDistance(id1, id2):
+    if not GO_DAG:
+        raise ValueError("Need to initialize GO_DAG first!")
+    return sem.semantic_distance(id1, id2, godag=GO_DAG)
+
+
+# def combineGO(g1, g2, go_mapping, method = "BMA"):
 
 
 def pytorchEmbedding(path, name_list, embd_list) -> None:
@@ -40,6 +81,10 @@ def getEmbeddings(path) -> tuple:
 
     embeddings = np.array(embeddings)
     return names, embeddings
+
+
+def isSymmetric(array) -> bool:
+    return (array == array.transpose()).all()
 
 
 def writeEmbeddingsHDF5(path, names, embeddings) -> None:
@@ -110,10 +155,11 @@ def writeDistances(embeddings, names, file) -> None:
     to hdf5 file `file`
     """
     embeddings = embeddings.astype(np.float32)
+    from scipy.spatial import distance
     from sklearn import metrics
 
     euclidean = metrics.pairwise_distances(embeddings, metric="sqeuclidean")
-    cosine = metrics.pairwise_distances(embeddings, metric="cosine")
+    cosine = distance.squareform(distance.pdist(embeddings, metric="cosine"))
     with h5py.File(file, "w") as dfile:
         dfile.create_dataset("metric/euclidean", data=euclidean)
         dfile.create_dataset("metric/cosine", data=cosine)
@@ -127,7 +173,12 @@ def shuffleSample(df, n) -> pd.DataFrame:
     return shuffled.sample(n=n, random_state=SAMPLE_SEED)
 
 
-if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:
+if (
+    __name__ == "__main__"
+    and len(sys.argv) > 1
+    and "radian" not in sys.argv[0]
+    and "ipykernel" not in sys.argv[0]
+):
     # Prevents reticulate from entering this chunk
 
     names: list
