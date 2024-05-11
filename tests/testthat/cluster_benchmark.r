@@ -3,11 +3,16 @@ library(tidyverse)
 library(glue)
 library(dbscan)
 TEST <- FALSE
-HIERARCHICHAL_CLUSTERING <- TRUE
-HDBSCAN <- TRUE
-LEIDEN <- TRUE
 # Compare clustering GO terms using semantic distance or cosine distances
 # with GO embeddings
+
+DIST_TYPE <- "semantic"
+EMBEDDING_TYPE <- "protein"
+# LOG
+# 2024-05-06 Finished with dist_type = "a2v" and embedding_type = "go"
+# 2024-05-07 Finished with dist_type = "semantic" and embedding_type = "go"
+# Finished with embedding_type = "protein"
+
 
 if (str_detect(getwd(), "Bio_SDD")) {
   wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
@@ -34,12 +39,6 @@ source(glue("{args$r_source}/cluster_helpers.r"))
 source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
 orgdb_pth <- "./output/org.Cindrasaksajiae.eg.db"
 db_name <- gsub(".*\\/", "", orgdb_pth, fixed = FALSE)
-
-DIST_TYPE <- "semantic"
-EMBEDDING_TYPE <- "protein"
-# LOG
-# 2024-05-01 Finished with dist_type = "a2v" and embedding_type = "go"
-# 2024-05-01 Finished with dist_type = "semantic" and embedding_type = "go"
 
 d <- goData(args$combined_results)
 gos <- d$go_vec$sample
@@ -88,61 +87,131 @@ if (!dir.exists(OUTDIR)) {
 if (TEST) {
   sample <- rownames(dist) %>% base::sample(size = 500)
   dist <- filterDistMatrix(dist, sample)
+  OUTDIR <- glue("./output/cluster_testzone")
 }
 
 # decrease size for testing
 CLUSTER_STATS <- NULL
 CLUSTER_MEMBERS <- NULL
-#
-# Hierarchichal clustering
 
-if (HIERARCHICHAL_CLUSTERING) {
-  heights <- seq(min(dist), max(dist), length.out = 12)[-1]
-  heights <- round(heights[-length(heights)], 2)
-  test_hc <- benchmarker(dist, `_hclustSkLearn`, as.double(heights), "height", "hclust")
-  CLUSTER_MEMBERS <- saveClusters(
-    test_hc, "hc", "height",
-    CLUSTER_MEMBERS, JOIN_COL
-  )
-  write_tsv(CLUSTER_MEMBERS, glue("{OUTDIR}/cluster_members.tsv"))
-  CLUSTER_STATS <- getClusterMetrics(dist, test_hc, "hierarchichal_clustering", CLUSTER_STATS, "height")
-  write_tsv(CLUSTER_STATS, glue("{OUTDIR}/cluster_stats.tsv"))
-}
-
-# hdbscan
-if (HDBSCAN) {
-  test_hdbscan <- benchmarker(dist, `_hdbscan`, seq(5, 30, by = 5), "min_points", "hbscan")
-  CLUSTER_MEMBERS <- saveClusters(
-    test_hc, "hdbscan",
-    "min_points", CLUSTER_MEMBERS,
-    JOIN_COL
-  )
-  write_tsv(CLUSTER_MEMBERS, glue("{OUTDIR}/cluster_members.tsv"))
-  CLUSTER_STATS <- getClusterMetrics(dist, test_hdbscan, "hdbscan", CLUSTER_STATS, "min_points")
-  write_tsv(CLUSTER_STATS, glue("{OUTDIR}/cluster_stats.tsv"))
-}
-
-if (LEIDEN) {
-  # # Mask relationships with euclidean distances
-  ## greater than the 3rd quartile for leiden (just set them to the maximum distance away)
-  dist[dist > quantile(dist, 0.75)] <- max(dist)
-  # # Benchmark leiden
-  reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
-  py$graph <- leidenCreateGraph(dist)
-  test_la <- benchmarker(
-    dist, `_leiden`,
-    c("Modularity", "RBER", "RB", "CPM", "Surprise"),
-    "partition_type", "leiden"
-  )
-  CLUSTER_STATS <- getClusterMetrics(dist, test_la, "leiden", CLUSTER_STATS, "quality_fun")
-  CLUSTER_MEMBERS <- saveClusters(
-    test_la, "leiden",
-    "quality_fun", CLUSTER_MEMBERS,
-    JOIN_COL
-  )
-  if (!is.null(CLUSTER_STATS)) {
-    write_tsv(CLUSTER_STATS, glue("{OUTDIR}/cluster_stats.tsv"))
+clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
+  if (technique == "hclust") {
+    param <- "height"
+    heights <- seq(min(dist), max(dist), length.out = 12)[-1]
+    heights <- round(heights[-length(heights)], 2)
+    cluster_labels <- benchmarker(
+      dist,
+      \(d, h) `_hclustSkLearn`(d, h, linkage = "average"), as.double(heights), param, technique
+    )
+  } else if (technique == "hclust_structured") {
+    param <- "height"
+    heights <- seq(min(dist), max(dist), length.out = 12)[-1]
+    heights <- round(heights[-length(heights)], 2)
+    cluster_labels <- benchmarker(
+      dist,
+      \(d, h) `_hclustSkLearn`(d, h, linkage = "average", structured = TRUE),
+      as.double(heights), param, technique
+    )
+  } else if (technique == "hclust_complete") {
+    param <- "height"
+    heights <- seq(min(dist), max(dist), length.out = 12)[-1]
+    heights <- round(heights[-length(heights)], 2)
+    cluster_labels <- benchmarker(
+      dist,
+      \(d, h) `_hclustSkLearn`(d, h, linkage = "complete"), as.double(heights), param, technique
+    )
+  } else if (technique == "hdbscan") {
+    param <- "min_points"
+    cluster_labels <- benchmarker(dist, `_hdbscan`, seq(5, 30, by = 5), param, technique)
+  } else if (technique == "leiden") {
+    param <- "quality_fun"
+    # # Mask relationships with euclidean distances
+    ## greater than the 3rd quartile for leiden (just set them to the maximum distance away)
+    dist[dist > quantile(dist, 0.75)] <- max(dist)
+    # # Benchmark leiden
+    py$graph <- leidenCreateGraph(dist)
+    cluster_labels <- benchmarker(
+      dist, `_leiden`,
+      c("Modularity", "RBER", "RB", "CPM", "Surprise"),
+      "partition_type", "leiden"
+    )
+    write_tsv(LEIDEN_METRICS, glue("{OUTDIR}/leiden_metrics.tsv"))
+  } else if (technique == "protein_groups" && EMBEDDING_TYPE != "go") {
+    numberProteinGroups <- function(group_vector) {
+      t <- table(group_vector)
+      groups <- seq_along(t) %>% `names<-`(names(t))
+      return(groups)
+    }
+    param <- "NONE"
+    tb <- read_tsv(args$combined_results) %>%
+      filter(ProteinId %in% rownames(dist))
+    g <- numberProteinGroups(tb$Group)
+    cluster_labels <- map_dbl(tb$Group, \(x) g[x]) %>%
+      `names<-`(tb$ProteinId)
+    cluster_labels <- list(first = cluster_labels)
+    dist <- filterDistMatrix(dist, names(cluster_labels))
   }
-  write_tsv(CLUSTER_MEMBERS, glue("{OUTDIR}/cluster_members.tsv"))
-  write_tsv(LEIDEN_METRICS, glue("{OUTDIR}/leiden_metrics.tsv"))
+  members <- saveClusters(
+    cluster_labels, technique, param,
+    cluster_members, JOIN_COL
+  )
+  stats <- getClusterMetrics(dist, cluster_labels, technique, cluster_stats, param)
+  return(list(stats = stats, members = members))
 }
+
+
+to_test <- c(
+  # "hclust",
+  # "hclust_structured",
+  # "hclust_complete",
+  # "hdbscan",
+  "leiden"
+)
+if (EMBEDDING_TYPE == "protein") {
+  to_test <- c(to_test, "protein_groups")
+}
+
+
+if (all(diag(dist) != 0)) {
+  diag(dist) <- 0
+}
+diag(dist) <- 0
+
+for (t in to_test) {
+  c <- clusterBenchmark(dist, t, CLUSTER_STATS, CLUSTER_MEMBERS)
+  dir <- glue("{OUTDIR}/{t}")
+  if (!dir.exists(dir)) {
+    dir.create(dir)
+  }
+  CLUSTER_STATS <- c$stats
+  CLUSTER_MEMBERS <- c$members
+  write_tsv(CLUSTER_MEMBERS, glue("{dir}/cluster_members.tsv"))
+  write_tsv(CLUSTER_STATS, glue("{dir}/cluster_stats.tsv"))
+}
+
+previous_stats <- list.files(OUTDIR, pattern = "stats.tsv", recursive = TRUE, full.names = TRUE)
+lapply(previous_stats, read_tsv) %>%
+  bind_rows() %>%
+  distinct() %>%
+  write_tsv(glue("{OUTDIR}/cluster_stats.tsv"))
+
+previous_members <- list.files(OUTDIR,
+  pattern = "members.tsv",
+  recursive = TRUE, full.names = TRUE
+)
+seen_cols <- c()
+num_cols <- NULL
+lapply(previous_members, \(x) {
+  if (is.null(num_cols)) {
+    num_cols <<- nrow(tsv)
+  }
+  tsv <- read_tsv(x)
+  not_seen <- colnames(tsv)[!colnames(tsv) %in% seen_cols]
+  seen_cols <<- c(not_seen, seen_cols)
+  if (nrow(tsv) != num_cols) {
+    tsv <- dplyr::slice(1:num_cols)
+  }
+  return(dplyr::select(tsv, all_of(not_seen)))
+}) %>%
+  bind_cols() %>%
+  write_tsv(glue("{OUTDIR}/cluster_members.tsv"))

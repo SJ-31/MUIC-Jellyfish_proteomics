@@ -53,8 +53,6 @@ e <- embeddingData(
   args$dist_path,
 )
 
-
-
 if (EMBEDDING_TYPE == "protein") {
   e$color <- "category"
 } else {
