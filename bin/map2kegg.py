@@ -10,9 +10,7 @@ ALL_MAPPINGS: dict = {}  # Dictionary containing dictonaries of all
 # organism-specific mappings
 
 
-def gene2pathway(
-    kegg_gene: str, all_mappings: dict, sep: str = ";"
-) -> NAType | str:
+def gene2pathway(kegg_gene: str, all_mappings: dict, sep: str = ";") -> NAType | str:
     org: str = re.sub(":.*", "", kegg_gene)
     mapping: dict = all_mappings.get(org)
     if not mapping:
@@ -81,6 +79,10 @@ def mapInDf(df, target_db, target_col) -> pd.DataFrame:
     :param target_col:  One of "KEGG_Pathway" or "KEGG_Module"
     :return:
     """
+    if target_col not in df.columns:
+        print(f"Target column {target_col} not in df")
+        print("Returning df")
+        return df
     df["KEGG_Genes"] = df["KEGG_Genes"].apply(removeDuplicates)
     has_kegg = df[~df["KEGG_Genes"].isna()]
     mapped_pathways = has_kegg["KEGG_Genes"].apply(
@@ -105,7 +107,7 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__" and len(sys.argv) > 1:
+if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:
     args = parse_args()
     df = pd.read_csv(args["input"], sep="\t")
     mapped = mapInDf(df, "pathway", "KEGG_Pathway")

@@ -50,21 +50,15 @@ def gosFromAcc(
         else:
             # When the accession is just the name of the pfam
             gos.add(valueFromCol(map_df, "name", "GO", accession))
-            if pfam_accession := valueFromCol(
-                pfam_db, "name", "accession", accession
-            ):
-                gos.add(
-                    valueFromCol(map_df, "accession", "GO", pfam_accession)
-                )
+            if pfam_accession := valueFromCol(pfam_db, "name", "accession", accession):
+                gos.add(valueFromCol(map_df, "accession", "GO", pfam_accession))
             # Try to map a pfam accession to a interpro accession, which we
             # then map to GO
             if interpro_accession := valueFromCol(
                 pfam_db, "name", "interpro_accession", accession
             ):
                 gos.add(
-                    valueFromCol(
-                        interpro2go, "accession", "GO", interpro_accession
-                    )
+                    valueFromCol(interpro2go, "accession", "GO", interpro_accession)
                 )
     else:
         gos.add(valueFromCol(map_df, "accession", "GO", accession))
@@ -94,10 +88,11 @@ def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
                 )
             )
     for db, map in zip(["EC", "KEGG_Reaction"], [ec_map, kegg_map]):
-        if not pd.isna(row[db]):
-            splits = re.split(spattern, row[db])
-            for s in splits:
-                gos.add(gosFromAcc(map, s, is_pfam=False))
+        if db in row.index:
+            if not pd.isna(row[db]):
+                splits = re.split(spattern, row[db])
+                for s in splits:
+                    gos.add(gosFromAcc(map, s, is_pfam=False))
     gos = gos - {None, pd.NA}
     if gos:
         return ";".join(gos)
@@ -148,9 +143,7 @@ def parseGoMapping(path, has_name):
     )
 
 
-def mapAllDb(
-    pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate
-):
+def mapAllDb(pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate):
     """
     Map entries in the pfam database to go accession numbers, using their names
     """
@@ -177,4 +170,3 @@ def mapAllDb(
     join_up = to_annotate["GO"].combine(retrieved_gos, addGos)
     to_annotate["GO"] = join_up
     return to_annotate
-
