@@ -2,6 +2,7 @@ MAP_PFAMS <- TRUE
 MAP_KEGG <- TRUE
 UNIFY <- TRUE
 MERGE_QUANT <- TRUE
+TEST <- FALSE
 library(seqinr)
 library(reticulate)
 library(tidyverse)
@@ -270,6 +271,10 @@ main <- function(args) {
   } else {
     combined <- downloads
   }
+  if (TEST) {
+    combined <- combined %>% slice(., 1:2000)
+  }
+
   combined[combined == ""] <- NA
   combined <- correctIds(combined)
   combined <- combined %>% mutate(
@@ -333,8 +338,9 @@ main <- function(args) {
     cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
     tryCatch(
       expr = {
-        source_python(glue("{args$python_source}/map2go.py"))
-        combined <- py$mapAllDb(
+        pfam_env <- new.env()
+        source_python(glue("{args$python_source}/map2go.py"), envir = pfam_env)
+        combined <- pfam_env$mapAllDb(
           to_annotate = as.data.frame(combined),
           p2g_path = args$pfam2go,
           k2g_path = args$kegg2go,
@@ -355,19 +361,30 @@ main <- function(args) {
     )
     cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
   }
-  combined$GO_slims <- combined$GO_IDs %>% lapply(., \(x) slimsFromGoString)
+  combined$GO_slims <- combined$GO_IDs %>%
+    lapply(
+      .,
+      \(x) {
+        slimsFromGoString(x,
+          go_path = args$go_path,
+          go_slim_path = args$go_slim_path
+        )
+      }
+    ) %>%
+    as.character()
 
 
   ## Map KEGG Genes to KEGG pathways
   if (MAP_KEGG) {
     cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
-    source_python(glue("{args$python_source}/map2kegg.py"))
+    kegg_env <- new.env()
+    source_python(glue("{args$python_source}/map2kegg.py"), envir = kegg_env)
     tryCatch(
       expr = {
-        combined <- py$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
-        combined <- py$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
-        combined <- py$mapInDf(as.data.frame(combined), "enzyme", "EC")
-        combined <- py$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
+        combined <- kegg_env$mapInDf(as.data.frame(combined), "pathway", "KEGG_Pathway")
+        combined <- kegg_env$mapInDf(as.data.frame(combined), "module", "KEGG_Module")
+        combined <- kegg_env$mapInDf(as.data.frame(combined), "enzyme", "EC")
+        combined <- kegg_env$mapInDf(as.data.frame(combined), "ko", "KEGG_ko")
       },
       error = \(cnd) {
         print(reticulate::py_last_error())
@@ -381,14 +398,13 @@ main <- function(args) {
   ## Categorize
   # Categories that cannot be assigned by header are assigned from
   # the most specific GO id
-  categories <- apply(combined, 1, \(x) {
-    cat <- x["category"]
-    if (cat == "unknown" | cat == "other") {
-      return(goCategorize(x["GO_IDs"], cat))
+  categories <- map2(combined$category, combined$GO_IDs, \(x, y) {
+    if (x == "unknown" | x == "other") {
+      return(goCategorize(y, x))
     } else {
-      return(cat)
+      return(x)
     }
-  })
+  }) %>% unlist()
   combined$category <- categories
 
   ## Record modifications
@@ -401,9 +417,9 @@ main <- function(args) {
   if (MERGE_QUANT) {
     cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
     combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>%
-      mutate(across(contains("directlfq"), log2))
+      mutate(across(contains("directlfq"), base::log2))
     combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>%
-      mutate(across(contains("flashlfq"), log2))
+      mutate(across(contains("flashlfq"), base::log2))
     combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
     cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
   }
@@ -416,22 +432,26 @@ main <- function(args) {
   }
 
   ## Arrange columns
+  rename_lookup <- c(
+    eggNOG_preferred_name = "Preferred_name",
+    eggNOG_description = "Description",
+    MatchedPeptideIds = "matchedPeptideIds"
+  )
   combined <- combined %>%
     mutate(organism = apply(., 1, organismFromHeader)) %>%
-    dplyr::rename(
-      eggNOG_preferred_name = Preferred_name,
-      eggNOG_description = Description,
-      MatchedPeptideIds = matchedPeptideIds
-    ) %>%
+    dplyr::rename(any_of(rename_lookup)) %>%
     relocate(where(is.numeric),
       .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
-    relocate(c("peptideIds", "SO_seq", "seq"), .after = where(is.numeric)) %>%
+    relocate(any_of(c("peptideIds", "SO_seq", "seq")), .after = where(is.numeric)) %>%
     relocate(contains("interpro")) %>%
     relocate(contains("KEGG")) %>%
-    relocate(c(contains("eggNOG"), "seed_ortholog", "COG_category")) %>%
-    relocate(c(contains("GO"), "PANTHER")) %>%
+    relocate(any_of(c(
+      contains("eggNOG"),
+      "seed_ortholog", "COG_category"
+    ))) %>%
+    relocate(any_of(c(contains("GO"), "PANTHER"))) %>%
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(all_of(FIRST_COLS))
 
@@ -457,6 +477,8 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--kegg2go", type = "character")
   parser <- add_option(parser, "--ec2go", type = "character")
   parser <- add_option(parser, "--pfam2go", type = "character")
+  parser <- add_option(parser, "--go_path", type = "character")
+  parser <- add_option(parser, "--go_slim_path", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
   parser <- add_option(parser, "--sort_mods",
     type = "character",
@@ -469,6 +491,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/GO_helpers.r"))
   results <- main(args)
-  results <- distinct(results) # BUG: Somewhere, rows are being duplicated...
+  results <- distinct(results)
   write_tsv(results, args$output)
 }

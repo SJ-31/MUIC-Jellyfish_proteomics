@@ -38,6 +38,8 @@ process COMBINE_ALL {
         --pep_thresh $params.pep_thresh \
         --output "${params.pref}_all.tsv" \
         --directlfq $directlfq \
+        --go_path $params.go \
+        --go_slim_path $params.go_slims \
         --maxlfq $maxlfq \
         --flashlfq $flashlfq \
         --r_source ${params.bin}/R \

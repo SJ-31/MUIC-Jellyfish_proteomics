@@ -46,7 +46,7 @@ mostAbund <- function(grouped_df) {
   up <- unique(p)
   tab <- tabulate(match(p, up))
   abund <- up[tab == max(tab)]
-  current <- grouped_df[cur_group_rows(),]
+  current <- grouped_df[cur_group_rows(), ]
   choices <- filter(current, base_peptide %in% abund)
   if (nrow(choices) > 1) {
     return(sample_n(choices, 1))
