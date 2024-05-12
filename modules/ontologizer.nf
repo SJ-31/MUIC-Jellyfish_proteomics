@@ -18,13 +18,13 @@ process ONTOLOGIZER {
     Rscript $params.bin/R/ontologizer.r \
         -i $combined_tsv
 
-    java -jar $params.ontologizer_jar -g $params.go_ontology \
+    java -jar $params.ontologizer_jar -g $params.go \
             -a protein_mappings.ids \
             -p universe.txt \
             -s id_with_open.txt \
             -m "Bonferroni-Holm"
 
-    java -jar $params.ontologizer_jar -g $params.go_ontology \
+    java -jar $params.ontologizer_jar -g $params.go \
             -a protein_mappings.ids \
             -p universe.txt \
             -s unknown_to_db.txt \

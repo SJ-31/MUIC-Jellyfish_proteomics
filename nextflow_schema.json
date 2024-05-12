@@ -166,7 +166,7 @@
       "type": "string",
       "default": "/home/shannc/tools/Ontologizer.jar"
     },
-    "go_ontology": {
+    "go": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/data/reference/go.obo"
     },
