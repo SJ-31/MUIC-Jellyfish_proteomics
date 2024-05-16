@@ -11,11 +11,13 @@ process ONTOLOGIZER {
     output:
     path("*")
     path("ontologizer-*"), emit: over
+    path("*_GO_slims.tsv")
     //
 
     script:
     """
     Rscript $params.bin/R/ontologizer.r \
+        -m prep \
         -i $combined_tsv
 
     java -jar $params.ontologizer_jar -g $params.go \
@@ -32,6 +34,12 @@ process ONTOLOGIZER {
     mv table-unknown_to_db* ontologizer-unknown_to_db.txt
     mv table-id_with_open* ontologizer-id_with_open.txt
     cp .command.log ontologizer.log
+
+    Rscript $params.bin/R/ontologizer.r \
+        -m get_slims \
+        --results_path . \
+        --go_slim_path $params.go_slims \
+        --go_path $params.go
     """
     //
 }
