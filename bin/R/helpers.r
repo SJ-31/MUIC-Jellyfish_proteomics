@@ -78,3 +78,36 @@ ggplotNumericDist <- function(lst, method = "hist") {
 addPrefix <- function(vector, prefix) {
   map_chr(vector, \(x) glue("{prefix}{x}"))
 }
+
+#' Given a list A and B (can be named or not) containing the
+#' same number of vector elements, return a list C where
+#' the corresponding vectors of A and B have been joined
+#' @param A list of vectors
+#' @param B list of vectors (same number as A)
+mergeLists <- function(A, B) {
+  if ((!is.null(names(A)) && !is.null(names(B))) && any(names(A) != names(B))) {
+    stop("If lists are named, they must have the same elements!")
+  } else if (length(A) != length(B)) {
+    stop("Lists don't have the same lengths")
+  }
+  map2(A, B, \(x, y) c(x, y))
+}
+
+#' Return a function that for a given string,
+#'  substitutes a element in vector `old` with
+#' its corresponding element in `new`.
+#' `fn` is an additional function to apply regardless of matching
+substituteAll <- function(old, new, fn = NULL) {
+  fun <- function(x) {
+    for (i in seq_along(old)) {
+      if (str_detect(x, old[i])) {
+        return(gsub(old[i], new[i], x))
+      }
+    }
+    if (!is.null(fn)) {
+      return(fn(x))
+    }
+    return(x)
+  }
+  fun
+}
