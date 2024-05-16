@@ -12,6 +12,8 @@ if (str_detect(getwd(), "Bio_SDD")) {
   wd <- "/home/shannc/workflow"
   env <- "/home/shannc/anaconda3/envs/reticulate"
 }
+GET_GO <- TRUE
+CHOSEN_PASS <- "first"
 
 args <- list(
   r_source = glue("{wd}/bin/R"),
@@ -42,18 +44,37 @@ FDR <- 0.05
 OUTDIR <- glue("{PATH}/Analysis")
 if (!dir.exists(OUTDIR)) {
   dir.create(OUTDIR)
+} else if (!dir.exists(glue("{OUTDIR}/figures"))) {
+  dir.create(glue("{OUTDIR}/figures"))
 }
 
 run <- runData("C_indra", PATH)
+if (GET_GO) {
+  d <- goData(args$combined_results,
+    onto_path = args$ontologizer_path
+  )
+}
 
 # NOTE: Name each element of the list by file it will be saved to
 GRAPHS <- list()
 TABLES <- list()
+SAVE <- FALSE
 # ------------------------
 # source(glue("{args$r_source}/analysis/subanalyses/comparison_with_previous.r")) # DONE
 # source(glue("{args$r_source}/analysis/subanalyses/general_metrics.r"))
+# source(glue("{args$r_source}/analysis/fgsea.r")) # DONE
 # source(glue("{args$r_source}/analysis/subanalyses/PTM_analyses.r")) # TODO:
 # source(glue("{args$r_source}/analysis/subanalyses/engine_category_bias.r")) # DONE
+
+
+if (SAVE) {
+  lapply(names(GRAPHS), \(x) {
+    ggsave(glue("{OUTDIR}/figures/{x}"), GRAPHS[[x]])
+  })
+  lapply(names(TABLES), \(x) {
+    gtsave(glue("{OUTDIR}/{x}"), TABLES[[x]])
+  })
+}
 
 
 # --------------------------------------------------------
