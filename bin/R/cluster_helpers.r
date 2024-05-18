@@ -9,19 +9,36 @@ library(dbscan)
 #' other
 #' @param dist_t a distance matrix of the embeddings
 #'
-`_hclustSkLearn` <- function(dist, height) {
+hclustSk <- function(dist, height, linkage, structured = FALSE, labels_only = TRUE) {
   sc <- reticulate::import("sklearn.cluster")
-  hc <- sc$AgglomerativeClustering(
-    distance_threshold = height,
-    n_clusters = NULL,
-    linkage = "average",
-    metric = "precomputed"
-  )
-  membership <- hc$fit_predict(dist)
-  names(membership) <- rownames(dist)
-  return(membership + 1)
+  if (structured) {
+    neighbors <- reticulate::import("sklearn.neighbors")
+    knn_graph <- neighbors$kneighbors_graph(dist, as.integer(5), metric = "cosine")
+    hc <- sc$AgglomerativeClustering(
+      distance_threshold = height,
+      n_clusters = NULL,
+      linkage = linkage,
+      metric = "precomputed",
+      connectivity = knn_graph
+    )
+  } else {
+    hc <- sc$AgglomerativeClustering(
+      distance_threshold = height,
+      n_clusters = NULL,
+      linkage = linkage,
+      metric = "precomputed"
+    )
+  }
+  if (labels_only) {
+    membership <- hc$fit_predict(dist)
+    names(membership) <- rownames(dist)
+    return(membership + 1)
+  }
+  fit <- hc$fit(dist)
+  labels <- fit$labels_ + 1
+  names(labels) <- rownames(dist)
+  return(list(fitted = fit, labels = labels))
 }
-
 
 
 `_hclust` <- function(dist, height) {
@@ -50,10 +67,10 @@ leidenCreateGraph <- function(dist) {
 
 LEIDEN_METRICS <- data.frame()
 `_leiden` <- function(dist, partition_type) {
+  reticulate::source_python(glue("{args$python_source}/clustering.py"))
   if (!GRAPH_CREATED) {
     stop("Need to create graph first!")
   }
-  reticulate::source_python(glue("{args$python_source}/leiden_clust.py"))
   la <- reticulate::import("leidenalg")
   la_quality_funs <- list(
     "Modularity" = la$ModularityVertexPartition,
@@ -75,7 +92,7 @@ LEIDEN_METRICS <- data.frame()
 #' @param cluster_fun A function that returns the cluster membership of the
 #' elements in dist. This should be a wrapper function on a clustering method
 #' that accepts two arguments only: the distance matrix for the clustering
-#' and the value of the parameter beign changed
+#' and the value of the parameter being changed
 #' @param_vector Vector containing the parameters that will be varied
 benchmarker <- function(dist, clusterFun, param_vector, param_name, method_name) {
   clusterings <- list()
@@ -112,7 +129,6 @@ showError <- function(expression, if_failed = NA, label = NULL) {
   })
 }
 
-showError(log("3"))
 
 internalMetricsAll <- function(dist_t, cluster_labels) {
   n_unique_labels <- length(unique(cluster_labels))
@@ -125,13 +141,13 @@ internalMetricsAll <- function(dist_t, cluster_labels) {
   dunn <- showError(clValid::dunn(distance = dist_t, clusters = cluster_labels),
     label = "dunn calculation"
   )
-  connectivity <- showError(clValid::connectivity(distance = sample, clusters = clusters),
+  connectivity <- showError(clValid::connectivity(distance = sample, clusters = dist_matrices),
     label = "connectivity calculation"
   )
   stats <- list(
-    silhouette_width = sklearnInternalMetrics(dist_t, cluster_labels, "silhouette"),
-    calinhara = sklearnInternalMetrics(dist_t, cluster_labels, "calinhara"),
-    davies_bouldin = sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin"),
+    silhouette_width = showError(sklearnInternalMetrics(dist_t, cluster_labels, "silhouette")),
+    calinhara = showError(sklearnInternalMetrics(dist_t, cluster_labels, "calinhara")),
+    davies_bouldin = showError(sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin")),
     dunn = dunn,
     connectivity = connectivity
   )
@@ -139,7 +155,7 @@ internalMetricsAll <- function(dist_t, cluster_labels) {
 }
 
 #' Compute clustering metrics, appending them to a list
-#'
+#' @param cluster_labels: a list of different clusterings, varing by "var"
 getClusterMetrics <- function(dist_t, cluster_labels, method, metrics, var) {
   for (n in names(cluster_labels)) {
     current <- internalMetricsAll(dist_t, cluster_labels[[n]])
@@ -185,4 +201,31 @@ saveClusters <- function(cluster_list, method, var, previous_saved, join_col) {
     }
   }
   return(previous_saved)
+}
+
+
+addClusterCol <- function(args, tb) {
+  e <- embeddingData(
+    args$combined_results,
+    args$sample_name,
+    args$protrans_embd,
+    args$protrans_dist,
+  )
+  dist <- e$cosine
+  clusters <- local({
+    labels <- hclustSk(dist, 0.1, "average")
+    tibble(ProteinId = names(labels), cluster = labels)
+  })
+  tb <- inner_join(tb, clusters)
+  return(tb)
+}
+
+#' Merge the cluster information in `cluster_labels` with the data in
+#' `tb` by `id_col`
+mergeClusters <- function(cluster_labels, tb, id_col) {
+  assertArg(cluster_labels, \(x) !is.null(names(x)))
+  col <- tibble(!!as.symbol(id_col) := names(cluster_labels),
+    cluster = as.double(cluster_labels)
+  )
+  inner_join(tb, col)
 }

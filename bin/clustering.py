@@ -1,9 +1,43 @@
 import numpy as np
 import igraph as ig
+import matplotlib.pyplot as plt
+from scipy.cluster.hierarchy import dendrogram
 import leidenalg as la
 
-
 # Or perhaps run it on a knn version of the embeddings?
+
+
+def saveDendogram(
+    linkage_matrix: np.array,
+    filename: str,
+    cutoff: float,
+    size: tuple = (20, 10),
+):
+    fig, ax = plt.subplots()
+    dendrogram(linkage_matrix, no_labels=True, ax=ax)
+    ax.set_ylabel(f"height (cut at {cutoff})")
+    ax.axhline(0.1, linestyle="dotted", color="black")
+    fig.set_size_inches(size[0], size[1])
+    fig.savefig(filename, bbox_inches="tight")
+    return fig, ax
+
+
+def linkageMatrix(fitted_model):
+    counts = np.zeros(fitted_model.children_.shape[0])
+    n_samples = len(fitted_model.labels_)
+    for i, merge in enumerate(fitted_model.children_):
+        current_count = 0
+        for child_idx in merge:
+            if child_idx < n_samples:
+                current_count += 1  # leaf node
+            else:
+                current_count += counts[child_idx - n_samples]
+        counts[i] = current_count
+
+    linkage_matrix = np.column_stack(
+        [fitted_model.children_, fitted_model.distances_, counts]
+    ).astype(float)
+    return linkage_matrix
 
 
 def createGraph(nd_array, names) -> ig.Graph:

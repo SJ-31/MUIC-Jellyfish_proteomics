@@ -4,8 +4,6 @@ import sys
 # Compute cosine and euclidean distance matrices from given embeddings
 
 import goatools.semantic as sem
-import sklearn.metrics as metrics
-from goatools.obo_parser import GODag
 import numpy as np
 import h5py
 from pathlib import Path
