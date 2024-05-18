@@ -7,7 +7,7 @@ TEST <- FALSE
 # with GO embeddings
 
 DIST_TYPE <- "semantic"
-EMBEDDING_TYPE <- "protein"
+EMBEDDING_TYPE <- "go"
 # LOG
 # 2024-05-06 Finished with dist_type = "a2v" and embedding_type = "go"
 # 2024-05-07 Finished with dist_type = "semantic" and embedding_type = "go"
@@ -101,7 +101,7 @@ clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
     heights <- round(heights[-length(heights)], 2)
     cluster_labels <- benchmarker(
       dist,
-      \(d, h) `_hclustSkLearn`(d, h, linkage = "average"), as.double(heights), param, technique
+      \(d, h) hclustSk(d, h, linkage = "average"), as.double(heights), param, technique
     )
   } else if (technique == "hclust_structured") {
     param <- "height"
@@ -109,7 +109,7 @@ clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
     heights <- round(heights[-length(heights)], 2)
     cluster_labels <- benchmarker(
       dist,
-      \(d, h) `_hclustSkLearn`(d, h, linkage = "average", structured = TRUE),
+      \(d, h) hclustSk(d, h, linkage = "average", structured = TRUE),
       as.double(heights), param, technique
     )
   } else if (technique == "hclust_complete") {
@@ -118,7 +118,7 @@ clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
     heights <- round(heights[-length(heights)], 2)
     cluster_labels <- benchmarker(
       dist,
-      \(d, h) `_hclustSkLearn`(d, h, linkage = "complete"), as.double(heights), param, technique
+      \(d, h) hclustSk(d, h, linkage = "complete"), as.double(heights), param, technique
     )
   } else if (technique == "hdbscan") {
     param <- "min_points"
@@ -147,9 +147,11 @@ clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
       filter(ProteinId %in% rownames(dist))
     g <- numberProteinGroups(tb$Group)
     cluster_labels <- map_dbl(tb$Group, \(x) g[x]) %>%
-      `names<-`(tb$ProteinId)
-    cluster_labels <- list(first = cluster_labels)
+      `names<-`(tb$ProteinId) %>%
+      discard(is.na)
     dist <- filterDistMatrix(dist, names(cluster_labels))
+    cluster_labels <- cluster_labels[!duplicated(names(cluster_labels))]
+    cluster_labels <- list(first = cluster_labels)
   }
   members <- saveClusters(
     cluster_labels, technique, param,
@@ -161,10 +163,10 @@ clusterBenchmark <- function(dist, technique, cluster_stats, cluster_members) {
 
 
 to_test <- c(
-  # "hclust",
-  # "hclust_structured",
-  # "hclust_complete",
-  # "hdbscan",
+  "hclust",
+  "hclust_structured",
+  "hclust_complete",
+  "hdbscan",
   "leiden"
 )
 if (EMBEDDING_TYPE == "protein") {
@@ -200,16 +202,18 @@ previous_members <- list.files(OUTDIR,
   recursive = TRUE, full.names = TRUE
 )
 seen_cols <- c()
-num_cols <- NULL
+num_rows <- NULL
 lapply(previous_members, \(x) {
-  if (is.null(num_cols)) {
-    num_cols <<- nrow(tsv)
-  }
   tsv <- read_tsv(x)
+  if (is.null(num_rows)) {
+    num_rows <<- nrow(tsv)
+  }
   not_seen <- colnames(tsv)[!colnames(tsv) %in% seen_cols]
   seen_cols <<- c(not_seen, seen_cols)
-  if (nrow(tsv) != num_cols) {
-    tsv <- dplyr::slice(1:num_cols)
+  if (nrow(tsv) > num_rows) {
+    tsv <- dplyr::slice(tsv, 1:num_rows)
+  } else if (nrow(tsv) < num_rows) {
+    tsv <- tsv %>% add_row()
   }
   return(dplyr::select(tsv, all_of(not_seen)))
 }) %>%

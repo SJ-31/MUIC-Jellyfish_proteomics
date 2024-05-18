@@ -67,7 +67,27 @@ findBest <- function(stat_tb) {
   ))
 }
 
+source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
+args <- list(
+  r_source = glue("{wd}/bin/R"),
+  python_source = glue("{wd}/bin/"),
+  figure_path = glue("{wd}/tests/testthat/output/figures"),
+  combined_results = glue("{wd}/results/C_indra_A/1-First_pass/C_indra_all.tsv"),
+  embedding_path = glue("{wd}/tests/nf-test-out/C_indra_a2v_go_embeddings/distances.hdf5"),
+  sample_name = "C_indra"
+)
+
+dpath <- "../nf-test-out/C_indra_prottrans_embeddings/distances.hdf5"
+epath <- "../nf-test-out/C_indra_prottrans_embeddings/embeddings.hdf5"
+e <- embeddingData(
+  args$combined_results,
+  args$sample_name,
+  epath,
+  dpath
+)
+
 OUTDIR <- glue("{wd}/tests/testthat/output/")
+
 
 a2v <- clusterResults(glue("{OUTDIR}/cluster_go_a2v"))
 sem <- clusterResults(glue("{OUTDIR}/cluster_go_semantic"))
@@ -77,9 +97,20 @@ pt <- clusterResults(glue("{OUTDIR}/cluster_prottrans"))
 a2v_best <- findBest(a2v$stats)
 sem_best <- findBest(sem$stats)
 pt_best <- findBest(pt$stats)
-# 2024-05-05
-# Looks like hierarchichal clustering at 1/10 of the maximum distance
-# performs the best
-# But this doesn't really make sense...
-# For the a2v "clusters", there is literally only one cluster with
-# three members. Could this be some form of outlier?
+results <- purrr::reduce(
+  list(a2v_best$winners, sem_best$winners, pt_best$winners),
+  \(x, y) bind_rows(as_tibble(x), as_tibble(y))
+) %>% mutate(embedding_source = c("a2v", "semantic", "prottrans"))
+sem_best
+a2v_best
+
+
+# 2024-05-11
+# the best performing are variations of hclust. But
+# hclust with "average" linkage is the top scorer for 7/12 tests
+# so we'll use that. But note that the best cut height is rather inconsistent
+# between metrics
+# Best cut heights:
+# Prottrans: 1/10 of the maximum height of 0.1
+# Wang semantic sim: mostly inconsistent between metrics
+# a2v: (1/10 doing well is likely an outlier, nothing joined up). Winning metrics for this cannot be trusted. Do not use a2v for clustering then

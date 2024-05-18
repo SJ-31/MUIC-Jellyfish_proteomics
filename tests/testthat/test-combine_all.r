@@ -3,8 +3,15 @@ library(testthat)
 library(ggplot2)
 source("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin/R/combine_all.r")
 
-setwd("/home/shannc/Downloads/thesis_testzone/combine_error")
 
+if (str_detect(getwd(), "Bio_SDD")) {
+  wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
+  env <- "/home/shannc/Bio_SDD/miniconda3/envs/reticulate"
+} else {
+  wd <- "/home/shannc/workflow"
+  env <- "/home/shannc/anaconda3/envs/reticulate"
+}
+setwd("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/tests/testthat/output/combine_error")
 args <- list(
   eggnog = list.files(".", pattern = "eggnog_matched.tsv"),
   interpro = list.files(".", pattern = "interpro_matched.tsv"),
@@ -16,6 +23,8 @@ args <- list(
   ec2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/ec2go",
   kegg2go = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/kegg_reaction2go",
   pfam_db = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/pfam_entries.tsv",
+  go_path = glue("{wd}/data/reference/go.obo"),
+  go_slim_path = glue("{wd}/data/reference/goslim_generic.obo"),
   is_denovo = "TRUE",
   fdr = 0.05,
   pep_thresh = 1,
@@ -135,7 +144,7 @@ checkWanted <- function(x) {
   if (purrr::pluck_depth(evaluated) > 1) {
     any(lapply(seq_along(evaluated), \(x) {
       any(evaluated[[x]] %in%
-            UNWANTED_TYPES)
+        UNWANTED_TYPES)
     }) %>% unlist())
     return(FALSE)
   }
