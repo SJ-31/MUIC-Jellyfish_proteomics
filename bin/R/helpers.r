@@ -111,3 +111,48 @@ substituteAll <- function(old, new, fn = NULL) {
   }
   fun
 }
+
+#' Verify a function's arguments
+#' If `arg` fails the predicate, then stop is called, and the name of the
+#' function is printed
+#' @param arg Function argument
+#' @param predicate Predicate function, such as one that checks if `arg`
+#' is of a specific class
+assertArg <- function(arg, predicate) {
+  if (!predicate(arg)) {
+    callstack <- sys.calls()
+    top_level <- deparse(callstack[[1]])
+    fn_start <- str_locate(top_level, "\\(")[, 2] - 1
+    caller <- str_sub(top_level, start = 1L, end = fn_start)
+    last <- deparse(callstack[[length(callstack)]])
+    failed_arg <- str_extract(last, "assertArg\\((.*),", group = 1)
+    message <- glue("wrong argument in `{caller}`")
+    message <- glue("{message}\n  Incorrect argument `{failed_arg}`")
+    message <- glue("{message}\n  Top-level call: {top_level}")
+    stop(message, call. = FALSE)
+  }
+}
+
+#' Run pairwise tests against elements in `to_test`, using a
+#' pre-determined testing function.
+#' Note: does not adjust for multiple testing
+testAllPairs <- function(to_test, hypothesisTest) {
+  assertArg(to_test, \(x) class(x) == "list" && !is.null(names(x)))
+  combos <- combn(names(to_test), 2)
+  lapply(seq_len(ncol(combos)), \(x) {
+    a <- combos[1, x]
+    b <- combos[2, x]
+    test <- hypothesisTest(
+      to_test[[a]],
+      to_test[[b]]
+    )
+    tibble(comparison = glue("{a} x {b}"), p_value = test$p.value, alternative = test$alternative)
+  }) %>% bind_rows()
+}
+
+table2Tb <- function(table, id_col) {
+  assertArg(table, \(x) class(x) == "table")
+  tb <- as_tibble(table, .name_repair = "unique")
+  colnames(tb)[1] <- id_col
+  tb
+}

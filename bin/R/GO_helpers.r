@@ -10,7 +10,6 @@ library(fgsea)
 library(GOSemSim)
 library(vegan)
 library(clusterProfiler)
-library(tidyverse)
 
 #' Unique values of a named vector (based on its name)
 #'
@@ -161,7 +160,7 @@ markMatch <- function(tb, target_col, query, label) {
 #' @description
 #' @param go_column the column of `tb` containing the terms
 #' @param filter optional filter criteria to use with `column`
-goVector <- function(tb, column, filter, go_column) {
+goVector <- function(tb, column, filter, go_column, unique = FALSE) {
   if (any(is.na(tb[[go_column]]))) {
     tb <- tb %>% dplyr::filter(!is.na(!!as.symbol(go_column)))
   }
@@ -176,6 +175,9 @@ goVector <- function(tb, column, filter, go_column) {
     unlist() %>%
     discard(is.na) %>%
     discard(!grepl("GO:", .))
+  if (unique) {
+    return(unique(gos))
+  }
   return(gos)
 }
 
@@ -271,14 +273,11 @@ ontoResults <- function(ontologizer_dir) {
 
 #' Create a tibble containing information about specific GO terms
 #'
-goInfoTb <- function(go_vector, go_path, go_slim_path) {
+goInfoTb <- function(go_vector, get_slims = FALSE, go_path = NULL, go_slim_path = NULL) {
   tb <- lapply(go_vector, \(x) {
-    slims <- getGoSlim(x, go_path, go_slim_path)
-    direct <- ifelse(is_empty(slims$direct), NA, slims$direct[1])
     row <- tibble(
-      id = x, term = NA,
+      GO_IDs = x, term = NA,
       definition = NA, ontology = NA,
-      slims = direct
     )
     find_info <- GOTERM[[x]]
     if (is.null(find_info)) {
@@ -289,6 +288,7 @@ goInfoTb <- function(go_vector, go_path, go_slim_path) {
     row$definition <- find_info@Definition
     return(row)
   }) %>% bind_rows()
+  return(tb)
 }
 
 getUniprotData <- function(uniprot_tsv_path) {
@@ -487,49 +487,11 @@ headerFreqs <- function(header_vec) {
 }
 
 
-#' Ranked gene set enrichment analysis
-#'
-#' @description
-#' Rank proteins in tb according to a specified column, in
-#' descending fashion
-#' @param quant the column to rank proteins on
-fgseaWrapper <- function(quant, tb, gene_sets) {
-  ranked <- tb %>%
-    dplyr::select(ProteinId, quant) %>%
-    dplyr::filter(!is.na(!!quant)) %>%
-    column_to_rownames(var = "ProteinId") %>%
-    (\(x) {
-      y <- as.vector(x[[quant]])
-      names(y) <- rownames(x)
-      return(y)
-    }) %>%
-    sort(., decreasing = TRUE)
-  # You could use dense_rank for unifying ranks later, but for now, just use seq
-  fgsea <- fgsea(pathways = gene_sets, ranked, scoreType = "pos")
-  # Recommended to switch to "pos"
-  return(list(result = fgsea, ranked = ranked))
-}
 
-# See here for more plotting
-# https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html
-plotFgsea <- function(gene_sets, ranked_list, fgsea_result) {
-  fgsea_plots <- list()
-  fgsea_plots$ALL <- plotGseaTable(
-    gene_sets,
-    ranked_list, fgsea_result
-  )
-  for (n in seq_len(nrow(fgsea_result))) {
-    set <- fgsea_result[n, ]$pathway
-    padjust <- round(fgsea_result[n, ]$padj, 6)
-    fgsea_plots[[set]] <- plotEnrichment(gene_sets[[set]], ranked_list) +
-      labs(title = glue("Set: {set}, adjusted p-value = {padjust}"))
-  }
-  return(fgsea_plots)
-}
 
 GO_DAG <- NULL
 GO_SLIM_DAG <- NULL
-getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULl) {
+getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULL) {
   op <- reticulate::import("goatools.obo_parser")
   ms <- reticulate::import("goatools.mapslim")
   if (is.null(GO_DAG)) {
@@ -537,9 +499,11 @@ getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULl) {
     GO_SLIM_DAG <<- op$GODag(go_slim_path)
   }
   getOneSlim <- function(term) {
-    py$slims <- NULL
-    try(expr = py$slims <- ms$mapslim(term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG))
-    if (is.null(py$slims)) {
+    py$slims <- tryCatch(
+      expr = ms$mapslim(term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG),
+      error = function(cnd) NULL
+    )
+    if (is.null(py$slims) || length(py$slims) == 0) {
       return(list(direct = NA, all = NA))
     }
     reticulate::py_run_string("direct = list(slims[0])")
@@ -558,13 +522,13 @@ getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULl) {
 }
 
 #' Split a string of GO terms joined by ";" and return their slims joined together
-slimsFromGoString <- function(term_str) {
+slimsFromGoString <- function(term_str, go_path, go_slim_path) {
   if (is.na(term_str)) {
     return(NA)
   }
   slims <- str_split_1(term_str, ";") %>%
     lapply(
-      ., \(g) getGoSlim(g, args$go_path, args$go_slim_path, "all")
+      ., \(g) getGoSlim(g, go_path, go_slim_path, "all")
     ) %>%
     unlist() %>%
     unique() %>%
@@ -574,4 +538,34 @@ slimsFromGoString <- function(term_str) {
     return(NA)
   }
   return(slims)
+}
+
+#' Find the terms from a vector of GO Ids, grouping them by sub-ontology
+#' @return a list of three GO term vectors, one for each sub-ontology
+idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
+  assertArg(id_vector, \(x) is.atomic(x))
+  empty <- list("CC" = NULL, "BP" = NULL, "MF" = NULL)
+  getTerm <- function(id) {
+    list <- empty
+    term <- GOTERM[[id]]
+    if (!is.null(term)) {
+      attrs <- attributes(term)
+      list[[term@Ontology]] <- attrs[[target]]
+    }
+    return(list)
+  }
+  reduced <- lapply(id_vector, getTerm) %>%
+    purrr::reduce(., mergeLists, .init = empty)
+  if (collapse) {
+    reduced <- purrr::map(reduced, \(x) paste0(x, collapse = ";"))
+  }
+  return(reduced)
+}
+
+# Map vector of Protein ids their groups,
+mapUnique <- function(ids, map) {
+  map_chr(ids, \(x) map[[x]]) %>%
+    unique() %>%
+    discard(is.na) %>%
+    discard(\(x) x == "U")
 }

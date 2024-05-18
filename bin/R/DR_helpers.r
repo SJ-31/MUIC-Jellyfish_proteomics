@@ -257,7 +257,6 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
 }
 
 
-
 #' Compute the distance of all rows in a matrix against one vector
 #'
 #' @description
@@ -269,36 +268,6 @@ distRows <- function(query, matrix, dist_func) {
   return(distances)
 }
 
-#' Find k nearest proteins in a reduced dimension space, receiving both queries and the points as a named matrix
-#'
-#' @description
-#' Currently supports PCA and PCoA
-nearestInDim <- function(query, k, data, dist_func, id_col) {
-  if (any(class(data) == "prcomp")) {
-    points <- data$x
-  } else if (any(class(data) == "wcmdscale")) {
-    points <- data$points
-  } else {
-    points <- data
-  }
-  if (any(class(data) == "tbl") && !missing(id_col)) {
-    points <- column_to_rownames(data, var = id_col)
-  }
-  result_list <- list()
-  for (q in seq_len(nrow(query))) {
-    result <- distRows(query[q, ], points, dist_func)
-    result <- result %>%
-      discard_at(\(x) x %in% rownames(query)) %>%
-      sort() %>%
-      head(n = k)
-    result_list[[rownames(query)[q]]] <- result
-  }
-  result_list <- result_list %>%
-    unname() %>%
-    unlist() %>%
-    uniqueNames()
-  return(result_list)
-}
 
 #' Proof of data reconstruction by PCA
 #'
