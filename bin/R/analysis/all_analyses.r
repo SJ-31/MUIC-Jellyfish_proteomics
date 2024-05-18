@@ -15,6 +15,7 @@ if (str_detect(getwd(), "Bio_SDD")) {
 GET_GO <- TRUE
 CHOSEN_PASS <- "first"
 
+# TODO: Change any directories that use `test` into valid ones
 args <- list(
   r_source = glue("{wd}/bin/R"),
   python_source = glue("{wd}/bin"),
@@ -25,11 +26,15 @@ args <- list(
   ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
   embedding_path = glue("{wd}/data/reference/go_embedded.npz"),
   dist_path = glue("{wd}/tests/nf-test-out/C_indra_esm_embeddings/distances.hdf5"),
+  orgdb_path = glue("{wd}/tests/testthat/output/org.Cindrasaksajiae.eg.db"),
   go_path = glue("{wd}/data/reference/go.obo"),
-  go_slim_path = glue("{wd}/data/reference/goslim_generic.obo")
+  go_slim_path = glue("{wd}/data/reference/goslim_generic.obo"),
+  go_tm_dir = glue("{wd}/data/reference/.go_texts")
 )
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/GO_helpers.r"))
+source(glue("{args$r_source}/cluster_helpers.r"))
+source(glue("{args$r_source}/DR_helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
 EGGNOG_COLS <- c(
