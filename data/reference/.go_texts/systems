@@ -1,3 +1,4 @@
+PRE-system
 phosphorelay signal transduction
 skeletal
 urogenital
@@ -14,55 +15,23 @@ His-Purkinje
 stomatogastric nervous
 peripheral nervous
 open tracheal
-cell fate determination open tracheal
-tracheal outgrowth open tracheal
-epithelial cell migration open tracheal
-primary branching open tracheal
-secondary branching open tracheal
-terminal branching open tracheal
 DNA restriction-modification
-phosphoenolpyruvate-dependent sugar phosphotransferase
 shoot
 radial microtubular
 endomembrane
 gastro-intestinal
-type II protein secretion
 glycine decarboxylation via glycine cleavage
 ventricular
 limbic
 digestive
 root
-protein-N PI phosphohistidine-glucose phosphotransferase
-protein-N PI phosphohistidine-sorbitol phosphotransferase
-protein-N PI phosphohistidine-lactose phosphotransferase
-protein-N PI phosphohistidine-mannose phosphotransferase
-protein-N PI phosphohistidine-sorbose phosphotransferase
-protein-N PI phosphohistidine-mannitol phosphotransferase
-protein-N PI phosphohistidine-maltose phosphotransferase
-protein-N PI phosphohistidine-cellobiose phosphotransferase
-protein-N PI phosphohistidine-galactitol phosphotransferase
-protein-N PI phosphohistidine-galactosamine phosphotransferase
-protein-N PI phosphohistidine-fructose phosphotransferase
-protein-N PI phosphohistidine-sucrose phosphotransferase
-protein-N PI phosphohistidine-trehalose phosphotransferase
-protein-N PI phosphohistidine-N-acetylglucosamine phosphotransferase
-protein-N PI phosphohistidine-N-acetylgalactosamine phosphotransferase
-protein-N PI phosphohistidine-beta-glucoside phosphotransferase
-type I protein secretion
-type III protein secretion
-type VI protein secretion
+phosphotransferase
 host cell endomembrane
-dorsal trunk growth open tracheal
-liquid clearance open tracheal
-branch fusion open tracheal
-lumen formation open tracheal
-cell type specification open tracheal
-cell fate specification open tracheal
+open tracheal
 larval central nervous
 endocrine
 exocrine
-spiracle morphogenesis open tracheal
-type IV secretion
+secretion
 starch utilization
 autonomic nervous
 enteric nervous
@@ -70,33 +39,12 @@ sympathetic nervous
 parasympathetic nervous
 embryonic skeletal
 sensory
-mechanosensory lateral line
-anterior lateral line
-posterior lateral line
 lateral line
-electrosensory lateral line
-phosphoenolpyruvate-dependent mannosylglycerate phosphotransferase
 pharyngeal
 hepaticobiliary
 reproductive
 lipopolysaccharide transport
-PI phosphohistidine-N N diacetylchitobiose phosphotransferase
-protein-phosphocysteine-glucose phosphotransferase
-protein-phosphocysteine-mannitol phosphotransferase
-protein-phosphocysteine-N N diacetylchitobiose phosphotransferase
 reproductive shoot
-protein-phosphocysteine-mannosylglycerate-phosphotransferase
-protein-phosphocysteine-D-fructose-phosphotransferase
-protein-phosphocysteine-D-sorbitol-phosphotransferase
-protein-phosphocysteine-galactitol-phosphotransferase
-protein-phosphocysteine-L-ascorbate-phosphotransferase
-protein-phosphocysteine-N-acetylglucosamine phosphotransferase
-protein-phosphocysteine-glucosamine phosphotransferase
-protein-phosphocysteine-N-acetylmuramate phosphotransferase
-protein-phosphocysteine-trehalose phosphotransferase
-protein-N PI phosphohistidine-D-glucosamine phosphotransferase
-protein-N PI phosphohistidine-N-acetyl-mannosamine phosphotransferase
-type V protein secretion
 CRISPR-cas
 visual
 somatic sensory
