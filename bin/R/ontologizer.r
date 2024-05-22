@@ -57,6 +57,7 @@ prep <- function(args) {
 }
 
 getSlims <- function(args) {
+  # Must also report the number of terms that couldn't be slimmed
   source(glue("{args$r_source}/GO_helpers.r"))
   ontologizer <- ontoResults(args$results_path)
   ont_vectors <- ontologizer %>% discard(\(x) any(str_detect("data.frame", class(x))))
@@ -77,6 +78,36 @@ getSlims <- function(args) {
   }
 }
 
+wordClouds <- function(args) {
+  transformP <- function(p_vec) {
+    lg <- -log(p_vec)
+    lg[lg == Inf] <- .Machine$integer.max
+    lg
+  }
+  prep <- function(tb, go_vec) {
+    info_tb <- goInfoTb(go_vec)
+    tb <- tb %>%
+      mutate(sorted_p = transformP(`p.adjusted`)) %>%
+      inner_join(., info_tb, by = join_by(x$ID == y$GO_IDs))
+    tb
+  }
+  source(glue("{args$r_source}/GO_helpers.r"))
+  source(glue("{args$r_source}/GO_text_mining_helpers.r"))
+  results <- ontoResults(args$results_path)
+  params <- list(
+    term_col = "name", sort_by = "sorted_p", compound = FALSE,
+    color_col = "ontology", shape = "circle", word_size = "sorted_p"
+  )
+  id_with_open <- prep(results$id_with_open, results$id_with_open_GO)
+  unknown_to_db <- prep(results$unknown_to_db, results$unknown_to_db_GO)
+  with_open_tk <- tokenize2Plot(id_with_open, params)
+  unknown_tk <- tokenize2Plot(unknown_to_db, params)
+  with_open_cloud <- wordcloudCustom(with_open_tk$tb, with_open_tk$abbrevs)
+  unknown_cloud <- wordcloudCustom(unknown_tk$tb, unknown_tk$abbrevs)
+  ggsave(with_open_cloud, filename = "id_with_open_wordcloud.png")
+  ggsave(unknown_cloud, filename = "unknown_to_db_wordcloud.png")
+}
+
 
 if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   library("optparse")
@@ -94,7 +125,8 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     writeLines(m$id_open$ProteinId, "id_with_open.txt")
     writeLines(m$standard_annotation$ProteinId, "unknown_to_db.txt")
     writeLines(m$universe$ProteinId, "universe.txt")
-  } else if (args$mode == "get_slims") {
+  } else if (args$mode == "process") {
     getSlims(args)
+    wordClouds(args)
   }
 }

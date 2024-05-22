@@ -128,7 +128,6 @@ assertArg <- function(arg, predicate) {
     failed_arg <- str_extract(last, "assertArg\\((.*),", group = 1)
     message <- glue("wrong argument in `{caller}`")
     message <- glue("{message}\n  Incorrect argument `{failed_arg}`")
-    message <- glue("{message}\n  Top-level call: {top_level}")
     stop(message, call. = FALSE)
   }
 }
@@ -155,4 +154,13 @@ table2Tb <- function(table, id_col) {
   tb <- as_tibble(table, .name_repair = "unique")
   colnames(tb)[1] <- id_col
   tb
+}
+
+lget <- function(lst, arg, default) {
+  find <- lst[[arg]]
+  if (is.null(find)) {
+    default
+  } else {
+    find
+  }
 }

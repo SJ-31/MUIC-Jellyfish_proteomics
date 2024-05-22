@@ -273,7 +273,8 @@ ontoResults <- function(ontologizer_dir) {
 
 #' Create a tibble containing information about specific GO terms
 #'
-goInfoTb <- function(go_vector, get_slims = FALSE, go_path = NULL, go_slim_path = NULL) {
+goInfoTb <- function(go_vector) {
+  assertArg(go_vector, \(x) is.atomic(x))
   tb <- lapply(go_vector, \(x) {
     row <- tibble(
       GO_IDs = x, term = NA,
