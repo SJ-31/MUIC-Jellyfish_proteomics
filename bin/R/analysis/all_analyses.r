@@ -13,6 +13,7 @@ if (str_detect(getwd(), "Bio_SDD")) {
   env <- "/home/shannc/anaconda3/envs/reticulate"
 }
 GET_GO <- TRUE
+PLOT_GO <- FALSE
 CHOSEN_PASS <- "first"
 
 # TODO: Change any directories that use `test` into valid ones
@@ -59,6 +60,13 @@ if (GET_GO) {
     onto_path = args$ontologizer_path
   )
 }
+if (PLOT_GO) {
+  source(glue("{args$r_source}/GO_text_mining_helpers.r"), local = th)
+  clouds <- specialGoClouds(d$sample_tb)
+  lapply(names(clouds), \(x) {
+    ggsave(glue("{OUTDIR}/figures/{x}_go_word_cloud.png"), clouds[[x]])
+  })
+}
 
 # NOTE: Name each element of the list by file it will be saved to
 GRAPHS <- list()
@@ -70,6 +78,7 @@ SAVE <- FALSE
 # source(glue("{args$r_source}/analysis/fgsea.r")) # DONE
 # source(glue("{args$r_source}/analysis/subanalyses/PTM_analyses.r")) # TODO:
 # source(glue("{args$r_source}/analysis/subanalyses/engine_category_bias.r")) # DONE
+
 
 
 if (SAVE) {
