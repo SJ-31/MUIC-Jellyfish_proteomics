@@ -26,7 +26,7 @@ runData <- function(prefix, path, remove_dupes = TRUE, which = "both") {
     tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>% filter(q_adjust < FDR)
     deeploc <- getDeeploc(
       glue("{path}/{pass}/Deeploc/deeploc_results.csv"),
-      glue("{path}/{pass}/Combined/unified_groups.tsv")
+      glue("{path}/{pass}/Combined/intersected_searches.tsv")
     )
     tb <- bind_rows(tb, deeploc)
     if (remove_dupes) {
@@ -298,7 +298,7 @@ wilcoxWrapper <- function(first_sec, paired, metric) {
   first <- first_sec[[glue("{col}.first")]]
   second <- first_sec[[glue("{col}.sec")]]
   tests <- list()
-  hypotheses <- c("two.sided", "less", "greater")
+  hypotheses <- c("less", "greater")
   for (h in hypotheses) {
     tests[[h]] <- wilcox.test(first, second,
       paired = paired,
@@ -317,6 +317,45 @@ wilcoxWrapper <- function(first_sec, paired, metric) {
       \(x) ifelse(x < 0.05, "Y", "N")
     ))
   return(tb)
+}
+
+
+#' Wrapper function for performing pairwise tests
+pairwiseFromTb <- function(
+    tb, compare_cols, one_sided_alts, testFun, alpha = 0.05,
+    suffixes = c(".first", ".sec")) {
+  if (length(compare_cols) != length(one_sided_alts)) {
+    stop("Must provide alternative hypothesis for each pair of columns!")
+  }
+  map2(
+    compare_cols,
+    one_sided_alts,
+    \(x, y) {
+      f <- tb[[glue("{x}{suffixes[1]}")]]
+      s <- tb[[glue("{x}{suffixes[2]}")]]
+      ts_test <- testFun(f, s)
+      os_test <- testFun(f, s, alternative = y)
+      mean_diff <- mean(s, na.rm = TRUE) - mean(f, na.rm = TRUE)
+      tibble(
+        metric = x, two_sided_p_value = ts_test$`p.value`,
+        one_sided_p_value = os_test$`p.value`,
+        alternative = glue("{suffixes[1]} {y}"),
+        mean_diff = mean_diff
+      ) %>% mutate(
+        two_sided_significant = map_chr(two_sided_p_value, \(x) {
+          ifelse(x < alpha, "Y", "N")
+        }),
+        alternative_significant = map2_chr(two_sided_p_value, one_sided_p_value, \(x, y)  {
+          case_when(
+            x < alpha && y < alpha ~ "Y",
+            x < alpha && y > alpha ~ "N",
+            x > alpha ~ "N"
+          )
+        })
+      )
+    }
+  ) %>%
+    bind_rows()
 }
 
 
@@ -446,7 +485,12 @@ formatEngineContingency <- function(table, category, w_expected = FALSE) {
 
 #' Compute the odds ratio from a 2x2 contingency table, or the
 #' upper and lower 95% CIs of that ratio
-#'
+#' Table should be of the standard epidemiologic form
+#'                Present Absent
+#' Exposed          a       b
+#' Not exposed      c       d
+#' The calculated ratio (OR) is then the odds of `Present` is OR times as
+#' high in `Exposed` compared to `Not Exposed`
 oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
   a <- ctable[1, 1]
   d <- ctable[2, 2]
@@ -485,4 +529,16 @@ avgStdevs <- function(tb, cols, stat) {
     result <- c(result, stat(tb[[col]]))
   }
   return(result)
+}
+
+
+htest2Tb <- function(test) {
+  tibble(
+    null = test$`null.value`,
+    alternative = test$alternative,
+    method = test$method,
+    data = test$`data.name`,
+    statistic = test$statistic,
+    p_value = test$`p.value`
+  )
 }

@@ -3,6 +3,7 @@
 #'
 
 library(paletteer)
+library(tidyverse)
 ONTOLOGIES <- c("MF", "BP", "CC")
 library(GO.db)
 library(reticulate)
@@ -248,7 +249,7 @@ ontoResults <- function(ontologizer_dir) {
   onto_files <- list.files(ontologizer_dir) %>%
     keep(., grepl("ontologizer-", .)) %>%
     lapply(., \(x) {
-      glue("{ontologizer_dir}{x}")
+      glue("{ontologizer_dir}/{x}")
     }) %>%
     unlist()
   names(onto_files) <- onto_files %>%
@@ -435,8 +436,8 @@ TARGET_TERMS <- list(toxins = c(
   "GO:0031640", # Killing cells of another organism
   "GO:0015473" # Fimbrial usher porin activity
 ))
-TARGET_TERMS <- map(TARGET_TERMS, \(x) {
-  map(x, goOffspring) %>%
+TARGET_TERMS <- purrr::map(TARGET_TERMS, \(x) {
+  purrr::map(x, goOffspring) %>%
     unlist() %>%
     unique() %>%
     discard(is.na)
@@ -544,8 +545,11 @@ slimsFromGoString <- function(term_str, go_path, go_slim_path) {
 #' Find the terms from a vector of GO Ids, grouping them by sub-ontology
 #' @return a list of three GO term vectors, one for each sub-ontology
 idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
-  assertArg(id_vector, \(x) is.atomic(x))
-  empty <- list("CC" = NULL, "BP" = NULL, "MF" = NULL)
+  assertArg(id_vector, \(x) is.atomic(x) || is.null(x))
+  empty <- list("CC" = "", "BP" = "", "MF" = "")
+  if (is.null(id_vector)) {
+    return(empty)
+  }
   getTerm <- function(id) {
     list <- empty
     term <- GOTERM[[id]]
@@ -558,7 +562,11 @@ idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
   reduced <- lapply(id_vector, getTerm) %>%
     purrr::reduce(., mergeLists, .init = empty)
   if (collapse) {
-    reduced <- purrr::map(reduced, \(x) paste0(x, collapse = ";"))
+    reduced <- purrr::map(reduced, \(x) {
+      x %>%
+        discard(., x == "") %>%
+        paste0(., collapse = ";")
+    })
   }
   return(reduced)
 }
