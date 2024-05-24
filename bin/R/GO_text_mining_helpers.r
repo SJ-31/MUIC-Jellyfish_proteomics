@@ -1,6 +1,7 @@
-library(quanteda)
-library(ggwordcloud)
-library(tidytext)
+library("quanteda")
+library("ggplot2")
+library("ggwordcloud")
+library("tidytext")
 DATA_DIR <- args$go_tm_dir
 
 compoundSpecial <- function(str, pattern, expected_matches) {
@@ -161,10 +162,12 @@ tokenize2Plot <- function(tb, params = NULL) {
       unlist() %>%
       keep(., \(x) x %in% names(ABBREVS))
     if (length(found_abbrevs) != 0) {
-      legend_text <- found_abbrevs %>% map_chr(., \(x)  {
-        key <- ABBREVS[x]
-        glue("{key} = {x}")
-      })
+      legend_text <- found_abbrevs %>%
+        map_chr(., \(x)  {
+          key <- ABBREVS[x]
+          glue("{key} = {x}")
+        }) %>%
+        unique()
       result$abbrevs <- grid::legendGrob(legend_text)
     }
     tb$token <- tb$token %>% map_chr(., \(x) str_replace_all(x, F_ABBREVS))
@@ -204,7 +207,7 @@ wordcloudCustom <- function(tb, params, abbrev_legend = NULL) {
     guides(size = FALSE, alpha = FALSE) +
     theme(text = element_text(family = "Ubuntu"))
   if (!is.null(abbrev_legend)) {
-    plot <- plot + guides(custom = guide_custom(abbrev_legend, title = "Abbreviations"))
+    plot <- plot + guides(custom = ggplot2::guide_custom(abbrev_legend, title = "Abbreviations"))
   }
   plot
 }

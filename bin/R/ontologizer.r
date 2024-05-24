@@ -1,3 +1,9 @@
+options(
+  browser = "firefox",
+  rlang_backtrace_on_error = "full",
+  error = rlang::entrace
+)
+rlang::global_entrace()
 library(tidyverse)
 library(glue)
 
@@ -59,6 +65,7 @@ prep <- function(args) {
 getSlims <- function(args) {
   # Must also report the number of terms that couldn't be slimmed
   source(glue("{args$r_source}/GO_helpers.r"))
+  source(glue("{args$r_source}/helpers.r"))
   ontologizer <- ontoResults(args$results_path)
   ont_vectors <- ontologizer %>% discard(\(x) any(str_detect("data.frame", class(x))))
   ont_slims <- sapply(names(ont_vectors), \(.) NULL)
@@ -92,18 +99,22 @@ wordClouds <- function(args) {
     tb
   }
   source(glue("{args$r_source}/GO_helpers.r"))
+  source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/GO_text_mining_helpers.r"))
   results <- ontoResults(args$results_path)
   params <- list(
     term_col = "name", sort_by = "sorted_p", compound = FALSE,
     color_col = "ontology", shape = "circle", word_size = "sorted_p"
   )
-  id_with_open <- prep(results$id_with_open, results$id_with_open_GO)
-  unknown_to_db <- prep(results$unknown_to_db, results$unknown_to_db_GO)
+  id_with_open <- prep(results$id_with_open, names(results$id_with_open_GO))
+  unknown_to_db <- prep(results$unknown_to_db, names(results$unknown_to_db_GO))
   with_open_tk <- tokenize2Plot(id_with_open, params)
   unknown_tk <- tokenize2Plot(unknown_to_db, params)
-  with_open_cloud <- wordcloudCustom(with_open_tk$tb, with_open_tk$abbrevs)
-  unknown_cloud <- wordcloudCustom(unknown_tk$tb, unknown_tk$abbrevs)
+  with_open_cloud <- wordcloudCustom(
+    with_open_tk$tb, params,
+    with_open_tk$abbrevs
+  )
+  unknown_cloud <- wordcloudCustom(unknown_tk$tb, params, unknown_tk$abbrevs)
   ggsave(with_open_cloud, filename = "id_with_open_wordcloud.png")
   ggsave(unknown_cloud, filename = "unknown_to_db_wordcloud.png")
 }
@@ -118,6 +129,7 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- add_option(parser, c("-s", "--go_slim_path"))
   parser <- add_option(parser, c("-g", "--go_path"))
   parser <- add_option(parser, c("-m", "--mode"))
+  parser <- add_option(parser, c("-d", "--go_tm_dir"))
   args <- parse_args(parser)
   if (args$mode == "prep") {
     m <- prep(args)
@@ -125,8 +137,9 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     writeLines(m$id_open$ProteinId, "id_with_open.txt")
     writeLines(m$standard_annotation$ProteinId, "unknown_to_db.txt")
     writeLines(m$universe$ProteinId, "universe.txt")
-  } else if (args$mode == "process") {
+  } else if (args$mode == "get_slims") {
     getSlims(args)
+  } else if (args$mode == "word_cloud") {
     wordClouds(args)
   }
 }

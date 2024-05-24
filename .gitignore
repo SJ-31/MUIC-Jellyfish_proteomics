@@ -33,3 +33,5 @@ docs/images/*
 tests/debug
 .cache
 tests/pytest/__pycache__
+tests/test_clusters/distances.hdf5
+tests/test_clusters
