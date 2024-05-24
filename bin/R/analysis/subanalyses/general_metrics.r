@@ -73,16 +73,12 @@ counts$sec <- getCounts(run$sec)
 wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
 # Run Wilcox tests between on the metrics defined above, pairing up proteins that
 # were identified in both runs
-wilcox <- lapply(wanted_cols, \(x) {
-  compare_tb <- compareFirstSecW(run, x, "ProteinId", TRUE)
-  test_tb <- wilcoxWrapper(compare_tb, TRUE, x)
-  return(test_tb)
-}) %>%
-  bind_rows() %>%
-  mutate(alternative = map_chr(
-    alternative,
-    \(x) ifelse(x == "two.sided", x, paste0("first_", x))
-  ))
+compare_tb <- inner_join(run$first, run$second, by = join_by(ProteinId), suffix = c(".first", ".sec"))
+
+wilcox <- pairwiseFromTb(
+  compare_tb, wanted_cols, c("less", "less", "less", "less"),
+  \(x, y, ...) wilcox.test(x, y, paired = TRUE, na.rm = TRUE, ...)
+)
 sub <- substituteAll(
   c("num_peps", "pcoverage_align"),
   c("peptide number", "percent coverage"),
@@ -97,12 +93,12 @@ TABLES$wilcox_pass_comparison <- wilcox %>%
   fmt(., columns = "metric", fns = \(x) map_chr(x, sub)) %>%
   text_case_match(
     "two.sided" ~ "two-sided",
+    ".first" ~ "first",
     "_" ~ " pass ",
     .replace = "partial"
   ) %>%
-  fmt_number(., columns = "p_value", decimals = 5) %>%
+  fmt_number(., columns = contains("p_value"), decimals = 5) %>%
   tab_stubhead(label = "Metric")
-
 
 # Results per protein
 # Evaluate significance of each
