@@ -55,10 +55,15 @@ prep <- function(args) {
       grepl("[UDT]", ProteinId))
   )
   # Proteins not known to database, inferred with eggNOG and interpro
+  d <- ozFormat(
+    dplyr::filter(combined, grepl("U", ProteinId) | Group == "U")
+  )
+  # Proteins mapped ONLY by unmatched peptides or are themselves unmatched peptides
   return(list(
     universe = u,
     id_open = io,
-    standard_annotation = sa
+    standard_annotation = sa,
+    unmatched_only = d
   ))
 }
 
@@ -99,8 +104,8 @@ wordClouds <- function(args) {
     tb
   }
   source(glue("{args$r_source}/GO_helpers.r"))
-  source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/GO_text_mining_helpers.r"))
+  source(glue("{args$r_source}/helpers.r"))
   results <- ontoResults(args$results_path)
   params <- list(
     term_col = "name", sort_by = "sorted_p", compound = FALSE,
@@ -135,11 +140,13 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     m <- prep(args)
     writeOz("protein_mappings.ids", m$universe)
     writeLines(m$id_open$ProteinId, "id_with_open.txt")
+    writeLines(m$unmatched_only$ProteinId, "unmatched_only.txt")
     writeLines(m$standard_annotation$ProteinId, "unknown_to_db.txt")
     writeLines(m$universe$ProteinId, "universe.txt")
   } else if (args$mode == "get_slims") {
     getSlims(args)
   } else if (args$mode == "word_cloud") {
+    print(args)
     wordClouds(args)
   }
 }
