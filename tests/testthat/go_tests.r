@@ -37,11 +37,6 @@ orgdb_pth <- "./tests/testthat/output/org.Cindrasaksajiae.eg.db"
 DB_NAME <- gsub(".*\\/", "", orgdb_pth, fixed = FALSE)
 rrvgo_path <- "./tests/testthat/output/rrvgo"
 
-# orgdb <- prepOrgDb(orgdb_pth)
-# semdata <- lapply(ONTOLOGIES, \(x) {
-#   GOSemSim::godata(OrgDb = db_name, ont = x, keytype = "GID")
-# }) %>% `names<-`(ONTOLOGIES)
-
 uniprot <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/protein_databases/comparison_taxa/reviewed_all.tsv"
 
 sample_name <- "C_indra"
@@ -50,6 +45,7 @@ sample_name <- "C_indra"
 d <- goData(args$combined_results,
   onto_path = args$ontologizer_path
 )
+
 e <- embeddingData(
   args$combined_results,
   args$sample_name,
@@ -58,22 +54,8 @@ e <- embeddingData(
 )
 
 id_with_open <- d$ontologizer$id_with_open_GO
-
 dist <- e$cosine
 
-
-OUTDIR <- "/home/shannc/Downloads/thesis_testzone/"
-py_clusters <- new.env()
-reticulate::source_python(glue("{args$python_source}/clustering.py"), envir = py_clusters)
-clusters <- local({
-  f <- hclustSk(dist, 0.1, "average", labels_only = FALSE)
-  linkage_matrix <- py_clusters$linkageMatrix(f$fitted)
-  py_clusters$saveDendogram(linkage_matrix,
-    glue("{OUTDIR}/dendogram.png"),
-    cutoff = 0.1
-  )
-  f$labels
-})
 
 e$metadata <- mergeClusters(clusters, e$metadata, "ProteinId")
 
@@ -94,8 +76,12 @@ nested <- e$metadata %>%
     ),
     GO_counts = map_dbl(GO_IDs, \(x) length(x))
   ) %>%
-  arrange(desc(size))
-slims <- lapply(nested$GO_slims, idsIntoOntology) %>% purrr::reduce(., mergeLists)
+  arrange(desc(size)) %>%
+  filter(size >= 10)
+
+slims <- nested$GO_slims %>%
+  lapply(., idsIntoOntology) %>%
+  purrr::reduce(., mergeLists)
 slim_tb <- nested %>%
   select(cluster, size) %>%
   ungroup() %>%
@@ -104,6 +90,9 @@ slim_tb <- nested %>%
     slim_CC = slims$CC,
     slim_BP = slims$BP,
     slim_MF = slims$MF
-  )
+  ) %>%
+  mutate(across(contains("slim_"), \(x) dplyr::na_if(x, "")))
 
-# TODO: Summarize the go terms in each cluster using text-mining techniques
+
+nested$KEGG_Pathway <- associatedPathways(e$metadata, nested)
+nested %>% filter(!is.na(KEGG_Pathway))

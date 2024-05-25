@@ -8,8 +8,10 @@ nextflow_process {
 
         when {
             params {
-                // define parameters here. Example:
-                // outdir = "tests/results"
+                bin = "$baseDir/bin"
+                go = "/mnt/data/shannc/nf/data/reference/go.obo"
+                go_slims = "/mnt/data/shannc/nf/data/reference/goslim_generic.obo"
+                go_texts = "/mnt/data/shannc/nf/data/reference/.go_texts"
             }
             process {
                 """
