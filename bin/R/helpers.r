@@ -19,6 +19,9 @@ tibbleDuplicateAt <- function(tibble, col, separator) {
   numeric_cols <- tibble %>%
     dplyr::select(where(is.numeric)) %>%
     colnames()
+  logical_cols <- tibble %>%
+    dplyr::select(where(is.logical)) %>%
+    colnames()
   applicable <- tibble %>% filter(grepl(separator, !!as.symbol(col)))
   if (nrow(applicable) != 0) {
     applicable <- applicable %>%
@@ -29,6 +32,9 @@ tibbleDuplicateAt <- function(tibble, col, separator) {
   }
   if (length(numeric_cols) > 0) {
     applicable <- applicable %>% mutate_at(., numeric_cols, as.numeric)
+  }
+  if (length(logical_cols) > 0) {
+    applicable <- applicable %>% mutate_at(., logical_cols, as.logical)
   }
   not_applicable <- tibble %>% filter(!grepl(separator, !!as.symbol(col)))
   return(bind_rows(applicable, not_applicable))
@@ -58,7 +64,7 @@ mostAbund <- function(grouped_df) {
   return(choices)
 }
 
-ggplotNumericDist <- function(lst, method = "hist") {
+ggplotNumericDist <- function(lst, method = "hist", ...) {
   if (is.null(names(lst))) {
     names(lst) <- LETTERS[seq_along(lst)]
   }
@@ -66,13 +72,16 @@ ggplotNumericDist <- function(lst, method = "hist") {
     bind_rows()
   if (method == "boxplot") {
     plot <- tb %>% ggplot(aes(x = id, y = freq, color = id)) +
-      geom_boxplot()
+      geom_boxplot(...)
   } else if (method == "hist") {
     plot <- tb %>% ggplot(aes(x = freq, color = id, fill = id)) +
-      geom_histogram()
+      geom_histogram(...)
+  } else if (method == "ridgeline") {
+    plot <- tb %>% ggplot(aes(y = id, color = id, fill = id, x = freq)) +
+      ggridges::geom_density_ridges(...)
   } else if (method == "freq_poly") {
     plot <- tb %>% ggplot(aes(x = freq, color = id)) +
-      geom_freqpoly()
+      geom_freqpoly(...)
   } else {
     warning("No supported method given")
   }

@@ -229,3 +229,38 @@ mergeClusters <- function(cluster_labels, tb, id_col) {
   )
   inner_join(tb, col)
 }
+
+#' Determine which KEGG pathways strongly overlap with a cluster.
+#' @param threshold Overlap threshold
+#' @param nested_tb data tb after grouping by then nesting on the column
+#' containing the cluster labels
+associatedPathways <- function(tb, nested_tb) {
+  kegg_pathways <- groupPathways(tb)
+  oneSet <- function(proteins, threshold) {
+    check <- kegg_pathways$grouped %>%
+      lapply(., \(x) {
+        if (length(x) < length(proteins)) {
+          total_members <- length(x)
+        } else {
+          total_members <- length(proteins)
+        }
+        n_intersected <- base::intersect(x, proteins) %>% length()
+        percent_in_pathway <- (n_intersected / total_members) * 100
+        if (percent_in_pathway > threshold) {
+          return(TRUE)
+        }
+        return(FALSE)
+      }) %>%
+      unlist()
+    kegg_pathways$grouped[check]
+  }
+
+  lapply(nested$data, \(x) {
+    pathway_names <- oneSet(x$ProteinId, 50) %>% names()
+    if (length(pathway_names) == 0) {
+      return(NA)
+    }
+    paste0(pathway_names, collapse = ";")
+  }) %>%
+    unlist()
+}

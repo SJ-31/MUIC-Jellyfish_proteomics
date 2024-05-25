@@ -542,3 +542,11 @@ htest2Tb <- function(test) {
     p_value = test$`p.value`
   )
 }
+
+tbTranspose <- function(tb) {
+  df <- tb %>%
+    t() %>%
+    as.data.frame()
+  colnames(df) <- df[1, ]
+  df[-1, ] %>% mutate(across(dplyr::everything(), as.numeric))
+}
