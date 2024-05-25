@@ -1,3 +1,6 @@
+library("ggplot2")
+library("ggVennDiagram")
+
 allIntervals <- function(ids) {
   getIdIntervals <- function(id) {
     lapply(ENGINES, \(x) py$tracer$engineAlignmentIntervals(id, x)) %>%
@@ -32,7 +35,7 @@ percolator_files <- list.files(PERCOLATOR_DIR,
 alignments <- alignmentData(PATH, "first")
 combined_results <- run$first
 
-# For TESTING
+# TODO For TESTING
 combined_results <- combined_results %>% slice(1:3000)
 
 
@@ -76,6 +79,8 @@ percolator_tibbles <- local({
   }
   lmap(percolator_files, getEngine) %>% `names<-`(ENGINES)
 })
+
+TABLES$engine_stats <- engine_stats
 
 normal_engine_tbs <- percolator_tibbles[!names(percolator_tibbles) %in% open_search_engines]
 percolator_tb <- dplyr::bind_rows(percolator_tibbles)
@@ -150,32 +155,51 @@ cov_list <- standard_engine_coverage %>%
   as.list()
 ks <- kruskal.test(cov_list)
 combos <- combn(names(cov_list), 2)
-tests <- lapply(
+test_tb <- lapply(
   seq_len(ncol(combos)),
-  \(x) wilcox.test(cov_list[[combos[1, x]]], cov_list[[combos[2, x]]])
-)
-test_tb <- tibble(
-  p_value = map_dbl(tests, \(x) x$p.value),
-  p_adjust = p.adjust(p_value),
-  pair = map_chr(
-    seq_len(ncol(combos)),
-    \(x) paste0(combos[1, x], " x ", combos[2, x])
-  ),
-  significant = map_dbl(p_adjust, \(x) x < 0.05)
-)
+  \(x) {
+    greater <- wilcox.test(cov_list[[combos[1, x]]],
+      cov_list[[combos[2, x]]],
+      alternative = "greater"
+    )
+    greater$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
+    greater$alternative <- glue("{combos[1, x]} greater")
+    two_sided <- wilcox.test(
+      cov_list[[combos[1, x]]],
+      cov_list[[combos[2, x]]]
+    )
+    two_sided$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
+    two_sided$alternative <- glue("two sided")
+    bind_rows(htest2Tb(greater), htest2Tb(two_sided))
+  }
+) %>% bind_rows()
+test_tb <- test_tb %>%
+  dplyr::select(-c(method, null)) %>%
+  mutate(
+    p_adjust = p.adjust(p_value),
+    significant = map_dbl(p_adjust, \(x) x < 0.05)
+  ) %>%
+  rename(pair = data)
+TABLES$engine_coverage_pairwise <- test_tb
 
-# id_list <- lapply(engines, function(x)
-#   tibbles %>% bind_rows() %>% filter(engine == x))$ProteinId
-# }) %>% `names<-`(engines)
-# svg("engine_intersections.svg")
-# venn(id_list,
-#   plotsize = 100, borders = FALSE, box = FALSE,
-#   ilcs = 1, sncs = 1.5,
-#   zcolor = "red, blue, green, white, orange, yellow"
-# )
+#' Group engines that identify the same peptide groups using Jaccard distance
+enginesXProtein <- peps <- num_peptides_matched %>%
+  select(-all_of(open_search_engines)) %>%
+  tbTranspose()
 
-# filtered_tibbles <- lmap(tibbles, \(x) inner_join(x[[1]], final_results, by = join_by("ProteinId")))
+engine_dist <- vegan::vegdist(enginesXProtein, method = "jaccard")
+pcoa <- vegan::wcmdscale(engine_dist, eig = TRUE)
+jaccard_plot <- pcoa$points %>% ggplot(aes(x = Dim1, y = Dim2, color = rownames(.))) +
+  geom_point(size = 4) +
+  xlab("V1") +
+  ylab("V2") +
+  labs(title = "PCOA of engine similarity (Jaccard distance)", color = "Engine")
+GRAPHS$engine_sim_jaccard <- jaccard_plot
 
-# TODO: Extract different columns (e.g. lineage, GO) from "filtered tibbles" to see
-# if there are statistically significant differences between the different engines
-# Are the engines biased in how they find proteins??
+
+#' Venn diagram for overlap
+id_list <- lapply(normal_engine_tbs, \(x) x$ProteinId) %>%
+  `names<-`(names(normal_engine_tbs))
+venn <- ggVennDiagram(id_list, label = "none") +
+  scale_fill_gradient(low = "grey90", high = "blue")
+GRAPHS$engine_venn <- venn
