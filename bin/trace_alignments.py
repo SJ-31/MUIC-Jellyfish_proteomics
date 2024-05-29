@@ -41,6 +41,7 @@ class AlignmentTracer:
                 return_dtype=pl.List(pl.Int64),
             ),
         )
+        # Retrieve sequence of alignments i.e. ---ACTAGAT--- -> ACTAGAT
         self.alignments = self.alignments.with_columns(
             length=pl.col("interval").map_elements(
                 lambda x: x[1] - x[0], return_dtype=pl.Int16
@@ -50,6 +51,7 @@ class AlignmentTracer:
                 return_dtype=pl.String,
             ),
         )
+        # Get matched peptides from cobmined results
         self.matched_peptides = (
             pl.from_pandas(matched_peptides)
             .filter(pl.col("MatchedPeptideIds").is_not_null())
@@ -131,3 +133,116 @@ def getIntervalGroups(interval_dict, id):
             info[key] = ";".join(info[key])
     info["n_unique"] = len(tt)
     return pd.DataFrame(info, index=[id])
+
+
+def substitutionType(type_str: str, target: str = "conservative") -> int:
+    splits = type_str.split("->")
+    if splits[0] == splits[1] and target == "conservative":
+        return 1
+    if splits[0] != splits[1] and target == "non_conservative":
+        return 1
+    return 0
+
+
+def aggregateReplacements(
+    df: pl.DataFrame, grouping_col: str = "ProteinId"
+) -> pl.DataFrame:
+    """Aggregate useful stats for replacements"""
+    replacement_metrics = (
+        df.group_by(grouping_col)
+        .agg(
+            n_replacements=pl.len(),
+            n_conflicts=pl.col("index").is_duplicated().sum() / 2,
+            n_conservative=pl.sum("conservative"),
+            n_non_conservative=pl.sum("non_conservative"),
+        )
+        .with_columns(
+            nc_c_ratio=pl.col("n_non_conservative") / pl.col("n_conservative")
+        )
+    )
+    return replacement_metrics
+
+
+def classifyReplacements(df: pl.DataFrame) -> pl.DataFrame:
+    """Classify amino acid replacements as conservative or non-conservative"""
+    if isinstance(df, pd.DataFrame):
+        df = pl.from_pandas(df)
+    return df.with_columns(
+        conservative=pl.col("type").map_elements(
+            lambda x: substitutionType(x, "conservative"), return_dtype=pl.Int16
+        )
+    ).with_columns(
+        non_conservative=pl.col("conservative").map_elements(
+            lambda x: 1 if x == 0 else 0,
+            return_dtype=pl.Int16,
+        )
+    )
+
+
+def seqFromAlignment(alignment: str) -> str:
+    start, stop = findChar(alignment), findChar(alignment, True)
+    return alignment[start : stop + 1]
+
+
+def denovoReplacementMetrics(
+    ids_to_keep: list,
+    ids_to_keep_denovo: list,
+    seq_map_path: str,
+    aligned_peptides: pd.DataFrame,
+    replacements: pd.DataFrame,
+):
+    """Get metrics for the amino acid replacements occuring on de novo, transcriptome and unknown proteins
+    :param: ids_to_keep List of ProteinIds for proteins that were mapped by de novo peptides
+    :param: ids_to_keep_denovo List of ProteinIds for the de novo proteins mapping to the main proteins
+    :return: A dictionary with two entries:
+        "map": Mapping of denovo peptides to their protein ids for convenience
+        "metrics": metrics of denovo peptides' amino acid replacements
+    """
+    ids_to_keep, ids_to_keep_denovo = pl.Series(ids_to_keep), pl.Series(
+        ids_to_keep_denovo
+    )
+    replacements = pl.from_pandas(replacements)
+    id_map = getSeqMap(seq_map_path, ids_to_keep_denovo)
+    peptides = (
+        pl.from_pandas(aligned_peptides)
+        .filter(pl.col("ProteinId").is_in(ids_to_keep))
+        .with_columns(
+            sequence=pl.col("alignment").map_elements(
+                seqFromAlignment, return_dtype=pl.String
+            ),
+            start=pl.col("alignment").map_elements(
+                lambda x: findChar(x), return_dtype=pl.Int32
+            ),
+            stop=pl.col("alignment").map_elements(
+                lambda x: findChar(x, True), return_dtype=pl.Int32
+            ),
+        )
+    ).select(pl.col("*").exclude("UniProtKB_ID", "alignment"))
+    denovo_map = peptides.join(id_map, left_on="sequence", right_on="seq", how="inner")
+
+    metrics = (
+        denovo_map.join(replacements, on="ProteinId")
+        .filter(
+            (pl.col("start") <= pl.col("index")) & (pl.col("index") <= pl.col("stop"))
+        )
+        .unique(["ProteinId", "id"], keep="any")
+        .pipe(classifyReplacements)
+        .pipe(lambda x: aggregateReplacements(x, "id"))
+    )
+    # The call to unique is necessary because
+    # a de novo peptide may be matched to multiple proteins
+    # And this would inflate the counts
+    return {"mapping": denovo_map, "metrics": metrics}
+
+
+def getSeqMap(file_path: str, ids_to_keep: list) -> pl.DataFrame:
+    map_to = pl.Series(ids_to_keep)
+    id_map = (
+        pl.read_csv(
+            file_path,
+            separator="\t",
+        )
+        .filter(pl.col("id").is_in(map_to))
+        .select(pl.col("*").exclude("header", "mass", "length"))
+    )
+    return id_map
