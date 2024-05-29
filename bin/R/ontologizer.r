@@ -4,67 +4,31 @@ options(
   error = rlang::entrace
 )
 rlang::global_entrace()
-library(tidyverse)
-library(glue)
+library("reticulate")
+library("tidyverse")
+library("glue")
 
-goVector <- function(df, column, filter) {
-  # Return a flattened vector of GO terms from df
-  df <- df %>% filter(!!as.symbol(column) == filter)
-  gos <- df$GO %>%
-    lapply(., strsplit, split = "\\||;|,") %>%
-    unlist() %>%
-    discard(is.na) %>%
-    discard(!grepl("GO:", .))
-}
-
-writeOz <- function(file, df) {
-  # Write ontologizer-formatted df to file
-  header <- "GoStat IDs Format Version 1.0"
-  write_lines(header, file)
-  write_tsv(df, file, append = TRUE)
-}
-
-ozFormat <- function(tb) {
-  # Format df as input for ontologizer program
-  # Optional filtering by specific columns and values
-  prepped <- tb %>%
-    select(c(ProteinId, GO)) %>%
-    filter(!is.na(GO)) %>%
-    mutate(GO = sapply(GO, function(x) {
-      s <- unlist(strsplit(x, "\\||;|,")) %>% discard(!grepl("GO:", .))
-      x <- sapply(s, gsub,
-        pattern = "_.*", replacement = "",
-        USE.NAMES = FALSE
-      )
-      return(paste0(x, collapse = ",")) # comma delimiter is required for ontologizer formatting
-    }, USE.NAMES = FALSE)) %>%
-    filter(GO != "NA")
-  return(prepped)
-}
-
-prep <- function(args) {
+main <- function(args) {
+  source(glue("{args$r_source}/helpers.r"))
+  ont <- new.env()
+  reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
   combined <- read_tsv(args$input)
-  u <- ozFormat(combined)
-  # Protein universe
-  io <- ozFormat(dplyr::filter(combined, ID_method == "open" |
-    ID_method == "both"))
+
+  O <- reticulateShowError(ont$Ontologizer(combined, args$executable, args$go_path))
+  groups <- list()
+  groups[["id_with_open"]] <- dplyr::filter(combined, ID_method == "open" |
+    ID_method == "both") |> pluck("ProteinId")
   # Modified proteins or identified in open search
-  sa <- ozFormat(
-    combined %>% dplyr::filter(inferred_by == "interpro" |
-      inferred_by == "eggNOG" |
-      grepl("[UDT]", ProteinId))
-  )
+  groups[["unknown_to_db"]] <- dplyr::filter(combined, inferred_by == "interpro" |
+    inferred_by == "eggNOG" |
+    grepl("[UDT]", ProteinId)) |> pluck("ProteinId")
   # Proteins not known to database, inferred with eggNOG and interpro
-  d <- ozFormat(
-    dplyr::filter(combined, grepl("U", ProteinId) | Group == "U")
-  )
+  groups[["unmatched_only"]] <- dplyr::filter(combined, grepl("U", ProteinId) | Group == "U") |> pluck("ProteinId")
+  params <- list(`-m` = "Bonferroni-Holm")
+  print(groups)
   # Proteins mapped ONLY by unmatched peptides or are themselves unmatched peptides
-  return(list(
-    universe = u,
-    id_open = io,
-    standard_annotation = sa,
-    unmatched_only = d
-  ))
+  results <- O$runAll(groups, params) |> lapply(as_tibble)
+  return(results)
 }
 
 getSlims <- function(args) {
@@ -130,23 +94,22 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- OptionParser()
   parser <- add_option(parser, c("-i", "--input"))
   parser <- add_option(parser, c("-r", "--r_source"))
+  parser <- add_option(parser, c("-p", "--python_source"))
   parser <- add_option(parser, c("--results_path"))
+  parser <- add_option(parser, c("--executable"))
   parser <- add_option(parser, c("-s", "--go_slim_path"))
   parser <- add_option(parser, c("-g", "--go_path"))
   parser <- add_option(parser, c("-m", "--mode"))
   parser <- add_option(parser, c("-d", "--go_tm_dir"))
   args <- parse_args(parser)
   if (args$mode == "prep") {
-    m <- prep(args)
-    writeOz("protein_mappings.ids", m$universe)
-    writeLines(m$id_open$ProteinId, "id_with_open.txt")
-    writeLines(m$unmatched_only$ProteinId, "unmatched_only.txt")
-    writeLines(m$standard_annotation$ProteinId, "unknown_to_db.txt")
-    writeLines(m$universe$ProteinId, "universe.txt")
+    m <- main(args)
+    lmap(m, \(x) {
+      write_tsv(x[[1]], glue("ontologizer-{names(x)}.txt"))
+    })
   } else if (args$mode == "get_slims") {
     getSlims(args)
   } else if (args$mode == "word_cloud") {
-    print(args)
     wordClouds(args)
   }
 }

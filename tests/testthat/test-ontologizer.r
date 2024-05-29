@@ -1,7 +1,8 @@
-source("./bin/ontologizer_prep.r")
-args <- list(input = "./tests/results//Combined/all_test.tsv")
+source("./bin/ontologizer.r")
+args <- list(
+  input = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv",
+  python_source = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin",
+  executable = "/home/shannc/Bio_SDD/tools/Ontologizer.jar",
+  go_path = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/reference/go.obo"
+)
 m <- main(args)
-writeOz("protein_mappings.id", m$universe)
-writeLines(m$id_open$ProteinId, "id_with_open.txt")
-writeLines(m$universe$ProteinId, "universe.txt")
-writeLines(m$standard_annotation$ProteinId, "downloaded_db.txt")

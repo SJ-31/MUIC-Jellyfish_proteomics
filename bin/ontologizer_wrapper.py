@@ -56,7 +56,6 @@ class Ontologizer:
             try:
                 with open("protein_mapping.ids", "w") as w:
                     w.write(self.mapping)
-                print(os.listdir())
                 self.universe.to_csv("universe.txt", header=False, index=False)
                 for group, group_members in groups.items():
                     results[group] = self.enrich(group, group_members)

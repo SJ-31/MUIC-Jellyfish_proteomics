@@ -11,11 +11,12 @@ nextflow_process {
                 bin = "$baseDir/bin"
                 go = "/mnt/data/shannc/nf/data/reference/go.obo"
                 go_slims = "/mnt/data/shannc/nf/data/reference/goslim_generic.obo"
+                ontologizer_jar = "/home/shannc/workflow/tools/Ontologizer.jar"
                 go_texts = "/mnt/data/shannc/nf/data/reference/.go_texts"
             }
             process {
                 """
-                input[0] = Channel.fromPath("$baseDir/results/C_indra/1-First_pass/C_indra_all.tsv")
+                input[0] = Channel.fromPath("$baseDir/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv")
                 input[1] = "$baseDir/tests/nf-test-out/ontologizer"
                 """
             }
