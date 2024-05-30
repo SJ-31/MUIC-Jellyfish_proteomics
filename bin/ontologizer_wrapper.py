@@ -7,7 +7,9 @@ import os
 
 
 def cleanGO(go_string):
-    return ",".join(list(filter(lambda x: x != "NA", re.split(";|,", go_string))))
+    if not isinstance(go_string, str):
+        raise ValueError(f"go_string must be a string! Received: {type(go_string)}")
+    return ",".join(list(filter(lambda x: x != "NA", re.split(";", go_string))))
 
 
 class Ontologizer:
@@ -45,7 +47,11 @@ class Ontologizer:
         with open(f"{group_name}.txt", "w") as w:
             w.write("\n".join(group_members))
         run(" ".join(cmd), shell=True)
-        return pd.read_csv(glob.glob(f"table-{group_name}-*.txt")[0], sep="\t")
+        try:
+            read = pd.read_csv(glob.glob(f"table-{group_name}-*.txt")[0], sep="\t")
+            return read
+        except pd.errors.EmptyDataError:
+            return pd.DataFrame()
 
     def runAll(self, groups: dict[str, list], params: dict):
         self.params = params

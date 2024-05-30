@@ -234,9 +234,9 @@ mergeClusters <- function(cluster_labels, tb, id_col) {
 #' @param threshold Overlap threshold
 #' @param nested_tb data tb after grouping by then nesting on the column
 #' containing the cluster labels
-associatedPathways <- function(tb, nested_tb) {
+associatedPathways <- function(tb, nested_tb, threshold = 50) {
   kegg_pathways <- groupPathways(tb)
-  oneSet <- function(proteins, threshold) {
+  oneSet <- function(proteins) {
     check <- kegg_pathways$grouped %>%
       lapply(., \(x) {
         if (length(x) < length(proteins)) {
@@ -255,12 +255,186 @@ associatedPathways <- function(tb, nested_tb) {
     kegg_pathways$grouped[check]
   }
 
-  lapply(nested$data, \(x) {
-    pathway_names <- oneSet(x$ProteinId, 50) %>% names()
+  lapply(nested_tb$data, \(x) {
+    pathway_names <- oneSet(x$ProteinId) %>% names()
     if (length(pathway_names) == 0) {
       return(NA)
     }
     paste0(pathway_names, collapse = ";")
   }) %>%
     unlist()
+}
+
+#' Aggregate identified proteins by specified grouping column
+#' @param data A data frame containing the data to be aggregated.
+#' @param grouping_col The column by which to group the data.
+#' @return A data frame with aggregated metadata, including the size
+#' of each group, GO slims, Percolator groups, organisms, header words,
+#' GO slim counts, GO IDs, and GO counts.
+#' Additionally, KEGG pathways are associated with the groups.
+#' @details The function performs the following aggregations:
+#'  Groups the data by the specified column.
+#'  Computes the size of each group.
+#'  Extracts unique GO slims for each group.
+#'  Concatenates unique values from the 'Group' column.
+#'  Concatenates unique values from the 'organism' column.
+#'  Extracts the top 3 words from the 'header' column.
+#'  Counts the number of unique GO slims for each group.
+#'  Extracts unique GO IDs for each group.
+#'  Counts the number of unique GO IDs for each group.
+#'  Associates KEGG pathways with the groups.
+aggregateMetadata <- function(data, grouping_col) {
+  nested <- data %>%
+    group_by(!!as.symbol(grouping_col)) %>%
+    nest() %>%
+    mutate(
+      size = map_dbl(data, \(x) nrow(x)),
+      GO_slims = lapply(
+        data,
+        \(x) goVector(x, go_column = "GO_slims", unique = TRUE)
+      ),
+      Percolator_groups = map_chr(data, \(x) paste0(unique(x$Group), collapse = ";")),
+      organisms = map_chr(data, \(x) paste0(unique(x$organism), collapse = ";")),
+      header_words = map_chr(data, \(x) {
+        paste0(headerTopN(x$header, 3), collapse = ";")
+      }),
+      GO_slim_counts = map_dbl(GO_slims, \(x) length(x)),
+      GO_IDs = lapply(
+        data,
+        \(x) goVector(x, go_column = "GO_IDs", unique = TRUE)
+      ),
+      GO_counts = map_dbl(GO_IDs, \(x) length(x))
+    ) %>%
+    arrange(desc(size))
+  nested$KEGG_Pathway <- associatedPathways(data, nested)
+  nested
+}
+
+
+REPLACEMENTS <- local({
+  original <- c(
+    "predicted protein",
+    "hypothetical protein",
+    "unnamed protein product",
+    "light chain",
+    "outer membrane protein",
+    "heat shock protein",
+    "uncharacterized proetin"
+  )
+  compounded <- map_chr(original, \(x) str_replace_all(x, " ", "_"))
+  names(compounded) <- original
+  compounded
+})
+
+
+KEYWORDS <- c(
+  "hypothetical protein", "ribosomal protein",
+  "cytochrome", "histone", "unnamed protein", "toxin",
+  "outer membrane protein", "furin", "catenin", "dynein", "tubulin",
+  "septin", "uncharacterized protein", "ribosomal", "chaperone", "predicted",
+  "kinase", "myosin", "atpase", "zinc finger", "metalloproteinase",
+  "microtubule", "nadh-ubiquinone oxidoreductase",
+  "ribonucleoprotein", "venom", "ras", "rab", "actin", "proteasome",
+  "scramblase", "protease", "peptidase", "kinesin", "heat shock", "protease",
+  "adp-ribosylation", "porin", "collagen", "dynamin", "filamin",
+  "gelosin", "glutamate", "glutaryl-coa", "glyceraldehyde", "isocitrate"
+)
+
+
+nameFromHeader <- function(header) {
+  if (str_detect(header, "\\|")) {
+    ex <- header |> str_extract("(tr|sp)\\|[A-Z0-9\\|_]+\\s(.*)OS=.*", group = 2)
+  } else {
+    ex <- header |> str_extract(".*\\.1(.*)\\[.*", group = 1)
+  }
+  str_trim(ex) |>
+    str_to_lower()
+}
+
+#' Any element of 'text_vec' containing a keyword "k" gets mapped to that
+#' keyword.
+#' @return A quanteda dictionary that can be used with `tokens_lookup`
+#' to remove the redundant elements of text_vec
+createDictionary <- function(keywords, text_vec) {
+  keyword_list <- setNames(rep(list(c()), length(keywords)), keywords)
+  for (word in keywords) {
+    no_match <- text_vec |> discard(~ str_detect(.x, word))
+    match <- text_vec |> keep(~ str_detect(.x, word))
+    keyword_list[[word]] <- match
+    text_vec <- no_match
+  }
+  return(quanteda::dictionary(keyword_list))
+}
+
+#' Return the top n words found in a group of FASTA file headers
+headerTopN <- function(header_vec, n) {
+  headers_only <- map_chr(header_vec, nameFromHeader) |> discard(is.na)
+  dict <- createDictionary(KEYWORDS, headers_only)
+  tokens <- headers_only |>
+    quanteda::tokens(
+      remove_punct = TRUE, remove_symbols = TRUE,
+      remove_numbers = TRUE
+    ) |>
+    quanteda::tokens_lookup(dict, exclusive = FALSE) |>
+    quanteda::tokens_remove(quanteda::stopwords("english"))
+  freq_matrix <- tokens |>
+    quanteda::dfm() |>
+    quanteda.textstats::textstat_frequency()
+  freq_matrix$feature[1:n]
+}
+
+
+#' Enrich GO IDs in proteins groups using ontologizer
+#' @param nested the nested version of `tb`
+#' @param tb tbl df containing the columns "ProteinId" and "GO_IDs", used
+#' to create the ID -> GO mapping file for ontologizer, as well as the universe
+enrichGroups <- function(tb, nested, ontologizer_path, go_path, group_name = "cluster", min_group_size = 10) {
+  filterEnriched <- function(ontologizer_df, n_groups, threshold) {
+    if (nrow(ontologizer_df) == 0) {
+      return(NA)
+    }
+    tb <- as_tibble(ontologizer_df) |>
+      # mutate(
+      #   `p.adjusted` = p.adjust(p.adjusted, n = n_groups),
+      #   `is.trivial` = case_when(
+      #     `p.adjusted` < threshold ~ FALSE,
+      #     .default = TRUE
+      #   )
+      # ) |>
+      filter(!str_detect(name, "obsolete") & !is.trivial) |>
+      pluck("ID") |>
+      paste0(collapse = ";")
+  }
+
+  ont <- new.env()
+  reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
+  O <- reticulateShowError(ont$Ontologizer(tb, ontologizer_path, args$go_path))
+  too_small <- nested |> filter(size < min_group_size) # No point when the
+  # clusters don't meet the specified threshold
+  nested <- nested |> filter(size >= min_group_size)
+  groups <- mapply(\(x, y) {
+    result <- list()
+    result[[glue("{group_name}_{x}")]] <- y$ProteinId
+    result
+  }, nested[[group_name]], nested$data)
+  params <- list(`-m` = "Bonferroni-Holm")
+  enriched <- O$runAll(groups, params)
+
+  enriched <- enriched %>% lapply(., filterEnriched, n_groups = nrow(nested), threshold = 0.05)
+  nested$enriched_GO_IDs <- enriched
+  too_small$enriched_GO_IDs <- NA
+  bind_rows(nested, too_small)
+}
+
+#' Save aggregated data to a file
+saveAggregated <- function(nested, filename) {
+  concatCol <- function(col) {
+    lapply(col, \(x) paste0(x, collapse = ";")) |> unlist()
+  }
+  not_scalars <- colnames(nested)[sapply(nested, isScalarCol)]
+  nested |>
+    select(-data) |>
+    mutate(across(contains(not_scalars), concatCol)) |>
+    ungroup() |>
+    write_tsv(filename)
 }
