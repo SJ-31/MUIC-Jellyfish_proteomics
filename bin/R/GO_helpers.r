@@ -2,15 +2,15 @@
 #' and semantic similarity
 #'
 
-library(paletteer)
-library(tidyverse)
+library("paletteer")
+library("tidyverse")
 ONTOLOGIES <- c("MF", "BP", "CC")
-library(GO.db)
-library(reticulate)
-library(fgsea)
-library(GOSemSim)
-library(vegan)
-library(clusterProfiler)
+library("GO.db")
+library("reticulate")
+library("fgsea")
+library("GOSemSim")
+library("vegan")
+library("clusterProfiler")
 
 #' Unique values of a named vector (based on its name)
 #'
