@@ -1,9 +1,15 @@
+TABLES <- list()
+GRAPHS <- list()
+
 # Compare with previous results
-p_rename <- c(NCBI_ID = "Accession Number", pcoverage_nmatch.prev = "Sequence coverage [%]")
-p_all <- read_tsv("./data/reference/previous_all.tsv") %>%
+p_rename <- c(
+  NCBI_ID = "Accession Number",
+  pcoverage_nmatch.prev = "Sequence coverage [%]"
+)
+p_all <- read_tsv(glue("{wd}/data/reference/previous_all.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
-p_toxins <- read_tsv("./data/reference/previous_toxins.tsv") %>%
+p_toxins <- read_tsv(glue("{wd}/data/reference/previous_toxins.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
 
@@ -44,7 +50,10 @@ GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value, fill = name)) +
   geom_boxplot() +
   theme(axis.text.x = element_blank()) +
   xlab("Seqence coverage") +
-  ggtitle("Shared protein sequence coverage")
+  ylab("Percent change (%)") +
+  scale_fill_discrete(name = "Pass", labels = c("first", "second")) +
+  ggtitle("Increase in shared protein sequence coverage")
+
 
 # For space purposes, drop entries where
 # ALL had less than 30% sequence coverage, as well as any entries both second and first passes cannot be compared
@@ -52,41 +61,41 @@ threshold <- 0
 cov_longer <- cov_longer %>%
   group_by(NCBI_ID) %>%
   nest()
-mask <- cov_longer %>% apply(1, \(x) {
-  data <- x$data
-  if (all(data$value < threshold) | any(is.na(data$value))) {
-    return(FALSE)
-  }
-  return(TRUE)
-})
-cov_longer <- cov_longer[mask, ] %>% unnest()
-cov_longer$name <- factor(cov_longer$name, levels = c("previous", "first", "second"))
+# mask <- cov_longer %>% apply(1, \(x) {
+#   data <- x$data
+#   if (all(data$value < threshold) | any(is.na(data$value))) {
+#     return(FALSE)
+#   }
+#   return(TRUE)
+# })
+# cov_longer <- cov_longer[mask, ] %>% unnest(cols = c(data))
+cov_longer$name <- factor(cov_longer$name, levels = c("first_diff", "second_diff"))
 
 GRAPHS$protein_wise_coverage <- cov_longer %>%
   ggplot(aes(x = NCBI_ID, y = value, fill = name)) +
   geom_bar(stat = "identity", position = "dodge") +
-  ylab("Sequence coverage change from previous (%)") +
+  ylab("Coverage change (%)") +
   xlab(element_blank()) +
   theme(
     axis.ticks.x = element_blank(),
     axis.text.x = element_blank()
-  )
+  ) +
+  ggtitle("Per-protein sequence coverage change") +
+  scale_fill_discrete(name = "Pass", labels = c("first", "second"))
 
 p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev,
   compare_all$pcoverage_nmatch.first,
   paired = TRUE, alternative = "less"
-)
-WILCOX <- bind_rows(WILCOX, tibble(
-  alternative = "prev_less_than_first",
-  metric = "coverage",
-  statistic = p_test$statistic,
-  p_value = p_test$p.value,
-  reject_null = ifelse(p_test$p.value < 0.05, "Y", "N")
-))
-write_tsv(WILCOX, file = glue("{OUTDIR}/wilcox_tests.tsv"))
-
+) |>
+  to("data.name", "Coverage of proteins identified in maxquant-only run vs pipeline") |>
+  to("alternative", "maxquant-only run was less") |>
+  htest2Tb()
 
 # Filter out new proteins
 compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
 new_proteins <- run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
 new_toxins <- new_proteins %>% filter(category == "venom_component")
+
+# TODO: Get the identity of the previous proteins so you
+# can
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/comparison_with_previous"))

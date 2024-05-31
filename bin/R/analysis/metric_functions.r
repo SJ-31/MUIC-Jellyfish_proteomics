@@ -36,7 +36,7 @@ runData <- function(prefix, path, remove_dupes = TRUE, which = "both") {
   }
   if (which == "both") {
     return(list(first = passData("1-First_pass"), second = passData("2-Second_pass")))
-  } else if (which == "first") {
+  } else if (which == "first" || which == "1-First_pass") {
     return(passData("1-First_pass"))
   } else {
     return(passData("2-Second_pass"))
@@ -61,13 +61,13 @@ alignmentData <- function(path, which = "combine") {
       peptides = tibble()
     )
     for (i in c(1, 2)) {
-      lst <- helper(passes[i]) %>% lapply(., \(x) mutate(x, pass = names[i]))
+      lst <- helper(passes[i]) |> lapply(, \(x) mutate(x, pass = names[i]))
       for (i in names(result)) {
         result[[i]] <- bind_rows(result[[i]], lst[[i]])
       }
     }
     return(result)
-  } else if (which == "first") {
+  } else if (which == passes[1]) {
     return(helper(passes[1]))
   } else {
     return(helper(passes[2]))
@@ -249,7 +249,7 @@ modMetrics <- function(run_df) {
     # Store modification info in a map of mod name -> count
     lapply(., \(m) {
       map <- hash::hash()
-      str_split_1(m, "\\|") %>% lapply(., \(x) {
+      str_split_1(m, "\\|") |> lapply(, \(x) {
         split <- str_split_1(x, " ")
         map[split[1]] <- split[2]
       })
@@ -533,14 +533,28 @@ avgStdevs <- function(tb, cols, stat) {
 
 
 htest2Tb <- function(test) {
-  tibble(
+  row <- tibble(
     null = test$`null.value`,
     alternative = test$alternative,
     method = test$method,
     data = test$`data.name`,
     statistic = test$statistic,
-    p_value = test$`p.value`
+    p_value = test$`p.value`,
+    estimate = test$estimate,
   )
+  estimate_name <- names(row$estimate)
+  if (!is.null(estimate_name)) {
+    row$estimate_name <- estimate_name
+  }
+  if (!is.null(test$conf.int)) {
+    row$lower_ci <- test$conf.int[1]
+    row$upper_ci <- test$conf.int[2]
+    level <- attr(test$conf.int, "conf.level")
+    if (!is.null(level)) {
+      row$conf_level <- level
+    }
+  }
+  row
 }
 
 tbTranspose <- function(tb) {

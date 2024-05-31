@@ -1,16 +1,17 @@
-library(gt)
-library(tidyverse)
-library(ggplot2)
-library(ggridges)
-library(venn)
-library(Peptides)
-library(glue)
+library("gt")
+library("tidyverse")
+library("ggplot2")
+library("ggridges")
+library("Peptides")
+library("glue")
 if (str_detect(getwd(), "Bio_SDD")) {
   wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
   env <- "/home/shannc/Bio_SDD/miniconda3/envs/reticulate"
+  tools <- "/home/shannc/Bio_SDD/tools"
 } else {
   wd <- "/home/shannc/workflow"
   env <- "/home/shannc/anaconda3/envs/reticulate"
+  tools <- "/home/shannc/workflow/tools"
 }
 GET_GO <- TRUE
 PLOT_GO <- FALSE
@@ -26,16 +27,37 @@ if (!dir.exists(OUTDIR)) {
 PROTTRANS_EMBD <- glue("{OUTDIR}/Embeddings_prottrans/embeddings.hdf5")
 PROTTRANS_DIST <- glue("{OUTDIR}/Embeddings_prottrans/distances.hdf5")
 saved <- glue("{PATH}")
+UNMATCHED_PATH <- glue("{PATH}/{CHOSEN_PASS}/Quantify/Unmatched/unmatched_peptides.tsv")
+SEQ_MAP_PATH <- glue("{PATH}/Databases/seq-header_mappings.tsv")
+SAMPLE_NAME <- "C_indra"
+
+save <- function(to_save, outdir) {
+  byType <- function(name, object) {
+    if ("gg" %in% class(object)) {
+      ggsave(glue("{outdir}/{name}.png"), object)
+    } else if ("gt_tbl" %in% class(object)) {
+      gtsave(object, glue("{outdir}/{name}.html"))
+      gtsave(object, glue("{outdir}/{name}.tex"))
+    } else if ("tbl_df" %in% class(object)) {
+      write_tsv(object, glue("{outdir}/{name}.tsv"))
+    }
+  }
+  if (!dir.exists(outdir)) {
+    dir.create(outdir)
+  }
+  lapply(names(to_save), \(x) {
+    byType(x, to_save[[x]])
+  })
+}
 
 # TODO: Change any directories that use `test` into valid ones
 args <- list(
   r_source = glue("{wd}/bin/R"),
   python_source = glue("{wd}/bin"),
   embd_type = "protein",
-  sample_name = "C_indra",
   uniprot_data_dir = glue("{wd}/data/protein_databases/comparison_taxa"),
-  combined_results = glue("{PATH}/{CHOSEN_PASS}/{args$sample_name}_all_wcoverage.tsv"),
-  ontologizer_path = glue("{wd}/tests/nf-test-out/ontologizer/"),
+  combined_results = glue("{PATH}/{CHOSEN_PASS}/{SAMPLE_NAME}_all_wcoverage.tsv"),
+  ontologizer_path = glue("{OUTDIR}/Ontologizer/"),
   embedding_path = glue("{wd}/data/reference/go_embedded.npz"),
   orgdb_path = glue("{wd}/tests/testthat/output/org.Cindrasaksajiae.eg.db"),
   go_path = glue("{wd}/data/reference/go.obo"),
@@ -56,11 +78,24 @@ EGGNOG_COLS <- c(
 )
 
 run <- runData("C_indra", PATH)
+alignments <- alignmentData(PATH, CHOSEN_PASS)
+
 if (GET_GO) {
   d <- goData(args$combined_results,
     onto_path = args$ontologizer_path
   )
+  if (!file.exists(glue("{OUTDIR}/all_go_info.tsv"))) {
+    goVector(d$sample_tb, go_column = "GO_IDs", unique = TRUE) |>
+      goInfoTb() |>
+      write_tsv(glue("{OUTDIR}/all_go_info.tsv"))
+  }
+  if (!file.exists(glue("{OUTDIR}/all_go_slims.tsv"))) {
+    goVector(d$sample_tb, go_column = "GO_slims", unique = TRUE) |>
+      goInfoTb() |>
+      write_tsv(glue("{OUTDIR}/all_go_slims.tsv"))
+  }
 }
+
 if (PLOT_GO) {
   source(glue("{args$r_source}/GO_text_mining_helpers.r"), local = th)
   clouds <- specialGoClouds(d$sample_tb)
@@ -70,37 +105,19 @@ if (PLOT_GO) {
 }
 
 # NOTE: Name each element of the list by file it will be saved to
-GRAPHS <- list()
-TABLES <- list()
-SAVE <- FALSE
 # ------------------------
+# TODO
+# source(glue("{args$r_source}/analysis/subanalyses/PTM_analyses.r"))
+# source(glue("{args$r_source}/analysis/subanalyses/comparison_with_previous.r"))
+source(glue("{args$r_source}/analysis/get_clusters.r"))
+
+# DONE
 # source(glue("{args$r_source}/analysis/subanalyses/general_metrics.r"))
-# source(glue("{args$r_source}/analysis/subanalyses/PTM_analyses.r")) # TODO:
-# source(glue("{args$r_source}/analysis/subanalyses/general_metrics.r"))
-
-# source(glue("{args$r_source}/analysis/fgsea.r")) # DONE
-# source(glue("{args$r_source}/analysis/subanalyses/comparison_with_previous.r")) # DONE
-# source(glue("{args$r_source}/analysis/subanalyses/engine_category_bias.r")) # DONE
-# source(glue("{args$r_source}/analysis/subanalyses/pass_differences.r")) # DONE
-
-
-
-
-if (SAVE) {
-  lapply(names(GRAPHS), \(x) {
-    ggsave(glue("{OUTDIR}/figures/{x}"), GRAPHS[[x]])
-  })
-  lapply(names(TABLES), \(x) {
-    gtsave(glue("{OUTDIR}/{x}"), TABLES[[x]])
-  })
-}
-
-
-# --------------------------------------------------------
-# Lineage metrics
-
-
-# --------------------------------------------------------
+# source(glue("{args$r_source}/analysis/fgsea.r"))
+# source(glue("{args$r_source}/analysis/subanalyses/aa_replacements.r"))
+# source(glue("{args$r_source}/analysis/subanalyses/engine_category_bias.r"))
+# source(glue("{args$r_source}/analysis/subanalyses/engine_characteristics.r"))
+# source(glue("{args$r_source}/analysis/subanalyses/pass_differences.r"))
 
 # Grouping proteins by their participation in KEGG pathways
 current <- run$first

@@ -1,3 +1,6 @@
+GRAPHS <- list()
+TABLES <- list()
+
 #'   Engine category bias
 #'
 #' 1) Is there an association between the number of matched peptides and the
@@ -160,7 +163,12 @@ Expected values are in parentheses"
 
 # Correlation between no. identifications by engines and coverage
 engine_cor <- cor.test(num_ids$engine_count, num_ids$pcoverage_nmatch)
+engine_cor$data.name <- "Correlation between number of identifications by different engines and coverage"
 # A weak positive correlation, but statistically significant
 # Correlation between peptide number and coverage
 n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch)
+engine_cor$data.name <- "Correlation between number of identified peptides and coverage"
+TABLES$correlation <- gt(bind_rows(htest2Tb(engine_cor), htest2Tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
+
+save(c(TABLES, GRAPHS), glue("{outdir}/figures/engine_category_bias"))

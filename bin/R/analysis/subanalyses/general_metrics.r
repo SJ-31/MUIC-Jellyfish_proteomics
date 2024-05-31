@@ -1,3 +1,5 @@
+GRAPHS <- list()
+TABLES <- list()
 ## -# Coverage metrics
 cov_align <- compareFirstSecL(
   run, "pcoverage_align",
@@ -144,3 +146,5 @@ GRAPHS$per_protein_change <- per_protein %>%
   pivot_longer(cols = c(first, sec)) %>%
   ggplot(aes(y = percent_change, x = metric, fill = metric)) +
   geom_bar(stat = "identity")
+
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/general_metrics"))

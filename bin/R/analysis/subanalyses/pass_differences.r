@@ -2,8 +2,7 @@ SECOND_PASS_ENGINES <- c("identipy", "msgf", "msfragger", "comet")
 
 TABLES <- list()
 
-db <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Databases/decoysWnormal.fasta"
-
+db <- glue("{PATH}/Databases/decoysWnormal.fasta")
 dbSize <- function(fasta_file) {
   seqkitStat(fasta_file)$num_seqs[[1]] %>% as.numeric()
 }
@@ -38,7 +37,7 @@ getStats <- function(engine_list, pass) {
     mutate(pass = pass)
 }
 
-TABLES$stats <- bind_rows(getStats(first_pass, "first"), getStats(sec_pass, "sec"))
+stats <- bind_rows(getStats(first_pass, "first"), getStats(sec_pass, "sec"))
 SEQ_MAP <- read_tsv(glue("{PATH}/Databases/seq-header_mappings.tsv"))
 
 
@@ -173,3 +172,7 @@ TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
   acc$OR <- mutateBind("OR")
   return(acc)
 }, .init = list(pairwise_tests = tibble(), htests = tibble(), OR = tibble()))
+
+TABLES$stats <- stats
+
+save(TABLES, glue("{OUTDIR}/figures/pass_differences"))

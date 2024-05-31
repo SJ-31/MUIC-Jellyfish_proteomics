@@ -1,5 +1,7 @@
 library("ggplot2")
 library("ggVennDiagram")
+TABLES <- list()
+GRAPHS <- list()
 
 allIntervals <- function(ids) {
   getIdIntervals <- function(id) {
@@ -34,10 +36,6 @@ percolator_files <- list.files(PERCOLATOR_DIR,
 )
 alignments <- alignmentData(PATH, "first")
 combined_results <- run$first
-
-# TODO For TESTING
-combined_results <- combined_results %>% slice(1:3000)
-
 
 # Engine distribution analysis
 ENGINES <- percolator_files %>%
@@ -180,7 +178,7 @@ test_tb <- test_tb %>%
     significant = map_dbl(p_adjust, \(x) x < 0.05)
   ) %>%
   rename(pair = data)
-TABLES$engine_coverage_pairwise <- test_tb
+TABLES$engine_coverage_pairwise <- gt(test_tb)
 
 #' Group engines that identify the same peptide groups using Jaccard distance
 enginesXProtein <- peps <- num_peptides_matched %>%
@@ -203,3 +201,5 @@ id_list <- lapply(normal_engine_tbs, \(x) x$ProteinId) %>%
 venn <- ggVennDiagram(id_list, label = "none") +
   scale_fill_gradient(low = "grey90", high = "blue")
 GRAPHS$engine_venn <- venn
+
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/engine_characteristics"))

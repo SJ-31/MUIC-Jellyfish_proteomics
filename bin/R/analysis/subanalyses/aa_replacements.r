@@ -62,7 +62,7 @@ test <- cor.test(merged$n_replacements, merged$num_unique_peps) |>
   to("data.name", "number of replacements vs number of unique peptides") |>
   htest2Tb()
 
-TABLES$replacement_metrics <- replacement_metrics$default
+TABLES$replacement_metrics <- gt(replacement_metrics$default)
 
 GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
   geom_histogram(position = "identity", alpha = 0.7) +
@@ -100,11 +100,14 @@ GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
     color = "Type"
   )
 
-TABLES$denovo_metrics <- denovo_metrics
+TABLES$denovo_metrics <- gt(denovo_metrics)
 
 test <- wilcox.test(denovo_metrics$metrics$n_replacements, y = NULL) |>
   to("data.name", "replacement counts")
 htest2Tb() |>
   bind_rows(test)
 
-TABLES$replacement_htests <- test
+TABLES$replacement_htests <- gt(test)
+
+
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/amino_acid_replacements"))
