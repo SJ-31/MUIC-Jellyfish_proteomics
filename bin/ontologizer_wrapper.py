@@ -14,6 +14,7 @@ def cleanGO(go_string):
 
 class Ontologizer:
     def __init__(self, go_df: pd.DataFrame, executable: str, go_path: str):
+        """Initialize universe of all GO ids and create mappings of protein ids to GO terms"""
         go_df = go_df[~go_df["GO_IDs"].isna()]
         go_df["GO"] = go_df["GO_IDs"].apply(cleanGO)
         del go_df["GO_IDs"]

@@ -243,28 +243,29 @@ passUniques <- function(first_sec) {
 #' 1. dataframe of protein ids as the index and ptms as columns
 #' 2. Proportion of each ptm in the given sample
 modMetrics <- function(run_df) {
+  getMetricTb <- function(mod_str) {
+    map <- hash::hash()
+    str_split_1(mod_str, "\\|") |> lapply(\(x) {
+      split <- str_split_1(x, " ")
+      map[split[1]] <- split[2]
+    })
+    tb <- map %>%
+      as.list() %>%
+      as_tibble()
+    return(tb)
+  }
   has_mods <- dplyr::filter(run_df, !is.na((Mods)))
   lst <- list()
   df <- has_mods$Mods %>%
     # Store modification info in a map of mod name -> count
-    lapply(., \(m) {
-      map <- hash::hash()
-      str_split_1(m, "\\|") |> lapply(, \(x) {
-        split <- str_split_1(x, " ")
-        map[split[1]] <- split[2]
-      })
-      tb <- map %>%
-        as.list() %>%
-        as_tibble()
-      return(tb)
-    }) %>%
+    lapply(., getMetricTb) %>%
     bind_rows() %>%
     mutate(ProteinId = has_mods$ProteinId) %>%
     relocate(ProteinId, .before = everything()) %>%
     mutate(across(!contains("ProteinId"), as.numeric)) %>%
     column_to_rownames(var = "ProteinId")
   mod_percent <- colSums(df, na.rm = TRUE) / sum(df, na.rm = TRUE) * 100
-  lst$count_df <- df
+  lst$count_df <- df |> replaceNaAll(0)
   lst$percentages <- mod_percent
   return(lst)
 }

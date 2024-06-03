@@ -205,3 +205,33 @@ seqkitStat <- function(filename) {
   }
   return(tb)
 }
+
+
+to <- function(obj, x, val) {
+  obj[[x]] <- val
+  obj
+}
+
+index <- function(vector, a, b = NULL) {
+  assertArg(vector, is.atomic)
+  if (is.null(b)) {
+    return(vector[a, length(vector)])
+  }
+  return(vector[a:b])
+}
+
+reticulateShowError <- function(expr) {
+  captured <- substitute(expr)
+  result <- tryCatch(
+    expr = eval(captured, envir = parent.frame()),
+    error = \(cnd) {
+      last_error <- reticulate::py_last_error()
+      message("Python error: ", last_error$type, "\n", last_error$value, "\n", last_error$traceback)
+    }
+  )
+  result
+}
+
+isScalarCol <- function(column) {
+  all(map_lgl(column, ~ length(.x) == 1))
+}
