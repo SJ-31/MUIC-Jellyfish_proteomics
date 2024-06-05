@@ -1,3 +1,7 @@
+library("glue")
+library("tidyverse")
+library("optparse")
+
 aggregateEmbeddings <- function(args) {
   e <- embeddingData(
     args$combined_results,
@@ -14,7 +18,7 @@ aggregateEmbeddings <- function(args) {
     f <- hclustSk(dist, 0.1, "average", labels_only = FALSE)
     linkage_matrix <- py_clusters$linkageMatrix(f$fitted)
     py_clusters$saveDendogram(linkage_matrix,
-      glue("{OUTDIR}/dendogram.png"),
+      glue("{args$outdir}/dendogram.png"),
       cutoff = 0.1
     )
     f$labels
@@ -48,23 +52,22 @@ aggregateHelper <- function(tb, grouping_col, ontologizer_path, go_path, outdir)
     lapply(., idsIntoOntology) %>%
     purrr::reduce(., mergeLists)
   slim_tb <- nested %>%
-    select(cluster, size) %>%
+    select(!!grouping_col, size) %>%
     ungroup() %>%
     mutate(
-      cluster = as.vector(cluster),
+      !!grouping_col := as.vector(!!as.symbol(grouping_col)),
       slim_CC = slims$CC,
       slim_BP = slims$BP,
       slim_MF = slims$MF
     ) %>%
     mutate(across(contains("slim_"), \(x) dplyr::na_if(x, "")))
-  write_tsv(glue("{outdir}/{grouping_col}-aggregated_slims.tsv"))
-  nested <- enrichGroups(tb, nested, ontologizer_path, go_path)
+  write_tsv(slim_tb, glue("{outdir}/{grouping_col}-aggregated_slims.tsv"))
+  nested <- enrichGroups(tb, nested, ontologizer_path, go_path, group_name = grouping_col)
   saveAggregated(nested, glue("{outdir}/{grouping_col}-aggregated.tsv"))
 }
 
 
 if (sys.nframe() == 0) {
-  library("optparse")
   parser <- OptionParser()
   parser <- add_option(parser, c("-r", "--r_source"))
   parser <- add_option(parser, c("-c", "--combined_results"))

@@ -293,7 +293,6 @@ aggregateMetadata <- function(data, grouping_col) {
         data,
         \(x) goVector(x, go_column = "GO_slims", unique = TRUE)
       ),
-      Percolator_groups = map_chr(data, \(x) paste0(unique(x$Group), collapse = ";")),
       organisms = map_chr(data, \(x) paste0(unique(x$organism), collapse = ";")),
       header_words = map_chr(data, \(x) {
         paste0(headerTopN(x$header, 3), collapse = ";")
@@ -309,6 +308,11 @@ aggregateMetadata <- function(data, grouping_col) {
       GO_category_MF = map_chr(data, \(x) paste0(unique(x$GO_category_MF), collapse = ";"))
     ) %>%
     arrange(desc(size))
+  if (grouping_col != "Group") {
+    nested <- nested %>% mutate(
+      Percolator_groups = map_chr(data, \(x) paste0(unique(x$Group), collapse = ";"))
+    )
+  }
   nested$KEGG_Pathway <- associatedPathways(data, nested)
   nested
 }
@@ -421,7 +425,7 @@ enrichGroups <- function(tb, nested, ontologizer_path, go_path, group_name = "cl
     result <- list()
     result[[glue("{group_name}_{x}")]] <- y$ProteinId
     result
-  }, nested[[group_name]], nested$data)
+  }, nested[[group_name]], nested$data) |> discard(~ length(.x) == 0)
   params <- list(`-m` = "Bonferroni-Holm")
   enriched <- O$runAll(groups, params)
 
