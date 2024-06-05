@@ -81,7 +81,7 @@ embeddingData <- function(
       filter(ProteinId %in% rownames(py_embd$embeddings))
     color <- "Taxon"
   } else {
-    color <- c("inferred_by", "ID_method", "category")
+    color <- c("inferred_by", "ID_method", "GO_category_CC", "GO_category_MF")
   }
   return(list(
     embd = py_embd$embeddings,

@@ -1,4 +1,5 @@
 include { search } from "./subworkflows/shotgun"
+include { analyze } from "./subworkflows/analysis"
 include { assemble } from "./subworkflows/rna_seq"
 include { make_db } from "./subworkflows/make_db"
 include { pre } from "./subworkflows/shotgun"
@@ -56,8 +57,8 @@ workflow {
             break;
         case "analyze":
             first_final = "${params.results}/1-First_pass/${params.pref}_all_wcoverage.tsv"
-            second_final = "${params.results}/2-Second_pass/${params.pref}_all_wcoverage.tsv"
-            analysis(Channel.fromPath(first_final, second_final),
+            // second_final = "${params.results}/2-Second_pass/${params.pref}_all_wcoverage.tsv"
+            analyze(Channel.fromPath(first_final),
                 "${params.results}/Analysis");
             break;
         case "preprocess":

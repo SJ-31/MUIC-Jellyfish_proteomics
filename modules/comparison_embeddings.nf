@@ -41,7 +41,7 @@ process COMPARISON_EMBEDDINGS {
             --python_source "$params.bin" \
             --sample_tsv $sample_tsv \
             --embedding_path $sample_embeddings \
-            --sample_name $params.prefix \
+            --sample_name $params.pref \
             --comparison_tsv $comparison_tsv \
             --comparison_embd $comparison_embeddings \
             --embd_output sample_with_comp_embd.hdf5 \

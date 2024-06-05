@@ -5,6 +5,7 @@ include { ONTOLOGIZER } from '../modules/ontologizer' addParams(logdir: analysis
 include { EMBEDDINGS } from '../modules/embeddings' addParams(logdir: analysis_logs)
 include { EMBEDDINGS as GO_EMBEDDINGS } from '../modules/embeddings' addParams(logdir: analysis_logs)
 include { COMPARISON_EMBEDDINGS } from '../modules/comparison_embeddings' addParams(logdir: analysis_logs)
+include { GO_PARENTS } from '../modules/go_parents' addParams(logdir: analysis_logs)
 include { MSA } from '../modules/msa' addParams(logdir: analysis_logs)
 include { MAKETREE } from '../modules/maketree' addParams(logdir: analysis_logs)
 include { DR } from '../modules/dimensionality_reduction' addParams(logdir: analysis_logs)
@@ -17,8 +18,9 @@ workflow 'analyze' {
 
     main:
     MAKE_ORGDB(combined_tsv, outdir)
-    MSA(combined_tsv, outdir)
+    // MSA(combined_tsv, outdir)
     // MAKETREE(MSA.out.alignment, outdir)
+    GO_PARENTS(combined_tsv, outdir)
 
     ONTOLOGIZER(combined_tsv, "$outdir/Ontologizer") // Overrepresentation analysis
     GO_EMBEDDINGS(combined_tsv, "$outdir/GO_term_embeddings", "a2v_go")
@@ -31,7 +33,7 @@ workflow 'analyze' {
                           "protein",
                           "$outdir/Comparison_embeddings") // Model is esm or prottrans
     DR(EMBEDDINGS.out.embd, EMBEDDINGS.out.dist,
-       combined_tsv, "$params.config/NO_FILE",
+       GO_PARENTS.out.categorized, "$params.config_dir/NO_FILE",
        "tsne", "", "$outdir/TSNE")
     DR_COMPARE(COMPARISON_EMBEDDINGS.out.embd,
                COMPARISON_EMBEDDINGS.out.dist,
