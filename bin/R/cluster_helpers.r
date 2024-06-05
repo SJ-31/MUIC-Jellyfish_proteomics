@@ -303,7 +303,10 @@ aggregateMetadata <- function(data, grouping_col) {
         data,
         \(x) goVector(x, go_column = "GO_IDs", unique = TRUE)
       ),
-      GO_counts = map_dbl(GO_IDs, \(x) length(x))
+      GO_counts = map_dbl(GO_IDs, \(x) length(x)),
+      GO_category_BP = map_chr(data, \(x) paste0(unique(x$GO_category_BP), collapse = ";")),
+      GO_category_CC = map_chr(data, \(x) paste0(unique(x$GO_category_CC), collapse = ";")),
+      GO_category_MF = map_chr(data, \(x) paste0(unique(x$GO_category_MF), collapse = ";"))
     ) %>%
     arrange(desc(size))
   nested$KEGG_Pathway <- associatedPathways(data, nested)
@@ -334,12 +337,13 @@ KEYWORDS <- c(
   "septin", "uncharacterized protein", "ribosomal", "chaperone", "predicted",
   "kinase", "myosin", "atpase", "zinc finger", "metalloproteinase",
   "microtubule", "nadh-ubiquinone oxidoreductase",
-  "ribonucleoprotein", "venom", "ras", "rab", "actin", "proteasome",
-  "scramblase", "protease", "peptidase", "kinesin", "heat shock", "protease",
+  "ribonucleoprotein", "venom", "ras", "rab", "actin", "proteasome", "elongation factor",
+  "scramblase", "protease", "peptidase", "kinesin", "heat shock",
   "adp-ribosylation", "porin", "collagen", "dynamin", "filamin",
   "gelosin", "glutamate", "glutaryl-coa", "glyceraldehyde", "isocitrate"
 )
 
+UNWANTED <- c("partial", "fragment", "NA")
 
 nameFromHeader <- function(header) {
   if (str_detect(header, "\\|")) {
@@ -376,7 +380,8 @@ headerTopN <- function(header_vec, n) {
       remove_numbers = TRUE
     ) |>
     quanteda::tokens_lookup(dict, exclusive = FALSE) |>
-    quanteda::tokens_remove(quanteda::stopwords("english"))
+    quanteda::tokens_remove(quanteda::stopwords("english")) |>
+    quanteda::tokens_remove(UNWANTED)
   freq_matrix <- tokens |>
     quanteda::dfm() |>
     quanteda.textstats::textstat_frequency()
@@ -431,7 +436,7 @@ saveAggregated <- function(nested, filename) {
   concatCol <- function(col) {
     lapply(col, \(x) paste0(x, collapse = ";")) |> unlist()
   }
-  not_scalars <- colnames(nested)[sapply(nested, isScalarCol)]
+  not_scalars <- colnames(nested)[!sapply(nested, isScalarCol)]
   nested |>
     select(-data) |>
     mutate(across(contains(not_scalars), concatCol)) |>
