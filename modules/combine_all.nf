@@ -16,6 +16,7 @@ process COMBINE_ALL {
     output:
     path("${params.pref}_all.tsv"), emit: all
     path("combine_all.log")
+    path("${params.pref}_taxonomy.tsv")
     //
 
     script:
@@ -44,6 +45,9 @@ process COMBINE_ALL {
         --flashlfq $flashlfq \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
+
+    get_tax_data.py -i "${params.pref}_all.tsv" \
+        -o  "${params.pref}_taxonomy.tsv"
 
     cat .command.log >> combine_all.log
     """
