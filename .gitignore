@@ -35,3 +35,6 @@ tests/debug
 tests/pytest/__pycache__
 tests/test_clusters/distances.hdf5
 tests/test_clusters
+tests/uniprotkb_arabidopsis_AND_annotation_sc_2024_05_24.Z8h9VHDc.fasta.gz.part
+tests/uniprotkb_arabidopsis_AND_annotation_sc_2024_05_24.fasta.gz
+tests

@@ -113,6 +113,21 @@ fix <- function(filename, fix) {
       relocate(., GO_slims, .after = GO_IDs)
     tb %>% write_tsv(., file = filename)
   }
+  if (fix == "header_fix") {
+    library("glue")
+    # Wednesday 2024-06-06
+    # Correct regex used to extract organism from header
+    headerFix <- function(header) {
+      return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
+    }
+    wrong <- tb |>
+      filter(grepl("\\[", organism)) |>
+      mutate(organism = map_chr(header, headerFix))
+    print(glue("Dim wrong {dim(wrong)[1]}"))
+    others <- tb %>% filter(!grepl("\\[", organism))
+    print(glue("Dim others {dim(others)[1]}"))
+    bind_rows(others, wrong) |> write_tsv(file = filename)
+  }
 }
 
 applyFixes <- function(file_list, fix_name) {

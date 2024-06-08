@@ -1,6 +1,6 @@
 process MSA {
     publishDir "$outdir", mode: "copy"
-    publishDir "params.logdir", mode: "copy", pattern: "*.log"
+    publishDir "$params.logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(combined_tsv)

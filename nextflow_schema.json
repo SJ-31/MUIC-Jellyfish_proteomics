@@ -237,6 +237,18 @@
     "msfragger": {
       "type": "string",
       "default": "/home/shannc/workflow/tools/MSFragger-3.7/MSFragger-3.7.jar"
+    },
+    "go_predefined": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/config/custom_go_groups.json"
+    },
+    "go_slims": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/reference/goslim_generic.obo"
+    },
+    "go_texts": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/reference/.go_texts"
     }
   },
   "required": ["subworkflow", "manifest_file"]

@@ -109,7 +109,6 @@ if (PLOT_GO) {
 # TODO
 # source(glue("{args$r_source}/analysis/subanalyses/PTM_analyses.r"))
 # source(glue("{args$r_source}/analysis/subanalyses/comparison_with_previous.r"))
-source(glue("{args$r_source}/analysis/get_clusters.r"))
 
 # DONE
 # source(glue("{args$r_source}/analysis/subanalyses/general_metrics.r"))
