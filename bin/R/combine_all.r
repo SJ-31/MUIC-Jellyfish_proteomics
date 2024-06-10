@@ -178,7 +178,7 @@ organismFromHeader <- function(row) {
     if (grepl("OS=", header)) {
       return(str_extract(header, "OS=([a-zA-Z]* [a-zA-Z]*) ", group = 1))
     }
-    return(str_extract(header, "\\[([A-Z].*)\\]", group = 1))
+    return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
   }
   return(organism)
 }
