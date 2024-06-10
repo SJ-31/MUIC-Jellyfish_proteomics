@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 #
-import re
 import pandas as pd
 import numpy as np
 
@@ -41,12 +40,8 @@ def writeUnmatched(queries_df, failed_filter, prot_df, tsv_name):
     Write the entries unmatched by blast to a new fasta and tsv file
     """
     unmatched_fasta = ""
-    unmatched = prot_df[
-        ~prot_df["ProteinId"].isin(queries_df["queryID"].unique())
-    ]
-    unmatched = unmatched[
-        ~unmatched["ProteinId"].isin(failed_filter["ProteinId"])
-    ]
+    unmatched = prot_df[~prot_df["ProteinId"].isin(queries_df["queryID"].unique())]
+    unmatched = unmatched[~unmatched["ProteinId"].isin(failed_filter["ProteinId"])]
     unmatched = pd.concat([unmatched, failed_filter])
     unmatched["ProteinGroupId"] = unmatched.apply(markUnmatched, axis=1)
     unmatched.to_csv(tsv_name, sep="\t", index=False)
@@ -103,9 +98,7 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     This also groups up accepted blast queries that were matched to the same
     subject
     """
-    b_df = b_df[
-        (b_df["pident"] >= ident_thresh) & (b_df["evalue"] <= e_thresh)
-    ]
+    b_df = b_df[(b_df["pident"] >= ident_thresh) & (b_df["evalue"] <= e_thresh)]
     b_df = b_df.sort_values(by="evalue", kind="stable")
     joined = pd.merge(b_df, prot_df, left_on="queryID", right_on="ProteinId")
     copy = joined.copy()
@@ -121,14 +114,10 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
 
     # Extract the psms that failed any filters
     did_not_pass = (
-        copy[~copy["queryID"].isin(joined["queryID"])]
-        .groupby("queryID")
-        .nth(0)
+        copy[~copy["queryID"].isin(joined["queryID"])].groupby("queryID").nth(0)
     ).drop(list(b_df.columns), axis="columns")
 
-    joined = (
-        joined.groupby(["subjectID"]).apply(group_peps).reset_index(drop=True)
-    )
+    joined = joined.groupby(["subjectID"]).apply(group_peps).reset_index(drop=True)
 
     # Mark protein identifications that are matched by only
     # one peptide
@@ -162,9 +151,9 @@ def known_from_database(blast_df, db_df):
     already_found["peptideIds"] = already_found["peptideIds"].str.cat(
         already_found["seq_y"].to_list(), sep=";"
     )
-    already_found = already_found.drop(
-        ["seq_y", "subjectID"], axis="columns"
-    ).rename({"seq_x": "seq"}, axis="columns")
+    already_found = already_found.drop(["seq_y", "subjectID"], axis="columns").rename(
+        {"seq_x": "seq"}, axis="columns"
+    )
     return already_found
 
 
@@ -174,9 +163,7 @@ def blast_id_only(blast_df, db_df, mapping_df):
     identification dataframe.
     """
     not_found = blast_df[~blast_df["subjectID"].isin(db_df["ProteinId"])]
-    blast_only = pd.merge(
-        not_found, mapping_df, left_on="subjectID", right_on="id"
-    )
+    blast_only = pd.merge(not_found, mapping_df, left_on="subjectID", right_on="id")
     blast_only["ProteinId"] = blast_only["id"]
     blast_only["seq"] = blast_only["seq_y"]
     blast_only["mass"] = blast_only["mass_y"]
@@ -213,6 +200,26 @@ def parse_args():
     return args
 
 
+def correctLengths(blast: pd.DataFrame, mapping: pd.DataFrame) -> pd.DataFrame:
+    """removes entries from blast identifications where the query was longer than
+    its subject
+    """
+    mapping = mapping[
+        mapping["id"].isin(blast["queryID"]) | mapping["id"].isin(blast["subjectID"])
+    ].drop(["header", "mass", "seq"], axis="columns")
+    blast = (
+        pd.merge(blast, mapping, left_on="queryID", right_on="id")
+        .rename({"length": "query_length"}, axis=1)
+        .drop("id", axis=1)
+    )
+    blast = (
+        pd.merge(blast, mapping, left_on="subjectID", right_on="id")
+        .rename({"length": "subject_length"}, axis=1)
+        .drop("id", axis=1)
+    )
+    return blast.query("`subject_length` >= `query_length`")
+
+
 def main(args: dict):
     stats = {}
     blast_df = pd.read_csv(args["blast_results"]).dropna(axis="columns")
@@ -241,9 +248,7 @@ def main(args: dict):
     # The number of unique matches that were accepted
     stats = pd.Series(stats)
     print(stats)
-    unmatched = writeUnmatched(
-        blast_df, joined[1], query_df, args["unmatched_tsv"]
-    )
+    unmatched = writeUnmatched(blast_df, joined[1], query_df, args["unmatched_tsv"])
     with open(args["unmatched_fasta"], "w") as f:
         f.write(unmatched)
     in_db = known_from_database(joined[0], group_df)

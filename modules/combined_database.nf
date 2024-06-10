@@ -26,7 +26,8 @@ process COMBINED_DATABASE {
     shell:
     '''
     outdir=!{outdir}
-    cat !{other_fasta} !{denovo_peptides} | seqkit rmdup > intermediate.fasta
+    cat !{other_fasta} !{denovo_peptides} | seqkit rmdup | \
+        seqkit seq -m 10 > intermediate.fasta
     create_decoys.py intermediate.fasta seq-header_mappings.tsv
     rm intermediate.fasta
 

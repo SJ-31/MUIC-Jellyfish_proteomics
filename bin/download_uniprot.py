@@ -58,11 +58,22 @@ def tsvToFrame(response):
     return pd.read_csv(StringIO("\n".join(response.text.splitlines())), sep="\t")
 
 
-def processQuery(query: str, fields: str) -> pd.DataFrame:
+def processQueryFasta(query: str) -> str:
+    all_results = []
+    url_string = (
+        f"{API_URL}/{DATABASE}/search?compressed={COMPRESSION}"
+        f"&format=fasta&query={query}&size={SIZE}"
+    )
+    for batch, total in getBatch(url_string):
+        all_results.extend(batch.text.splitlines())
+    return "\n".join(all_results)
+
+
+def processQueryTSV(query: str, fields: str) -> pd.DataFrame:
     all_results = pd.DataFrame()
     url_string = (
         f"{API_URL}/{DATABASE}/search?compressed={COMPRESSION}&fields="
-        f"{fields}&format={FORMAT}&query={query}&size={SIZE}"
+        f"{fields}&format=tsv&query={query}&size={SIZE}"
     )
     for batch, total in getBatch(url_string):
         all_results = pd.concat([all_results, tsvToFrame(batch)])
@@ -86,7 +97,11 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    field_str = getFieldStr(args["fields"])
     if args["format"] == "tsv":
-        tsv = processQuery(args["query"], field_str)
+        field_str = getFieldStr(args["fields"])
+        tsv = processQueryTSV(args["query"], field_str)
         tsv.to_csv(args["output"], sep="\t", index=False)
+    if args["format"] == "fasta":
+        fasta = processQueryFasta(args["query"])
+        with open(args["output"], "w") as w:
+            w.write(fasta)

@@ -1,6 +1,6 @@
 process DR {
     publishDir "$outdir", mode: "copy"
-    publishDir "params.logdir", mode: "copy", pattern: "*.log"
+    publishDir "$params.logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(embeddings)
