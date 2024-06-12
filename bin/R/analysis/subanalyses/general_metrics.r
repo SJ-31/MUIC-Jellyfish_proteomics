@@ -31,8 +31,8 @@ GRAPHS$percent_found <- percent_found %>%
 
 # Check if coverage and intensity differs significantly between protein groups
 # for confirmation only (we expect them to differ)
-tb <- run$first
-grouping_metric <- "category"
+tb <- data
+grouping_metric <- "GO_category_MF"
 lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>% inner_join(., mergeLfq(tb, "mean"))
 
 apply_over <- tb[[grouping_metric]] %>%
@@ -45,18 +45,18 @@ cov_list <- groupListFromTb(tb,
 )
 intensity_list <- groupListFromTb(lfq, apply_over, grouping_metric, "log_intensity")
 GRAPHS$intensity_categories <- ggplotNumericDist(intensity_list, "boxplot") +
-  labs(y = "log intensity", x = "category")
+  labs(y = "log intensity", x = grouping_metric)
 GRAPHS$coverage_categories <- ggplotNumericDist(cov_list, "boxplot") +
-  labs(y = "coverage (%)", x = "category")
+  labs(y = "coverage (%)", x = grouping_metric)
 
 
 with_category <- inner_join(tb, lfq) %>%
-  select(ProteinId, log_intensity, category) %>%
+  select(ProteinId, log_intensity, !!grouping_metric) %>%
   filter(!is.na(log_intensity)) %>%
   arrange(log_intensity) %>%
   mutate(rank = seq_len(nrow(.)))
 GRAPHS$category_ranks <- with_category %>%
-  ggplot(aes(x = rank, y = log_intensity, color = category)) +
+  ggplot(aes(x = rank, y = log_intensity, color = !!grouping_metric)) +
   geom_point() +
   labs(x = "Rank", y = "Log intensity")
 
@@ -146,5 +146,13 @@ GRAPHS$per_protein_change <- per_protein %>%
   pivot_longer(cols = c(first, sec)) %>%
   ggplot(aes(y = percent_change, x = metric, fill = metric)) +
   geom_bar(stat = "identity")
+
+# Peptide characteristics
+peptides <- getPeptideData(run$first$peptideIds)
+
+# BUG Get rid of the largest peptides
+peptides <- peptides |> filter(!length >= 500)
+GRAPHS$peptide_lengths <- ggplot(peptides, aes(x = length)) +
+  geom_histogram(binwidth = 10)
 
 save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/general_metrics"))
