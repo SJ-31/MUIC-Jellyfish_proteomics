@@ -4,11 +4,14 @@ process DEEPLOC {
 
     input:
     path(fasta)
+    path(combined_results)
+    path(intersected_searches)
     val(outdir)
     //
 
     output:
     path("deeploc_results.csv")
+    path("${combined_results.baseName}.${combined_results.Extension}"), emit: tsv
     //
 
     script:
@@ -23,6 +26,13 @@ process DEEPLOC {
     deeploc2 -f $fasta \
             -o results
     cp results/* deeploc_results.csv
+
+    if [[ -e deeploc_results.csv ]]; then
+        Rscript $params.bin/R/merge_deeploc.r \
+            -d deeploc_results.csv \
+            -i $combined_results \
+            -m $intersected_searches
+    fi
     """
     }
     //

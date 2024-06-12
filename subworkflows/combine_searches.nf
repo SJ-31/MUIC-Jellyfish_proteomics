@@ -89,9 +89,11 @@ workflow 'combine_searches' {
 
     CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
-    DEEPLOC(SIGNALP.out.fasta, "$outdir/Deeploc")
+    DEEPLOC(SIGNALP.out.fasta, COVERAGE_MERGE.out.tsv,
+        SEARCH_INTERSECT.out.unsorted,
+        "$outdir/Deeploc")
 
     emit:
-    result = COVERAGE_MERGE.out.tsv
+    result = DEEPLOC.out.tsv
 
 }
