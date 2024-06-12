@@ -30,6 +30,7 @@ process IDENTIPY {
 process FORMAT_IDPY {
     publishDir "$outdir", mode: "copy"
     conda "/home/shannc/anaconda3/envs/identipy"
+    memory "35 GB"
 
     input:
     path(pepxmls)

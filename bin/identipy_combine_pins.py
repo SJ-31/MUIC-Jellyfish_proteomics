@@ -10,8 +10,8 @@ def get_row(row_line, prot_col, path, excess):
     fields = row_line
     fields[0] = f"{path}.{fields[0]}"
     if excess:
-        return fields[:23] + [fields[25]] + ['\t'.join(fields[prot_col:])]
-    return fields[:prot_col] + ['\t'.join(fields[prot_col:])]
+        return fields[:23] + [fields[25]] + ["\t".join(fields[prot_col:])]
+    return fields[:prot_col] + ["\t".join(fields[prot_col:])]
 
 
 pins = [p for p in Path(".").glob("*.pin")]
@@ -28,7 +28,7 @@ def read_pin(path):
     else:
         lines = [get_row(l, 24, name, False) for l in content[1:]]
     df = pd.DataFrame(data=np.array(lines), columns=header)
-    return (df)
+    return df
 
 
 all_pins = [read_pin(p) for p in pins]
