@@ -105,9 +105,22 @@ read_tide <- function(tide_file, mapping) {
 ##    The scan number will let you match retention time
 comet_scans <- function(comet_id_str) {
   path_removed <- gsub(".*/", "", comet_id_str)
-  name <- gsub("(.*)_([0-9]+)_[0-9]+_[0-9]+", "\\1.\\2",
-               path_removed)
+  name <- gsub(
+    "(.*)_([0-9]+)_[0-9]+_[0-9]+", "\\1.\\2",
+    path_removed
+  )
   return(name)
+}
+
+identipy_scans <- function(psms, mzml) {
+  if (length(psms$PSMId > 1) && str_detect(psms$PSMId[1], "\\.")) {
+    psms <- psms %>% rename(scan = PSMId)
+  } else {
+    mzml_filename <- str_extract(mzml$scanNum[1], "([a-zA-Z_0-9]*)\\.[0-9]+", group = 1)
+    psms <- psms %>%
+      mutate(PSMId = paste0(mzml_filename, ".", PSMId)) %>%
+      rename(scan = PSMId)
+  }
 }
 
 msfragger_scans <- function(msfragger_id_str) {
@@ -151,7 +164,7 @@ read_engine_psms <- function(args) {
     } else if (grepl("msfragger", engine)) {
       psms <- psms %>% mutate(scan = unlist(lapply(PSMId, msfragger_scans)))
     } else if (engine == "identipy") {
-      psms <- psms %>% rename(scan = PSMId)
+      psms <- identipy_scans(psms, mapping)
     }
   }
   psms <- psms %>%
