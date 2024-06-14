@@ -565,3 +565,16 @@ tbTranspose <- function(tb) {
   colnames(df) <- df[1, ]
   df[-1, ] %>% mutate(across(dplyr::everything(), as.numeric))
 }
+
+
+getPeptideData <- function(peptides) {
+  lapply(peptides, \(x) str_split_1(x, ";")) |>
+    unlist() |>
+    table() |>
+    table2Tb("peptide") |>
+    arrange(desc(n)) |>
+    mutate(
+      length = map_dbl(peptide, \(.) nchar(cleanPeptide(.))),
+      modified = ifelse(str_detect(peptide, "\\["), TRUE, FALSE)
+    )
+}

@@ -284,6 +284,8 @@ associatedPathways <- function(tb, nested_tb, threshold = 50) {
 #'  Counts the number of unique GO IDs for each group.
 #'  Associates KEGG pathways with the groups.
 aggregateMetadata <- function(data, grouping_col) {
+  data <- mergeLfq(data, "mean") %>%
+    inner_join(., data, by = join_by(ProteinId))
   nested <- data %>%
     group_by(!!as.symbol(grouping_col)) %>%
     nest() %>%
@@ -305,7 +307,10 @@ aggregateMetadata <- function(data, grouping_col) {
       GO_counts = map_dbl(GO_IDs, \(x) length(x)),
       GO_category_BP = map_chr(data, \(x) paste0(unique(x$GO_category_BP), collapse = ";")),
       GO_category_CC = map_chr(data, \(x) paste0(unique(x$GO_category_CC), collapse = ";")),
-      GO_category_MF = map_chr(data, \(x) paste0(unique(x$GO_category_MF), collapse = ";"))
+      GO_category_MF = map_chr(data, \(x) paste0(unique(x$GO_category_MF), collapse = ";")),
+      mean_coverage = map_dbl(data, \(x) mean(x$pcoverage_nmatch, na.rm = TRUE)),
+      median_coverage = map_dbl(data, \(x) median(x$pcoverage_nmatch, na.rm = TRUE)),
+      mean_intensity = map_dbl(data, \(x) mean(x$log_intensity, na.rm = TRUE))
     ) %>%
     arrange(desc(size))
   if (grouping_col != "Group") {

@@ -265,7 +265,7 @@ def map_list(id_list, origin_db: str):
     return anno_dict, []
 
 
-def idFromHeader(row):
+def id_from_header(row):
     """
     Reformat fasta header
     Return ncbi or UniProt id if present
@@ -279,7 +279,7 @@ def idFromHeader(row):
     return cur_id, "NONE"
 
 
-def writeFasta(needs_annotating: pd.DataFrame, file_name: str):
+def write_fasta(needs_annotating: pd.DataFrame, file_name: str):
     query_string = ""
     for row in needs_annotating.iterrows():
         query_string = query_string + f'>{row[1]["ProteinId"]}\n{row[1]["seq"]}\n'
@@ -297,7 +297,7 @@ def anno(args: dict):
     2. Obtain annotation information for UniProt proteins
     """
     to_map = pd.read_csv(args["input"], sep="\t")
-    dbIds_ids = to_map.apply(idFromHeader, axis=1).dropna()
+    dbIds_ids = to_map.apply(id_from_header, axis=1).dropna()
     all_ids_mapping = pd.DataFrame(
         {
             "dbId": dbIds_ids.apply(lambda x: x[1]),
@@ -355,12 +355,12 @@ def anno(args: dict):
         needs_annotating = to_map.merge(needs_annotating, on="ProteinId").drop(
             "dbId", axis="columns"
         )
-        needs_annotating_headers = needs_annotating.apply(idFromHeader, axis=1).apply(
+        needs_annotating_headers = needs_annotating.apply(id_from_header, axis=1).apply(
             lambda x: x[1]
         )
         needs_annotating["NCBI_ID"] = needs_annotating_headers
         needs_annotating_ids = needs_annotating["ProteinId"]
-        writeFasta(needs_annotating, "needs_annotating.fasta")
+        write_fasta(needs_annotating, "needs_annotating.fasta")
         # Any remaining unannotated sequences will be extracted and sent to
         # eggnog mapper for annotation
     else:
@@ -389,7 +389,7 @@ def reformat_float(x):
     return float(x)
 
 
-def mergeAnnotatedEggnog(args):
+def merge_annotated_eggnog(args):
     print("-" * 10)
     print("MERGING EGGNOG")
     print("-" * 10)
@@ -397,7 +397,7 @@ def mergeAnnotatedEggnog(args):
         ["organism", "lineage", "GO_evidence", "KEGG_Genes", "PANTHER"],
         axis="columns",
     )
-    eggnog_anno["NCBI_ID"] = eggnog_anno.apply(idFromHeader, axis=1).apply(
+    eggnog_anno["NCBI_ID"] = eggnog_anno.apply(id_from_header, axis=1).apply(
         lambda x: x[1]
     )
     anno = pd.read_csv(args["more_anno"], sep="\t")
@@ -416,7 +416,7 @@ def mergeAnnotatedEggnog(args):
     return merged
 
 
-def mergeAnnotatedInterpro(args):
+def merge_annotated_interpro(args):
     print("-" * 10)
     print("MERGING INTERPRO")
     print("-" * 10)
@@ -445,7 +445,7 @@ def mergeAnnotatedInterpro(args):
     still_left = unannotated[~unannotated["ProteinId"].isin(joined["ProteinId"])]
     joined["inferred_by"] = "interpro"
     # Remaining proteins that are still unannotated
-    writeFasta(still_left, "still_unannotated.fasta")
+    write_fasta(still_left, "still_unannotated.fasta")
     final = pd.concat([joined, annotated])
     if unwanted := set(final.columns) & {"header_x", "header_y"}:
         for u in unwanted:
@@ -476,9 +476,9 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     if args["merge_eggnog"]:
-        m = mergeAnnotatedEggnog(args)
+        m = merge_annotated_eggnog(args)
     elif args["merge_interpro"]:
-        m = mergeAnnotatedInterpro(args)
+        m = merge_annotated_interpro(args)
     else:
         m = anno(args)
     if "query" in m.columns:

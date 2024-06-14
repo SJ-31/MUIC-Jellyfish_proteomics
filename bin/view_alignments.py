@@ -284,7 +284,7 @@ def parseArgs():
     parser = argparse.ArgumentParser()
     parser.add_argument("-r", "--results_file")
     parser.add_argument("-c", "--coverage_threshold")
-    parser.add_argument("-a", "--alignment_file")
+    parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
     parser.add_argument("-o", "--outdir")
     args = vars(parser.parse_args())
     return args

@@ -21,7 +21,7 @@ def resolveResidue(seq):
 
 
 def mass_calc(seq) -> float:
-    return mass.fast_mass(resolveResidue(seq))
+    return mass.fast_mass(seq)
 
 
 def write_lines(file: str, line_list: list) -> None:
