@@ -13,6 +13,10 @@ include { COVERAGE_CALC; COVERAGE_SPLIT; COVERAGE_MERGE } from '../modules/cover
 include { INTERPROSCAN; SORT_INTERPRO } from '../modules/interpro'
 include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
 
+def nullIfEmpty(ch) {
+    ch.ifEmpty({file("$params.config_dir/NO_FILE")})
+}
+
 workflow 'combine_searches' {
 
     take:
@@ -71,12 +75,18 @@ workflow 'combine_searches' {
                     unmatched_pep_tsv,
                     "$outdir/Unmatched/InterPro",
                     "$outdir/Unmatched/Remaining_unmatched")
+
+    // BUG Temporary fix for eggnog failure
+    eggnog_matched = nullIfEmpty(SORT_EGGNOG.out.matched)
+    interpro_matched = nullIfEmpty(SORT_INTERPRO.out.matched)
+    interpro_unmatched_fasta = nullIfEmpty(SORT_INTERPRO.out.unmatched_fasta)
+
     ANNOTATE(SORT_BLAST.out.matched,
                 "$outdir/Unmatched/Database-annotated")
-    COMBINE_ALL(ANNOTATE.out.annotations, SORT_EGGNOG.out.matched,
-                SORT_INTERPRO.out.matched,
-                directlfq, flashlfq, maxlfq, "$outdir", "$outdir/Logs")
-    unmatched_ch = ANNOTATE.out.unannotated.mix(SORT_INTERPRO.out.unmatched_fasta)
+    COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
+                interpro_matched, directlfq, flashlfq, maxlfq,
+                "$outdir", "$outdir/Logs")
+    unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
     // Key for "ProteinId" column:
     // P = protein from downloaded database
     // D = de novo peptide

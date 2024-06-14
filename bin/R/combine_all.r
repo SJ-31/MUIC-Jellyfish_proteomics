@@ -264,7 +264,7 @@ LOGFILE <- "./combine_all.log"
 main <- function(args) {
   downloads <- loadFile(args$download) %>%
     mutate(header = replace(header, header == "NaN", "unknown"))
-  if (str_to_lower(args$is_denovo) == "true") {
+  if (!file.size(args$eggnog) == 0) {
     eggnog <- loadFile(args$eggnog)
     interpro <- loadFile(args$interpro)
     combined <- bind_rows(downloads, eggnog, interpro)
@@ -469,7 +469,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--downloads", type = "character")
   parser <- add_option(parser, "--fdr", type = "double")
   parser <- add_option(parser, "--pep_thresh", type = "double")
-  parser <- add_option(parser, "--is_denovo", type = "character")
   parser <- add_option(parser, "--directlfq", type = "character")
   parser <- add_option(parser, "--flashlfq", type = "character")
   parser <- add_option(parser, "--maxlfq", type = "character")

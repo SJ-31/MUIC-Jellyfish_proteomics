@@ -1,6 +1,8 @@
 process EGGNOG {
     publishDir "$outdir", mode: "copy"
     conda "/home/shannc/anaconda3/envs/eggnog"
+    memory "35 GB"
+    errorStrategy 'ignore'
 
     input:
     tuple path(unknown_fasta), path(unknown_tsv)

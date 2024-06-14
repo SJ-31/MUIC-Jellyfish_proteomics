@@ -34,7 +34,6 @@ process COMBINE_ALL {
         --kegg2go $params.kegg2go \
         --ec2go $params.ec2go \
         --pfam_db $params.pfam_entries \
-        --is_denovo $params.denovo \
         --fdr $params.fdr \
         --pep_thresh $params.pep_thresh \
         --output "${params.pref}_all.tsv" \
