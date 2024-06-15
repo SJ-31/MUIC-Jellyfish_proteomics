@@ -9,41 +9,12 @@ import ete4.treeview as tv
 from enum import Enum
 
 FONT = "Arial"
-ncbi = et.NCBITaxa(taxdump_file="/home/shannc/Bio_SDD/tools/taxdb/taxdump.tar.gz")
 
 
 class Colormaps(Enum):
     LEAVES = colormaps.get_cmap("Oranges")
     PHYLUM = colormaps.get_cmap("Purples")
     RANKS = colormaps.get_cmap("Set1")
-
-
-# %%
-tax = pl.read_csv(
-    "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/1-First_pass/C_indra_taxonomy.tsv",
-    separator="\t",
-    null_values="NA",
-)
-data = pl.read_csv(
-    "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Analysis/C_indra_all_wcategory.tsv",
-    separator="\t",
-    null_values="NA",
-)
-
-
-def getTree(
-    taxa: set[str], rank_limit: str = "Order", prune_others: bool = False
-) -> tuple[et.PhyloTree, dict]:
-    id_map = {k: str(v[0]) for k, v in ncbi.get_name_translator(taxa).items()}
-    T = ncbi.get_topology(
-        id_map.values(),
-        rank_limit=rank_limit.lower(),
-        annotate=True,
-    )
-    if prune_others:
-        others = [n for n in T.traverse() if n.props["rank"].capitalize() not in RANKS]
-        map(lambda x: x.delete(), others)
-    return T, id_map
 
 
 def dfToDict(df: pl.DataFrame, keys: str = None, values: str = None) -> dict:
@@ -86,15 +57,16 @@ def rankStyle(node: et.PhyloTree, rank: str):
     fillNodeStyle(node, size=size, fgcolor=color, shape="square")
 
 
-# %%
-
-
 class TaxaTree:
-    def __init__(self, taxa: pl.DataFrame) -> None:
+    def __init__(self, taxa: pl.DataFrame | str, taxdump_path: str) -> None:
+        if isinstance(taxa, str):
+            taxa = pl.read_csv(taxa, separator="\t", null_values="NA")
+        self.NCBI = et.NCBITaxa(taxdump_file=taxdump_path)
         counts = []
         percents = []
         for r in RANKS:
-            count_df = taxa[r.capitalize()].value_counts()
+            r = r.capitalize()
+            count_df = taxa[r].value_counts().filter(pl.col(r).is_not_null())
             percent_df = count_df.with_columns(
                 count=pl.col("count") / pl.sum("count")
             ).rename({"count": "percent"})
@@ -103,7 +75,7 @@ class TaxaTree:
         all_rank_percents: ChainMap = ChainMap(*percents)
         all_rank_counts: ChainMap = ChainMap(*counts)
 
-        complete_tree, name2taxid = getTree(
+        complete_tree, name2taxid = self.tree(
             all_rank_percents.keys(), "Species", prune_others=True
         )
         all_nodes: set = {d.name for d in complete_tree.traverse()}
@@ -117,6 +89,22 @@ class TaxaTree:
                 complete_tree[taxid].del_prop("taxid")
         self.T = complete_tree
         self.taxid2name = taxid2name
+
+    def tree(
+        self, taxa: set[str], rank_limit: str = "Order", prune_others: bool = False
+    ) -> tuple[et.PhyloTree, dict]:
+        id_map = {k: str(v[0]) for k, v in self.NCBI.get_name_translator(taxa).items()}
+        T = self.NCBI.get_topology(
+            id_map.values(),
+            rank_limit=rank_limit.lower(),
+            annotate=True,
+        )
+        if prune_others:
+            others = [
+                n for n in T.traverse() if n.props["rank"].capitalize() not in RANKS
+            ]
+            map(lambda x: x.delete(), others)
+        return T, id_map
 
     def getSubtree(
         self, rank="", taxid: int = None, sci_name: str = ""
@@ -146,9 +134,6 @@ def keepRanksAbove(T: et.PhyloTree, rank: str):
     kept_ranks = [k for k, v in RANKS.items() if v <= rank_num]
     kept_nodes = {n for n in T.traverse() if n.props.get("rank") in kept_ranks}
     T.prune(kept_nodes)
-
-
-# %%
 
 
 def defaultLayout(node):
@@ -253,21 +238,3 @@ def rankLegend(legend: tv.FaceContainer, max_rank: str) -> None:
         if rank == max_rank:
             break
     return
-
-
-tree = TaxaTree(tax)
-phyla = tree.getSubtree(rank="phylum")
-cnidaria = tree.getSubtree(sci_name="Cnidaria", rank="order")
-
-show(
-    phyla,
-    legendFun=lambda x: rankLegend(x, "phylum"),
-    save_to="Phyla.png",
-    save_params={"w": 1000, "h": 800},
-)
-show(
-    cnidaria,
-    legendFun=lambda x: rankLegend(x, "phylum"),
-    save_to="cnidaria.png",
-    save_params={"w": 1000, "h": 800},
-)
