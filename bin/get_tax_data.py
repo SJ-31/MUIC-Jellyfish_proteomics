@@ -1,8 +1,6 @@
 #!/usr/bin/env python
-import pytaxonkit as pk
 import ete4 as et
 import re
-import pandas as pd
 import polars as pl
 
 

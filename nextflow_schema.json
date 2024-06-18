@@ -249,6 +249,18 @@
     "go_texts": {
       "type": "string",
       "default": "/mnt/data/shannc/nf/data/reference/.go_texts"
+    },
+    "storage": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/.cache"
+    },
+    "ncbi_taxdump": {
+      "type": "string",
+      "default": "/mnt/data/shannc/nf/data/reference/taxdump.tar.gz"
+    },
+    "mmseqs": {
+      "type": "string",
+      "default": "/home/shannc/.local/bin/mmseqs"
     }
   },
   "required": ["subworkflow", "manifest_file"]
