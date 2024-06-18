@@ -9,7 +9,7 @@ process ANNOTATE {
     //
 
     output:
-    path("${params.pref}_downloads_anno-3.tsv"), emit: annotations
+    path("${params.pref}_downloads_anno-complete.tsv"), emit: annotations
     path("${params.pref}_downloads_anno*")
     path("annotate_eggnog_unmatched"), optional: true
     path("annotation_complete.fasta"), emit: complete, optional: true
@@ -19,7 +19,7 @@ process ANNOTATE {
     //
 
     shell:
-    check = file("${outdir}/${params.pref}_downloads_anno-3.tsv")
+    check = file("${outdir}/${params.pref}_downloads_anno-complete.tsv")
     if (check.exists()) {
         '''
         cp -r !{outdir}/* .

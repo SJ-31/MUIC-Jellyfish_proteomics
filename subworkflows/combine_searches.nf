@@ -13,8 +13,8 @@ include { COVERAGE_CALC; COVERAGE_SPLIT; COVERAGE_MERGE } from '../modules/cover
 include { INTERPROSCAN; SORT_INTERPRO } from '../modules/interpro'
 include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
 
-def nullIfEmpty(ch) {
-    ch.ifEmpty({file("$params.config_dir/NO_FILE")})
+def nullIfEmpty(ch, filename) {
+    ch.ifEmpty({file("$params.storage/$filename")})
 }
 
 workflow 'combine_searches' {
@@ -77,9 +77,10 @@ workflow 'combine_searches' {
                     "$outdir/Unmatched/Remaining_unmatched")
 
     // BUG Temporary fix for eggnog failure
-    eggnog_matched = nullIfEmpty(SORT_EGGNOG.out.matched)
-    interpro_matched = nullIfEmpty(SORT_INTERPRO.out.matched)
-    interpro_unmatched_fasta = nullIfEmpty(SORT_INTERPRO.out.unmatched_fasta)
+    eggnog_matched = nullIfEmpty(SORT_EGGNOG.out.matched, "EGGNOG_EMPTY")
+    interpro_matched = nullIfEmpty(SORT_INTERPRO.out.matched, "INTERPRO_EMPTY")
+    interpro_unmatched_fasta = nullIfEmpty(SORT_INTERPRO.out.unmatched_fasta,
+        "INTERPRO_FASTA_EMPTY")
 
     ANNOTATE(SORT_BLAST.out.matched,
                 "$outdir/Unmatched/Database-annotated")
@@ -97,13 +98,11 @@ workflow 'combine_searches' {
     COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(), "$outdir")
     COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
 
+    // Will not run if all proteins were matched
     CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
     DEEPLOC(SIGNALP.out.fasta, COVERAGE_MERGE.out.tsv,
         SEARCH_INTERSECT.out.unsorted,
         "$outdir/Deeploc")
-
-    emit:
-    result = DEEPLOC.out.tsv
 
 }

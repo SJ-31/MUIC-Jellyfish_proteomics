@@ -46,7 +46,8 @@ process COMBINE_ALL {
         --python_source ${params.bin}
 
     get_tax_data.py -i "${params.pref}_all.tsv" \
-        -o  "${params.pref}_taxonomy.tsv"
+        -o  "${params.pref}_taxonomy.tsv" \
+        -n  $params.ncbi_taxdump
 
     cat .command.log >> combine_all.log
     """
