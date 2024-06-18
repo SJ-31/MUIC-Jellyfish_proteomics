@@ -75,7 +75,8 @@ def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
     """
     gos = set()
     spattern = "[;,]"
-    if not pd.isna(row["PFAMs"]):
+
+    if not pd.isna(row.get("PFAMs")):
         splits = re.split(spattern, row["PFAMs"])
         for s in splits:
             gos.add(
@@ -89,7 +90,7 @@ def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
             )
     for db, map in zip(["EC", "KEGG_Reaction"], [ec_map, kegg_map]):
         if db in row.index:
-            if not pd.isna(row[db]):
+            if not pd.isna(row.get(db)):
                 splits = re.split(spattern, row[db])
                 for s in splits:
                     gos.add(gosFromAcc(map, s, is_pfam=False))
@@ -143,7 +144,9 @@ def parseGoMapping(path, has_name):
     )
 
 
-def mapAllDb(pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate):
+def mapAllDb(
+    pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate: pd.DataFrame
+):
     """
     Map entries in the pfam database to go accession numbers, using their names
     """
@@ -152,7 +155,8 @@ def mapAllDb(pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate)
     print(f"Reading ec2go file from path {ec2g_path}")
     print(f"Reading kegg_reaction2go file from path {k2g_path}")
     print(f"Reading interpro2go file from path {i2g_path}")
-
+    if "GO" not in to_annotate.columns:
+        return to_annotate
     pfam_db = pd.read_csv(pfam_db_path, sep="\t")
     interpro2go = parseGoMapping(i2g_path, has_name=True)
     pfam2go = parseGoMapping(p2g_path, has_name=True)

@@ -15,7 +15,7 @@ OTHER_EGGNOG_COLS <- c(
 )
 
 FIRST_COLS <- c(
-  "ProteinId", "ProteinGroupId", "header", "category",
+  "ProteinId", "ProteinGroupId", "header",
   "Group", "MatchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
   "organism", "lineage", "ID_method", "inferred_by"
 )
@@ -38,24 +38,6 @@ HEADER_QUERIES <- list(
 hasDuplicates <- function(tb) {
   return(!all(dim(distinct(tb)) == dim(tb)))
 }
-
-#' Assign a protein to a higher-level go category
-#'
-#' @description
-#' Categorizes a protein based on the parent terms (in a specified list) of one of its GO terms
-#' If there are multiple hits, take the most specific term
-goCategorize <- function(go_list, original_category) {
-  if (!is.na(go_list)) {
-    go <- str_split_1(go_list, ";")
-    for (n in names(GO_CATEGORIES)) {
-      if (any(go %in% GO_CATEGORIES[[n]])) {
-        return(n)
-      }
-    }
-  }
-  return(original_category)
-}
-
 
 #' Count of number unique GO terms assigned to each protein, and
 #' determine the maximum semantic value of the GO terms of that protein
@@ -168,19 +150,6 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
       "{quant_name}_median" := median(c_across(contains(quant_name)), na.rm = TRUE)
     )
   return(bind_cols(bound, calcs))
-}
-
-organismFromHeader <- function(row) {
-  # Parse the organism from an NCBI or uniprot ID
-  organism <- row["organism"]
-  if (is.na(organism)) {
-    header <- row["header"]
-    if (grepl("OS=", header)) {
-      return(str_extract(header, "OS=([a-zA-Z]* [a-zA-Z]*) ", group = 1))
-    }
-    return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
-  }
-  return(organism)
 }
 
 unifyGroups <- function(tb) {
@@ -311,7 +280,6 @@ main <- function(args) {
       )
     )
 
-
   ## Filter by FDR and PEP
   ## If a (standard) protein has at least two peptides are lower than the fdr threshold, it is kept
   combined <- combined %>%
@@ -334,7 +302,7 @@ main <- function(args) {
   combined <- select(combined, -all_of(redundant))
 
   ## Map pfam domains to GO and get GO IDs
-  if (MAP_PFAMS) {
+  if (MAP_PFAMS && "GO" %in% colnames(combined)) {
     cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
     tryCatch(
       expr = {
@@ -361,21 +329,22 @@ main <- function(args) {
     )
     cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
   }
-  combined$GO_slims <- combined$GO_IDs %>%
-    lapply(
-      .,
-      \(x) {
-        slimsFromGoString(x,
-          go_path = args$go_path,
-          go_slim_path = args$go_slim_path
-        )
-      }
-    ) %>%
-    as.character()
-
+  if ("GO" %in% colnames(combined)) {
+    combined$GO_slims <- combined$GO_IDs %>%
+      lapply(
+        .,
+        \(x) {
+          slimsFromGoString(x,
+            go_path = args$go_path,
+            go_slim_path = args$go_slim_path
+          )
+        }
+      ) %>%
+      as.character()
+  }
 
   ## Map KEGG Genes to KEGG pathways
-  if (MAP_KEGG) {
+  if (MAP_KEGG && any(grepl("KEGG", colnames(combined)))) {
     cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
     kegg_env <- new.env()
     source_python(glue("{args$python_source}/map2kegg.py"), envir = kegg_env)
@@ -393,19 +362,6 @@ main <- function(args) {
     )
     cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
   }
-
-
-  ## Categorize
-  # Categories that cannot be assigned by header are assigned from
-  # the most specific GO id
-  categories <- map2(combined$category, combined$GO_IDs, \(x, y) {
-    if (x == "unknown" | x == "other") {
-      return(goCategorize(y, x))
-    } else {
-      return(x)
-    }
-  }) %>% unlist()
-  combined$category <- categories
 
   ## Record modifications
   if (args$sort_mods) {
@@ -437,8 +393,8 @@ main <- function(args) {
     eggNOG_description = "Description",
     MatchedPeptideIds = "matchedPeptideIds"
   )
+  combined <- getOrganism(combined)
   combined <- combined %>%
-    mutate(organism = apply(., 1, organismFromHeader)) %>%
     dplyr::rename(any_of(rename_lookup)) %>%
     relocate(where(is.numeric),
       .after = where(is.character)
@@ -453,7 +409,7 @@ main <- function(args) {
     ))) %>%
     relocate(any_of(c(contains("GO"), "PANTHER"))) %>%
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
-    relocate(all_of(FIRST_COLS))
+    relocate(any_of(FIRST_COLS))
 
 
   return(combined)

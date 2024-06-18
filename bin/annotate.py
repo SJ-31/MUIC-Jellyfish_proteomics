@@ -190,7 +190,17 @@ def from_db(name, database_list):
     return {name: None, "evidence": None}
 
 
-def map_list(id_list, origin_db: str):
+def check_entry_lengths(dct: dict):
+    print("Checking dict entry lengths...")
+    length = len(list(dct.values())[0])
+    for k, v in dct.items():
+        print(f"Checking entry: {k}, {len(v)}")
+        if len(v) != length:
+            print(f"Length: {length}, differing length: {len(v)}")
+            raise ValueError(f"{k} has different lengths to other entries!")
+
+
+def map_list(id_list, origin_db: str) -> tuple[dict, list]:
     """
     Submit queries as list of ids to UniProt server
     Parse response
@@ -220,22 +230,33 @@ def map_list(id_list, origin_db: str):
     else:
         return pd.DataFrame(), []
     for result in results_dict["results"]:
+        if not isinstance(result, dict):
+            raise ValueError("Not a dictionary!")
         anno_dict["query"].append(result["from"])
         current = result["to"]
+        if isinstance(current, str):
+            for k in anno_dict.keys():
+                if k == "UniProtKB_ID":
+                    anno_dict[k].append(current)
+                elif k == "query":
+                    continue
+                else:
+                    anno_dict[k].append("NA")
+            continue
         anno_dict["UniProtKB_ID"].append(current["uniProtkbId"])
         if organism := current.get("organism"):
             anno_dict["organism"].append(organism["scientificName"])
             anno_dict["lineage"].append(";".join(organism["lineage"]))
         else:
-            anno_dict["organism"].append("unknown")
-            anno_dict["lineage"].append("unknown")
+            anno_dict["organism"].append("NA")
+            anno_dict["lineage"].append("NA")
         if sequence := current.get("sequence"):
             anno_dict["length"].append(sequence["length"])
             anno_dict["molWeight"].append(sequence["molWeight"])
             anno_dict["sequence"].append(sequence["value"])
         else:
             for key in ["length", "molWeight", "sequence"]:
-                anno_dict[key].append("unknown")
+                anno_dict[key].append("NA")
         if databases := current.get("uniProtKBCrossReferences"):
             interpro = from_db("InterPro", databases)
             anno_dict["interpro_accession"].append(interpro["InterPro"])
@@ -259,6 +280,7 @@ def map_list(id_list, origin_db: str):
                 "GO_evidence",
             ]:
                 anno_dict[key].append(None)
+    check_entry_lengths(anno_dict)
     if failedIds := results_dict.get("failedIds"):
         failed = [f for f in failedIds]
         return anno_dict, failed
