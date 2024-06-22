@@ -1,9 +1,10 @@
 library(magrittr)
+PALETTE <- "ggthemes::hc_darkunica"
 GRAPHS <- list()
 TABLES <- list()
 
 coverage_threshold <- 0.8
-data <- run$first %>% filter(pcoverage_align >= coverage_threshold)
+data <- data %>% filter(pcoverage_align >= coverage_threshold)
 nd_data <- runData("ND_C_indra", glue("{wd}/results/ND_C_indra"),
   which = CHOSEN_PASS
 ) %>% filter(ProteinId %in% data$ProteinId)
@@ -24,7 +25,6 @@ to_keep_denovo <- data %>%
   unique() %>%
   unlist() %>%
   c(., unmatched_peptides$ProteinId)
-
 
 it <- new.env()
 reticulate::source_python(glue("{args$python_source}/trace_alignments.py"), envir = it)
@@ -55,8 +55,8 @@ GRAPHS$peptides_vs_replacements <- ggplot(merged, aes(
   geom_point() +
   xlab("Number of unique peptides") +
   ylab("n replacements") +
-  labs(alpha = "n conflicts / n replacements")
-
+  labs(alpha = "n conflicts / n replacements") +
+  scale_color_paletteer_d(PALETTE)
 
 test <- cor.test(merged$n_replacements, merged$num_unique_peps) |>
   to("data.name", "number of replacements vs number of unique peptides") |>
@@ -64,9 +64,11 @@ test <- cor.test(merged$n_replacements, merged$num_unique_peps) |>
 
 TABLES$replacement_metrics <- gt(replacement_metrics$default)
 
+
 GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
   geom_histogram(position = "identity", alpha = 0.7) +
-  xlab("Ratio of non-conservative substitutions to conservative")
+  xlab("Ratio of non-conservative to conservative replacements") +
+  scale_fill_paletteer_d(PALETTE)
 
 mapped_by <- list()
 mapped_by$denovo <- data %>%
@@ -81,10 +83,9 @@ mapped_by$unknown <- data %>%
 #' Get the original sequence
 denovo_metrics <- it$denovoReplacementMetrics(
   to_keep,
-  to_keep_denovo, SEQ_MAP_PATH,
+  to_keep_denovo, SEQ_MAP_PATH, UNMATCHED_PATH,
   alignments$peptides, alignments$replacements
 ) %>% lapply(as_tibble)
-
 
 GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
   ggplotNumericDist(list(
@@ -98,13 +99,13 @@ GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
     subtitle = glue("from proteins with > {coverage_threshold} coverage"),
     fill = "Type",
     color = "Type"
-  )
+  ) + scale_fill_paletteer_d(PALETTE)
 
-TABLES$denovo_metrics <- gt(denovo_metrics)
+TABLES$denovo_metrics <- gt(denovo_metrics$metrics)
 
 test <- wilcox.test(denovo_metrics$metrics$n_replacements, y = NULL) |>
-  to("data.name", "replacement counts")
-htest2Tb() |>
+  to("data.name", "replacement counts") |>
+  htest2Tb() |>
   bind_rows(test)
 
 TABLES$replacement_htests <- gt(test)
