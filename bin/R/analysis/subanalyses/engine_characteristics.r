@@ -1,3 +1,4 @@
+PALETTE <- "ggthemes::colorblind"
 library("ggplot2")
 library("ggVennDiagram")
 TABLES <- list()
@@ -35,7 +36,7 @@ percolator_files <- list.files(PERCOLATOR_DIR,
   pattern = "_percolator_proteins.tsv", full.names = TRUE
 )
 alignments <- alignmentData(PATH, "first")
-combined_results <- run$first
+combined_results <- data
 
 # Engine distribution analysis
 ENGINES <- percolator_files %>%
@@ -145,7 +146,8 @@ GRAPHS$engine_peptide_coverage <- standard_engine_coverage %>%
   labs(title = "Density of per-engine peptide coverage") +
   xlab("Coverage (%)") +
   ylab("Engine name") +
-  theme(legend.position = "none")
+  theme(legend.position = "none") +
+  scale_fill_paletteer_d(PALETTE)
 
 # Identify which engine, if any, is the best-performing
 cov_list <- standard_engine_coverage %>%
@@ -191,7 +193,8 @@ jaccard_plot <- pcoa$points %>% ggplot(aes(x = Dim1, y = Dim2, color = rownames(
   geom_point(size = 4) +
   xlab("V1") +
   ylab("V2") +
-  labs(title = "PCOA of engine similarity (Jaccard distance)", color = "Engine")
+  labs(title = "PCOA of engine similarity (Jaccard distance)", color = "Engine") +
+  scale_color_paletteer_d(PALETTE)
 GRAPHS$engine_sim_jaccard <- jaccard_plot
 
 
@@ -202,4 +205,4 @@ venn <- ggVennDiagram(id_list, label = "none") +
   scale_fill_gradient(low = "grey90", high = "blue")
 GRAPHS$engine_venn <- venn
 
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/engine_characteristics"))
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/engine_characteristics"))
