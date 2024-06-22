@@ -1,4 +1,8 @@
+PALETTE <- "ggthemes::hc_default"
+PALETTE2 <- "ggthemes::Classic_Color_Blind"
+
 library("tidyverse")
+library("gridExtra")
 library("ggVennDiagram")
 library("ggplot2")
 library("ggridges")
@@ -57,6 +61,7 @@ getCommonColumn <- function(tb_list, target_col, predicate) {
   })
 }
 
+
 common_ids <- accumulate(id_list, intersect)[[length(id_list)]]
 
 coverage_comparison <- getCommonColumn(
@@ -88,18 +93,48 @@ testAndVisualize <- function(data_list, plot_type, pairwiseTest) {
 }
 
 cc <- testAndVisualize(coverage_comparison, "boxplot", wilcox.test)
-GRAPHS$coverage_comparison <- cc$graph + ylab("coverage (%)") + xlab("Run modification")
+
+coverage_comparison_g <- cc$graph + ylab("coverage (%)") +
+  scale_color_paletteer_d(PALETTE) +
+  guides(color = guide_legend("Run parameter")) +
+  theme(
+    axis.text.x = element_blank(), axis.title.x = element_blank(),
+    axis.title.y = element_text(size = 15),
+    legend.text = element_text(size = 22), legend.title = element_text(size = 20, face = "bold")
+  )
+
+legend <- getLegend(coverage_comparison_g)
+
+coverage_comparison_g <- coverage_comparison_g + guides(color = "none")
 
 peptide_number <- testAndVisualize(num_peps, "boxplot", wilcox.test)
-GRAPHS$peptide_number <- peptide_number$graph +
-  ylab("Matched peptide number per protein")
+peptide_number_g <- peptide_number$graph +
+  ylab("Matched peptide number per protein") +
+  scale_color_paletteer_d(PALETTE) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank()) +
+  guides(color = "none")
 
 unique_peptide_number <- testAndVisualize(
   num_unique_peps, "boxplot", wilcox.test
 )
-GRAPHS$unique_peptide_number <- unique_peptide_number$graph +
-  ylab("Matched unique peptide number per protein")
+unique_peptide_number_g <- unique_peptide_number$graph +
+  ylab("Matched unique peptide number per protein") + guides(color = "none") +
+  scale_color_paletteer_d(PALETTE) +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank()) + guides(color = "none")
 
+
+TABLES$all_params_tests <- bind_rows(
+  cc$pairwise |> mutate(metric = "coverage"),
+  peptide_number$pairwise |> mutate(metric = "peptide number"),
+  unique_peptide_number$pairwise |> mutate(metric = "unique peptide number")
+) |>
+  gt()
+
+
+GRAPHS$coverage_metrics <- grid.arrange(legend, coverage_comparison_g,
+  peptide_number_g, unique_peptide_number_g,
+  nrow = 2, ncol = 2
+)
 
 #' ---------------------------------------------------
 # Analyze GO and KEGG pathway composition
@@ -123,7 +158,14 @@ go_slims <- local({
 paramXSlim <- tbTranspose(go_slims)
 dist <- vegan::vegdist(paramXSlim, method = "bray")
 pcoa <- vegan::wcmdscale(dist, eig = TRUE)
-# pcoa$points %>% ggplot(aes(x = ))
+GRAPHS$param_pcoa <- pcoa$points |>
+  as.data.frame() |>
+  rownames_to_column(var = "Parameter") |>
+  ggplot(aes(x = Dim1, y = Dim2, color = Parameter)) +
+  geom_point() +
+  scale_color_paletteer_d(PALETTE) +
+  xlab("V1") +
+  ylab("V2")
 
 go_terms <- local({
   tbs <- lmap(GO_list, \(x) {
@@ -157,11 +199,11 @@ replaceSuffix <- function(name_list, replacement_map) {
 }
 
 coverage_list <- merged %>%
-  select(contains("coverage")) %>%
+  select(contains("coverage_align")) %>%
   as.list()
 names(coverage_list) <- replaceSuffix(
   names(coverage_list),
-  c(".def" = " default", ".nd" = " no denovo")
+  c(".def" = " default", ".nd" = " no denovo", "pcoverage_align" = "")
 )
 
 peps_list <- merged %>%
@@ -175,14 +217,15 @@ names(peps_list) <- replaceSuffix(
   )
 )
 
+
 GRAPHS$default_no_denovo_coverage <- ggplotNumericDist(coverage_list, method = "freq_poly", linewidth = 0.9) +
   xlab("Alignment coverage (%)") +
   ylab("Frequency") +
   labs(
     title = "Coverage comparison between runs with and without added de novo peptides",
     color = "Parameter"
-  )
-GRAPHS$default_no_denovo_coverage
+  ) + scale_color_paletteer_d(PALETTE2)
+
 
 GRAPHS$default_no_denovo_peptide_count <- ggplotNumericDist(peps_list, method = "boxplot") +
   xlab("Run parameter") +
@@ -190,4 +233,10 @@ GRAPHS$default_no_denovo_peptide_count <- ggplotNumericDist(peps_list, method = 
   labs(
     title = "Number of identified peptides between runs with and without added de novo peptides",
     color = "Parameter"
-  )
+  ) + scale_color_paletteer_d(PALETTE2)
+
+TABLES$denovo_test <- tests |>
+  mutate(alternative = map_chr(alternative, \(x) str_replace(x, "\\.def", "default"))) |>
+  gt()
+
+save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/run_parameters"))
