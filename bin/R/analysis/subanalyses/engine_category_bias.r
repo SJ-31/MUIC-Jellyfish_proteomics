@@ -11,7 +11,7 @@ TABLES <- list()
 
 
 num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
-tb <- run$first
+tb <- data
 num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
@@ -28,7 +28,7 @@ engine_counts <- num_ids$ProteinGroupId %>%
   discard(\(x) x == "U") %>%
   table()
 
-tb <- run$first
+compare_col <- "GO_category_MF"
 engine_hits <- tb %>%
   select(ProteinId, ProteinGroupId) %>%
   apply(1, \(x) {
@@ -44,23 +44,24 @@ engine_hits <- tb %>%
   }) %>%
   bind_rows() %>%
   replaceNaAll(., FALSE)
-# Collapse the contingency table?
+
+# Collapse the contingency table
 engine_hits <- engine_hits %>%
-  inner_join(., dplyr::select(tb, category, ProteinId)) %>%
+  inner_join(., dplyr::select(tb, !!compare_col, ProteinId)) %>%
   select(-ProteinId) %>%
-  filter(!is.na(category)) %>%
-  group_by(category) %>%
+  filter(!is.na(!!compare_col)) %>%
+  group_by(!!as.symbol(compare_col)) %>%
   filter(n() > 30) %>%
   ungroup()
 
-categories <- unique(engine_hits$category)
+categories <- unique(engine_hits[[compare_col]])
 
 # An example of what the contingency table for the tests would look like,
 # and what the expected values would be under the chi-square test of independence
 current <- "comet"
-tl <- table(engine_hits$category, engine_hits[[current]])
-ct <- "membrane"
-show_contigency <- table(engine_hits$category == ct, engine_hits[[current]])
+tl <- table(engine_hits[[compare_col]], engine_hits[[current]])
+ct <- "protein binding"
+show_contigency <- table(engine_hits[[compare_col]] == ct, engine_hits[[current]])
 expected <- formatEngineContingency(show_contigency, ct, TRUE)
 expected %>%
   gt() %>%
@@ -68,16 +69,17 @@ expected %>%
     title = glue("Engine: {current}, Category: {ct}"),
     subtitle = "Expected values under chi-square in parentheses"
   )
+TABLES$sample_expected <- expected
 
-engines <- colnames(engine_hits)[!colnames(engine_hits) %in% c("U", "category")]
+engines <- colnames(engine_hits)[!colnames(engine_hits) %in% c("U", compare_col)]
 engine_chi <- tibble()
 engine_table_list <- list()
 for (engine in engines) {
   engine_table_list[[engine]] <- list()
   for (cat in categories) {
-    t <- table(engine_hits$category == cat, engine_hits[[engine]])
+    t <- table(engine_hits[[compare_col]] == cat, engine_hits[[engine]])
     engine_table_list[[engine]][[cat]] <- t
-    print(formatEngineContingency(t, TRUE))
+    # print(formatEngineContingency(t, TRUE))
     tst <- chisq.test(t)
     row <- tibble(engine = engine, category = cat, p_value = tst$p.value)
     engine_chi <- bind_rows(engine_chi, row)
@@ -94,25 +96,28 @@ engine_chi <- engine_chi %>% mutate(
 # Confidence interval is 95%
 odds_ratios <- engine_chi %>%
   apply(1, \(x) {
+    row <- tibble(OR = NA, OR_upper_ci = NA, OR_lower_ci = NA)
     if (!as.logical(x["is_significant"])) {
-      return(tibble(OR = NA, OR_upper_ci = NA, OR_lower_ci = NA))
+      return(row)
     }
     e <- x["engine"]
     c <- x["category"]
     table <- engine_table_list[[e]][[c]]
-    odds_ratio <- oddsRatio(table)
-    odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
-    odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
-    row <- tibble(
-      OR = odds_ratio,
-      OR_upper_ci = odds_ratio_ci_u,
-      OR_lower_ci = odds_ratio_ci_l
-    )
+    try({
+      odds_ratio <- oddsRatio(table)
+      odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
+      odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
+      row <- tibble(
+        OR = odds_ratio,
+        OR_upper_ci = odds_ratio_ci_u,
+        OR_lower_ci = odds_ratio_ci_l
+      )
+    })
     return(row)
   }) %>%
   bind_rows()
-engine_chi <- bind_cols(engine_chi, odds_ratios)
-TABLES$engine_chi <- engine_chi %>%
+engine_chi_f <- bind_cols(engine_chi, odds_ratios)
+TABLES$engine_chi <- engine_chi_f %>%
   mutate(across(is.double, \(x) round(x, 4))) %>%
   mutate(
     OR = paste0(OR, " [", OR_lower_ci, ", ", OR_upper_ci, "]"),
@@ -125,6 +130,9 @@ TABLES$engine_chi <- engine_chi %>%
     title = "Association between engine hits and protein GO category",
     subtitle = "Tested using chi-square"
   )
+# Odds ratio is interpreted as the given engine is OR times as likely to miss
+# the protein when it is NOT of the stated category than when it is
+# So higher OR means that the engine is biased towards hitting proteins in that category
 
 
 # Record all results
@@ -135,17 +143,17 @@ for (e in names(engine_table_list)) {
   temp_lst <- list()
   remove_col_label <- FALSE
   for (ct in names(e_list)) {
-    tb <- formatEngineContingency(e_list[[ct]], w_expected = TRUE)
+    tib <- formatEngineContingency(e_list[[ct]], w_expected = TRUE)
     if (remove_cat) {
-      tb <- dplyr::select(tb, -category)
+      tib <- dplyr::select(tib, -category)
     }
-    tb <- gt(tb)
+    tib <- gt(tib)
     if (!remove_col_label) {
       remove_col_label <- TRUE
     } else {
-      tb <- tb %>% tab_options(column_labels.hidden = TRUE)
+      tib <- tib %>% tab_options(column_labels.hidden = TRUE)
     }
-    temp_lst <- c(temp_lst, as_raw_html(tb))
+    temp_lst <- c(temp_lst, as_raw_html(tib))
   }
   temp_tb <- tibble(!!e := temp_lst)
   engine_table_tb <- bind_cols(engine_table_tb, temp_tb)
@@ -171,4 +179,4 @@ engine_cor$data.name <- "Correlation between number of identified peptides and c
 TABLES$correlation <- gt(bind_rows(htest2Tb(engine_cor), htest2Tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
 
-save(c(TABLES, GRAPHS), glue("{outdir}/figures/engine_category_bias"))
+save(c(TABLES, GRAPHS), glue("{OUTDIR}/figures/engine_category_bias"))
