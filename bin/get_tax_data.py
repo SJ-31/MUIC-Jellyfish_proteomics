@@ -96,6 +96,8 @@ if __name__ == "__main__":
     RANKS: list = ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
     args = parseArgs()
     NCBI = et.NCBITaxa(taxdump_file=args["ncbi_taxdump"])
-    df = pl.read_csv(args["input"], separator="\t", null_values="NA")
+    df = pl.read_csv(args["input"], separator="\t", null_values="NA").filter(
+        pl.col("organism").is_not_null()
+    )
     tax = get_tax_data(df, ranks=RANKS, ncbi=NCBI)
     tax.write_csv(args["output"], separator="\t")
