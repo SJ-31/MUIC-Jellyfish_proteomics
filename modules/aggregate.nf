@@ -13,7 +13,9 @@ process AGGREGATE {
     path("cluster-aggregated.tsv")
     path("cluster-aggregated_slims.tsv")
     path("Group-aggregated.tsv")
+    path("*validation.tsv")
     path("Group-aggregated_slims.tsv")
+    path("${combined_results.baseName}.${combined_results.Extension}")
     path("*.log")
     //
 
@@ -29,6 +31,20 @@ process AGGREGATE {
             --embeddings $embeddings \
             --outdir . \
             --distances $distances
+
+    null_distribution.py -i $combined_results \
+        -c $params.storage \
+        -p $distances \
+        -s $params.sem_distances \
+        -g Group \
+        -o Group_validation.tsv
+
+    null_distribution.py -i "${combined_results.baseName}.${combined_results.Extension}" \
+        -c $params.storage \
+        -p $distances \
+        -s $params.sem_distances \
+        -g cluster \
+        -o cluster_validation.tsv
 
     cp .command.out aggregate.log
     """
