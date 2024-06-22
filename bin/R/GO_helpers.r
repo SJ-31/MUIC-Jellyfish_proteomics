@@ -183,11 +183,13 @@ goVector <- function(tb, column, filter, go_column, unique = FALSE) {
 }
 
 prepOrgDb <- function(path) {
-  name <- basename(path)
-  install.packages(path, repos = NULL)
+  name <- base::basename(path)
+  if (!name %in% installed.packages()[, 1]) {
+    try(install.packages(path, repos = NULL))
+  }
   library(name, character.only = TRUE)
+  name
 }
-
 
 #'  Reduce a  list of GO terms by removing redundant terms
 #' Uses the specified semantic similarity method to generate distance
@@ -577,4 +579,20 @@ mapUnique <- function(ids, map) {
     unique() %>%
     discard(is.na) %>%
     discard(\(x) x == "U")
+}
+
+getOrganism <- function(tb) {
+  organismFromHeader <- function(row) {
+    # Parse the organism from an NCBI or uniprot ID
+    organism <- row["organism"]
+    if (is.na(organism)) {
+      header <- row["header"]
+      if (grepl("OS=", header)) {
+        return(str_extract(header, "OS=([a-zA-Z]* [a-zA-Z]*) ", group = 1))
+      }
+      return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
+    }
+    return(organism)
+  }
+  tb |> mutate(organism = apply(tb, 1, organismFromHeader))
 }
