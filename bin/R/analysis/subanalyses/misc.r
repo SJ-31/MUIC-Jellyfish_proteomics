@@ -42,3 +42,49 @@ has_longer <- data |> filter(maxPeptideLength(peptideIds) > length)
 others <- data |> filter(!ProteinId %in% has_longer)
 percent <- sum(map_lgl(has_longer$header, isFragment)) / sum(map_lgl(others$header, isFragment)) * 100
 fragments <- data |> filter(map_lgl(header, isFragment))
+
+
+# ----------------------------------------
+# Identify enriched terms by intensity
+filterIntensity <- function(tb, quantile = ? Character()) {
+  if (quantile == "first") {
+    filterFun <- \(x) filter(x, x$log_intensity <= quantile(x$log_intensity, 0.25))
+  } else if (quantile == "second") {
+    filterFun <- \(x) {
+      filter(x, x$log_intensity > quantile(x$log_intensity, 0.25) &
+        x$log_intensity < quantile(x$log_intensity, 0.75))
+    }
+  } else if (quantile == "third") {
+    filterFun <- \(x) filter(x, x$log_intensity >= quantile(x$log_intensity, 0.75))
+  }
+  tb |>
+    filterFun() |>
+    purrr::pluck("ProteinId")
+}
+
+if (!file.exists(glue("{args$ontologizer_path}/high_intensity.tsv"))) {
+  ont <- new.env()
+  reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
+  by_intensity <- mergeLfq(data, "mean") %>%
+    inner_join(., dplyr::select(data, ProteinId, GO_IDs), by = join_by(ProteinId)) |>
+    filter(!is.na(log_intensity))
+  O <- ont$Ontologizer(by_intensity, args$ontologizer_exec, args$go_path)
+  groups <- list(
+    low_intensity = filterIntensity(by_intensity, "first"),
+    medium_intensity = filterIntensity(by_intensity, "second"),
+    high_intensity = filterIntensity(by_intensity, "third")
+  )
+  params <- list(`-m` = "Bonferroni-Holm")
+  enriched_intensity <- O$runAll(groups, params)
+  enriched_intensity |> names()
+  lmap(enriched_intensity, \(x) {
+    write_tsv(x[[1]], glue("{args$ontologizer_path}/{names(x)}.tsv"))
+  })
+  plot <- ggplot(by_intensity, aes(x = log_intensity)) +
+    geom_histogram(fill = "#69d2e7") +
+    xlab("log 10 intensity")
+  ggsave(glue("{OUTDIR}/figures/intensity_histogram.svg"), plot)
+} else {
+  intensity <- lapply(c("low", "medium", "high"), \(x) read_tsv(glue("{args$ontologizer_path}/{x}_intensity.tsv")))
+  # TODO analyze differences between these
+}
