@@ -44,6 +44,7 @@ engine_hits <- tb %>%
   }) %>%
   bind_rows() %>%
   replaceNaAll(., FALSE)
+hits <- engine_hits
 
 # Collapse the contingency table
 engine_hits <- engine_hits %>%
@@ -178,5 +179,29 @@ n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch)
 engine_cor$data.name <- "Correlation between number of identified peptides and coverage"
 TABLES$correlation <- gt(bind_rows(htest2Tb(engine_cor), htest2Tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
+
+
+
+intensity <- mergeLfq(tb, "mean") %>%
+  filter(!is.na(log_intensity)) |>
+  select(ProteinId, log_intensity)
+intensity$intensity_class <- map_chr(intensity$log_intensity, \(x) {
+  if (x <= quantile(intensity$log_intensity, 0.25)) {
+    "first"
+  } else if (quantile(intensity$log_intensity, 0.75) <= x) {
+    "third"
+  } else {
+    "second"
+  }
+})
+hits <- hits |> inner_join(intensity, by = join_by(ProteinId))
+
+intense <- chisqNME(
+  tb = hits, var_a_levels = engines,
+  var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class"
+)
+
+TABLES$engine_intensity_chi <- intense$gt$chi
+TABLES$engine_intensity_contingency <- intense$gt$contingency
 
 save(c(TABLES, GRAPHS), glue("{OUTDIR}/figures/engine_category_bias"))

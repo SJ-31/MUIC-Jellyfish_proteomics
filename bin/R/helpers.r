@@ -1,4 +1,7 @@
-flattenBy <- function(vector, sep) {
+flattenBy <- function(vector, sep, na.rm = TRUE) {
+  if (na.rm) {
+    vector <- vector |> discard(is.na)
+  }
   lapply(vector, \(x) str_split(x, sep)) %>% unlist()
 }
 
@@ -234,4 +237,164 @@ reticulateShowError <- function(expr) {
 
 isScalarCol <- function(column) {
   all(map_lgl(column, ~ length(.x) == 1))
+}
+
+maxPeptideLength <- function(peptide_vector) {
+  longest <- function(peptide_str) {
+    str_split_1(peptide_str, ";") |>
+      map_chr(cleanPeptide) |>
+      nchar() |>
+      max()
+  }
+  map_dbl(peptide_vector, longest)
+}
+
+#' Removes the following
+#' 1. Proteins that were matched ONLY by peptides larger than they are
+#' (arises from BLAST errors)
+removeOutliers <- function(run_data) {
+  run_data |> filter(length > maxPeptideLength(peptideIds))
+}
+
+values <- function(vector) {
+  copy <- vector
+  names(copy) <- NULL
+  copy
+}
+
+getLegend <- function(myggplot) {
+  tmp <- ggplot_gtable(ggplot_build(myggplot))
+  leg <- which(sapply(tmp$grobs, function(x) x$name) == "guide-box")
+  legend <- tmp$grobs[[leg]]
+  return(legend)
+}
+
+
+
+DEFAULT_THEME <- theme(
+  axis.title.y = element_text(size = 22),
+  legend.title = element_text(size = 20, face = "bold")
+)
+
+binaryTable2Tb <- function(table, var) {
+  return(tibble(!!var := c(FALSE, TRUE), "FALSE" = table[, 1], "TRUE" = table[, 2]))
+}
+
+formatChiExpected <- function(table) {
+  bin <- binaryTable2Tb(table)
+  expected <- binaryTable2Tb(showExpectedChi(table)) |>
+    mutate(across(is.double, \(x) paste0(" (", round(x, 2), ")")))
+  bin %>% mutate(
+    `FALSE` = paste0(`FALSE`, expected$`FALSE`),
+    `TRUE` = paste0(`TRUE`, expected$`TRUE`)
+  )
+}
+
+#' Compute odds ratios and chi square tests between a NON mutually exclusive categorical
+#' variable `a` and exclusive categorical variable `b`
+#'
+#' Function works around exclusivity requirement of chi square by collapsing contingency
+#' table for each level of `a`
+#' @param var_a_levels the levels of the non-mutually exclusive categorical variable.
+#' `tb` is expected to have columns corresponding to these
+#' @param var_b_col the NON-binary column containing the other categorical var
+#' @param tb a semi-binary tb where rows are observations and columns are the values of
+#' categorical variables. Levels specified in `var_a_levels` are expected to be binary
+#' columns (TRUE/FALSE) indicating when an observation has been flagged with that level
+chisqNME <- function(tb, var_a_levels, var_b_col, var_a, var_b) {
+  gt <- list()
+  tables <- list()
+  var_b_levels <- unique(tb[[var_b_col]])
+  chi <- tibble()
+  table_list <- list()
+
+  for (a_level in var_a_levels) {
+    table_list[[a_level]] <- list()
+    for (b_level in var_b_levels) {
+      t <- table(tb[[var_b_col]] == b_level, tb[[a_level]])
+      table_list[[a_level]][[b_level]] <- t
+      tst <- chisq.test(t)
+      row <- tibble(!!var_a := a_level, !!var_b := b_level, p_value = tst$p.value)
+      chi <- bind_rows(chi, row)
+    }
+  }
+  chi <- chi %>% mutate(
+    p_adjust = p.adjust(p_value, "holm"),
+    is_significant = ifelse(p_value < 0.05, TRUE, FALSE)
+  )
+
+  # Compute effect size for significant hits, using the odds ratio
+  # This represents how much more likely the engine is to identify
+  # peptides from a protein of the given category
+  # Confidence interval is 95%
+  odds_ratios <- chi %>%
+    apply(1, \(x) {
+      row <- tibble(OR = NA, OR_upper_ci = NA, OR_lower_ci = NA)
+      if (!as.logical(x["is_significant"])) {
+        return(row)
+      }
+      e <- x[var_a]
+      c <- x[var_b]
+      table <- table_list[[e]][[c]]
+      try({
+        odds_ratio <- oddsRatio(table)
+        odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
+        odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
+        row <- tibble(
+          OR = odds_ratio,
+          OR_upper_ci = odds_ratio_ci_u,
+          OR_lower_ci = odds_ratio_ci_l
+        )
+      })
+      return(row)
+    }) %>%
+    bind_rows()
+
+  chi_f <- bind_cols(chi, odds_ratios)
+  tables$chi <- chi_f
+  gt$chi <- chi_f %>%
+    mutate(across(is.double, \(x) round(x, 4))) %>%
+    mutate(
+      OR = paste0(OR, " [", OR_lower_ci, ", ", OR_upper_ci, "]"),
+      OR = map_chr(OR, \(x) ifelse(grepl("NA|NaN", x), "NA", x))
+    ) %>%
+    select(-matches("OR_")) %>%
+    rename("Odds ratio, 95% CI [lower, upper]" = OR) %>%
+    gt() %>%
+    tab_header(
+      title = glue("Association between {var_a} and {var_b}"),
+      subtitle = "Tested using chi-square"
+    )
+  # Record all results
+  var_a_table_tb <- tibble(!!var_b := var_b_levels)
+  remove_cat <- FALSE
+  for (e in names(table_list)) {
+    e_list <- table_list[[e]]
+    temp_lst <- list()
+    remove_col_label <- FALSE
+    for (ct in names(e_list)) {
+      tib <- formatChiExpected(e_list[[ct]]) |> rename(!!var_b := var)
+      if (remove_cat) {
+        tib <- dplyr::select(tib, -!!var_b)
+      }
+      tib <- gt(tib)
+      if (!remove_col_label) {
+        remove_col_label <- TRUE
+      } else {
+        tib <- tib %>% tab_options(column_labels.hidden = TRUE)
+      }
+      temp_lst <- c(temp_lst, as_raw_html(tib))
+    }
+    temp_tb <- tibble(!!e := temp_lst)
+    var_a_table_tb <- bind_cols(var_a_table_tb, temp_tb)
+    remove_cat <- TRUE
+  }
+  tables$contingency <- var_a_table_tb
+  gt$contingency <- var_a_table_tb %>%
+    gt() %>%
+    fmt_markdown(columns = everything()) %>%
+    tab_header(
+      title = md(glue("**Contingency tables used in chi-square analysis of {var_a} vs {var_b}**")),
+    )
+  return(list(gt = gt, tb = tables))
 }
