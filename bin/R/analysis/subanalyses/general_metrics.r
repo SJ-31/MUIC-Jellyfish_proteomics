@@ -1,6 +1,7 @@
 GRAPHS <- list()
 TABLES <- list()
 ## -# Coverage metrics
+PALETTE <- "ggthemes::Classic_20"
 cov_align <- compareFirstSecL(
   run, "pcoverage_align",
   TRUE, "ProteinId"
@@ -45,10 +46,17 @@ cov_list <- groupListFromTb(tb,
 )
 intensity_list <- groupListFromTb(lfq, apply_over, grouping_metric, "log_intensity")
 GRAPHS$intensity_categories <- ggplotNumericDist(intensity_list, "boxplot") +
-  labs(y = "log intensity", x = grouping_metric)
+  labs(y = "log intensity", x = grouping_metric) + theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank()
+  ) +
+  guides(color = guide_legend("GO category (MF)")) + scale_color_paletteer_d(PALETTE)
 GRAPHS$coverage_categories <- ggplotNumericDist(cov_list, "boxplot") +
-  labs(y = "coverage (%)", x = grouping_metric)
-
+  labs(y = "coverage (%)", x = grouping_metric) + theme(
+    axis.text.x = element_blank(),
+    axis.title.x = element_blank()
+  ) +
+  guides(color = guide_legend("GO category (MF)")) + scale_color_paletteer_d(PALETTE)
 
 with_category <- inner_join(tb, lfq) %>%
   select(ProteinId, log_intensity, !!grouping_metric) %>%
@@ -56,9 +64,10 @@ with_category <- inner_join(tb, lfq) %>%
   arrange(log_intensity) %>%
   mutate(rank = seq_len(nrow(.)))
 GRAPHS$category_ranks <- with_category %>%
-  ggplot(aes(x = rank, y = log_intensity, color = !!grouping_metric)) +
+  ggplot(aes(x = rank, y = log_intensity, color = !!as.symbol(grouping_metric))) +
   geom_point() +
-  labs(x = "Rank", y = "Log intensity")
+  labs(x = "Rank", y = "Log intensity") +
+  scale_color_paletteer_d(PALETTE)
 
 # Top ten most intense proteins
 top_ten <- lfq %>%
@@ -150,7 +159,6 @@ GRAPHS$per_protein_change <- per_protein %>%
 # Peptide characteristics
 peptides <- getPeptideData(run$first$peptideIds)
 
-# BUG Get rid of the largest peptides
 peptides <- peptides |> filter(!length >= 500)
 GRAPHS$peptide_lengths <- ggplot(peptides, aes(x = length)) +
   geom_histogram(binwidth = 10)
