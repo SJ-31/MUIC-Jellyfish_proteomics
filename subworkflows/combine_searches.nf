@@ -103,6 +103,6 @@ workflow 'combine_searches' {
     SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
     DEEPLOC(SIGNALP.out.fasta, COVERAGE_MERGE.out.tsv,
         SEARCH_INTERSECT.out.unsorted,
-        "$outdir/Deeploc")
+        "$outdir/Deeploc", "$outdir")
 
 }

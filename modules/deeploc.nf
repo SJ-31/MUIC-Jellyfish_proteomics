@@ -1,5 +1,6 @@
 process DEEPLOC {
-    publishDir "$outdir", mode: "copy"
+    publishDir "$outdir", mode: "copy", pattern: "deeploc_results.csv"
+    publishDir "$outdir_combined", mode: "copy", pattern: "${combined_results.baseName}.${combined_results.Extension}"
     conda "/home/shannc/anaconda3/envs/deeploc2"
 
     input:
@@ -7,6 +8,7 @@ process DEEPLOC {
     path(combined_results)
     path(intersected_searches)
     val(outdir)
+    val(outdir_combined)
     //
 
     output:
@@ -30,8 +32,9 @@ process DEEPLOC {
     if [[ -e deeploc_results.csv ]]; then
         Rscript $params.bin/R/merge_deeploc.r \
             -d deeploc_results.csv \
-            -i $combined_results \
-            -m $intersected_searches
+            -m $combined_results \
+            -u $intersected_searches \
+            -o $combined_results
     fi
     """
     }

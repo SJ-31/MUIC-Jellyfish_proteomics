@@ -43,10 +43,11 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-m", "--main_results"), type = "character", action = "store")
   parser <- add_option(parser, c("-d", "--deeploc"), type = "character", action = "store")
   parser <- add_option(parser, c("-u", "--unmatched"), type = "character", action = "store")
+  parser <- add_option(parser, c("-o", "--output"), type = "character", action = "store")
   args <- parse_args(parser)
   deeploc <- getDeeploc(args$deeploc, args$unmatched) |>
     mutate(GO_IDs = map_chr(localization, localization2go)) |>
     select(-localization)
   data <- read_tsv(args$main_results) |> bind_rows(deeploc)
-  write_tsv(data, args$main_results)
+  write_tsv(data, args$output)
 }
