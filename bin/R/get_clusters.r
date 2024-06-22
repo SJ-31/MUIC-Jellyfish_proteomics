@@ -9,6 +9,7 @@ aggregateEmbeddings <- function(args) {
     args$embeddings,
     args$distances
   )
+  print("Embedding data received")
   py_clusters <- new.env()
   reticulate::source_python(glue("{args$python_source}/clustering.py"),
     envir = py_clusters
@@ -23,7 +24,9 @@ aggregateEmbeddings <- function(args) {
     )
     f$labels
   })
+  print("Clusters obtained")
   e$metadata <- mergeClusters(clusters, e$metadata, "ProteinId")
+  write_tsv(e$metadata, args$combined_results)
   aggregateHelper(e$metadata, "cluster", args$ontologizer_path, args$go_path, args$outdir)
   ## nested <- aggregateMetadata(e$metadata, "cluster")
   ## slims <- nested$GO_slims %>%
@@ -85,16 +88,18 @@ if (sys.nframe() == 0) {
   source(glue("{args$r_source}/cluster_helpers.r"))
   source(glue("{args$r_source}/rrvgo_modified.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
-  aggregateEmbeddings(args)
+  tryCatch(
+    expr = aggregateEmbeddings(args),
+    error = \(cnd) {
+      last_error <- reticulate::py_last_error()
+      message("Python error: ", last_error$type, "\n", last_error$value, "\n", last_error$traceback)
+    }
+  )
   aggregateHelper(
     read_tsv(args$combined_results), "Group",
     args$ontologizer_path, args$go_path, args$outdir
   )
 }
-
-
-
-
 
 # TODO: Parse the lineages better
 # sample <- e$metadata$lineage %>%

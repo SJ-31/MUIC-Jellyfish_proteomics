@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 
+import sys
 import numpy as np
 import os
 from subprocess import run, CalledProcessError
@@ -199,9 +200,11 @@ def parseArgs():
     return args
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and len(sys.argv) > 1:
     args = parseArgs()
     df = pl.read_csv(args["input"], separator="\t", null_values="NA")
+    if "Group_representative" in df.columns:
+        df = df.drop("Group_representative")
     df, representatives = getGroupRepresentatives(df, args["mmseqs"])
     df.write_csv(args["input"], separator="\t")
     representatives.write_csv(args["output"], separator="\t")

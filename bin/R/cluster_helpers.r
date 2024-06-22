@@ -41,13 +41,6 @@ hclustSk <- function(dist, height, linkage, structured = FALSE, labels_only = TR
 }
 
 
-`_hclust` <- function(dist, height) {
-  clusters <- hclust(dist, method = "average")
-  cut <- NULL
-  try(cut <- cutree(clusters, h = height))
-  return(cut)
-}
-
 `_hdbscan` <- function(dist, min_points) {
   hdb <- dbscan::hdbscan(dist, minPts = min_points)
   membership <- hdb$cluster + 1 # fpc stats uses different indices
