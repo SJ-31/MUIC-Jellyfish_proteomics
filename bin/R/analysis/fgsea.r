@@ -1,62 +1,6 @@
+source(glue("{args$r_source}/KEGG_helpers.r"))
+
 # Gene Set enrichment analysis
-
-#' Ranked gene set enrichment analysis
-#'
-#' @description
-#' Rank proteins in tb according to a specified column, in
-#' descending fashion
-#' @param quant the column to rank proteins on
-fgseaWrapper <- function(quant, tb, gene_sets, id_col = "ProteinId") {
-  ranked <- tb %>%
-    dplyr::select(all_of(c(id_col, quant))) %>%
-    dplyr::filter(!is.na(!!quant)) %>%
-    column_to_rownames(var = id_col) %>%
-    (\(x) {
-      y <- as.vector(x[[quant]])
-      names(y) <- rownames(x)
-      return(y)
-    }) %>%
-    sort(., decreasing = TRUE)
-  # Ranks are descending, so most abundant first
-  fgsea <- fgsea::fgsea(pathways = gene_sets, ranked, scoreType = "pos")
-  # Recommended to switch to "pos"
-  return(list(result = fgsea, ranked = ranked))
-}
-
-# See here for more plotting
-# https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html
-plotFgsea <- function(gene_sets, ranked_list, fgsea_result, p_cutoff = 0.05) {
-  fgsea_plots <- list()
-  for (n in seq_len(nrow(fgsea_result))) {
-    if (fgsea_result[n, ]$padj < p_cutoff) {
-      set <- fgsea_result[n, ]$pathway
-      padjust <- round(fgsea_result[n, ]$padj, 6)
-      fgsea_plots[[set]] <- plotEnrichment(gene_sets[[set]], ranked_list) +
-        labs(title = glue("Set: {set}, adjusted p-value = {padjust}"))
-    }
-  }
-  return(fgsea_plots)
-}
-
-fgseaGroup <- function(tb, grouping_col, gene_sets) {
-  group_map <- hash::hash()
-  group_map[tb$ProteinId] <- tb[[grouping_col]]
-  grouped_intensity <- tb %>%
-    group_by(!!as.symbol(grouping_col)) %>%
-    nest() %>%
-    mutate(
-      mean_intensity = map_dbl(data, \(x) mean(x$log_intensity, na.rm = TRUE)),
-      sd_intensity = map_dbl(data, \(x) sd(x$log_intensity, na.rm = TRUE)),
-      members = lapply(data, \(x) x$ProteinId),
-      size = map_dbl(data, \(x) nrow(x))
-    ) %>%
-    filter(!is.na(mean_intensity) & !is.na(!!as.symbol(grouping_col)))
-
-  gene_sets_groups <- lapply(gene_sets, \(x) mapUnique(x, group_map))
-  f <- fgseaWrapper("mean_intensity", grouped_intensity, gene_sets_groups, id_col = "Group")
-  return(list(fgsea = f, groups = gene_sets_groups))
-}
-
 gene_sets <- list(
   unknown_to_db = d$sample_tb %>%
     filter(inferred_by == "interpro" |
@@ -78,16 +22,69 @@ gene_sets <- c(gene_sets, pwy$grouped, category_lists)
 by_intensity <- mergeLfq(d$sample_tb, "mean") %>%
   inner_join(., dplyr::select(d$sample_tb, c(ProteinId, Group)))
 
-fgsea_percolator_groups <- fgseaGroup(by_intensity, grouping_col = "Group", gene_sets = gene_sets)
-sig <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
-
-plots <- plotFgsea(
-  fgsea_percolator_groups$groups,
-  fgsea_percolator_groups$fgsea$ranked,
-  fgsea_percolator_groups$fgsea$result
+fgsea_percolator_groups <- fgseaGroup(by_intensity,
+  grouping_col = "Group",
+  gene_sets = gene_sets
 )
+fgsea_percolator_groups$fgsea$result <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
 
-write_tsv(fgsea_percolator_groups$fgsea$result, glue("{OUTDIR}/fgsea/results.tsv"))
-lapply(names(plots), \(x) {
-  ggsave(glue("{OUTDIR}/fgsea/{x}.png", plots[[x]]))
-})
+
+fgsea_dir <- glue("{OUTDIR}/fgsea")
+if (!dir.exists(fgsea_dir)) {
+  dir.create(fgsea_dir)
+}
+if (nrow(fgsea_percolator_groups$fgsea$result) != 0) {
+  write_tsv(fgsea_percolator_groups$fgsea$result, glue("{fgsea_dir}/results.tsv"))
+  plots <- plotFgsea(
+    fgsea_percolator_groups$groups,
+    fgsea_percolator_groups$fgsea$ranked,
+    fgsea_percolator_groups$fgsea$result
+  )
+  lapply(names(plots), \(x) {
+    ggsave(glue("{fgsea_dir}/{x}.png"), plots[[x]])
+  })
+} else {
+  cat("", file = glue("{fgsea_dir}/no_results"))
+}
+
+
+# Visualize KEGG
+GET_KEGG <- FALSE
+if (GET_KEGG) {
+  to_kegg <- select(data, -Group) |> inner_join(by_intensity, by = join_by(ProteinId))
+
+  GENES <- flattenBy(to_kegg$KEGG_Genes, ";") |> unique()
+  KO <- flattenBy(to_kegg$KEGG_ko, ";") |>
+    unique() |>
+    map_chr(\(x) glue("ko:{x}"))
+
+  pathway_table <- flattenBy(to_kegg$KEGG_Pathway, ";") |>
+    table() |>
+    sort()
+  module_table <- flattenBy(to_kegg$KEGG_Module, ";") |>
+    table() |>
+    sort()
+  PATHWAYS <- names(pathway_table)
+  MODULES <- names(module_table)
+
+  CACHE <- glue("{wd}/.cache")
+
+
+  pathway_graphs <- lapply(names(pathway_table), \(x) {
+    pathway <- NULL
+    try(pathway <- ggkegg::pathway(x, directory = CACHE))
+    pathway
+  }) |> `names<-`(names(pathway_table))
+
+  pathway_tbs <- lapply(discard(pathway_graphs, is.null), \(x) as_tibble(tidygraph::activate(x, nodes)))
+
+  pathway_data <- tibble(name = names(pathway_tbs)) |>
+    mutate(
+      completeness = map_dbl(pathway_tbs, pathway_completeness),
+      title = map_chr(name, get_pathway_title),
+      n_edges = map_dbl(names(pathway_tbs), \(x) length(E(pathway_graphs[[x]])))
+    ) |>
+    arrange(desc(completeness))
+
+  rm(to_kegg)
+}
