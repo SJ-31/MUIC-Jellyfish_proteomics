@@ -38,3 +38,6 @@ tests/test_clusters
 tests/uniprotkb_arabidopsis_AND_annotation_sc_2024_05_24.Z8h9VHDc.fasta.gz.part
 tests/uniprotkb_arabidopsis_AND_annotation_sc_2024_05_24.fasta.gz
 tests
+bin/.unison.ontologizer_wrapper.py.38746f100f9915f96057a1f9f4d56fdd.unison.tmp
+bin/R/analysis/.unison.all_analyses.r.38746f100f9915f96057a1f9f4d56fdd.unison.tmp
+bin/R/get_clusters.r

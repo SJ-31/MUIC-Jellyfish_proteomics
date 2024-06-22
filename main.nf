@@ -57,8 +57,9 @@ workflow {
             break;
         case "analyze":
             first_final = "${params.results}/1-First_pass/${params.pref}_all_wcoverage.tsv"
-            // second_final = "${params.results}/2-Second_pass/${params.pref}_all_wcoverage.tsv"
+            alignments = "${params.results}/1-First_pass/aligned_peptides.tsv"
             analyze(Channel.fromPath(first_final),
+                 Channel.fromPath(alignments),
                 "${params.results}/Analysis");
             break;
         case "preprocess":

@@ -128,7 +128,16 @@ fix <- function(filename, fix) {
     print(glue("Dim others {dim(others)[1]}"))
     bind_rows(others, wrong) |> write_tsv(file = filename)
   }
+  if (fix == "organism_header") {
+    library("glue")
+    source("./bin/R/combine_all.r")
+    # Friday 2024-06-14
+    # Properly get organisms from header
+    write_tsv(getOrganism(tb), file = filename)
+  }
 }
+
+files <- filesToFix("C_indra_all.*")
 
 applyFixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))

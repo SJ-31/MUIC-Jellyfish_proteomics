@@ -27,7 +27,7 @@ class Ontologizer:
         self.universe = go_df["ProteinId"]
         self.executable = executable
 
-    def enrich(self, group_name: str, group_members: list) -> pd.DataFrame:
+    def _enrich(self, group_name: str, group_members: list) -> pd.DataFrame:
         cmd = [
             "java",
             "-jar",
@@ -65,7 +65,7 @@ class Ontologizer:
                     w.write(self.mapping)
                 self.universe.to_csv("universe.txt", header=False, index=False)
                 for group, group_members in groups.items():
-                    results[group] = self.enrich(group, group_members)
+                    results[group] = self._enrich(group, group_members)
             finally:
                 os.chdir(pop)
         return results

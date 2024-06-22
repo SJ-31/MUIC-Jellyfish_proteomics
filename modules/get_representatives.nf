@@ -19,7 +19,7 @@ process GET_REPRESENTATIVES {
         -i $combined_tsv \
         -o "${params.pref}_all_representatives.tsv"
 
-    cp .command.out .log
+    cp .command.out get_representatives.log
     """
     //
 }
