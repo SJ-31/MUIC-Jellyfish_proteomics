@@ -1,3 +1,4 @@
+PALETTE <- "ggthemes::excel_Slipstream"
 TABLES <- list()
 GRAPHS <- list()
 
@@ -13,83 +14,99 @@ p_toxins <- read_tsv(glue("{wd}/data/reference/previous_toxins.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
 
-compare_all <- inner_join(p_all, run$first, by = join_by(NCBI_ID)) %>%
-  left_join(., run$sec, by = join_by(NCBI_ID), suffix = JOIN_SUFFIX) %>%
-  select(c(
-    NCBI_ID, header.first, category.first,
-    pcoverage_nmatch.prev, pcoverage_nmatch.first, pcoverage_nmatch.sec
-  )) %>%
+has_id <- data |>
+  filter(!is.na(NCBI_ID)) |>
   mutate(
-    pcoverage_nmatch.first = pcoverage_nmatch.first * 100,
-    pcoverage_nmatch.sec = pcoverage_nmatch.sec * 100
+    NCBI_ID = map_chr(NCBI_ID, \(x) {
+      str_replace(x, "\\.1$", "")
+    }),
+    UniProtKB_ID = map_chr(UniProtKB_ID, \(x) {
+      if (is.na(x)) {
+        return(x)
+      }
+      str_replace(x, "\\_.*", "")
+    })
+  )
+uniprot_joined <- inner_join(p_all, has_id, by = join_by(x$NCBI_ID == y$UniProtKB_ID))
+compare_all <- inner_join(p_all, has_id, by = join_by(NCBI_ID)) |>
+  bind_rows(uniprot_joined) |>
+  mutate(
+    pcoverage_nmatch = pcoverage_nmatch * 100,
+    ID = map2_chr(NCBI_ID, UniProtKB_ID, \(x, y) ifelse(is.na(x), y, x))
   )
 
 cov_longer <- compare_all %>%
-  select(contains("coverage"), NCBI_ID) %>%
-  rename_with(., \(x) purrr::map_chr(x, \(y) {
-    if (grepl("NCBI_ID", y)) {
-      return(y)
-    }
-    y <- gsub("pcoverage_nmatch", "", y)
-    if (y == ".prev") {
-      return("previous")
-    } else if (y == ".first") {
-      return("first")
-    }
-    return("second")
-  })) %>%
+  select(contains("coverage"), ID) %>%
+  rename(first = pcoverage_nmatch, previous = pcoverage_nmatch.prev) |>
   mutate(
-    first_diff = first - previous,
-    second_diff = second - previous
+    diff = first - previous,
   ) %>%
-  select(-c(first, second, previous)) %>%
-  pivot_longer(cols = !NCBI_ID) %>%
+  select(-c(first, previous, pcoverage_align)) %>%
+  pivot_longer(cols = !ID) %>%
   mutate(value = round(value, 2))
 
-GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value, fill = name)) +
+GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value)) +
   geom_boxplot() +
   theme(axis.text.x = element_blank()) +
-  xlab("Seqence coverage") +
   ylab("Percent change (%)") +
-  scale_fill_discrete(name = "Pass", labels = c("first", "second")) +
-  ggtitle("Increase in shared protein sequence coverage")
+  ggtitle("Increase in shared protein sequence coverage from previous analysis")
 
 
 # For space purposes, drop entries where
 # ALL had less than 30% sequence coverage, as well as any entries both second and first passes cannot be compared
-threshold <- 0
-cov_longer <- cov_longer %>%
-  group_by(NCBI_ID) %>%
-  nest()
-# mask <- cov_longer %>% apply(1, \(x) {
-#   data <- x$data
-#   if (all(data$value < threshold) | any(is.na(data$value))) {
-#     return(FALSE)
-#   }
-#   return(TRUE)
-# })
-# cov_longer <- cov_longer[mask, ] %>% unnest(cols = c(data))
-cov_longer$name <- factor(cov_longer$name, levels = c("first_diff", "second_diff"))
 
-GRAPHS$protein_wise_coverage <- cov_longer %>%
-  ggplot(aes(x = NCBI_ID, y = value, fill = name)) +
-  geom_bar(stat = "identity", position = "dodge") +
-  ylab("Coverage change (%)") +
-  xlab(element_blank()) +
-  theme(
-    axis.ticks.x = element_blank(),
-    axis.text.x = element_blank()
-  ) +
-  ggtitle("Per-protein sequence coverage change") +
-  scale_fill_discrete(name = "Pass", labels = c("first", "second"))
+compare_long <- compare_all |>
+  select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
+  rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
+  mutate(greater = map2_dbl(first, previous, \(x, y) max(x, y)), previous = -previous) |>
+  pivot_longer(cols = -c(ID, greater)) |>
+  mutate(is_greater = map2_lgl(value, greater, \(x, y) abs(x) == y))
+
+n_greater <- local({
+  previous <- filter(compare_long, name == "previous")$is_greater |> sum()
+  first <- filter(compare_long, name == "first")$is_greater |> sum()
+  list(previous = previous, first = first)
+})
+
+protein_wise_coverage <- local({
+  plot <- compare_long |>
+    ggplot(aes(x = ID, y = value, fill = name)) +
+    geom_bar(stat = "identity", position = "identity") +
+    ylab("Coverage (%)") +
+    theme(
+      axis.text.x = element_blank(),
+    ) +
+    xlab("Protein") +
+    ggtitle("Per-protein sequence coverage") +
+    scale_fill_paletteer_d(PALETTE) +
+    guides(fill = guide_legend("Run")) +
+    scale_y_continuous(
+      breaks = seq(-100, 100, by = 20),
+      labels = abs(seq(-100, 100, by = 20)),
+      limits = c(-100, 100)
+    )
+  for (i in seq_len(nrow(compare_long))) {
+    row <- compare_long[i, ]
+    if (row$is_greater) {
+      plot <- plot + geom_point(
+        x = row$ID, y = row$value, shape = 18,
+        show.legend = FALSE, color = "#f14124", alpha = 0.7
+      )
+    }
+  }
+  plot
+})
+GRAPHS$protein_wise_coverage <- protein_wise_coverage
 
 p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev,
-  compare_all$pcoverage_nmatch.first,
+  compare_all$pcoverage_nmatch,
   paired = TRUE, alternative = "less"
 ) |>
   to("data.name", "Coverage of proteins identified in maxquant-only run vs pipeline") |>
   to("alternative", "maxquant-only run was less") |>
   htest2Tb()
+
+TABLES$test <- p_test
 
 # Filter out new proteins
 compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
