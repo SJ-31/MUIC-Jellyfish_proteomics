@@ -1,8 +1,15 @@
 import sys
+import re
 import pandas as pd
 import polars as pl
 import intervaltree as it
 from thefuzz import process
+
+
+def cleanPeptide(peptide):
+    if len(set(peptide) & {"]"}) > 0:
+        return "".join(re.findall("[A-Z]+", peptide))
+    return peptide
 
 
 def parentDir(file_str, parent_level=-1):
@@ -144,17 +151,28 @@ def substitutionType(type_str: str, target: str = "conservative") -> int:
     return 0
 
 
-def aggregateReplacements(
-    df: pl.DataFrame, grouping_col: str = "ProteinId"
-) -> pl.DataFrame:
+def aggregateReplacements(df: pl.DataFrame, average=True) -> pl.DataFrame:
     """Aggregate useful stats for replacements"""
+
+    def getAverage(expr):
+        return expr / pl.col("ProteinId").unique().len()
+
+    exprs = {
+        "replacements": pl.len(),
+        "conflicts": pl.col("index").is_duplicated().sum() / 2,
+        "cons": pl.sum("conservative"),
+        "n_cons": pl.sum("non_conservative"),
+    }
+    if average:
+        for k, v in exprs.items():
+            exprs[k] = getAverage(v)
     replacement_metrics = (
-        df.group_by(grouping_col)
+        df.group_by("id")
         .agg(
-            n_replacements=pl.len(),
-            n_conflicts=pl.col("index").is_duplicated().sum() / 2,
-            n_conservative=pl.sum("conservative"),
-            n_non_conservative=pl.sum("non_conservative"),
+            n_replacements=exprs["replacements"],
+            n_conflicts=exprs["conflicts"],
+            n_conservative=exprs["cons"],
+            n_non_conservative=exprs["n_cons"],
         )
         .with_columns(
             nc_c_ratio=pl.col("n_non_conservative") / pl.col("n_conservative")
@@ -188,6 +206,7 @@ def denovoReplacementMetrics(
     ids_to_keep: list,
     ids_to_keep_denovo: list,
     seq_map_path: str,
+    unmatched_path: str,
     aligned_peptides: pd.DataFrame,
     replacements: pd.DataFrame,
 ):
@@ -202,7 +221,7 @@ def denovoReplacementMetrics(
         ids_to_keep_denovo
     )
     replacements = pl.from_pandas(replacements)
-    id_map = getSeqMap(seq_map_path, ids_to_keep_denovo)
+    id_map = getSeqMap(seq_map_path, unmatched_path, ids_to_keep_denovo)
     peptides = (
         pl.from_pandas(aligned_peptides)
         .filter(pl.col("ProteinId").is_in(ids_to_keep))
@@ -216,7 +235,8 @@ def denovoReplacementMetrics(
             stop=pl.col("alignment").map_elements(
                 lambda x: findChar(x, True), return_dtype=pl.Int32
             ),
-        )
+        )  # Obtain sequence from alignment i.e. ---AGCMNAR--- AGCMNAR
+        # And try to map this with original
     ).select(pl.col("*").exclude("UniProtKB_ID", "alignment"))
     denovo_map = peptides.join(id_map, left_on="sequence", right_on="seq", how="inner")
 
@@ -225,24 +245,30 @@ def denovoReplacementMetrics(
         .filter(
             (pl.col("start") <= pl.col("index")) & (pl.col("index") <= pl.col("stop"))
         )
-        .unique(["ProteinId", "id"], keep="any")
         .pipe(classifyReplacements)
         .pipe(lambda x: aggregateReplacements(x, "id"))
     )
-    # The call to unique is necessary because
-    # a de novo peptide may be matched to multiple proteins
-    # And this would inflate the counts
     return {"mapping": denovo_map, "metrics": metrics}
 
 
-def getSeqMap(file_path: str, ids_to_keep: list) -> pl.DataFrame:
+def getSeqMap(file_path: str, unmatched_path: str, ids_to_keep: list) -> pl.DataFrame:
     map_to = pl.Series(ids_to_keep)
     id_map = (
-        pl.read_csv(
-            file_path,
-            separator="\t",
-        )
+        pl.read_csv(file_path, separator="\t")
         .filter(pl.col("id").is_in(map_to))
         .select(pl.col("*").exclude("header", "mass", "length"))
     )
-    return id_map
+    unmatched = (
+        (
+            pl.read_csv(unmatched_path, separator="\t", null_values="NA")
+            .with_columns(
+                seq=pl.col("peptideIds").map_elements(
+                    cleanPeptide, return_dtype=pl.String
+                )
+            )
+            .rename({"ProteinId": "id"})
+        )
+        .select("id", "seq")
+        .filter(pl.col("id").is_in(map_to))
+    )
+    return pl.concat([id_map, unmatched])
