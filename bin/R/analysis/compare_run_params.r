@@ -1,3 +1,7 @@
+if (!exists("SOURCED")) {
+  source(paste0(getwd(), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 PALETTE <- "ggthemes::hc_default"
 PALETTE2 <- "ggthemes::Classic_Color_Blind"
 
@@ -9,36 +13,24 @@ library("ggridges")
 library("venn")
 library("Peptides")
 library("glue")
-if (str_detect(getwd(), "Bio_SDD")) {
-  wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
-  env <- "/home/shannc/Bio_SDD/miniconda3/envs/reticulate"
-} else {
-  wd <- "/home/shannc/workflow"
-  env <- "/home/shannc/anaconda3/envs/reticulate"
-}
 
 CHOSEN_PASS <- "first"
 args <- list(
-  r_source = glue("{wd}/bin/R"),
-  python_source = glue("{wd}/bin"),
-  embd_type = "protein",
-  go_path = glue("{wd}/data/reference/go.obo"),
-  go_slim_path = glue("{wd}/data/reference/goslim_generic.obo")
+  r_source = glue("{M$wd}/bin/R"),
+  python_source = glue("{M$wd}/bin")
 )
-source(glue("{args$r_source}/helpers.r"))
-source(glue("{args$r_source}/GO_helpers.r"))
-source(glue("{args$r_source}/cluster_helpers.r"))
-source(glue("{args$r_source}/DR_helpers.r"))
-source(glue("{args$r_source}/analysis/metric_functions.r"))
+source(glue("{M$r_source}/helpers.r"))
+source(glue("{M$r_source}/GO_helpers.r"))
+source(glue("{M$r_source}/cluster_helpers.r"))
+source(glue("{M$r_source}/DR_helpers.r"))
+source(glue("{M$r_source}/analysis/metric_functions.r"))
 
-FDR <- 0.05
-PATH <- glue("{wd}/results/")
 
 runs <- list("C_indra.calibrated", "C_indra.msconvert", "C_indra", "ND_C_indra")
 names(runs) <- c("msgf_calibrated", "peak_picked", "default", "no_denovo")
 data <- lapply(names(runs), \(x) {
   runData(runs[[x]],
-    glue("{PATH}/{runs[[x]]}"),
+    glue("{M$wd}/results/{runs[[x]]}"),
     which = CHOSEN_PASS
   )
 }) %>% `names<-`(names(runs))
@@ -239,4 +231,4 @@ TABLES$denovo_test <- tests |>
   mutate(alternative = map_chr(alternative, \(x) str_replace(x, "\\.def", "default"))) |>
   gt()
 
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/run_parameters"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/run_parameters"))

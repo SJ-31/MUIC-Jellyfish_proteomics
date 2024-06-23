@@ -1,16 +1,21 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 library(magrittr)
 PALETTE <- "ggthemes::hc_darkunica"
 GRAPHS <- list()
 TABLES <- list()
 
 coverage_threshold <- 0.8
-data <- data %>% filter(pcoverage_align >= coverage_threshold)
-nd_data <- runData("ND_C_indra", glue("{wd}/results/ND_C_indra"),
-  which = CHOSEN_PASS
+data <- M$data %>% filter(pcoverage_align >= coverage_threshold)
+nd_data <- runData("ND_C_indra", glue("{M$wd}/results/ND_C_indra"),
+  which = M$chosen_pass
 ) %>% filter(ProteinId %in% data$ProteinId)
-nd_alignments <- alignmentData(glue("{wd}/results/ND_C_indra"), which = CHOSEN_PASS)
+nd_alignments <- alignmentData(glue("{M$wd}/results/ND_C_indra"), which = M$chosen_pass)
+alignments <- M$alignments
 
-unmatched_peptides <- read_tsv(UNMATCHED_PATH) %>%
+unmatched_peptides <- read_tsv(M$unmatched_path) %>%
   mutate(peptideIds = map_chr(peptideIds, \(x) cleanPeptide(x))) %>%
   select(ProteinId, peptideIds)
 
@@ -27,7 +32,7 @@ to_keep_denovo <- data %>%
   c(., unmatched_peptides$ProteinId)
 
 it <- new.env()
-reticulate::source_python(glue("{args$python_source}/trace_alignments.py"), envir = it)
+reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = it)
 
 replacement_metrics <- map2(
   list(alignments, nd_alignments),
@@ -81,11 +86,11 @@ mapped_by$unknown <- data %>%
 #' How to get metrics for substitutions on de novo peptides directly?
 #' Map peptides from the "alignments" file onto the original sequences of the denovo peptides
 #' Get the original sequence
-denovo_metrics <- it$denovoReplacementMetrics(
+denovo_metrics <- reticulateShowError(it$denovoReplacementMetrics(
   to_keep,
-  to_keep_denovo, SEQ_MAP_PATH, UNMATCHED_PATH,
+  to_keep_denovo, M$seq_map_path, M$unmatched_path,
   alignments$peptides, alignments$replacements
-) %>% lapply(as_tibble)
+)) %>% lapply(as_tibble)
 
 GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
   ggplotNumericDist(list(
@@ -111,4 +116,4 @@ test <- wilcox.test(denovo_metrics$metrics$n_replacements, y = NULL) |>
 TABLES$replacement_htests <- gt(test)
 
 
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/amino_acid_replacements"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/amino_acid_replacements"))

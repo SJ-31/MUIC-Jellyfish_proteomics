@@ -1,3 +1,8 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
+
 GRAPHS <- list()
 TABLES <- list()
 
@@ -10,8 +15,8 @@ TABLES <- list()
 #' be identified by at least two standard engines (only one in open search)
 
 
-num_peps <- compareFirstSecW(run, "num_peps", "ProteinId", TRUE)
-tb <- data
+num_peps <- compareFirstSecW(M$run, "num_peps", "ProteinId", TRUE)
+tb <- M$data
 num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
@@ -80,7 +85,6 @@ for (engine in engines) {
   for (cat in categories) {
     t <- table(engine_hits[[compare_col]] == cat, engine_hits[[engine]])
     engine_table_list[[engine]][[cat]] <- t
-    # print(formatEngineContingency(t, TRUE))
     tst <- chisq.test(t)
     row <- tibble(engine = engine, category = cat, p_value = tst$p.value)
     engine_chi <- bind_rows(engine_chi, row)
@@ -204,4 +208,4 @@ intense <- chisqNME(
 TABLES$engine_intensity_chi <- intense$gt$chi
 TABLES$engine_intensity_contingency <- intense$gt$contingency
 
-save(c(TABLES, GRAPHS), glue("{OUTDIR}/figures/engine_category_bias"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/figures/engine_category_bias"))

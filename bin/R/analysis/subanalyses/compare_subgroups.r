@@ -3,10 +3,10 @@
 #'
 
 e <- embeddingData(
-  args$combined_results,
-  args$sample_name,
-  PROTTRANS_EMBD,
-  PROTTRANS_DIST
+  M$combined_results,
+  M$sample_name,
+  M$prottrans_embd,
+  M$prottrans_dist
 )
 
 

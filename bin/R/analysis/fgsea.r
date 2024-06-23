@@ -1,5 +1,13 @@
-source(glue("{args$r_source}/KEGG_helpers.r"))
+if (!exists("SOURCED")) {
+  source(paste0(getwd(), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 
+source(glue("{M$r_source}/KEGG_helpers.r"))
+
+d <- goData(M$combined_results,
+  onto_path = M$ontologizer_path
+)
 # Gene Set enrichment analysis
 gene_sets <- list(
   unknown_to_db = d$sample_tb %>%
@@ -29,7 +37,7 @@ fgsea_percolator_groups <- fgseaGroup(by_intensity,
 fgsea_percolator_groups$fgsea$result <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
 
 
-fgsea_dir <- glue("{OUTDIR}/fgsea")
+fgsea_dir <- glue("{M$outdir}/figures/fgsea")
 if (!dir.exists(fgsea_dir)) {
   dir.create(fgsea_dir)
 }
@@ -51,7 +59,7 @@ if (nrow(fgsea_percolator_groups$fgsea$result) != 0) {
 # Visualize KEGG
 GET_KEGG <- FALSE
 if (GET_KEGG) {
-  to_kegg <- select(data, -Group) |> inner_join(by_intensity, by = join_by(ProteinId))
+  to_kegg <- select(M$data, -Group) |> inner_join(by_intensity, by = join_by(ProteinId))
 
   GENES <- flattenBy(to_kegg$KEGG_Genes, ";") |> unique()
   KO <- flattenBy(to_kegg$KEGG_ko, ";") |>
@@ -67,7 +75,7 @@ if (GET_KEGG) {
   PATHWAYS <- names(pathway_table)
   MODULES <- names(module_table)
 
-  CACHE <- glue("{wd}/.cache")
+  CACHE <- glue("{M$wd}/.cache")
 
 
   pathway_graphs <- lapply(names(pathway_table), \(x) {

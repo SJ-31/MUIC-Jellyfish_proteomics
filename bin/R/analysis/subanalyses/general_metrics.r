@@ -1,18 +1,22 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 GRAPHS <- list()
 TABLES <- list()
 ## -# Coverage metrics
 PALETTE <- "ggthemes::Classic_20"
 cov_align <- compareFirstSecL(
-  run, "pcoverage_align",
+  M$run, "pcoverage_align",
   TRUE, "ProteinId"
 )
 GRAPHS$run_coverage <- passDensityPlot(cov_align, 0.05) + labs(x = "percent coverage")
 
 # Unique proteins to each run
-run_uniques <- passUniques(run)
+run_uniques <- passUniques(M$run)
 percent_found <- dplyr::bind_cols(
-  notMissing(run$first),
-  notMissing(run$sec)
+  notMissing(M$run$first),
+  notMissing(M$run$sec)
 ) %>%
   `colnames<-`(c("first", "sec")) %>%
   tibble::rownames_to_column(., var = "metric") %>%
@@ -32,7 +36,7 @@ GRAPHS$percent_found <- percent_found %>%
 
 # Check if coverage and intensity differs significantly between protein groups
 # for confirmation only (we expect them to differ)
-tb <- data
+tb <- M$data
 grouping_metric <- "GO_category_MF"
 lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>% inner_join(., mergeLfq(tb, "mean"))
 
@@ -78,13 +82,13 @@ top_ten <- lfq %>%
 
 ## -# Annotation metrics
 counts <- list()
-counts$first <- getCounts(run$first)
-counts$sec <- getCounts(run$sec)
+counts$first <- getCounts(M$run$first)
+counts$sec <- getCounts(M$run$sec)
 
 wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
 # Run Wilcox tests between on the metrics defined above, pairing up proteins that
 # were identified in both runs
-compare_tb <- inner_join(run$first, run$second, by = join_by(ProteinId), suffix = c(".first", ".sec"))
+compare_tb <- inner_join(M$run$first, M$run$second, by = join_by(ProteinId), suffix = c(".first", ".sec"))
 
 wilcox <- pairwiseFromTb(
   compare_tb, wanted_cols, c("less", "less", "less", "less"),
@@ -117,12 +121,12 @@ per_protein <- tibble(
   metric = rep(wanted_cols, 2),
   type = c(rep("mean", length(wanted_cols)), rep("stdev", length(wanted_cols))),
   first = c(
-    avgStdevs(run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-    avgStdevs(run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))
+    avgStdevs(M$run$first, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(M$run$first, wanted_cols, \(x) sd(x, na.rm = TRUE))
   ),
   sec = c(
-    avgStdevs(run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
-    avgStdevs(run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE))
+    avgStdevs(M$run$sec, wanted_cols, \(x) mean(x, na.rm = TRUE)),
+    avgStdevs(M$run$sec, wanted_cols, \(x) sd(x, na.rm = TRUE))
   )
 ) %>%
   mutate(percent_change = (sec - first) / first) %>%
@@ -157,10 +161,10 @@ GRAPHS$per_protein_change <- per_protein %>%
   geom_bar(stat = "identity")
 
 # Peptide characteristics
-peptides <- getPeptideData(run$first$peptideIds)
+peptides <- getPeptideData(M$run$first$peptideIds)
 
 peptides <- peptides |> filter(!length >= 500)
 GRAPHS$peptide_lengths <- ggplot(peptides, aes(x = length)) +
   geom_histogram(binwidth = 10)
 
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/general_metrics"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/general_metrics"))

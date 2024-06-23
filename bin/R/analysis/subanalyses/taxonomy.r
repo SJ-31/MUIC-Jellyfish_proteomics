@@ -1,10 +1,13 @@
-# Scratch session 2024-06-10-Monday
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 
 TABLES <- list()
 GRAPHS <- list()
 
-data <- data |>
-  inner_join(taxa_tb, by = join_by(ProteinId))
+data <- M$data |>
+  inner_join(M$taxa_tb, by = join_by(ProteinId))
 toxins <- data |> filter(if_any(contains("GO_category"), \(x) x == "toxin_related"))
 
 cnidaria <- data |> filter(Phylum == "Cnidaria")

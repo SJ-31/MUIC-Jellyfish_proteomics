@@ -1,3 +1,7 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 PALETTE <- "ggthemes::colorblind"
 library("ggplot2")
 library("ggVennDiagram")
@@ -30,13 +34,13 @@ intervalCoverage <- function(interval_list, length, id) {
 
 # File and path setup
 pass <- "1-First_pass"
-PERCOLATOR_DIR <- c(glue("{PATH}/{pass}/Percolator"), glue("{PATH}/{pass}/Open_search/Percolator"))
+PERCOLATOR_DIR <- c(glue("{M$path}/{pass}/Percolator"), glue("{M$path}/{pass}/Open_search/Percolator"))
 open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
 percolator_files <- list.files(PERCOLATOR_DIR,
   pattern = "_percolator_proteins.tsv", full.names = TRUE
 )
-alignments <- alignmentData(PATH, "first")
-combined_results <- data
+alignments <- alignmentData(M$path, "first")
+combined_results <- M$data
 
 # Engine distribution analysis
 ENGINES <- percolator_files %>%
@@ -66,10 +70,10 @@ percolator_tibbles <- local({
       n_groups_all = length(unique(tb$ProteinGroupId)),
       n_groups_accepted = length(unique(filtered$ProteinGroupId)),
       n_proteins_all = nrow(tb),
-      n_proteins_below_fdr = tb %>% filter(`q-value` <= FDR) %>% nrow(),
+      n_proteins_below_fdr = tb %>% filter(`q-value` <= M$fdr) %>% nrow(),
       n_proteins_accepted = nrow(filtered),
       # To be accepted, a protein needs to be matched by at least two other engines
-      # And the q value of at least two psm matches needs to be below the FDR
+      # And the q value of at least two psm matches needs to be below the fdr
       n_other_proteins = map_lgl(tb$ProteinId, \(x) str_detect(x, "D|T")) %>% sum(),
     ) %>%
       mutate(n_database = n_proteins_all - n_other_proteins)
@@ -114,14 +118,14 @@ with_normal <- local({
     inner_join(., normal, by = join_by("ProteinId"))
 })
 
-reticulate::source_python(glue("{args$python_source}/trace_alignments.py"))
+reticulate::source_python(glue("{M$python_source}/trace_alignments.py"))
 matched_peptides <- select(combined_results, c(ProteinId, MatchedPeptideIds))
 protein_tb <- normal_engine_tbs %>%
   bind_rows() %>%
   tibbleDuplicateAt(., "peptideIds", " ") %>%
   mutate(peptideIds = map_chr(peptideIds, cleanPeptide))
 
-py$tracer <- AlignmentTracer(protein_tb, alignments$peptides, matched_peptides)
+py$tracer <- AlignmentTracer(protein_tb, M$alignments$peptides, matched_peptides)
 # Try to measure the proportion of alignments each engine takes up with its peptides
 traced_intervals <- allIntervals(combined_results$ProteinId)
 interval_coverage <- pmap(
@@ -205,4 +209,4 @@ venn <- ggVennDiagram(id_list, label = "none") +
   scale_fill_gradient(low = "grey90", high = "blue")
 GRAPHS$engine_venn <- venn
 
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/engine_characteristics"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/engine_characteristics"))

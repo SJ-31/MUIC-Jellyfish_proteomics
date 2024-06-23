@@ -1,3 +1,8 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
+
 PALETTE <- "ggthemes::excel_Slipstream"
 TABLES <- list()
 GRAPHS <- list()
@@ -7,14 +12,14 @@ p_rename <- c(
   NCBI_ID = "Accession Number",
   pcoverage_nmatch.prev = "Sequence coverage [%]"
 )
-p_all <- read_tsv(glue("{wd}/data/reference/previous_all.tsv")) %>%
+p_all <- read_tsv(glue("{M$wd}/data/reference/previous_all.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
-p_toxins <- read_tsv(glue("{wd}/data/reference/previous_toxins.tsv")) %>%
+p_toxins <- read_tsv(glue("{M$wd}/data/reference/previous_toxins.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
 
-has_id <- data |>
+has_id <- M$data |>
   filter(!is.na(NCBI_ID)) |>
   mutate(
     NCBI_ID = map_chr(NCBI_ID, \(x) {
@@ -110,9 +115,9 @@ TABLES$test <- p_test
 
 # Filter out new proteins
 compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
-new_proteins <- run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
+new_proteins <- M$run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
 new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 # TODO: Get the identity of the previous proteins so you
 # can
-save(c(GRAPHS, TABLES), glue("{OUTDIR}/figures/comparison_with_previous"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/comparison_with_previous"))

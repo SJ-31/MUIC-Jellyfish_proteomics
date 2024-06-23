@@ -1,19 +1,23 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
 SECOND_PASS_ENGINES <- c("identipy", "msgf", "msfragger", "comet")
 
 TABLES <- list()
 
-db <- glue("{PATH}/Databases/decoysWnormal.fasta")
+db <- glue("{M$path}/Databases/decoysWnormal.fasta")
 dbSize <- function(fasta_file) {
   seqkitStat(fasta_file)$num_seqs[[1]] %>% as.numeric()
 }
 
 complete_db_size <- dbSize(db)
 sizes <- lapply(SECOND_PASS_ENGINES, \(x) {
-  dbSize(glue("{PATH}/2-Second_pass/BK_databases/{x}_bk_database.fasta"))
+  dbSize(glue("{M$path}/2-Second_pass/BK_databases/{x}_bk_database.fasta"))
 }) %>% `names<-`(SECOND_PASS_ENGINES)
 
 getPercolator <- function(pass) {
-  dir <- glue("{PATH}/{pass}/Percolator")
+  dir <- glue("{M$path}/{pass}/Percolator")
   lapply(SECOND_PASS_ENGINES, \(x) {
     read_tsv(glue("{dir}/{x}_percolator_proteins.tsv"))
   }) %>% `names<-`(SECOND_PASS_ENGINES)
@@ -28,8 +32,8 @@ getStats <- function(engine_list, pass) {
     tibble(
       engine = names(lst_subset),
       num_proteins = nrow(tb),
-      num_passed_fdr = tb %>% filter(`q-value` < FDR) %>% nrow(),
-      num_passed_pep = tb %>% filter(`posterior_error_prob` < FDR) %>% nrow()
+      num_passed_fdr = tb %>% filter(`q-value` < M$fdr) %>% nrow(),
+      num_passed_pep = tb %>% filter(`posterior_error_prob` < M$fdr) %>% nrow()
     )
   }
   lmap(engine_list, getRow) %>%
@@ -38,12 +42,12 @@ getStats <- function(engine_list, pass) {
 }
 
 stats <- bind_rows(getStats(first_pass, "first"), getStats(sec_pass, "sec"))
-SEQ_MAP <- read_tsv(glue("{PATH}/Databases/seq-header_mappings.tsv"))
+SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 
 
 ALL_RESULTS <- bind_rows(
-  mutate(run$first, pass = "first"),
-  mutate(run$second, pass = "sec")
+  mutate(M$run$first, pass = "first"),
+  mutate(M$run$second, pass = "sec")
 ) %>% tibbleDuplicateAt(., "MatchedPeptideIds", ";")
 KEPT_PROTEINS <- c(ALL_RESULTS$ProteinId, ALL_RESULTS$MatchedPeptideIds)
 ALL_RESULTS <- local({
@@ -175,4 +179,4 @@ TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
 
 TABLES$stats <- stats
 
-save(TABLES, glue("{OUTDIR}/figures/pass_differences"))
+save(TABLES, glue("{M$outdir}/figures/pass_differences"))

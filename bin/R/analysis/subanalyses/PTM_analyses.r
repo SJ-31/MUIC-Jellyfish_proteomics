@@ -1,8 +1,13 @@
+if (!exists("SOURCED")) {
+  source(paste0(dirname(getwd()), "/", "all_analyses.r"))
+  SOURCED <- TRUE
+}
+
 GRAPHS <- list()
 TABLES <- list()
 #' PTM analyses
-has_mods <- run$first %>% filter(!is.na(Mods))
-UNIQUE_MODS <- run$first$Mods %>%
+has_mods <- M$run$first %>% filter(!is.na(Mods))
+UNIQUE_MODS <- M$run$first$Mods %>%
   discard(is.na) %>%
   map(\(x) str_split_1(x, "\\|")) %>%
   unlist() %>%
@@ -10,8 +15,8 @@ UNIQUE_MODS <- run$first$Mods %>%
   unique() %>%
   discard(\(x) grepl("0$", x))
 
-ptms_first <- modMetrics(run$first)
-ptms_sec <- modMetrics(run$sec)
+ptms_first <- modMetrics(M$run$first)
+ptms_sec <- modMetrics(M$run$sec)
 ptm_percent_diff <- abs(ptms_sec$percentages - ptms_first$percentages)
 
 
@@ -32,7 +37,7 @@ GRAPHS$ptm_pcoa <- plot
 
 # Transform tb so that proteins are in rows and mods in cols
 # A protein has TRUE in the mod col if it has that mod
-tb <- run$first
+tb <- M$run$first
 chi <- tb %>%
   filter(category != "other") %>%
   select(ProteinId, category) %>%
