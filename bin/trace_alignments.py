@@ -151,7 +151,9 @@ def substitutionType(type_str: str, target: str = "conservative") -> int:
     return 0
 
 
-def aggregateReplacements(df: pl.DataFrame, average=True) -> pl.DataFrame:
+def aggregateReplacements(
+    df: pl.DataFrame, grouping_col: str = "ProteinId", average=False
+) -> pl.DataFrame:
     """Aggregate useful stats for replacements"""
 
     def getAverage(expr):
@@ -167,7 +169,7 @@ def aggregateReplacements(df: pl.DataFrame, average=True) -> pl.DataFrame:
         for k, v in exprs.items():
             exprs[k] = getAverage(v)
     replacement_metrics = (
-        df.group_by("id")
+        df.group_by(grouping_col)
         .agg(
             n_replacements=exprs["replacements"],
             n_conflicts=exprs["conflicts"],
@@ -246,7 +248,7 @@ def denovoReplacementMetrics(
             (pl.col("start") <= pl.col("index")) & (pl.col("index") <= pl.col("stop"))
         )
         .pipe(classifyReplacements)
-        .pipe(lambda x: aggregateReplacements(x, "id"))
+        .pipe(lambda x: aggregateReplacements(x, "id", True))
     )
     return {"mapping": denovo_map, "metrics": metrics}
 
