@@ -9,7 +9,7 @@ library(dbscan)
 #' other
 #' @param dist_t a distance matrix of the embeddings
 #'
-hclustSk <- function(dist, height, linkage, structured = FALSE, labels_only = TRUE) {
+hclust_sk <- function(dist, height, linkage, structured = FALSE, labels_only = TRUE) {
   sc <- reticulate::import("sklearn.cluster")
   if (structured) {
     neighbors <- reticulate::import("sklearn.neighbors")
@@ -50,7 +50,7 @@ hclustSk <- function(dist, height, linkage, structured = FALSE, labels_only = TR
 
 
 GRAPH_CREATED <- FALSE
-leidenCreateGraph <- function(dist) {
+leiden_create_graph <- function(dist) {
   if (!GRAPH_CREATED) {
     GRAPH_CREATED <<- TRUE
     ids <- rownames(dist)
@@ -97,7 +97,7 @@ benchmarker <- function(dist, clusterFun, param_vector, param_name, method_name)
   return(clusterings)
 }
 
-sklearnInternalMetrics <- function(dist, cluster_labels, method) {
+sklearn_internal_metrics <- function(dist, cluster_labels, method) {
   smc <- reticulate::import("sklearn.metrics.cluster")
   if (method == "silhouette") {
     return(smc$silhouette_score(dist, cluster_labels, metric = "precomputed"))
@@ -108,7 +108,7 @@ sklearnInternalMetrics <- function(dist, cluster_labels, method) {
   }
 }
 
-showError <- function(expression, if_failed = NA, label = NULL) {
+show_error <- function(expression, if_failed = NA, label = NULL) {
   tryCatch(expr = expression, error = \(cnd) {
     if (!is.null(label)) {
       warn <- glue("Ignored error: {label}")
@@ -123,7 +123,7 @@ showError <- function(expression, if_failed = NA, label = NULL) {
 }
 
 
-internalMetricsAll <- function(dist_t, cluster_labels) {
+internal_metrics_all <- function(dist_t, cluster_labels) {
   n_unique_labels <- length(unique(cluster_labels))
   if (n_unique_labels == 1) { # don't bother when clustering failed
     return(NULL)
@@ -131,16 +131,16 @@ internalMetricsAll <- function(dist_t, cluster_labels) {
     return(NULL) # Another way the clustering fails is if every
     # element is in a unique cluster
   }
-  dunn <- showError(clValid::dunn(distance = dist_t, clusters = cluster_labels),
+  dunn <- show_error(clValid::dunn(distance = dist_t, clusters = cluster_labels),
     label = "dunn calculation"
   )
-  connectivity <- showError(clValid::connectivity(distance = sample, clusters = dist_matrices),
+  connectivity <- show_error(clValid::connectivity(distance = sample, clusters = dist_matrices),
     label = "connectivity calculation"
   )
   stats <- list(
-    silhouette_width = showError(sklearnInternalMetrics(dist_t, cluster_labels, "silhouette")),
-    calinhara = showError(sklearnInternalMetrics(dist_t, cluster_labels, "calinhara")),
-    davies_bouldin = showError(sklearnInternalMetrics(dist_t, cluster_labels, "davies_bouldin")),
+    silhouette_width = show_error(sklearn_internal_metrics(dist_t, cluster_labels, "silhouette")),
+    calinhara = show_error(sklearn_internal_metrics(dist_t, cluster_labels, "calinhara")),
+    davies_bouldin = show_error(sklearn_internal_metrics(dist_t, cluster_labels, "davies_bouldin")),
     dunn = dunn,
     connectivity = connectivity
   )
@@ -149,9 +149,9 @@ internalMetricsAll <- function(dist_t, cluster_labels) {
 
 #' Compute clustering metrics, appending them to a list
 #' @param cluster_labels: a list of different clusterings, varing by "var"
-getClusterMetrics <- function(dist_t, cluster_labels, method, metrics, var) {
+get_cluster_metrics <- function(dist_t, cluster_labels, method, metrics, var) {
   for (n in names(cluster_labels)) {
-    current <- internalMetricsAll(dist_t, cluster_labels[[n]])
+    current <- internal_metrics_all(dist_t, cluster_labels[[n]])
     if (is.null(current)) {
       next
     }
@@ -170,7 +170,7 @@ getClusterMetrics <- function(dist_t, cluster_labels, method, metrics, var) {
 #' Properly format cluster membership from a leidenalg.VertexPartition
 #' object i.e. converting it to a named vector
 #'
-getPartition <- function(py_ptition) {
+get_partition <- function(py_ptition) {
   vec <- py_ptition$membership + 1
   names(vec) <- py$ptition$graph$vs["name"]
   return(vec)
@@ -180,7 +180,7 @@ getPartition <- function(py_ptition) {
 #' Save cluster memberships from a cluster list into a tb, where
 #' each column denotes the membership of a given protein under that
 #' specific clustering method
-saveClusters <- function(cluster_list, method, var, previous_saved, join_col) {
+save_clusters <- function(cluster_list, method, var, previous_saved, join_col) {
   for (cluster in names(cluster_list)) {
     colname <- glue("{method}_{var}_{cluster}")
     tb <- tibble(
@@ -197,7 +197,7 @@ saveClusters <- function(cluster_list, method, var, previous_saved, join_col) {
 }
 
 
-addClusterCol <- function(args, tb) {
+add_cluster_col <- function(args, tb) {
   e <- embeddingData(
     args$combined_results,
     args$sample_name,
@@ -206,7 +206,7 @@ addClusterCol <- function(args, tb) {
   )
   dist <- e$cosine
   clusters <- local({
-    labels <- hclustSk(dist, 0.1, "average")
+    labels <- hclust_sk(dist, 0.1, "average")
     tibble(ProteinId = names(labels), cluster = labels)
   })
   tb <- inner_join(tb, clusters)
@@ -215,7 +215,7 @@ addClusterCol <- function(args, tb) {
 
 #' Merge the cluster information in `cluster_labels` with the data in
 #' `tb` by `id_col`
-mergeClusters <- function(cluster_labels, tb, id_col) {
+merge_clusters <- function(cluster_labels, tb, id_col) {
   assertArg(cluster_labels, \(x) !is.null(names(x)))
   col <- tibble(!!as.symbol(id_col) := names(cluster_labels),
     cluster = as.double(cluster_labels)
@@ -227,7 +227,7 @@ mergeClusters <- function(cluster_labels, tb, id_col) {
 #' @param threshold Overlap threshold
 #' @param nested_tb data tb after grouping by then nesting on the column
 #' containing the cluster labels
-associatedPathways <- function(tb, nested_tb, threshold = 50) {
+associated_pathways <- function(tb, nested_tb, threshold = 50) {
   kegg_pathways <- groupPathways(tb)
   oneSet <- function(proteins) {
     check <- kegg_pathways$grouped %>%
@@ -276,7 +276,7 @@ associatedPathways <- function(tb, nested_tb, threshold = 50) {
 #'  Extracts unique GO IDs for each group.
 #'  Counts the number of unique GO IDs for each group.
 #'  Associates KEGG pathways with the groups.
-aggregateMetadata <- function(data, grouping_col) {
+aggregate_metadata <- function(data, grouping_col) {
   data <- mergeLfq(data, "mean") %>%
     inner_join(., data, by = join_by(ProteinId))
   nested <- data %>%
@@ -286,16 +286,16 @@ aggregateMetadata <- function(data, grouping_col) {
       size = map_dbl(data, \(x) nrow(x)),
       GO_slims = lapply(
         data,
-        \(x) goVector(x, go_column = "GO_slims", unique = TRUE)
+        \(x) get_go_vec(x, go_column = "GO_slims", unique = TRUE)
       ),
       organisms = map_chr(data, \(x) paste0(unique(x$organism), collapse = ";")),
       header_words = map_chr(data, \(x) {
-        paste0(headerTopN(x$header, 3), collapse = ";")
+        paste0(header_top_n(x$header, 3), collapse = ";")
       }),
       GO_slim_counts = map_dbl(GO_slims, \(x) length(x)),
       GO_IDs = lapply(
         data,
-        \(x) goVector(x, go_column = "GO_IDs", unique = TRUE)
+        \(x) get_go_vec(x, go_column = "GO_IDs", unique = TRUE)
       ),
       GO_counts = map_dbl(GO_IDs, \(x) length(x)),
       GO_category_BP = map_chr(data, \(x) paste0(unique(x$GO_category_BP), collapse = ";")),
@@ -311,7 +311,7 @@ aggregateMetadata <- function(data, grouping_col) {
       Percolator_groups = map_chr(data, \(x) paste0(unique(x$Group), collapse = ";"))
     )
   }
-  nested$KEGG_Pathway <- associatedPathways(data, nested)
+  nested$KEGG_Pathway <- associated_pathways(data, nested)
   nested
 }
 
@@ -347,7 +347,7 @@ KEYWORDS <- c(
 
 UNWANTED <- c("partial", "fragment", "NA")
 
-nameFromHeader <- function(header) {
+name_from_header <- function(header) {
   if (str_detect(header, "\\|")) {
     ex <- header |> str_extract("(tr|sp)\\|[A-Z0-9\\|_]+\\s(.*)OS=.*", group = 2)
   } else {
@@ -361,7 +361,7 @@ nameFromHeader <- function(header) {
 #' keyword.
 #' @return A quanteda dictionary that can be used with `tokens_lookup`
 #' to remove the redundant elements of text_vec
-createDictionary <- function(keywords, text_vec) {
+create_dictionary <- function(keywords, text_vec) {
   keyword_list <- setNames(rep(list(c()), length(keywords)), keywords)
   for (word in keywords) {
     no_match <- text_vec |> discard(~ str_detect(.x, word))
@@ -373,9 +373,9 @@ createDictionary <- function(keywords, text_vec) {
 }
 
 #' Return the top n words found in a group of FASTA file headers
-headerTopN <- function(header_vec, n) {
-  headers_only <- map_chr(header_vec, nameFromHeader) |> discard(is.na)
-  dict <- createDictionary(KEYWORDS, headers_only)
+header_top_n <- function(header_vec, n) {
+  headers_only <- map_chr(header_vec, name_from_header) |> discard(is.na)
+  dict <- create_dictionary(KEYWORDS, headers_only)
   tokens <- headers_only |>
     quanteda::tokens(
       remove_punct = TRUE, remove_symbols = TRUE,
@@ -395,8 +395,8 @@ headerTopN <- function(header_vec, n) {
 #' @param nested the nested version of `tb`
 #' @param tb tbl df containing the columns "ProteinId" and "GO_IDs", used
 #' to create the ID -> GO mapping file for ontologizer, as well as the universe
-enrichGroups <- function(tb, nested, ontologizer_path, go_path, group_name = "cluster", min_group_size = 10) {
-  filterEnriched <- function(ontologizer_df, n_groups, threshold) {
+enrich_groups <- function(tb, nested, ontologizer_path, go_path, group_name = "cluster", min_group_size = 10) {
+  filter_enriched <- function(ontologizer_df, n_groups, threshold) {
     if (nrow(ontologizer_df) == 0) {
       return(NA)
     }
@@ -415,7 +415,7 @@ enrichGroups <- function(tb, nested, ontologizer_path, go_path, group_name = "cl
 
   ont <- new.env()
   reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
-  O <- reticulateShowError(ont$Ontologizer(tb, ontologizer_path, args$go_path))
+  O <- reticulate_show_error(ont$Ontologizer(tb, ontologizer_path, args$go_path))
   too_small <- nested |> filter(size < min_group_size) # No point when the
   # clusters don't meet the specified threshold
   nested <- nested |> filter(size >= min_group_size)
@@ -427,18 +427,18 @@ enrichGroups <- function(tb, nested, ontologizer_path, go_path, group_name = "cl
   params <- list(`-m` = "Bonferroni-Holm")
   enriched <- O$runAll(groups, params)
 
-  enriched <- enriched %>% lapply(., filterEnriched, n_groups = nrow(nested), threshold = 0.05)
+  enriched <- enriched %>% lapply(., filter_enriched, n_groups = nrow(nested), threshold = 0.05)
   nested$enriched_GO_IDs <- enriched
   too_small$enriched_GO_IDs <- NA
   bind_rows(nested, too_small)
 }
 
 #' Save aggregated data to a file
-saveAggregated <- function(nested, filename) {
+save_aggregated <- function(nested, filename) {
   concatCol <- function(col) {
     lapply(col, \(x) paste0(x, collapse = ";")) |> unlist()
   }
-  not_scalars <- colnames(nested)[!sapply(nested, isScalarCol)]
+  not_scalars <- colnames(nested)[!sapply(nested, is_scalar_col)]
   nested |>
     select(-data) |>
     mutate(across(contains(not_scalars), concatCol)) |>

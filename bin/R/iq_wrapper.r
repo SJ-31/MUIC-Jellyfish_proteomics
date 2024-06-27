@@ -7,7 +7,7 @@ main <- function(dlfq_input) {
   sample_cols <- colnames(dlfq) %>%
     purrr::discard(grepl("protein|ion", .))
   names(sample_cols) <- paste0("maxlfq-", sample_cols)
-  dlfq <- dlfq %>% tibbleDuplicateAt(.,
+  dlfq <- dlfq %>% tb_duplicate_at(.,
     col = "protein",
     separator = ";"
   )

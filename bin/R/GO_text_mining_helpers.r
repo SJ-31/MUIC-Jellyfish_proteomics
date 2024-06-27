@@ -39,6 +39,7 @@ getText <- function(file_name) {
 texts <- list.files(DATA_DIR, full.names = TRUE) %>%
   lapply(getText) %>%
   unlist()
+
 other <- c(
   "amino acid", "fatty acid",
   "cuticle chitin", "omega N", "gaseous exchange",
@@ -61,20 +62,6 @@ other <- c(
   "intracellular vesicle", "pole plasm", "developmental growth"
 )
 PHRASES <- quanteda::phrase(c(other, texts))
-REPLACEMENTS <- quanteda::dictionary(
-  list(
-    cytotoxicity = "cellular cytotoxicity",
-    senescence = "cellular senescence",
-    cell_morphogenesis = c("cellular morphogenesis", "cell morphogenesis")
-  )
-)
-UNWANTED <- c(
-  "cellular", "activity", "regulation", "of", "process",
-  "molecule", "substance", "primary", "nucleic", "non",
-  "positive", "negative", "biosynthetic", "catabolic", "metabolic",
-  "cell", "molecular", "active", "entity", "male", "multi",
-  "membrane", "containing", "bound", "intracellular", ""
-)
 
 tbCompoundWord <- function(tb, word, fun) {
   has <- tb %>% filter(grepl(word, term))
@@ -85,23 +72,24 @@ tbCompoundWord <- function(tb, word, fun) {
 
 compoundAll <- function(str) {
   assertArg(str, \(x) is.atomic(x))
-  str %>%
-    quanteda::corpus() %>%
-    quanteda::tokens() %>%
-    quanteda::tokens_compound(., pattern = PHRASES) %>%
-    quanteda::tokens_lookup(., dictionary = REPLACEMENTS, exclusive = FALSE) %>%
-    quanteda::tokens_remove(., pattern = UNWANTED) %>%
-    as.list() %>%
-    map_chr(., \(x) str_c(x, collapse = " ")) %>%
-    `names<-`(NULL) %>%
-    map_chr(., \(x) { # Get only words that have been compounded
-      if (str_detect(x, "_")) {
-        extracted <- str_extract(x, "(\\b[a-zA-Z_]*_[a-zA-Z_]*\\b)")
-        return(extracted)
-      } else {
-        return(x)
-      }
-    })
+  str_replace_all(str, " ", "_")
+  # str %>%
+  #   quanteda::corpus() %>%
+  #   quanteda::tokens() %>%
+  #   # quanteda::tokens_compound(., pattern = PHRASES) %>%
+  #   quanteda::tokens_lookup(., dictionary = REPLACEMENTS, exclusive = FALSE) %>%
+  #   quanteda::tokens_remove(., pattern = UNWANTED) %>%
+  #   as.list() %>%
+  #   map_chr(., \(x) str_c(x, collapse = " ")) %>%
+  #   `names<-`(NULL) %>%
+  #   map_chr(., \(x) { # Get only words that have been compounded
+  #     if (str_detect(x, "_")) {
+  #       extracted <- str_extract(x, "(\\b[a-zA-Z_]*_[a-zA-Z_]*\\b)")
+  #       return(extracted)
+  #     } else {
+  #       return(x)
+  #     }
+  #   })
 }
 
 
@@ -116,7 +104,8 @@ ABBREVS <- c(
   "intracellular" = "intr.",
   "activity" = "act.",
   "extracellular" = "extr.",
-  "developmental" = "dev.",
+  "developmental|development" = "dev.",
+  "metabolic process" = "m.p.",
   "proliferation" = "prol.",
   "response" = "resp.",
   "migration" = "mig.",
@@ -131,6 +120,12 @@ F_ABBREVS <- local({
   names(lst) <- names(ABBREVS) %>% map_chr(., \(x) glue("\\b{x}\\b"))
   lst
 })
+
+findAbbrev <- function(str) {
+  lapply(names(ABBREVS), \(x) str_extract(str, x)) |>
+    unlist() |>
+    discard(is.na)
+}
 
 tokenize2Plot <- function(tb, params = NULL) {
   min_count <- lget(params, "min_count", quantile(tb$n, 0.80, na.rm = TRUE))
@@ -157,10 +152,10 @@ tokenize2Plot <- function(tb, params = NULL) {
     arrange(., desc(!!as.symbol(sort_by))) %>%
     slice(1:top_n)
   if (abbreviate) {
-    found_abbrevs <- tb$token %>%
-      lapply(., \(x) str_split_1(x, " ")) %>%
-      unlist() %>%
-      keep(., \(x) x %in% names(ABBREVS))
+    found_abbrevs <- tb$token |>
+      lapply(findAbbrev) |>
+      unlist() |>
+      discard(is.na)
     if (length(found_abbrevs) != 0) {
       legend_text <- found_abbrevs %>%
         map_chr(., \(x)  {
@@ -213,24 +208,39 @@ wordcloudCustom <- function(tb, params, abbrev_legend = NULL) {
 }
 
 
+LEVEL_MAP <- glue("{M$wd}/data/reference/go_level_map.tsv")
+MIN_MAX_LEVEL <- c(3, 7) # Closed interval for GO levels
+MAP_REF_FILE <- glue("{M$wd}/data/reference/go_map_generic.tsv")
 #' Higher-level interface for getting GO word clouds from results tbs
 specialGoClouds <- function(
     tb, go_column = "GO_IDs",
     plot_params = list(),
     is_info_tb = FALSE,
-    plot_special = TRUE, frequencies = NULL) {
+    plot_special = TRUE, frequencies = NULL, to_generic = TRUE) {
   assertArg(tb, \(x) ("tbl" %in% class(x)) && (go_column %in% colnames(x)))
-  gos <- goVector(tb, go_column = "GO_IDs")
+  gos <- get_go_vec(tb, go_column = "GO_IDs") |> discard(\(x) x %in% UNWANTED)
+  if (to_generic) {
+    ref <- read_tsv(MAP_REF_FILE)
+    map <- hash::hash(key = ref["child"], values = ref["parent"])
+    gos <- map_chr(gos, \(x) ifelse(hash::has.key(x, map), map[[x]], x))
+  }
   if (is.null(frequencies)) {
     frequencies <- gos %>%
       table() %>%
-      table2Tb(., "GO_IDs")
+      table2tb(., "GO_IDs")
   }
-  if (!is_info_tb) {
-    info_tb <- goInfoTb(unique(gos)) %>% inner_join(., frequencies)
+  if (exists("args") && !is.null(args$go_info)) {
+    info_tb <- read_tsv(args$go_info) |>
+      filter(GO_IDs %in% gos) |>
+      inner_join(frequencies)
+  } else if (!is_info_tb) {
+    info_tb <- go_info_tb(unique(gos)) %>% inner_join(., frequencies)
   } else {
     info_tb <- inner_join(tb, frequencies)
   }
+  info_tb <- inner_join(info_tb, read_tsv(LEVEL_MAP), by = join_by(GO_IDs)) |>
+    filter((level >= MIN_MAX_LEVEL[1]) & (level <= MIN_MAX_LEVEL[2]))
+  gos <- gos |> keep(\(x) x %in% info_tb$GO_IDs)
   to_plot <- list()
   # Plot special GO terms associated with a central concept, are
   # consistently described with adjectives e.g. "positive" or
@@ -239,13 +249,15 @@ specialGoClouds <- function(
 
   to_plot$bp_regulation <- bp %>%
     filter(grepl("regulation", term)) %>%
-    mutate(type = map_chr(term, \(x) {
-      case_when(
-        str_detect(x, "positive") ~ "positive",
-        str_detect(x, "negative") ~ "negative",
-        .default = "unspecified effect"
-      )
-    }))
+    mutate(
+      type = map_chr(term, \(x) {
+        case_when(
+          str_detect(x, "positive") ~ "positive",
+          str_detect(x, "negative") ~ "negative",
+          .default = "unspecified effect"
+        )
+      })
+    )
 
   to_plot$bp_process <- bp %>%
     filter(grepl("process", term) & grepl("biosynthetic|metabolic|catabolic", term)) %>%

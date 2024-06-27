@@ -37,7 +37,7 @@ cleanUp <- function(path) {
   df <- mutate(df, peptideIds = unlist(lapply(df$peptideIds, joinMods),
     use.names = FALSE
   ))
-  df <- tibbleDuplicateAt(df, "ProteinId", ",") # Percolator uses comma to delimit protein ids
+  df <- tb_duplicate_at(df, "ProteinId", ",") # Percolator uses comma to delimit protein ids
   return(df)
 }
 

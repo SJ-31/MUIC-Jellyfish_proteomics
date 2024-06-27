@@ -73,6 +73,14 @@ n_greater <- local({
   list(previous = previous, first = first)
 })
 
+compare_long <- compare_all |>
+  select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
+  rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
+  mutate(change = first - previous)
+
+compare_long
+
+
 protein_wise_coverage <- local({
   plot <- compare_long |>
     ggplot(aes(x = ID, y = value, fill = name)) +
@@ -109,7 +117,7 @@ p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev,
 ) |>
   to("data.name", "Coverage of proteins identified in maxquant-only run vs pipeline") |>
   to("alternative", "maxquant-only run was less") |>
-  htest2Tb()
+  htest2tb()
 
 TABLES$test <- p_test
 

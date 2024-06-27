@@ -137,7 +137,7 @@ get_file_name <- function(scan) {
   return(gsub("\\..*", "", scan))
 }
 
-cleanPeptide <- function(pep) {
+clean_peptide <- function(pep) {
   if (grepl("\\]|[a-z0-9.]|-", pep)) {
     pep <- str_to_upper(pep) %>%
       str_extract_all("[A-Z]") %>%
@@ -169,7 +169,7 @@ read_engine_psms <- function(args) {
   }
   psms <- psms %>%
     mutate(file = unlist(lapply(scan, get_file_name))) %>%
-    mutate(base_peptide = unlist(lapply(peptide, cleanPeptide))) %>%
+    mutate(base_peptide = unlist(lapply(peptide, clean_peptide))) %>%
     select(c(
       "file", "scan", "base_peptide", "peptide",
       "protein"

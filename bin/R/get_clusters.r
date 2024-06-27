@@ -16,7 +16,7 @@ aggregateEmbeddings <- function(args) {
   )
   dist <- e$cosine
   clusters <- local({
-    f <- hclustSk(dist, 0.1, "average", labels_only = FALSE)
+    f <- hclust_sk(dist, 0.1, "average", labels_only = FALSE)
     linkage_matrix <- py_clusters$linkageMatrix(f$fitted)
     py_clusters$saveDendogram(linkage_matrix,
       glue("{args$outdir}/dendogram.png"),
@@ -25,35 +25,18 @@ aggregateEmbeddings <- function(args) {
     f$labels
   })
   print("Clusters obtained")
-  e$metadata <- mergeClusters(clusters, e$metadata, "ProteinId")
+  e$metadata <- merge_clusters(clusters, e$metadata, "ProteinId")
   write_tsv(e$metadata, args$combined_results)
-  aggregateHelper(e$metadata, "cluster", args$ontologizer_path, args$go_path, args$outdir)
-  ## nested <- aggregateMetadata(e$metadata, "cluster")
-  ## slims <- nested$GO_slims %>%
-  ##   lapply(., idsIntoOntology) %>%
-  ##   purrr::reduce(., mergeLists)
-  ## slim_tb <- nested %>%
-  ##   select(cluster, size) %>%
-  ##   ungroup() %>%
-  ##   mutate(
-  ##     cluster = as.vector(cluster),
-  ##     slim_CC = slims$CC,
-  ##     slim_BP = slims$BP,
-  ##     slim_MF = slims$MF
-  ##   ) %>%
-  ##   mutate(across(contains("slim_"), \(x) dplyr::na_if(x, "")))
-  ## nested <- enrichGroups(
-  ##   e$metadata, nested,
-  ##   glue("{tools}/Ontologizer.jar"), args$go_path
-  ## )
-  ## saveAggregated(nested, glue("{OUTDIR}/aggregated_clusters.tsv"))
+  if (!is.null(args$ontologizer_path)) {
+    aggregateHelper(e$metadata, "cluster", args$ontologizer_path, args$go_path, args$outdir)
+  }
 }
 
 aggregateHelper <- function(tb, grouping_col, ontologizer_path, go_path, outdir) {
-  nested <- aggregateMetadata(tb, grouping_col)
+  nested <- aggregate_metadata(tb, grouping_col)
   slims <- nested$GO_slims %>%
-    lapply(., idsIntoOntology) %>%
-    purrr::reduce(., mergeLists)
+    lapply(., ids_into_ontology) %>%
+    purrr::reduce(., merge_lists)
   slim_tb <- nested %>%
     select(!!grouping_col, size) %>%
     ungroup() %>%
@@ -65,8 +48,8 @@ aggregateHelper <- function(tb, grouping_col, ontologizer_path, go_path, outdir)
     ) %>%
     mutate(across(contains("slim_"), \(x) dplyr::na_if(x, "")))
   write_tsv(slim_tb, glue("{outdir}/{grouping_col}-aggregated_slims.tsv"))
-  nested <- enrichGroups(tb, nested, ontologizer_path, go_path, group_name = grouping_col)
-  saveAggregated(nested, glue("{outdir}/{grouping_col}-aggregated.tsv"))
+  nested <- enrich_groups(tb, nested, ontologizer_path, go_path, group_name = grouping_col)
+  save_aggregated(nested, glue("{outdir}/{grouping_col}-aggregated.tsv"))
 }
 
 
@@ -75,12 +58,13 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-r", "--r_source"))
   parser <- add_option(parser, c("-c", "--combined_results"))
   parser <- add_option(parser, c("-s", "--sample_name"))
-  parser <- add_option(parser, c("-o", "--ontologizer_path"))
+  parser <- add_option(parser, c("-o", "--ontologizer_path"), default = NULL)
   parser <- add_option(parser, c("-p", "--python_source"))
   parser <- add_option(parser, c("-g", "--go_path"))
   parser <- add_option(parser, c("-e", "--embeddings"))
   parser <- add_option(parser, "--outdir")
   parser <- add_option(parser, c("-d", "--distances"))
+  parser <- add_option(parser, "--aggregate", action = "store_true", default = FALSE)
   args <- parse_args(parser)
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/helpers.r"))
@@ -95,27 +79,14 @@ if (sys.nframe() == 0) {
       message("Python error: ", last_error$type, "\n", last_error$value, "\n", last_error$traceback)
     }
   )
-  aggregateHelper(
-    read_tsv(args$combined_results), "Group",
-    args$ontologizer_path, args$go_path, args$outdir
-  )
+  if (args$aggregate) {
+    aggregateHelper(
+      read_tsv(args$combined_results), "Group",
+      args$ontologizer_path, args$go_path, args$outdir
+    )
+    aggregateHelper(
+      read_tsv(args$combined_results), "GroupUP",
+      args$ontologizer_path, args$go_path, args$outdir
+    )
+  }
 }
-
-# TODO: Parse the lineages better
-# sample <- e$metadata$lineage %>%
-#   discard(is.na) %>%
-#   index(1, 5)
-# sample
-# # summariseLineages <- function(lineage_vector) {
-# longest <- 0
-# taxa_splits <- lapply(sample, \(x) {
-#   splits <- str_split_1(x, ";")
-#   if (length(splits) > longest) {
-#     longest <<- length(splits)
-#   }
-#   splits
-# })
-# m <- matrix(NA, ncol = longest, nrow = length(taxa_splits))
-# for (n in seq_along(taxa_splits)) {
-#   m[n, ] <- c(taxa_splits[[n]], rep(NA, longest - length(taxa_splits[[n]])))
-# }

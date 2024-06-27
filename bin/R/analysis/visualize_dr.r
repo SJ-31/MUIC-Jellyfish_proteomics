@@ -8,10 +8,10 @@ main <- function(args) {
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
   if (!is.null(args$compare) && args$compare) {
     e <- embeddingData(args$combined_results,
-                       args$sample_name,
-                       args$embedding_path,
-                       args$dist_path,
-                       comparison_meta = args$uniprot_data
+      args$sample_name,
+      args$embedding_path,
+      args$dist_path,
+      comparison_meta = args$uniprot_data
     )
   } else {
     e <- embeddingData(
@@ -23,27 +23,28 @@ main <- function(args) {
   }
 
   prefix <- ifelse(is.null(args$results_prefix), args$sample_name,
-                   args$results_prefix
+    args$results_prefix
   )
-  result <- drWrapper(
+  result <- dr_wrapper(
     e, "ProteinId",
     args$figure_path,
     prefix,
     args$technique
   )
   title_str <- ifelse(!is.null(args$compare),
-                      glue("{args$sample_name} comparison"),
-                      glue("{args$sample_name} sample")
+    glue("{args$sample_name} comparison"),
+    glue("{args$sample_name} sample")
   )
   for (color in e$color) {
-    label <- labelGen(args$technique, title_str, "")
-    plotDr(
+    label <- label_gen(args$technique, title_str, "")
+    plot_dr(
       to_plot = result$to_plot,
       color_col = color,
       path = args$figure_path,
       technique = args$technique,
       labels = label,
-      twod = TRUE
+      twod = TRUE,
+      unwanted = c("unknown", "other")
     )
   }
 }

@@ -25,7 +25,7 @@ uniqueNames <- function(vec) {
 #' Returns GO term ids that related to query term id "term",
 #' which includes secondary ids and all offspring (children and their children)
 #' of "term"
-goOffspring <- function(term) {
+go_offspring <- function(term) {
   if (!is.null(query <- GO.db::GOTERM[[term]])) {
     ontology <- query@Ontology
     secondary <- query@Secondary
@@ -43,10 +43,6 @@ goOffspring <- function(term) {
     return(c(secondary, offspring))
   }
   return(NULL)
-}
-
-countOffspring <- function(term) {
-  return(length(goOffspring(term)))
 }
 
 
@@ -70,31 +66,21 @@ getSV <- function(term) {
 }
 
 
-#' Returns TRUE if term a is offspring of term b
-#'
-isGoOffspring <- function(a, b) {
-  offspring <- goOffspring(b)
-  if (is.null(offspring)) {
-    return(FALSE)
-  }
-  return(a %in% offspring)
-}
-
 #' Convert dataframe to tibble, moving row names into a named column
-df2Tb <- function(df, first_col) {
+df2tb <- function(df, first_col) {
   return(rownames_to_column(df, var = first_col) %>% as_tibble())
 }
 
 
 #' Converts a matrix into a tibble, moving the row names into a column
-m2Tb <- function(matrix, first_col) {
+m2tb <- function(matrix, first_col) {
   return(as.data.frame(matrix) %>%
     tibble::rownames_to_column(var = first_col) %>%
     as_tibble())
 }
 
 #' Saves both 3d or 2d plots
-mySaveFig <- function(fig, filename) {
+my_save_fig <- function(fig, filename) {
   if (any(grepl("ggplot", class(fig)))) {
     ggsave(filename = filename, plot = fig)
   } else {
@@ -149,10 +135,10 @@ t2Df <- function(tibble, row_col) {
 #' @description
 #' If the query isn't found in the target column,
 #' then NA is returned instead for that entry
-markMatch <- function(tb, target_col, query, label) {
-  purrr::pluck(tb, target_col) %>%
-    purrr::map_chr(\(x) if (grepl(query, x, ignore.case = TRUE)) label else NA)
-}
+## markMatch <- function(tb, target_col, query, label) {
+##   purrr::pluck(tb, target_col) %>%
+##     purrr::map_chr(\(x) if (grepl(query, x, ignore.case = TRUE)) label else NA)
+## }
 
 
 #' Retrieve a vector of GO terms from a tibble where terms for a given
@@ -161,7 +147,7 @@ markMatch <- function(tb, target_col, query, label) {
 #' @description
 #' @param go_column the column of `tb` containing the terms
 #' @param filter optional filter criteria to use with `column`
-goVector <- function(tb, column, filter, go_column, unique = FALSE) {
+get_go_vec <- function(tb, column, filter, go_column, unique = FALSE) {
   if (any(is.na(tb[[go_column]]))) {
     tb <- tb %>% dplyr::filter(!is.na(!!as.symbol(go_column)))
   }
@@ -199,7 +185,7 @@ prepOrgDb <- function(path) {
 #'  There are three for each ontology in the GO
 #' Without scores, it relies on term uniqueness
 #' @param go_list A named vector (names are GO terms) of scores
-reduceGOList <- function(go_list) {
+reduce_go_list <- function(go_list) {
   sims <- lapply(ONTOLOGIES, \(x) {
     rrvgo::calculateSimMatrix(names(go_list),
       orgdb = DB_NAME,
@@ -242,7 +228,7 @@ termOntology <- function(term) {
 }
 
 
-ontoResults <- function(ontologizer_dir) {
+get_ontologizer <- function(ontologizer_dir) {
   # Convenience function for aggregating statistically significant ontologizer results
   # There will be two different tibbles, containing GO terms known only
   #    from...
@@ -261,22 +247,22 @@ ontoResults <- function(ontologizer_dir) {
     lapply(., \(x) x[, 2]) %>%
     unlist()
   onto_files <- lapply(onto_files, readr::read_tsv)
-  getNamedGO <- function(tb) {
+  get_named_go <- function(tb) {
     filtered <- dplyr::filter(tb, !is.trivial)
     filtered %>%
       purrr::pluck("p.adjusted") %>%
       `names<-`(filtered$ID)
   }
   # Named vector of GO terms where values are adjusted p_values
-  onto_files$unknown_to_db_GO <- getNamedGO(onto_files$unknown_to_db)
-  onto_files$id_with_open_GO <- getNamedGO(onto_files$id_with_open)
+  onto_files$unknown_to_db_GO <- get_named_go(onto_files$unknown_to_db)
+  onto_files$id_with_open_GO <- get_named_go(onto_files$id_with_open)
   return(onto_files)
 }
 
 
 #' Create a tibble containing information about specific GO terms
 #'
-goInfoTb <- function(go_vector) {
+go_info_tb <- function(go_vector) {
   assertArg(go_vector, \(x) is.atomic(x))
   tb <- lapply(go_vector, \(x) {
     row <- tibble(
@@ -295,7 +281,7 @@ goInfoTb <- function(go_vector) {
   return(tb)
 }
 
-getUniprotData <- function(uniprot_tsv_path) {
+get_uniprot <- function(uniprot_tsv_path) {
   tb <- read_tsv(uniprot_tsv_path) %>%
     filter(!is.na(GO_IDs)) %>%
     rename(ProteinId = Entry)
@@ -308,7 +294,7 @@ getUniprotData <- function(uniprot_tsv_path) {
         taxon <- x$Taxon
         cur <- x$data
         return(tibble(
-          GO_IDs = goVector(cur, go_column = "GO_IDs"),
+          GO_IDs = get_go_vec(cur, go_column = "GO_IDs"),
           Taxon = taxon
         ))
       }
@@ -326,16 +312,16 @@ getUniprotData <- function(uniprot_tsv_path) {
   ))
 }
 
-goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
+get_go_data <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
   # Load sample data & ontologizer results
   sample_tb <- readr::read_tsv(sample_path) %>%
     filter(!is.na(GO_IDs)) %>%
     distinct(ProteinId, .keep_all = TRUE)
-  sample_gos <- goVector(sample_tb, go_column = "GO_IDs") %>% unique()
+  sample_gos <- get_go_vec(sample_tb, go_column = "GO_IDs") %>% unique()
 
   if (!missing(uniprot_tsv) && !is.null(uniprot_tsv)) {
     # Load Uniprot data into a list of tibbles
-    unip <- getUniprotData(uniprot_tsv)
+    unip <- get_uniprot(uniprot_tsv)
     # Extract all GO terms from the list of tibbles
     # Load into new combined tibble and merge with sample GO terms
     # Load sample GO terms into separate tibble
@@ -370,8 +356,8 @@ goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
   # 1. Sample, 2. All go terms, 3. GO terms from
   # eggnog proteins 4. GO terms in interpro proteins
 
-  interpro_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "interpro")
-  eggnog_gos <- goVector(sample_tb, go_column = "GO_IDs", "inferred_by", "eggNOG")
+  interpro_gos <- get_go_vec(sample_tb, go_column = "GO_IDs", "inferred_by", "interpro")
+  eggnog_gos <- get_go_vec(sample_tb, go_column = "GO_IDs", "inferred_by", "eggNOG")
 
   prot_tb_sample <- dplyr::select(sample_tb, c("ProteinId", "GO_IDs"))
   data <- list()
@@ -385,7 +371,7 @@ goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
     `names<-`(prot_tb_sample$ProteinId)
 
   if (!missing(onto_path)) {
-    ontologizer <- ontoResults(onto_path)
+    ontologizer <- get_ontologizer(onto_path)
     go_tb <- tibble(
       GO_IDs = sample_gos,
       sig_downloaded_db = sample_gos %in% ontologizer$gos_from_downloads,
@@ -405,7 +391,7 @@ goData <- function(sample_path, onto_path, uniprot_tsv, sample_name) {
 }
 
 
-goQueryProt <- function(query_gos, tb, prot_go_map) {
+go_query_prot <- function(query_gos, tb, prot_go_map) {
   # Queries a tibble to return only entries whose GO terms contain every GO term
   # in "query_gos" i.e. returns entries iff "query_gos" is a proper subset
   # of an entry's go terms
@@ -416,7 +402,7 @@ goQueryProt <- function(query_gos, tb, prot_go_map) {
 }
 
 
-prepSorted <- function(df, col_spec, type) {
+prep_sorted <- function(df, col_spec, type) {
   select_vals <- df %>%
     dplyr::select(contains(glue("{col_spec}|ProteinId"))) %>%
     rowwise(ProteinId)
@@ -439,13 +425,13 @@ TARGET_TERMS <- list(toxins = c(
   "GO:0015473" # Fimbrial usher porin activity
 ))
 TARGET_TERMS <- purrr::map(TARGET_TERMS, \(x) {
-  purrr::map(x, goOffspring) %>%
+  purrr::map(x, go_offspring) %>%
     unlist() %>%
     unique() %>%
     discard(is.na)
 })
 
-getToxinProteins <- function(prot2go_map) {
+get_toxin_proteins <- function(prot2go_map) {
   prot2go_map %>%
     keep(\(x) any(x %in% TARGET_TERMS$toxins))
 }
@@ -468,11 +454,11 @@ GO_CATEGORIES <- list(
   organelle = "GO:0043226" # 9
 )
 GO_CATEGORIES <- lapply(GO_CATEGORIES, \(x) {
-  offspring <- lapply(x, goOffspring) %>% unlist()
+  offspring <- lapply(x, go_offspring) %>% unlist()
   return(c(x, offspring))
 })
 
-headerFreqs <- function(header_vec) {
+header_freqs <- function(header_vec) {
   header_vec %>%
     lapply(., str_split_1, pattern = " ") %>%
     unlist() %>%
@@ -495,14 +481,14 @@ headerFreqs <- function(header_vec) {
 
 GO_DAG <- NULL
 GO_SLIM_DAG <- NULL
-getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULL) {
+get_go_slim <- function(go_terms, go_path, go_slim_path, which = NULL) {
   op <- reticulate::import("goatools.obo_parser")
   ms <- reticulate::import("goatools.mapslim")
   if (is.null(GO_DAG)) {
     GO_DAG <<- op$GODag(go_path)
     GO_SLIM_DAG <<- op$GODag(go_slim_path)
   }
-  getOneSlim <- function(term) {
+  get_one_slim <- function(term) {
     py$slims <- tryCatch(
       expr = ms$mapslim(term, go_dag = GO_DAG, goslim_dag = GO_SLIM_DAG),
       error = function(cnd) NULL
@@ -521,18 +507,18 @@ getGoSlim <- function(go_terms, go_path, go_slim_path, which = NULL) {
       return(result)
     }
   }
-  slims <- lapply(go_terms, getOneSlim) %>% `names<-`(go_terms)
+  slims <- lapply(go_terms, get_one_slim) %>% `names<-`(go_terms)
   return(slims)
 }
 
 #' Split a string of GO terms joined by ";" and return their slims joined together
-slimsFromGoString <- function(term_str, go_path, go_slim_path) {
+slims_from_go <- function(term_str, go_path, go_slim_path) {
   if (is.na(term_str)) {
     return(NA)
   }
   slims <- str_split_1(term_str, ";") %>%
     lapply(
-      ., \(g) getGoSlim(g, go_path, go_slim_path, "all")
+      ., \(g) get_go_slim(g, go_path, go_slim_path, "all")
     ) %>%
     unlist() %>%
     unique() %>%
@@ -546,13 +532,13 @@ slimsFromGoString <- function(term_str, go_path, go_slim_path) {
 
 #' Find the terms from a vector of GO Ids, grouping them by sub-ontology
 #' @return a list of three GO term vectors, one for each sub-ontology
-idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
+ids_into_ontology <- function(id_vector, target = "Term", collapse = TRUE) {
   assertArg(id_vector, \(x) is.atomic(x) || is.null(x))
   empty <- list("CC" = "", "BP" = "", "MF" = "")
   if (is.null(id_vector)) {
     return(empty)
   }
-  getTerm <- function(id) {
+  get_term <- function(id) {
     list <- empty
     term <- GOTERM[[id]]
     if (!is.null(term)) {
@@ -561,8 +547,8 @@ idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
     }
     return(list)
   }
-  reduced <- lapply(id_vector, getTerm) %>%
-    purrr::reduce(., mergeLists, .init = empty)
+  reduced <- lapply(id_vector, get_term) %>%
+    purrr::reduce(., merge_lists, .init = empty)
   if (collapse) {
     reduced <- purrr::map(reduced, \(x) {
       x %>%
@@ -574,15 +560,15 @@ idsIntoOntology <- function(id_vector, target = "Term", collapse = TRUE) {
 }
 
 # Map vector of Protein ids their groups,
-mapUnique <- function(ids, map) {
+map_unique <- function(ids, map) {
   map_chr(ids, \(x) map[[x]]) %>%
     unique() %>%
     discard(is.na) %>%
     discard(\(x) x == "U")
 }
 
-getOrganism <- function(tb) {
-  organismFromHeader <- function(row) {
+get_organism <- function(tb) {
+  organism_from_header <- function(row) {
     # Parse the organism from an NCBI or uniprot ID
     organism <- row["organism"]
     if (is.na(organism)) {
@@ -594,5 +580,5 @@ getOrganism <- function(tb) {
     }
     return(organism)
   }
-  tb |> mutate(organism = apply(tb, 1, organismFromHeader))
+  tb |> mutate(organism = apply(tb, 1, organism_from_header))
 }

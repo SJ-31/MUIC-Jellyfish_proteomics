@@ -9,14 +9,14 @@ TABLES <- list()
 
 coverage_threshold <- 0.8
 data <- M$data %>% filter(pcoverage_align >= coverage_threshold)
-nd_data <- runData("ND_C_indra", glue("{M$wd}/results/ND_C_indra"),
+nd_data <- get_run("ND_C_indra", glue("{M$wd}/results/ND_C_indra"),
   which = M$chosen_pass
 ) %>% filter(ProteinId %in% data$ProteinId)
 nd_alignments <- alignmentData(glue("{M$wd}/results/ND_C_indra"), which = M$chosen_pass)
 alignments <- M$alignments
 
 unmatched_peptides <- read_tsv(M$unmatched_path) %>%
-  mutate(peptideIds = map_chr(peptideIds, \(x) cleanPeptide(x))) %>%
+  mutate(peptideIds = map_chr(peptideIds, \(x) clean_peptide(x))) %>%
   select(ProteinId, peptideIds)
 
 to_keep <- data %>%
@@ -38,8 +38,8 @@ replacement_metrics <- map2(
   list(alignments, nd_alignments),
   list(data, nd_data),
   \(x, y) {
-    it$classifyReplacements(x$replacements) %>%
-      it$aggregateReplacements() %>%
+    it$classify_mismatches(x$mismatches) %>%
+      it$aggregate_mismatches() %>%
       as_tibble() %>%
       filter(ProteinId %in% y$ProteinId)
   }
@@ -53,26 +53,26 @@ merged <- bind_rows(
 )
 
 
-GRAPHS$peptides_vs_replacements <- ggplot(merged, aes(
-  x = num_unique_peps, y = n_replacements,
-  color = mode, alpha = n_conflicts / n_replacements
+GRAPHS$peptides_vs_mismatches <- ggplot(merged, aes(
+  x = num_unique_peps, y = n_mismatches,
+  color = mode, alpha = n_conflicts / n_mismatches
 )) +
   geom_point() +
   xlab("Number of unique peptides") +
-  ylab("n replacements") +
-  labs(alpha = "n conflicts / n replacements") +
+  ylab("n mismatches") +
+  labs(alpha = "n conflicts / n mismatches") +
   scale_color_paletteer_d(PALETTE)
 
-test <- cor.test(merged$n_replacements, merged$num_unique_peps) |>
-  to("data.name", "number of replacements vs number of unique peptides") |>
-  htest2Tb()
+test <- cor.test(merged$n_mismatches, merged$num_unique_peps) |>
+  to("data.name", "number of mismatches vs number of unique peptides") |>
+  htest2tb()
 
 TABLES$replacement_metrics <- gt(replacement_metrics$default)
 
 
 GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
   geom_histogram(position = "identity", alpha = 0.7) +
-  xlab("Ratio of non-conservative to conservative replacements") +
+  xlab("Ratio of non-conservative to conservative mismatches") +
   scale_fill_paletteer_d(PALETTE)
 
 mapped_by <- list()
@@ -86,14 +86,14 @@ mapped_by$unknown <- data %>%
 #' How to get metrics for substitutions on de novo peptides directly?
 #' Map peptides from the "alignments" file onto the original sequences of the denovo peptides
 #' Get the original sequence
-denovo_metrics <- reticulateShowError(it$denovoReplacementMetrics(
+denovo_metrics <- reticulate_show_error(it$denovo_mismatch_metrics(
   to_keep,
   to_keep_denovo, M$seq_map_path, M$unmatched_path,
-  alignments$peptides, alignments$replacements
+  alignments$peptides, alignments$mismatches
 )) %>% lapply(as_tibble)
 
 GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
-  ggplotNumericDist(list(
+  gg_numeric_dist(list(
     conservative = n_conservative,
     `non conservative` = n_non_conservative
   ), "hist", position = "identity", alpha = 0.6) +
@@ -108,12 +108,12 @@ GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
 
 TABLES$denovo_metrics <- gt(denovo_metrics$metrics)
 
-test <- wilcox.test(denovo_metrics$metrics$n_replacements, y = NULL) |>
+test <- wilcox.test(denovo_metrics$metrics$n_mismatches, y = NULL) |>
   to("data.name", "replacement counts") |>
-  htest2Tb() |>
+  htest2tb() |>
   bind_rows(test)
 
 TABLES$replacement_htests <- gt(test)
 
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/amino_acid_replacements"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/amino_acid_mismatches"))

@@ -134,7 +134,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
-    split_up <- tibbleDuplicateAt(has_multiple, "matchedPeptideIds", ";")
+    split_up <- tb_duplicate_at(has_multiple, "matchedPeptideIds", ";")
     joined <- left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId))
     has_multiple <- meanTop3(joined, quant_name = quant_name)
   }
@@ -267,7 +267,7 @@ main <- function(args) {
       length = as.double(gsub("unknown", NA, length)),
       unique_peptides = lapply(peptideIds, \(x) {
         x <- str_split_1(x, ";") %>%
-          lapply(., cleanPeptide) %>%
+          lapply(., clean_peptide) %>%
           unlist()
         return(paste0(unique(x), collapse = ";"))
       }) %>% unlist(),
@@ -334,7 +334,7 @@ main <- function(args) {
       lapply(
         .,
         \(x) {
-          slimsFromGoString(x,
+          slims_from_go(x,
             go_path = args$go_path,
             go_slim_path = args$go_slim_path
           )
@@ -393,7 +393,7 @@ main <- function(args) {
     eggNOG_description = "Description",
     MatchedPeptideIds = "matchedPeptideIds"
   )
-  combined <- getOrganism(combined)
+  combined <- get_organism(combined)
   combined <- combined %>%
     dplyr::rename(any_of(rename_lookup)) %>%
     relocate(where(is.numeric),
@@ -410,6 +410,7 @@ main <- function(args) {
     relocate(any_of(c(contains("GO"), "PANTHER"))) %>%
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(any_of(FIRST_COLS))
+  combined <- group_by_unique_peptides(combined)
 
 
   return(combined)

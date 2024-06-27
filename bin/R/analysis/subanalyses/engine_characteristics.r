@@ -8,16 +8,16 @@ library("ggVennDiagram")
 TABLES <- list()
 GRAPHS <- list()
 
-allIntervals <- function(ids) {
-  getIdIntervals <- function(id) {
-    lapply(ENGINES, \(x) py$tracer$engineAlignmentIntervals(id, x)) %>%
+get_all_intervals <- function(ids) {
+  get_id_intervals <- function(id) {
+    lapply(ENGINES, \(x) py$tracer$engine_alignment_intervals(id, x)) %>%
       `names<-`(ENGINES)
   }
-  lapply(ids, getIdIntervals) %>% `names<-`(ids)
+  lapply(ids, get_id_intervals) %>% `names<-`(ids)
 }
 
-intervalCoverage <- function(interval_list, length, id) {
-  sumInterval <- function(intervals) {
+interval_coverage <- function(interval_list, length, id) {
+  sum_interval <- function(intervals) {
     if (length(intervals) == 0) {
       return(0)
     }
@@ -26,7 +26,7 @@ intervalCoverage <- function(interval_list, length, id) {
   }
   lmap(
     interval_list,
-    \(x) tibble(engine = names(x), ProteinId = id, coverage = sumInterval(x[[1]]))
+    \(x) tibble(engine = names(x), ProteinId = id, coverage = sum_interval(x[[1]]))
   ) %>%
     bind_rows() %>%
     pivot_wider(names_from = engine, values_from = coverage)
@@ -62,7 +62,7 @@ standard_search <- combined_results %>% filter(ID_method == "standard")
 engine_stats <- tibble()
 percolator_tibbles <- local({
   getEngine <- function(file) {
-    tb <- tibbleDuplicateAt(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
+    tb <- tb_duplicate_at(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
     filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
       mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
     row <- tibble(
@@ -122,19 +122,19 @@ reticulate::source_python(glue("{M$python_source}/trace_alignments.py"))
 matched_peptides <- select(combined_results, c(ProteinId, MatchedPeptideIds))
 protein_tb <- normal_engine_tbs %>%
   bind_rows() %>%
-  tibbleDuplicateAt(., "peptideIds", " ") %>%
-  mutate(peptideIds = map_chr(peptideIds, cleanPeptide))
+  tb_duplicate_at(., "peptideIds", " ") %>%
+  mutate(peptideIds = map_chr(peptideIds, clean_peptide))
 
 py$tracer <- AlignmentTracer(protein_tb, M$alignments$peptides, matched_peptides)
 # Try to measure the proportion of alignments each engine takes up with its peptides
-traced_intervals <- allIntervals(combined_results$ProteinId)
+traced_intervals <- get_all_intervals(combined_results$ProteinId)
 interval_coverage <- pmap(
   list(traced_intervals, combined_results$length, combined_results$ProteinId),
-  \(x, y, z) intervalCoverage(x, y, z)
+  \(x, y, z) interval_coverage(x, y, z)
 ) %>% bind_rows()
 interval_groups <- pmap(
   list(traced_intervals, combined_results$ProteinId),
-  \(x, y) getIntervalGroups(x, y)
+  \(x, y) get_interval_groups(x, y)
 ) %>%
   bind_rows() %>%
   as_tibble()
@@ -148,8 +148,8 @@ GRAPHS$engine_peptide_coverage <- standard_engine_coverage %>%
   ggplot(aes(y = value, x = name, fill = name)) +
   geom_boxplot() +
   labs(title = "Density of per-engine peptide coverage") +
-  xlab("Coverage (%)") +
-  ylab("Engine name") +
+  ylab("Coverage (%)") +
+  xlab("Engine name") +
   theme(legend.position = "none") +
   scale_fill_paletteer_d(PALETTE)
 
@@ -174,7 +174,7 @@ test_tb <- lapply(
     )
     two_sided$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
     two_sided$alternative <- glue("two sided")
-    bind_rows(htest2Tb(greater), htest2Tb(two_sided))
+    bind_rows(htest2tb(greater), htest2tb(two_sided))
   }
 ) %>% bind_rows()
 test_tb <- test_tb %>%
@@ -189,17 +189,19 @@ TABLES$engine_coverage_pairwise <- gt(test_tb)
 #' Group engines that identify the same peptide groups using Jaccard distance
 enginesXProtein <- peps <- num_peptides_matched %>%
   select(-all_of(open_search_engines)) %>%
-  tbTranspose()
+  tb_transpose()
 
 engine_dist <- vegan::vegdist(enginesXProtein, method = "jaccard")
-pcoa <- vegan::wcmdscale(engine_dist, eig = TRUE)
-jaccard_plot <- pcoa$points %>% ggplot(aes(x = Dim1, y = Dim2, color = rownames(.))) +
-  geom_point(size = 4) +
-  xlab("V1") +
-  ylab("V2") +
-  labs(title = "PCOA of engine similarity (Jaccard distance)", color = "Engine") +
-  scale_color_paletteer_d(PALETTE)
-GRAPHS$engine_sim_jaccard <- jaccard_plot
+dist_longer <- engine_dist |>
+  as.matrix() |>
+  as.data.frame() |>
+  rownames_to_column(var = "engine") |>
+  pivot_longer(cols = -engine)
+GRAPHS$engine_sim_jaccard <- dist_longer |> ggplot(aes(x = engine, y = name, fill = value)) +
+  geom_tile() +
+  ylab("Engine") +
+  xlab("Engine") +
+  scale_fill_paletteer_c("ggthemes::Orange-Gold", name = "Jaccard distance")
 
 
 #' Venn diagram for overlap

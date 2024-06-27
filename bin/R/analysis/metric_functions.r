@@ -2,7 +2,7 @@ JOIN_SUFFIX <- c(".first", ".sec")
 
 
 #' Helper for collecting deep loc results and combining it with additional metadata
-getDeeploc <- function(deeploc_path, unmatched_path) {
+get_deeploc <- function(deeploc_path, unmatched_path) {
   dl <- read_csv(deeploc_path)
   um <- read_tsv(unmatched_path)
   merged <- inner_join(um, dl,
@@ -21,10 +21,10 @@ getDeeploc <- function(deeploc_path, unmatched_path) {
 #' Helper function for collecting all the data from a single run for
 #' comparison
 #'
-runData <- function(prefix, path, remove_dupes = TRUE, which = "both") {
-  passData <- function(pass) {
-    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>% filter(q_adjust < FDR)
-    deeploc <- getDeeploc(
+get_run <- function(prefix, path, remove_dupes = TRUE, which = "both") {
+  get_pass <- function(pass) {
+    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>% filter(q_adjust < M$fdr)
+    deeploc <- get_deeploc(
       glue("{path}/{pass}/Deeploc/deeploc_results.csv"),
       glue("{path}/{pass}/Combined/intersected_searches.tsv")
     )
@@ -35,18 +35,18 @@ runData <- function(prefix, path, remove_dupes = TRUE, which = "both") {
     return(tb)
   }
   if (which == "both") {
-    return(list(first = passData("1-First_pass"), second = passData("2-Second_pass")))
+    return(list(first = get_pass("1-First_pass"), second = get_pass("2-Second_pass")))
   } else if (which == "first" || which == "1-First_pass") {
-    return(passData("1-First_pass"))
+    return(get_pass("1-First_pass"))
   } else {
-    return(passData("2-Second_pass"))
+    return(get_pass("2-Second_pass"))
   }
 }
 
 alignmentData <- function(path, which = "combine") {
   helper <- function(pass) {
     lst <- list(
-      replacements = read_tsv(glue("{path}/{pass}/all_replacements.tsv")),
+      mismatches = read_tsv(glue("{path}/{pass}/all_mismatches.tsv")),
       metrics = read_tsv(glue("{path}/{pass}/alignment_metrics.tsv")),
       peptides = read_tsv(glue("{path}/{pass}/aligned_peptides.tsv"))
     )
@@ -56,7 +56,7 @@ alignmentData <- function(path, which = "combine") {
   if (which == "combine") {
     names <- c("first", "sec")
     result <- list(
-      replacements = tibble(),
+      mismatches = tibble(),
       metrics = tibble(),
       peptides = tibble()
     )
@@ -75,7 +75,7 @@ alignmentData <- function(path, which = "combine") {
 }
 
 
-notMissing <- function(tb) {
+not_missing <- function(tb) {
   colSums(!is.na(tb)) %>%
     purrr::map_dbl(., \(x) {
       x / nrow(tb) * 100
@@ -87,7 +87,7 @@ notMissing <- function(tb) {
 #' Return a tibble of frequencies from the vector `vec`, renaming the first column
 #' with `name`
 #'
-getFreqTb <- function(vec, name) {
+get_freq_tb <- function(vec, name) {
   tb <- vec %>%
     discard(is.na) %>%
     table() %>%
@@ -99,27 +99,10 @@ getFreqTb <- function(vec, name) {
   return(NA)
 }
 
-#' Get the clade at the specified level from an NCBI lineage string
-#' if the level is too specific for the given string, return the most specific clade less than the level
-parseLineage <- function(lineage_str, level) {
-  if (is.na(lineage_str)) {
-    return(NA)
-  }
-  split <- str_split_1(lineage_str, ";")
-  len <- length(split)
-  if (len >= level) {
-    return(split[level])
-  }
-  while (len < level) {
-    level <- level - 1
-  }
-  return(split[level])
-}
-
 #' For a specified `col` of `tb`, where elements are concatenated by a separator
 #' specified with `pattern`, split the elements then return a tibble
 #' of their frequencies. Apply apply `func` to elements if supplied
-splitAndCount <- function(tb, col, pattern, unique_only, func = NULL) {
+split_and_count <- function(tb, col, pattern, unique_only, func = NULL) {
   if (!missing(unique_only) && unique_only) {
     uniq <- TRUE
   } else {
@@ -142,35 +125,32 @@ splitAndCount <- function(tb, col, pattern, unique_only, func = NULL) {
     return(split)
   }) %>%
     unlist()
-  return(getFreqTb(vec, col))
+  return(get_freq_tb(vec, col))
 }
 
 
-removeDigits <- function(x) {
+remove_digits <- function(x) {
   return(gsub("[0-9]+", "", x))
 }
 
 #' Count the frequencies of each element in the columns
 #'
-getCounts <- function(tb) {
+get_counts <- function(tb) {
   data <- list()
-  data$category <- getFreqTb(tb$category, "category")
-  data$organism <- getFreqTb(tb$organism, "organism")
+  data$category <- get_freq_tb(tb$category, "category")
+  data$organism <- get_freq_tb(tb$organism, "organism")
   # TODO: Restore this once you've figured out the error with
   # the columns being logicals
-  # for (col in EGGNOG_COLS) {
+  # for (col in M$eggnog_cols) {
   # if (col in colnames(tb)) {
-  #   data[[col]] <- splitAndCount(tb, col, ";|,")
+  #   data[[col]] <- split_and_count(tb, col, ";|,")
   # }
   # }
-  data$PANTHER <- splitAndCount(tb, "PANTHER", ";")
-  data$go <- goVector(tb, go_column = "GO_IDs") %>% getFreqTb(., "GO")
-  data$matched_peptides <- splitAndCount(tb, "MatchedPeptideIds", ";",
-    func = removeDigits, unique_only = TRUE
+  data$PANTHER <- split_and_count(tb, "PANTHER", ";")
+  data$go <- get_go_vec(tb, go_column = "GO_IDs") %>% get_freq_tb(., "GO")
+  data$matched_peptides <- split_and_count(tb, "MatchedPeptideIds", ";",
+    func = remove_digits, unique_only = TRUE
   )
-  data$lineage <- tb$lineage %>%
-    purrr::map_chr(., \(x) parseLineage(x, 5)) %>%
-    getFreqTb(., "lineage")
   return(data)
 }
 
@@ -178,8 +158,8 @@ getCounts <- function(tb) {
 #'
 #' @description
 #' Returns a long-form tibble containing the data of the first and
-#' second passes from "runData"
-compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
+#' second passes from "get_run"
+compare_first_sec_L <- function(first_sec, compare_col, compare_found, join_on) {
   if (!missing(compare_found) && compare_found) {
     if (missing(join_on)) {
       stop('Missing "join_on" argument')
@@ -209,8 +189,8 @@ compareFirstSecL <- function(first_sec, compare_col, compare_found, join_on) {
 #'
 #' @description
 #' Returns a wide-form tibble containing the data of the first and
-#' second passes from "runData". By necessity, must join pass data
-compareFirstSecW <- function(first_sec, compare_col, join_on, drop_na) {
+#' second passes from "get_run". By necessity, must join pass data
+compare_first_sec_W <- function(first_sec, compare_col, join_on, drop_na) {
   joined <- full_join(first_sec$first,
     first_sec$sec,
     by = join_by(!!join_on),
@@ -227,7 +207,7 @@ compareFirstSecW <- function(first_sec, compare_col, join_on, drop_na) {
 
 #' Filter proteins unique to each pass
 #'
-passUniques <- function(first_sec) {
+get_pass_uniques <- function(first_sec) {
   sec <- first_sec$sec %>%
     filter(!ProteinId %in% first_sec$first$ProteinId)
   first <- first_sec$first %>%
@@ -242,8 +222,8 @@ passUniques <- function(first_sec) {
 #' ptm. Returns...
 #' 1. dataframe of protein ids as the index and ptms as columns
 #' 2. Proportion of each ptm in the given sample
-modMetrics <- function(run_df) {
-  getMetricTb <- function(mod_str) {
+get_mod_metrics <- function(run_df) {
+  get_metric_tb <- function(mod_str) {
     map <- hash::hash()
     str_split_1(mod_str, "\\|") |> lapply(\(x) {
       split <- str_split_1(x, " ")
@@ -258,14 +238,14 @@ modMetrics <- function(run_df) {
   lst <- list()
   df <- has_mods$Mods %>%
     # Store modification info in a map of mod name -> count
-    lapply(., getMetricTb) %>%
+    lapply(., get_metric_tb) %>%
     bind_rows() %>%
     mutate(ProteinId = has_mods$ProteinId) %>%
     relocate(ProteinId, .before = everything()) %>%
     mutate(across(!contains("ProteinId"), as.numeric)) %>%
     column_to_rownames(var = "ProteinId")
   mod_percent <- colSums(df, na.rm = TRUE) / sum(df, na.rm = TRUE) * 100
-  lst$count_df <- df |> replaceNaAll(0)
+  lst$count_df <- df |> replace_na_all(0)
   lst$percentages <- mod_percent
   return(lst)
 }
@@ -273,7 +253,7 @@ modMetrics <- function(run_df) {
 #' Plot the densities of a select column from each pass
 #'
 #' @arg pass_tb a long-form tibble, ideally the output of compareFirstSecond
-passDensityPlot <- function(pass_tb, bw) {
+pass_density_plot <- function(pass_tb, bw) {
   col <- pass_tb %>%
     colnames() %>%
     discard(\(x) x == "pass")
@@ -291,7 +271,7 @@ passDensityPlot <- function(pass_tb, bw) {
 #' @description
 #' Wrapper function for making tests more convenient, needs wide-format
 #' data
-wilcoxWrapper <- function(first_sec, paired, metric) {
+wilcox_wrapper <- function(first_sec, paired, metric) {
   col <- first_sec %>%
     colnames() %>%
     keep(\(x) grepl(".first", x)) %>%
@@ -322,7 +302,7 @@ wilcoxWrapper <- function(first_sec, paired, metric) {
 
 
 #' Wrapper function for performing pairwise tests
-pairwiseFromTb <- function(
+pairwise_tests_tb <- function(
     tb, compare_cols, one_sided_alts, testFun, alpha = 0.05,
     suffixes = c(".first", ".sec")) {
   if (length(compare_cols) != length(one_sided_alts)) {
@@ -365,7 +345,7 @@ pairwiseFromTb <- function(
 #'
 #' @description
 #' @param target the metric to average, either "mean" or "median"
-mergeLfq <- function(tb, target) {
+merge_lfq <- function(tb, target) {
   lfq_cols <- paste0(c("directlfq", "maxlfq", "flashlfq"), "_", target)
   quant <- tb %>% dplyr::select(ProteinId, contains(lfq_cols))
   is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
@@ -384,7 +364,7 @@ mergeLfq <- function(tb, target) {
 #' @description
 #' @param combineFun A function that receives a tibble/df as its only
 #' argument
-mergeLfqCustom <- function(tb, combineFun) {
+merge_lfq_custom <- function(tb, combineFun) {
   quant <- tb %>%
     select(matches("directlfq|flashlfq|maxlfq")) %>%
     select(-matches("mean|median"))
@@ -393,11 +373,11 @@ mergeLfqCustom <- function(tb, combineFun) {
 }
 
 
-replaceNaAll <- function(df, value = 0) {
+replace_na_all <- function(df, value = 0) {
   df %>% mutate_all(~ replace(., is.na(.), value))
 }
 
-minMaxScaler <- function(vec) {
+min_max_scaler <- function(vec) {
   max <- max(vec, na.rm = TRUE)
   min <- min(vec, na.rm = TRUE)
   return(purrr::map_dbl(vec, \(x) (x - min) / (max - min)))
@@ -408,11 +388,11 @@ minMaxScaler <- function(vec) {
 #' in them
 #' 2. A tibble mapping ProteinIds->KEGG Pathways, used to generate 1
 #' Optionally filter pathways that have fewer than the `minimum` proteins
-groupPathways <- function(tb, minimum = 20) {
+group_pathways <- function(tb, minimum = 20) {
   id2pathway <- tb %>%
     filter(!is.na(KEGG_Pathway)) %>%
     dplyr::select(ProteinId, KEGG_Pathway) %>%
-    tibbleDuplicateAt("KEGG_Pathway", "[;,]")
+    tb_duplicate_at("KEGG_Pathway", "[;,]")
   pathway_lists <- id2pathway %>%
     group_by(KEGG_Pathway) %>%
     nest() %>%
@@ -429,7 +409,7 @@ groupPathways <- function(tb, minimum = 20) {
 #' Split and a ProteinGroupId string by the ";", optionally remove the
 #' numbers and leave unique groups
 #'
-splitGroupStr <- function(group_str, remove_nums = FALSE, unique = FALSE) {
+split_group_str <- function(group_str, remove_nums = FALSE, unique = FALSE) {
   if (remove_nums) {
     group_str <- gsub("[0-9]+", "", group_str)
   }
@@ -440,7 +420,7 @@ splitGroupStr <- function(group_str, remove_nums = FALSE, unique = FALSE) {
 
 #' For a nxm contingency table, return a table depicting the expected values used
 #' by the chi square test of independence
-showExpectedChi <- function(table) {
+show_expected_chi <- function(table) {
   mat <- matrix(table, nrow = nrow(table), ncol = ncol(table))
   s <- sum(mat)
   ct <- colSums(mat)
@@ -457,12 +437,17 @@ showExpectedChi <- function(table) {
 }
 
 
-formatEngineContingency <- function(table, category, w_expected = FALSE) {
+format_engine_contingency <- function(table, category, w_expected = FALSE) {
   formatted <- table %>%
     as_tibble(.name_repair = "unique") %>%
     pivot_wider(names_from = `...2`, values_from = n)
   if (!missing(category)) {
-    formatted <- dplyr::mutate(formatted, `...1` = c(glue("not {category}"), glue("is {category}")), .before = dplyr::everything())
+    formatted <- dplyr::mutate(formatted,
+      `...1` = c(
+        glue("not {category}"),
+        glue("is {category}")
+      ), .before = dplyr::everything()
+    )
   } else {
     formatted <- dplyr::mutate(formatted, `...1` = c("FALSE", "TRUE"), .before = dplyr::everything())
   }
@@ -473,8 +458,8 @@ formatEngineContingency <- function(table, category, w_expected = FALSE) {
   if (!w_expected) {
     return(formatted)
   }
-  expected <- formatEngineContingency(
-    showExpectedChi(table),
+  expected <- format_engine_contingency(
+    show_expected_chi(table),
     FALSE
   ) %>%
     mutate(across(is.double, \(x) paste0(" (", round(x, 2), ")")))
@@ -492,12 +477,14 @@ formatEngineContingency <- function(table, category, w_expected = FALSE) {
 #' Not exposed      c       d
 #' The calculated ratio (OR) is then the odds of `Present` is OR times as
 #' high in `Exposed` compared to `Not Exposed`
-oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
+get_odds_ratio <- function(ctable, CI = FALSE, side = "upper") {
   a <- ctable[1, 1]
   d <- ctable[2, 2]
   b <- ctable[1, 2]
   c <- ctable[2, 1]
-  odds_ratio <- (a * d) / (c * b)
+  odds_ratio <- (a * d) / (c * b) # a * d = number of ways of getting exposed P and not exposed A
+  # c * b = number of ways of not exposed P, exposed A
+  # Basically
   if (!CI) {
     return(odds_ratio)
   }
@@ -517,14 +504,14 @@ oddsRatio <- function(ctable, CI = FALSE, side = "upper") {
 #' groups the tibble `tb` by each value, and extracts the all values from a specified
 #' column `target_col`. The result is a named list grouping the values of `target_col`
 #' by `v`
-groupListFromTb <- function(tb, v, col_from, target_col) {
+group_list_from_tb <- function(tb, v, col_from, target_col) {
   list <- lapply(v, \(x) dplyr::filter(tb, !!as.symbol(col_from) == x) %>%
     purrr::pluck(target_col) %>%
     discard(is.na)) %>% `names<-`(v)
   return(list)
 }
 
-avgStdevs <- function(tb, cols, stat) {
+get_avg_sd <- function(tb, cols, stat) {
   result <- vector()
   for (col in cols) {
     result <- c(result, stat(tb[[col]]))
@@ -533,7 +520,7 @@ avgStdevs <- function(tb, cols, stat) {
 }
 
 
-htest2Tb <- function(test) {
+htest2tb <- function(test) {
   row <- tibble(
     null = test$`null.value`,
     alternative = test$alternative,
@@ -558,7 +545,7 @@ htest2Tb <- function(test) {
   row
 }
 
-tbTranspose <- function(tb) {
+tb_transpose <- function(tb) {
   df <- tb %>%
     t() %>%
     as.data.frame()
@@ -567,14 +554,14 @@ tbTranspose <- function(tb) {
 }
 
 
-getPeptideData <- function(peptides) {
+get_peptide_data <- function(peptides) {
   lapply(peptides, \(x) str_split_1(x, ";")) |>
     unlist() |>
     table() |>
-    table2Tb("peptide") |>
+    table2tb("peptide") |>
     arrange(desc(n)) |>
     mutate(
-      length = map_dbl(peptide, \(.) nchar(cleanPeptide(.))),
+      length = map_dbl(peptide, \(.) nchar(clean_peptide(.))),
       modified = ifelse(str_detect(peptide, "\\["), TRUE, FALSE)
     )
 }

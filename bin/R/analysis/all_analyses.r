@@ -63,7 +63,11 @@ M$eggnog_cols <- c(
   "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC",
   "CAZy", "BiGG_Reaction", "PFAMs"
 )
-args <- list(r_source = M$r_source, python_source = M$python_source)
+args <- list(
+  r_source = M$r_source, python_source = M$python_source,
+  go_info = glue("{M$outdir}/all_go_info.tsv"),
+  go_tm_dir = glue("{M$wd}/data/reference/.go_texts")
+)
 
 source(glue("{M$r_source}/helpers.r"))
 source(glue("{M$r_source}/GO_helpers.r"))
@@ -78,24 +82,24 @@ if (!dir.exists(M$outdir)) {
   dir.create(glue("{M$outdir}/figures"))
 }
 
-M$run <- runData("C_indra", M$path)
+M$run <- get_run("C_indra", M$path)
 M$taxa_tb <- read_tsv(glue("{M$path}/{M$chosen_pass}/{M$sample_name}_taxonomy.tsv"))
 M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
 M$alignments <- alignmentData(M$path, M$chosen_pass)
 
 GET_GO <- FALSE
 if (GET_GO) {
-  d <- goData(M$combined_results,
+  d <- get_go_data(M$combined_results,
     onto_path = M$ontologizer_path
   )
   if (!file.exists(glue("{M$outdir}/all_go_info.tsv"))) {
-    goVector(d$sample_tb, go_column = "GO_IDs", unique = TRUE) |>
-      goInfoTb() |>
+    get_go_vec(d$sample_tb, go_column = "GO_IDs", unique = TRUE) |>
+      go_info_tb() |>
       write_tsv(glue("{M$outdir}/all_go_info.tsv"))
   }
   if (!file.exists(glue("{M$outdir}/all_go_slims.tsv"))) {
-    goVector(d$sample_tb, go_column = "GO_slims", unique = TRUE) |>
-      goInfoTb() |>
+    get_go_vec(d$sample_tb, go_column = "GO_slims", unique = TRUE) |>
+      go_info_tb() |>
       write_tsv(glue("{M$outdir}/all_go_slims.tsv"))
   }
 }
@@ -107,8 +111,9 @@ if (!file.exists(sem_matrix_file)) {
 
 PLOT_GO <- FALSE
 if (PLOT_GO) {
+  go_map_ref <- read_tsv(glue("{M$wd}/data/reference/go_map_generic.tsv"))
   source(glue("{M$r_source}/GO_text_mining_helpers.r"))
-  clouds <- specialGoClouds(d$sample_tb)
+  clouds <- specialGoClouds(M$data)
   lapply(names(clouds), \(x) {
     ggsave(glue("{M$outdir}/figures/{x}_go_word_cloud.png"), clouds[[x]], width = 15, height = 15)
   })

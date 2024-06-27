@@ -8,7 +8,7 @@ TABLES <- list()
 
 db <- glue("{M$path}/Databases/decoysWnormal.fasta")
 dbSize <- function(fasta_file) {
-  seqkitStat(fasta_file)$num_seqs[[1]] %>% as.numeric()
+  seqkit_stat(fasta_file)$num_seqs[[1]] %>% as.numeric()
 }
 
 complete_db_size <- dbSize(db)
@@ -48,7 +48,7 @@ SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 ALL_RESULTS <- bind_rows(
   mutate(M$run$first, pass = "first"),
   mutate(M$run$second, pass = "sec")
-) %>% tibbleDuplicateAt(., "MatchedPeptideIds", ";")
+) %>% tb_duplicate_at(., "MatchedPeptideIds", ";")
 KEPT_PROTEINS <- c(ALL_RESULTS$ProteinId, ALL_RESULTS$MatchedPeptideIds)
 ALL_RESULTS <- local({
   expanded <- ALL_RESULTS %>%
@@ -62,9 +62,9 @@ ALL_RESULTS <- local({
 perEngine <- function(engine) {
   engine_results <- list()
   data <- dplyr::bind_rows(
-    tibbleDuplicateAt(first_pass[[engine]], "ProteinId", ",") %>%
+    tb_duplicate_at(first_pass[[engine]], "ProteinId", ",") %>%
       mutate(., pass = "first"),
-    tibbleDuplicateAt(sec_pass[[engine]], "ProteinId", ",") %>%
+    tb_duplicate_at(sec_pass[[engine]], "ProteinId", ",") %>%
       mutate(., pass = "sec"),
   ) %>%
     inner_join(., SEQ_MAP, by = join_by(x$ProteinId == y$id))
@@ -101,17 +101,17 @@ perEngine <- function(engine) {
   # Run pairwise tests and get summary statistics to check
   # if the second pass performed better than the first
   to_test <- c("num_peps", "q-value", "posterior_error_prob")
-  engine_results$pairwise_tests <- pairwiseFromTb(
+  engine_results$pairwise_tests <- pairwise_tests_tb(
     found_in_both, to_test, c("less", "greater", "greater"),
     \(x, y, ...) wilcox.test(x, y, paired = TRUE, ...)
   )
-  tab <- table(data$from, data$pass) %>% table2Df()
+  tab <- table(data$from, data$pass) %>% table2df()
   chi <- chisq.test(tab)
   # Check if the distribution of protein types identified differs between
   # runs. It shouldn't, because the second should only identify proteins in the
   # first
   chi$data.name <- "Frequency of proteins from different sources"
-  chi <- htest2Tb(chi)
+  chi <- htest2tb(chi)
 
   kept_data <- data %>% filter(ProteinId %in% KEPT_PROTEINS)
   merged <- inner_join(kept_data, ALL_RESULTS, by = join_by(ProteinId)) %>%
@@ -123,9 +123,9 @@ perEngine <- function(engine) {
     sources,
     \(x) {
       table <- table(data$from != x, data$lost_in_sec)
-      or <- table %>% oddsRatio()
-      upper <- table %>% oddsRatio(CI = TRUE)
-      lower <- table %>% oddsRatio(CI = TRUE, side = "lower")
+      or <- table %>% get_odds_ratio()
+      upper <- table %>% get_odds_ratio(CI = TRUE)
+      lower <- table %>% get_odds_ratio(CI = TRUE, side = "lower")
       tibble(source = x, odds_ratio = or, CI_lower = lower, CI_upper = upper)
     }
   ) %>%
@@ -146,7 +146,7 @@ perEngine <- function(engine) {
   test <- wilcox.test(lengths_lost, lengths_kept)
   test$data.name <- "Lengths of proteins lost in second pass vs lengths of those retained"
   p <- test$`p.value`
-  test <- htest2Tb(test)
+  test <- htest2tb(test)
   if (p < 0.05) {
     t2 <- wilcox.test(lengths_lost, lengths_kept, alternative = "less")
     t2$data.name <- "Lengths of proteins lost in second pass vs lengths of those retained"
@@ -157,7 +157,7 @@ perEngine <- function(engine) {
       t2$data.name <- "Lengths of proteins lost in second pass vs lengths of those retained"
       t2$alternative <- "Lengths of lost proteins greater than kept"
     }
-    test <- bind_rows(test, htest2Tb(t2))
+    test <- bind_rows(test, htest2tb(t2))
   }
   engine_results$htests <- bind_rows(chi, test)
   return(engine_results)

@@ -38,7 +38,7 @@ trustworthiness <- function(X, X_embedded, precomputed = FALSE) {
 
 #' The percentage of variance explained from PCoA
 #'
-pcoaPerExplained <- function(wcmdscale_obj) {
+pcoa_per_explained <- function(wcmdscale_obj) {
   pe <- 100 * (wcmdscale_obj$eig / sum(wcmdscale_obj$eig))
   return(tibble(
     PCo = seq(pe),
@@ -48,7 +48,7 @@ pcoaPerExplained <- function(wcmdscale_obj) {
 }
 
 
-pcaVarExplained <- function(prcomp_obj) {
+pca_var_explained <- function(prcomp_obj) {
   vars <- (prcomp_obj$sdev^2 / sum(prcomp_obj$sdev^2))
   return(tibble(
     PC = seq(vars),
@@ -57,7 +57,7 @@ pcaVarExplained <- function(prcomp_obj) {
   ))
 }
 
-biplotCustom <- function(ordination_tb, colour_column, x, y, palette, labels) {
+biplot_custom <- function(ordination_tb, colour_column, x, y, palette, labels) {
   # Convenience function for plotting ordination results
   if (missing(x) || missing(y)) {
     y <- "PC1"
@@ -153,27 +153,27 @@ PARAMS$metric <- "cosine"
   return(result)
 }
 
-simToDist <- function(matrix) {
-  max_sim <- max(matrix)
-  matrix <- max_sim - matrix
-  return(matrix)
-}
+## simToDist <- function(matrix) {
+##   max_sim <- max(matrix)
+##   matrix <- max_sim - matrix
+##   return(matrix)
+## }
 
-filterDistMatrix <- function(matrix, labels_to_keep) {
-  colnames(matrix) <- rownames(matrix)
-  matrix <- matrix[
-    rownames(matrix) %in% labels_to_keep,
-    colnames(matrix) %in% labels_to_keep
-  ]
-  return(matrix)
-}
+## filterDistMatrix <- function(matrix, labels_to_keep) {
+##   colnames(matrix) <- rownames(matrix)
+##   matrix <- matrix[
+##     rownames(matrix) %in% labels_to_keep,
+##     colnames(matrix) %in% labels_to_keep
+##   ]
+##   return(matrix)
+## }
 
 `_pca` <- function(data) {
   data <- purrr::pluck(data, "embd")
   results <- list()
   results$prcomp <- prcomp(data)
   rownames(results$prcomp$x) <- rownames(data)
-  results$ve <- pcaVarExplained(results$prcomp)
+  results$ve <- pca_var_explained(results$prcomp)
   return(results)
 }
 
@@ -185,7 +185,7 @@ filterDistMatrix <- function(matrix, labels_to_keep) {
   }
   pcoa <- vegan::wcmdscale(dist, eig = TRUE, add = TRUE)
   rownames(pcoa$points) <- rownames(dist)
-  pcoa$pe <- pcoaPerExplained(pcoa)
+  pcoa$pe <- pcoa_per_explained(pcoa)
   return(pcoa)
 }
 
@@ -201,7 +201,7 @@ filterDistMatrix <- function(matrix, labels_to_keep) {
 #' @param dr_data - a list containing the data to apply DR to,
 #' (labelled "data"), the tibble to join on for coloring ("tb"),
 #' and the columns to color on ("color")
-drWrapper <- function(dr_data, join_on, outdir, name, technique) {
+dr_wrapper <- function(dr_data, join_on, outdir, name, technique) {
   if (!file.exists(outdir)) {
     dir.create(outdir, recursive = TRUE)
   }
@@ -259,32 +259,14 @@ drWrapper <- function(dr_data, join_on, outdir, name, technique) {
 
 #' Compute the distance of all rows in a matrix against one vector
 #'
-#' @description
-#' Uses the function specified by "dist_func"
-distRows <- function(query, matrix, dist_func) {
-  distances <- map(rownames(matrix), \(x) dist_func(matrix[x, ], query)) %>%
-    `names<-`(rownames(matrix)) %>%
-    unlist()
-  return(distances)
-}
-
-
-#' Proof of data reconstruction by PCA
-#'
-#' @description
-#' Attempt to reconstruct original data from the pcs
-pcaReconstruct <- function(prcomp_obj, num_pcs) {
-  if (!missing(num_pcs)) {
-    xhat <- prcomp_obj$x[, 1:num_pcs] %*% t(prcomp_obj$rotation[, 1:num_pcs])
-  } else {
-    xhat <- prcomp_obj$x %*% t(prcomp_obj$rotation)
-  }
-  if (prcomp_obj$scale) {
-    xhat <- scale(xhat, center = FALSE, scale = 1 / prcomp_obj$scale)
-  }
-  xhat <- scale(xhat, center = -prcomp_obj$center, scale = FALSE)
-  return(xhat)
-}
+## #' @description
+## #' Uses the function specified by "dist_func"
+## distRows <- function(query, matrix, dist_func) {
+##   distances <- map(rownames(matrix), \(x) dist_func(matrix[x, ], query)) %>%
+##     `names<-`(rownames(matrix)) %>%
+##     unlist()
+##   return(distances)
+## }
 
 
 #' Plot dimensionality reduction results
@@ -293,7 +275,7 @@ pcaReconstruct <- function(prcomp_obj, num_pcs) {
 #' Generic function for plotting dimensionality
 #' reduction results, highlighting on specific column
 #' Generates both 3d and 2d plots
-plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
+plot_dr <- function(to_plot, color_col, path, technique, labels, twod, unwanted = NULL) {
   if (!file.exists(path)) {
     dir.create(path, recursive = TRUE)
   }
@@ -305,13 +287,16 @@ plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
   caption_str <- ifelse(labels$caption == "", "",
     glue("-{gsub(' ', '_', labels$caption)}")
   )
+  if (!is.null(unwanted)) {
+    to_plot <- to_plot |> filter(!(!!as.symbol(color_col) %in% unwanted))
+  }
   if (twod) {
-    biplot <- biplotCustom(to_plot,
+    biplot <- biplot_custom(to_plot,
       x = glue("{prefix}1"), y = glue("{prefix}2"),
       colour_column = color_col,
       labels = labels
     )
-    mySaveFig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
+    my_save_fig(biplot, glue("{path}/{technique}_biplot-{color_col}{caption_str}.png"))
   } else {
     v1 <- to_plot[[glue("{prefix}1")]]
     v2 <- to_plot[[glue("{prefix}2")]]
@@ -322,12 +307,12 @@ plotDr <- function(to_plot, color_col, path, technique, labels, twod) {
       z = v3, color = ~ base::get(color_col),
       type = "scatter3d",
       marker = list(size = 5)
-    ) %>% mySaveFig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
+    ) %>% my_save_fig(., glue("{path}/{technique}_3d-{color_col}{caption_str}.html"))
   }
   return(biplot)
 }
 
-labelGen <- function(analysis_name, sample_name, caption) {
+label_gen <- function(analysis_name, sample_name, caption) {
   return(list(
     title = glue("{analysis_name} of {sample_name}"),
     caption = caption

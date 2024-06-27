@@ -15,8 +15,8 @@ UNIQUE_MODS <- M$run$first$Mods %>%
   unique() %>%
   discard(\(x) grepl("0$", x))
 
-ptms_first <- modMetrics(M$run$first)
-ptms_sec <- modMetrics(M$run$sec)
+ptms_first <- get_mod_metrics(M$run$first)
+ptms_sec <- get_mod_metrics(M$run$sec)
 ptm_percent_diff <- abs(ptms_sec$percentages - ptms_first$percentages)
 
 
@@ -41,7 +41,7 @@ tb <- M$run$first
 chi <- tb %>%
   filter(category != "other") %>%
   select(ProteinId, category) %>%
-  left_join(., df2Tb(ptms_first$count_df, "ProteinId")) %>%
+  left_join(., df2tb(ptms_first$count_df, "ProteinId")) %>%
   mutate(across(is.double, \(x) ifelse(is.na(x), FALSE, TRUE)))
 
 no_mods <- chi %>%

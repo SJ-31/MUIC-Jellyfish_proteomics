@@ -135,10 +135,20 @@ fix <- function(filename, fix) {
     # Properly get organisms from header
     write_tsv(getOrganism(tb), file = filename)
   }
+  if (fix == "group_unique_peps") {
+    # 2024-06-23 Added a new, simpler method of grouping proteins
+    # Just by their unique peptides
+    source("./bin/R/helpers.r")
+    groupByUniquePeptides(tb) |> write_tsv(file = filename)
+  }
+  if (fix == "mismatch") {
+    rename(tb, n_mismatches = n_replacements) |> write_tsv(file = filename)
+  }
 }
 
-files <- filesToFix("C_indra_all.*")
 
 applyFixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
+
+files <- filesToFix("*alignment_metrics")

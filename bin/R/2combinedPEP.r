@@ -12,7 +12,7 @@ read_psms <- function(file, is_decoy) {
     select(c(score, `q-value`, posterior_error_prob, peptide)) %>%
     rename(PEP = posterior_error_prob) %>%
     mutate("Is_decoy" = is_decoy) %>%
-    mutate(peptide = unlist(lapply(peptide, cleanPeptide)))
+    mutate(peptide = unlist(lapply(peptide, clean_peptide)))
   return(t)
 }
 
@@ -29,7 +29,7 @@ read_tide <- function(file, is_decoy) {
       PEP = "percolator PEP", peptide = "sequence"
     ))) %>%
     mutate("Is_decoy" = is_decoy) %>%
-    mutate(peptide = unlist(lapply(peptide, cleanPeptide)))
+    mutate(peptide = unlist(lapply(peptide, clean_peptide)))
   return(t)
 }
 

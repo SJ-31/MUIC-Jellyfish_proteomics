@@ -15,20 +15,20 @@ TABLES <- list()
 #' be identified by at least two standard engines (only one in open search)
 
 
-num_peps <- compareFirstSecW(M$run, "num_peps", "ProteinId", TRUE)
+num_peps <- compare_first_sec_W(M$run, "num_peps", "ProteinId", TRUE)
 tb <- M$data
 num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
   mutate(engine_count = purrr::map_dbl(ProteinGroupId, \(x) {
-    x <- splitGroupStr(x, TRUE, TRUE) %>%
+    x <- split_group_str(x, TRUE, TRUE) %>%
       discard(\(x) x == "U")
     return(length(x))
   }))
 
 # Figure out which engines had the biggest contributions
 engine_counts <- num_ids$ProteinGroupId %>%
-  lapply(., \(x) splitGroupStr(x, TRUE)) %>%
+  lapply(., \(x) split_group_str(x, TRUE)) %>%
   unlist() %>%
   discard(\(x) x == "U") %>%
   table()
@@ -37,7 +37,7 @@ compare_col <- "GO_category_MF"
 engine_hits <- tb %>%
   select(ProteinId, ProteinGroupId) %>%
   apply(1, \(x) {
-    groups <- splitGroupStr(
+    groups <- split_group_str(
       x["ProteinGroupId"],
       TRUE, TRUE
     )
@@ -48,7 +48,7 @@ engine_hits <- tb %>%
     return(row)
   }) %>%
   bind_rows() %>%
-  replaceNaAll(., FALSE)
+  replace_na_all(., FALSE)
 hits <- engine_hits
 
 # Collapse the contingency table
@@ -68,7 +68,7 @@ current <- "comet"
 tl <- table(engine_hits[[compare_col]], engine_hits[[current]])
 ct <- "protein binding"
 show_contigency <- table(engine_hits[[compare_col]] == ct, engine_hits[[current]])
-expected <- formatEngineContingency(show_contigency, ct, TRUE)
+expected <- format_engine_contingency(show_contigency, ct, TRUE)
 expected %>%
   gt() %>%
   tab_header(
@@ -109,9 +109,9 @@ odds_ratios <- engine_chi %>%
     c <- x["category"]
     table <- engine_table_list[[e]][[c]]
     try({
-      odds_ratio <- oddsRatio(table)
-      odds_ratio_ci_u <- oddsRatio(table, TRUE, "upper")
-      odds_ratio_ci_l <- oddsRatio(table, TRUE, "lower")
+      odds_ratio <- get_odds_ratio(table)
+      odds_ratio_ci_u <- get_odds_ratio(table, TRUE, "upper")
+      odds_ratio_ci_l <- get_odds_ratio(table, TRUE, "lower")
       row <- tibble(
         OR = odds_ratio,
         OR_upper_ci = odds_ratio_ci_u,
@@ -148,7 +148,7 @@ for (e in names(engine_table_list)) {
   temp_lst <- list()
   remove_col_label <- FALSE
   for (ct in names(e_list)) {
-    tib <- formatEngineContingency(e_list[[ct]], w_expected = TRUE)
+    tib <- format_engine_contingency(e_list[[ct]], w_expected = TRUE)
     if (remove_cat) {
       tib <- dplyr::select(tib, -category)
     }
@@ -181,12 +181,12 @@ engine_cor$data.name <- "Correlation between number of identifications by differ
 # Correlation between peptide number and coverage
 n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch)
 engine_cor$data.name <- "Correlation between number of identified peptides and coverage"
-TABLES$correlation <- gt(bind_rows(htest2Tb(engine_cor), htest2Tb(n_peps_cor)))
+TABLES$correlation <- gt(bind_rows(htest2tb(engine_cor), htest2tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
 
 
 
-intensity <- mergeLfq(tb, "mean") %>%
+intensity <- merge_lfq(tb, "mean") %>%
   filter(!is.na(log_intensity)) |>
   select(ProteinId, log_intensity)
 intensity$intensity_class <- map_chr(intensity$log_intensity, \(x) {

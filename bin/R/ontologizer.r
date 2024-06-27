@@ -14,7 +14,7 @@ main <- function(args) {
   reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
   combined <- read_tsv(args$input)
 
-  O <- reticulateShowError(ont$Ontologizer(combined, args$executable, args$go_path))
+  O <- reticulate_show_error(ont$Ontologizer(combined, args$executable, args$go_path))
   groups <- list()
   groups[["id_with_open"]] <- dplyr::filter(combined, ID_method == "open" |
     ID_method == "both") |> pluck("ProteinId")
@@ -35,20 +35,20 @@ getSlims <- function(args) {
   # Must also report the number of terms that couldn't be slimmed
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/helpers.r"))
-  ontologizer <- ontoResults(args$results_path)
+  ontologizer <- get_ontologizer(args$results_path)
   ont_vectors <- ontologizer %>% discard(\(x) any(str_detect("data.frame", class(x))))
   ont_slims <- sapply(names(ont_vectors), \(.) NULL)
   ont_vectors <- ont_vectors %>% lapply(., \(x) x[1:1000])
   for (group in names(ont_vectors)) {
     all_slims <- lapply(names(ont_vectors[[group]]), \(x) {
-      slims <- getGoSlim(x, args$go_path, args$go_slim_path)
+      slims <- get_go_slim(x, args$go_path, args$go_slim_path)
       return(slims)
     }) %>% unlist()
     ont_slims[[group]] <- all_slims %>%
       unique() %>%
       discard(is.na)
-    unknown_to_db <- goInfoTb(ont_slims$unknown_to_db_GO)
-    id_with_open <- goInfoTb(ont_slims$id_with_open_GO)
+    unknown_to_db <- go_info_tb(ont_slims$unknown_to_db_GO)
+    id_with_open <- go_info_tb(ont_slims$id_with_open_GO)
     write_tsv(unknown_to_db, "unknown_to_db_GO_slims.tsv")
     write_tsv(id_with_open, "id_with_open_GO_slims.tsv")
   }
@@ -61,7 +61,7 @@ wordClouds <- function(args) {
     lg
   }
   prep <- function(tb, go_vec) {
-    info_tb <- goInfoTb(go_vec)
+    info_tb <- go_info_tb(go_vec)
     tb <- tb %>%
       mutate(sorted_p = transformP(`p.adjusted`)) %>%
       inner_join(., info_tb, by = join_by(x$ID == y$GO_IDs))
@@ -70,7 +70,7 @@ wordClouds <- function(args) {
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/GO_text_mining_helpers.r"))
   source(glue("{args$r_source}/helpers.r"))
-  results <- ontoResults(args$results_path)
+  results <- get_ontologizer(args$results_path)
   params <- list(
     term_col = "name", sort_by = "sorted_p", compound = FALSE,
     color_col = "ontology", shape = "circle", word_size = "sorted_p"

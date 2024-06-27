@@ -3,7 +3,7 @@ library("glue")
 library("hash")
 library("tidyverse")
 
-getDeeploc <- function(deeploc_path, unmatched_path) {
+get_deeploc <- function(deeploc_path, unmatched_path) {
   dl <- read_csv(deeploc_path)
   um <- read_tsv(unmatched_path)
   merged <- inner_join(um, dl,
@@ -45,7 +45,7 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-u", "--unmatched"), type = "character", action = "store")
   parser <- add_option(parser, c("-o", "--output"), type = "character", action = "store")
   args <- parse_args(parser)
-  deeploc <- getDeeploc(args$deeploc, args$unmatched) |>
+  deeploc <- get_deeploc(args$deeploc, args$unmatched) |>
     mutate(GO_IDs = map_chr(localization, localization2go)) |>
     select(-localization)
   data <- read_tsv(args$main_results) |> bind_rows(deeploc)

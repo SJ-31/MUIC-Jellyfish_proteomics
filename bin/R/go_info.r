@@ -17,9 +17,9 @@ if (sys.nframe() == 0) {
   source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/GO_helpers.r"))
   if (args$mode == "info") {
-    d <- goData(args$input)
-    goVector(d$sample_tb, go_column = "GO_IDs", unique = TRUE) |>
-      goInfoTb() |>
+    d <- get_go_data(args$input)
+    get_go_vec(d$sample_tb, go_column = "GO_IDs", unique = TRUE) |>
+      go_info_tb() |>
       write_tsv(glue("{args$outdir}/all_go_info.tsv"))
   } else if (args$mode == "get_parents") {
     reticulate::source_python(glue("{args$python_source}/go_subset.py"))

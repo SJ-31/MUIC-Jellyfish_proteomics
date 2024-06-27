@@ -72,11 +72,11 @@ embeddingData <- function(
   py_embd$cosine <- as.matrix(py_embd$cosine)
   data <- read_tsv(combined_results) %>%
     distinct(ProteinId, .keep_all = TRUE) %>%
-    mutate(Taxon = sample_name) %>%
     filter(ProteinId %in% rownames(py_embd$embeddings))
   if (!missing(comparison_meta)) {
     comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
     data <- bind_rows(data, comp_meta) %>%
+      mutate(Taxon = sample_name) %>%
       select(c(ProteinId, Taxon)) %>%
       filter(ProteinId %in% rownames(py_embd$embeddings))
     color <- "Taxon"
@@ -118,20 +118,20 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   args <- parse_args(parser)
   source(glue("{args$r_source}/GO_helpers.r"))
   if (args$go_only) {
-    d <- goData(args$sample_tsv)
+    d <- get_go_data(args$sample_tsv)
     gos <- a2vGetGOEmbd(d$go_vec$sample)
     reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
     names <- rownames(gos)
     writeDistances(gos, names, args$dist_output)
     writeEmbeddingsHDF5(args$embd_output, names, as.matrix(gos))
   } else if (is.null(args$comparison_embd)) {
-    d <- goData(args$sample_tsv)
+    d <- get_go_data(args$sample_tsv)
     combineGOEmbd(args$embd_output, d$go_vec$sample, d$prot_go_map$sample, args$dist_output)
   } else {
     # If compare, filter only proteins of interest
     id_col <- "ProteinId"
     reticulate::source_python(glue::glue("{args$python_source}/get_distances.py"))
-    d <- goData(args$sample_tsv,
+    d <- get_go_data(args$sample_tsv,
       uniprot_tsv = args$uniprot_tsv,
       sample_name = args$sample_name
     )
@@ -147,9 +147,9 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
       adjustProteinNumbers(nrow(sample_meta), .)
 
     combined <- comparison_embd %>%
-      df2Tb(., id_col) %>%
+      df2tb(., id_col) %>%
       filter(ProteinId %in% comparison_meta$ProteinId) %>%
-      bind_rows(., df2Tb(sample_embd, id_col))
+      bind_rows(., df2tb(sample_embd, id_col))
 
     names <- combined$ProteinId
     embd <- column_to_rownames(., id_col)

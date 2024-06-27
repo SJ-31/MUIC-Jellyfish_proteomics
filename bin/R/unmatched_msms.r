@@ -47,7 +47,7 @@ group_files <- function(file_list, type, selection, distinct_var) {
       changed <- read_csv(x) %>%
         select(all_of(selection)) %>%
         filter(Is_decoy == FALSE) %>%
-        mutate(peptide = unlist(lapply(peptide, cleanPeptide)))
+        mutate(peptide = unlist(lapply(peptide, clean_peptide)))
       return(changed)
     })
   } else {

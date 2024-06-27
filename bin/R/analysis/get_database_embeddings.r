@@ -12,7 +12,7 @@ if (sys.nframe() == 0) {
 }
 source(glue("{args$r_source}/GO_helpers.r"))
 source(glue("{args$r_source}/DR_helpers.r"))
-u <- getUniprotData(args$uniprot_data)
+u <- get_uniprot(args$uniprot_data)
 
 # Obtain embeddings from python
 py$wanted_gos <- u$go_vec
@@ -23,7 +23,7 @@ all_embd_go <- py$loadEmbeddings(
 ) %>%
   as_tibble() %>%
   t() %>%
-  m2Tb(., first_col = "GO_IDs")
+  m2tb(., first_col = "GO_IDs")
 
 all_embd_prot_sum <- goEmbedding2Prot(u$map, all_embd_go, sum)
 all_embd_prot_mean <- goEmbedding2Prot(u$map, all_embd_go, mean)
