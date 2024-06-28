@@ -10,9 +10,8 @@ nextflow_process {
             params {
                 pref = "C_indra"
                 pass = "1-First_pass"
-                // pass = "2-Second_pass"
-
                 combined = "$baseDir/tests/toy_sample.tsv"
+
                 outdir = "$baseDir/tests/nf-test-out/coverage_merge"
                 // outdir = "tests/results"
             }
@@ -20,7 +19,9 @@ nextflow_process {
                 """
                 // define inputs of the process here. Example:
                 input[0] = Channel.fromPath(params.combined)
-                input[1] = params.outdir
+                input[1] = Channel.fromPath("$baseDir/results/C_indra/1-First_pass/seq-header_map_found.tsv")
+                input[2] = Channel.fromPath("$baseDir/results/C_indra/1-First_pass/percolator_peptide_map.tsv")
+                input[3] = params.outdir
                 """
             }
         }

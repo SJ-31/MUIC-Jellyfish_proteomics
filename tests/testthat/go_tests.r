@@ -57,42 +57,47 @@ id_with_open <- d$ontologizer$id_with_open_GO
 dist <- e$cosine
 
 
-e$metadata <- mergeClusters(clusters, e$metadata, "ProteinId")
-
-e$metadata %>% colnames()
-nested <- e$metadata %>%
-  group_by(cluster) %>%
-  nest() %>%
-  mutate(
-    size = map_dbl(data, \(x) nrow(x)),
-    GO_slims = lapply(
-      data,
-      \(x) goVector(x, go_column = "GO_slims", unique = TRUE)
-    ),
-    GO_slim_counts = map_dbl(GO_slims, \(x) length(x)),
-    GO_IDs = lapply(
-      data,
-      \(x) goVector(x, go_column = "GO_IDs", unique = TRUE)
-    ),
-    GO_counts = map_dbl(GO_IDs, \(x) length(x))
-  ) %>%
-  arrange(desc(size)) %>%
-  filter(size >= 10)
-
-slims <- nested$GO_slims %>%
-  lapply(., idsIntoOntology) %>%
-  purrr::reduce(., mergeLists)
-slim_tb <- nested %>%
-  select(cluster, size) %>%
-  ungroup() %>%
-  mutate(
-    cluster = as.vector(cluster),
-    slim_CC = slims$CC,
-    slim_BP = slims$BP,
-    slim_MF = slims$MF
-  ) %>%
-  mutate(across(contains("slim_"), \(x) dplyr::na_if(x, "")))
-
 
 nested$KEGG_Pathway <- associatedPathways(e$metadata, nested)
 nested %>% filter(!is.na(KEGG_Pathway))
+
+
+# Maybe plot kegg pathways???
+
+chosen <- "ko00512"
+sample_tb <- pathway_tbs[[chosen]]
+sample <- pathway_graphs[[chosen]]
+sample |>
+  activate(edges) |>
+  as_tibble() |>
+  View()
+
+ggraph(sample, layout = "fr") +
+  geom_edge_diagonal(aes(color = subtype_name)) +
+  geom_node_point(aes(filter = !type %in% c("map", "compound")))
+
+gg <- ggraph(sample, layout = "kk")
+gg + geom_edge_link(
+  aes(
+    color = subtype_name,
+  )
+) +
+  geom_node_point(
+    aes(filter = !type %in% c("map", "compound")),
+    fill = gg$data[!gg$data$type %in% c("map", "compound"), ]$bgcolor,
+    color = "black",
+    shape = 21, size = 4
+  ) +
+  geom_node_point(
+    aes(filter = !type %in% c("map", "gene")),
+    fill = gg$data[!gg$data$type %in% c("map", "gene"), ]$bgcolor,
+    color = "black",
+    shape = 21, size = 6
+  ) +
+  geom_node_text(
+    aes(
+      label = name,
+    ),
+    repel = TRUE,
+    bg.colour = "white"
+  )
