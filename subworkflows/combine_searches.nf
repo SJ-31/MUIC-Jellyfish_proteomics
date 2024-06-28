@@ -9,6 +9,7 @@ include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { MERGE_OPEN } from '../modules/merge_open'
 include { CLUSTER_UNMATCHED } from '../modules/cluster_unmatched'
+include { COMBINE_PERCOLATOR } from '../modules/combine_percolator'
 include { COVERAGE_CALC; COVERAGE_SPLIT; COVERAGE_MERGE } from '../modules/coverage'
 include { INTERPROSCAN; SORT_INTERPRO } from '../modules/interpro'
 include { EGGNOG; SORT_EGGNOG } from '../modules/eggnog'
@@ -87,6 +88,9 @@ workflow 'combine_searches' {
     COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
                 interpro_matched, directlfq, flashlfq, maxlfq,
                 "$outdir", "$outdir/Logs")
+    COMBINE_PERCOLATOR(prot2intersect, COMBINE_ALL.out.all,
+                        seq_header_mappings, unmatched_pep_tsv,
+                        "$outdir")
     unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
     // Key for "ProteinId" column:
     // P = protein from downloaded database
@@ -95,7 +99,10 @@ workflow 'combine_searches' {
     // U = peptide that was not matched to a protein
 
     COVERAGE_SPLIT(COMBINE_ALL.out.all)
-    COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(), "$outdir")
+    COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(),
+        COMBINE_PERCOLATOR.out.seq_map.first(),
+        COMBINE_PERCOLATOR.out.peptide_map.first(),
+        "$outdir")
     COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
 
     // Will not run if all proteins were matched
