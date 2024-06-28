@@ -55,12 +55,12 @@ merged <- bind_rows(
 
 GRAPHS$peptides_vs_mismatches <- ggplot(merged, aes(
   x = num_unique_peps, y = n_mismatches,
-  color = mode, alpha = n_conflicts / n_mismatches
+  color = mode, alpha = n_disagreements / n_mismatches
 )) +
   geom_point() +
   xlab("Number of unique peptides") +
   ylab("n mismatches") +
-  labs(alpha = "n conflicts / n mismatches") +
+  labs(alpha = "n disagreements / n mismatches") +
   scale_color_paletteer_d(PALETTE)
 
 test <- cor.test(merged$n_mismatches, merged$num_unique_peps) |>

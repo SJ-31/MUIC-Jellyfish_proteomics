@@ -28,7 +28,7 @@ AAs = {
 }
 
 
-def recordReplacement(
+def record_mismatch(
     protein_id: str, old: str, new: str, index: int
 ) -> pd.DataFrame:
     temp = {"ProteinId": [], "change": [], "type": [], "index": []}
@@ -40,27 +40,27 @@ def recordReplacement(
     return row
 
 
-def recordAlignment(header: str, seq, alignment) -> tuple:
+def record_alignment(header: str, seq, alignment) -> tuple:
     protein_id = header[: header.find(":")]
     header = header[header.find(":") + 1 :]
     length = len(seq)
     matches: int = length
-    n_replacements = 0
+    n_mismatches = 0
     i: int = 0
-    replacements = pd.DataFrame()
+    mismatches = pd.DataFrame()
     while i < length:
         old: str = seq[i]
         new: str = alignment[i]
         if new == "[":
             indices = (i + 1, alignment[i:].find("]") + i)
-            possible_replacements = alignment[indices[0] : indices[1]]
-            n_replacements += 1
-            for r in possible_replacements:
+            possible_mismatches = alignment[indices[0] : indices[1]]
+            n_mismatches += 1
+            for r in possible_mismatches:
                 if old != r:
-                    replacements = pd.concat(
+                    mismatches = pd.concat(
                         [
-                            replacements,
-                            recordReplacement(protein_id, old, r, i),
+                            mismatches,
+                            record_mismatch(protein_id, old, r, i),
                         ]
                     )
             alignment = (
@@ -69,32 +69,32 @@ def recordAlignment(header: str, seq, alignment) -> tuple:
         elif new == "-":
             matches -= 1
         elif old != new:
-            replacements = pd.concat(
-                [replacements, recordReplacement(protein_id, old, new, i)]
+            mismatches = pd.concat(
+                [mismatches, record_mismatch(protein_id, old, new, i)]
             )
-            n_replacements += 1
+            n_mismatches += 1
         i += 1
     metrics = {
         "ProteinId": protein_id,
         "header": header,
-        "n_replacements": n_replacements,
+        "n_mismatches": n_mismatches,
         "pcoverage_nmatch": matches / length,
     }
-    return replacements, pd.DataFrame(metrics, index=[0])
+    return mismatches, pd.DataFrame(metrics, index=[0])
 
 
-def parseAlignmentFile(file) -> tuple:
+def parse_alignment_file(file) -> tuple:
     lines = SeqIO.parse(file, "fasta")
     metric_df = pd.DataFrame()
-    replacement_df = pd.DataFrame()
+    mismatch_df = pd.DataFrame()
     for l in lines:
         header, seq = l.id, l.seq
         if "ALIGNED" not in header:
             alignment = next(lines)
-            result = recordAlignment(header, seq, alignment.seq)
-            replacement_df = pd.concat([replacement_df, result[0]])
+            result = record_alignment(header, seq, alignment.seq)
+            mismatch_df = pd.concat([mismatch_df, result[0]])
             metric_df = pd.concat([metric_df, result[1]])
-    return metric_df, replacement_df
+    return metric_df, mismatch_df
 
 
 def parse_args():
@@ -102,7 +102,7 @@ def parse_args():
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input")
-    parser.add_argument("-r", "--replacement_tsv")
+    parser.add_argument("-r", "--mismatch_tsv")
     parser.add_argument("-m", "--metric_tsv")
     args = vars(parser.parse_args())  # convert to dict
     return args
@@ -110,6 +110,6 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    m, r = parseAlignmentFile(args["input"])
-    r.to_csv(args["replacement_tsv"], index=False, sep="\t")
+    m, r = parse_alignment_file(args["input"])
+    r.to_csv(args["mismatch_tsv"], index=False, sep="\t")
     m.to_csv(args["metric_tsv"], index=False, sep="\t")
