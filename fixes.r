@@ -50,14 +50,7 @@ cleanDuplicateIds <- function(tb) {
   return(tb)
 }
 
-fixSep <- function(tb) {
-  fixed <- tb %>% mutate(GO = map_chr(
-    GOs,
-    \(x) str_replace_all(x, ",", ";")
-  ))
-}
-
-filesToFix <- function(pattern) {
+get_to_fix <- function(pattern) {
   if (str_detect(getwd(), "Bio_SDD")) {
     wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
   } else {
@@ -130,10 +123,11 @@ fix <- function(filename, fix) {
   }
   if (fix == "organism_header") {
     library("glue")
-    source("./bin/R/combine_all.r")
+    source("./bin/R/helpers.r")
     # Friday 2024-06-14
     # Properly get organisms from header
-    write_tsv(getOrganism(tb), file = filename)
+    tb <- get_organism(tb)
+    write_tsv(tb, file = filename)
   }
   if (fix == "group_unique_peps") {
     # 2024-06-23 Added a new, simpler method of grouping proteins
@@ -147,8 +141,6 @@ fix <- function(filename, fix) {
 }
 
 
-applyFixes <- function(file_list, fix_name) {
+apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
-
-files <- filesToFix("*alignment_metrics")

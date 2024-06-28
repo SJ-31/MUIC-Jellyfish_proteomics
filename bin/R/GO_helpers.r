@@ -568,17 +568,23 @@ map_unique <- function(ids, map) {
 }
 
 get_organism <- function(tb) {
-  organism_from_header <- function(row) {
+  organism_from_header <- function(organism, lineage, header) {
     # Parse the organism from an NCBI or uniprot ID
-    organism <- row["organism"]
-    if (is.na(organism)) {
-      header <- row["header"]
-      if (grepl("OS=", header)) {
+    if (is.na(organism) && !is.na(header)) {
+      if (str_detect(header, "DENOVO")) {
+        return("Chironex indrasaksajiae")
+      } else if (str_detect(header, "TRANSCRIPTOME") && str_detect(header, "Cf_")) {
+        return("Chironex fleckeri")
+      } else if (str_detect(header, "TRANSCRIPTOME") && str_detect(header, "Cy_")) {
+        return("Chironex yamaguchii")
+      } else if (grepl("OS=", header)) {
         return(str_extract(header, "OS=([a-zA-Z]* [a-zA-Z]*) ", group = 1))
+      } else {
+        return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
       }
-      return(str_extract(header, ".*\\[([A-Z].*)\\]", group = 1))
     }
     return(organism)
   }
-  tb |> mutate(organism = apply(tb, 1, organism_from_header))
+  organisms <- pmap(list(tb$organism, tb$lineage, tb$header), organism_from_header) |> unlist()
+  tb |> mutate(organism = organisms)
 }

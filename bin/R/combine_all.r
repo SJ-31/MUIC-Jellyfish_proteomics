@@ -31,18 +31,10 @@ HEADER_QUERIES <- list(
   other = ""
 )
 
-#' Check distinct
-#'
-#' @description
-#' Returns false when a tibbble has duplicated rows
-hasDuplicates <- function(tb) {
-  return(!all(dim(distinct(tb)) == dim(tb)))
-}
-
 #' Count of number unique GO terms assigned to each protein, and
 #' determine the maximum semantic value of the GO terms of that protein
 #'
-goCount <- function(go_vector) {
+count_go <- function(go_vector) {
   return(lapply(go_vector, \(x) {
     row <- tibble(GO_count = 0, GO_max_sv = 0)
     if (!is.na(x)) {
@@ -57,7 +49,7 @@ goCount <- function(go_vector) {
 
 #' Correct the "NCBI_ID" entry for database proteins that were originally derived
 #' from UniProt
-correctIds <- function(tb) {
+correct_ids <- function(tb) {
   from_uniprot <- local({
     mapped <- map2_lgl(
       # Due to how the NCBI_ID column was generated, proteins from
@@ -71,19 +63,8 @@ correctIds <- function(tb) {
   return(tb)
 }
 
-#' Assign a protein into a loose category
-#'
-#' @description
-#' Protein is categorized according to its header description
-headerCategorize <- function(header) {
-  lvec <- map_lgl(names(HEADER_QUERIES), \(x) {
-    grepl(HEADER_QUERIES[[x]], header, ignore.case = TRUE)
-  })
-  return(names(HEADER_QUERIES)[lvec][1])
-}
-
 ##'   Remove description from a vector of GO terms separated by ";"
-cleanGO <- function(go_vector) {
+clean_go_str <- function(go_vector) {
   go_vector %>%
     lapply(., \(x) {
       if (is.na(x)) {
@@ -152,7 +133,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   return(bind_cols(bound, calcs))
 }
 
-unifyGroups <- function(tb) {
+unify_groups <- function(tb) {
   source_python(glue("{args$python_source}/unify_groups.py"))
   tryCatch(
     expr = {
@@ -245,7 +226,7 @@ main <- function(args) {
   }
 
   combined[combined == ""] <- NA
-  combined <- correctIds(combined)
+  combined <- correct_ids(combined)
   combined <- combined %>% mutate(
     num_peps = sapply(peptideIds, function(x) {
       return(str_count(x, ";") + 1)
@@ -285,8 +266,7 @@ main <- function(args) {
   combined <- combined %>%
     dplyr::mutate(
       q_adjust = map_dbl(`q.value`, sortVals),
-      pep_adjust = map_dbl(posterior_error_prob, sortVals),
-      category = map_chr(header, headerCategorize)
+      pep_adjust = map_dbl(posterior_error_prob, sortVals)
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
@@ -317,8 +297,8 @@ main <- function(args) {
           pfam_db_path = args$pfam_db
         ) %>%
           as_tibble() %>%
-          dplyr::mutate(GO_IDs = cleanGO(GO))
-        gc <- goCount(combined$GO_IDs)
+          dplyr::mutate(GO_IDs = clean_go_str(GO))
+        gc <- count_go(combined$GO_IDs)
         combined$GO_counts <- gc$GO_count
         combined$GO_max_sv <- gc$GO_max_sv
       },
@@ -383,7 +363,7 @@ main <- function(args) {
   ## Find new groups
   if (UNIFY) {
     cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
-    combined <- unifyGroups(combined)
+    combined <- unify_groups(combined)
     cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
   }
 
