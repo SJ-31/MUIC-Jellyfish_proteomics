@@ -9,7 +9,7 @@ from pathlib import Path
 
 import re
 import pandas as pd
-import numpy as np
+import polars as pl
 
 
 def perc_row(series_row):
@@ -57,9 +57,7 @@ def read_tide(filepath, p_threshold, q_threshold):
 
 
 def get_engine_files(path) -> dict:
-    files = [
-        file.absolute() for file in Path(path).glob("*_percolator_psms.tsv")
-    ]
+    files = [file.absolute() for file in Path(path).glob("*_percolator_psms.tsv")]
     names = [re.sub(r"_percolator_.*", "", f.name) for f in files]
     engine_files = dict(zip(names, files))
     return engine_files
@@ -78,58 +76,57 @@ def parse_args():
 
 
 def main(args: dict):
-    all_unmatched = set()
-    unmatched_df = []
+    unmatched_list = []
     pep_threshold = float(args["pep_threshold"])
     q_threshold = float(args["q_threshold"])
     path = args["input_path"]
     engine_files = get_engine_files(path)
     for engine, path in engine_files.items():
         if engine == "tide":
-            current = read_tide(
-                engine_files["tide"], pep_threshold, q_threshold
-            )
+            current = read_tide(engine_files["tide"], pep_threshold, q_threshold)
         else:
             current = read_percolator(path, pep_threshold, q_threshold)
-        unmatched = pd.Series(
-            current.where(current["proteinIds"] == "")["peptide"].unique()
+        cur_df = current.where(current["proteinIds"] == "").drop_duplicates("peptide")
+        cur_df["engine"] = engine
+        unmatched_list.append(cur_df)
+
+    unmatched_df = pl.from_pandas(pd.concat(unmatched_list))
+    unmatched_df = (
+        unmatched_df.group_by("peptide")
+        .agg(
+            pl.col("q-value").mean(),
+            pl.col("posterior_error_prob").mean(),
+            pl.col("engine"),
         )
-        unmatched_df.append(current[current["peptide"].isin(unmatched)])
-        all_unmatched = all_unmatched | set(unmatched)
-    all_unmatched = pd.Series(list(all_unmatched)).reset_index()
-    all_unmatched["ProteinId"] = all_unmatched["index"].apply(
-        lambda x: f"U{x}"
+        .with_columns(pl.col("engine").list.join(";"))
     )
-    all_unmatched.drop("index", axis="columns", inplace=True)
-    all_unmatched.rename({0: "seq"}, axis="columns", inplace=True)
-    all_unmatched_df = pd.concat(unmatched_df).groupby("peptide").sample()
-    all_unmatched_df.rename(
-        {"q-value": "q.value", "peptide": "peptideIds"},
-        axis="columns",
-        inplace=True,
+    new_ids = pl.Series([f"U{i}" for i in range(unmatched_df.shape[0])])
+    unmatched_df = (
+        unmatched_df.with_columns(
+            ProteinId=new_ids,
+            header=pl.lit("unknown"),
+            ProteinGroupId=pl.lit("U"),
+            Group=pl.lit("U"),
+        )
+        .rename({"q-value": "q.value", "peptide": "peptideIds"})
+        .select(
+            [
+                "ProteinId",
+                "ProteinGroupId",
+                "q.value",
+                "posterior_error_prob",
+                "peptideIds",
+                "header",
+                "engine",
+                "Group",
+            ]
+        )
     )
-    df = all_unmatched.merge(
-        all_unmatched_df, how="inner", left_on="seq", right_on="peptideIds"
-    )
-    df["ProteinGroupId"] = np.NaN
-    df["Group"] = np.NaN
-    df["header"] = "unknown"
-    df = df[
-        [
-            "ProteinId",
-            "ProteinGroupId",
-            "q.value",
-            "posterior_error_prob",
-            "peptideIds",
-            "header",
-            "Group",
-        ]
-    ]
-    df["ProteinGroupId"] = "U"
-    df["Group"] = "U"
-    df.to_csv(args["unmatched_tsv"], sep="\t", index=False, na_rep="NA")
+
+    return unmatched_df
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
+    result = main(args)
+    result.write_csv(args["unmatched_tsv"], separator="\t")

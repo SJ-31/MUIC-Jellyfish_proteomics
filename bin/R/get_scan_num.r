@@ -201,7 +201,7 @@ merge_unmatched <- function(final_df, unmatched_peptides, proteins) {
     select(ProteinId, peptideIds) %>%
     apply(., 1, expandProteinRows) %>%
     bind_rows()
-  u_df <- read_tsv(unmatched_peptides)
+  u_df <- read_tsv(unmatched_peptides) |> select(-engine)
   unwanted_cols <- colnames(u_df) %>% discard(., \(x) x %in% "peptideIds")
   # Join with unmatched peptides
   no_prot1 <- final_df %>%
