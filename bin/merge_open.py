@@ -4,14 +4,14 @@ import re
 import pandas as pd
 
 
-def cleanPeptide(peptide):
+def clean_peptide(peptide):
     peptide = peptide.upper().replace("X", "")
     return "".join(re.findall("[A-Z]+", peptide))
 
 
-def getFastaStr(df, col):
+def get_fasta_str(df, col):
     copy = df.copy()
-    copy["clean"] = copy["peptideIds"].apply(cleanPeptide)
+    copy["clean"] = copy["peptideIds"].apply(clean_peptide)
     fasta_str = "".join(
         copy.apply(
             lambda x: f'>{x["ProteinId"]}\n{x["clean"]}\n', axis="columns"
@@ -35,7 +35,7 @@ def parse_args():
     return args
 
 
-def concatColon(df, col1, col2) -> pd.Series:
+def concat_col(df, col1, col2) -> pd.Series:
     """
     Concatenate columns col1 and col2 such that their entries are
     joined end-to-end in a csv list.
@@ -56,9 +56,9 @@ def main(args: dict):
         on="ProteinId",
         how="inner",
     )
-    shared["peptideIds"] = concatColon(shared, "peptideIds_x", "peptideIds_y")
-    shared["q.value"] = concatColon(shared, "q.value_x", "q.value_y")
-    shared["posterior_error_prob"] = concatColon(
+    shared["peptideIds"] = concat_col(shared, "peptideIds_x", "peptideIds_y")
+    shared["q.value"] = concat_col(shared, "q.value_x", "q.value_y")
+    shared["posterior_error_prob"] = concat_col(
         shared, "posterior_error_prob_x", "posterior_error_prob_y"
     )
     shared.drop(
@@ -76,15 +76,13 @@ def main(args: dict):
 
     # Isolate proteins found only in open search and standard search
     proteins = proteins[~proteins["ProteinId"].isin(shared["ProteinId"])]
-    open_searches = open_searches[
-        ~open_searches["ProteinId"].isin(shared["ProteinId"])
-    ]
+    open_searches = open_searches[~open_searches["ProteinId"].isin(shared["ProteinId"])]
 
     final = pd.concat([shared, open_searches, proteins])
     final["inferred_by"] = "initial_database"
     db_hits = final.query("ProteinId.str.contains('P')")
     unknown_hits = final.query("ProteinId.str.contains('O|T|D')")
-    fasta_str = getFastaStr(unknown_hits, "seq")
+    fasta_str = get_fasta_str(unknown_hits, "seq")
     return {
         "all": final,
         "database_hits": db_hits,
@@ -93,7 +91,7 @@ def main(args: dict):
     }
 
 
-def checkUnmatched(final_frame, peps):
+def check_unmatched(final_frame, peps):
     """
     Filter out the peptides in the dataframe "peps" to leave only peptides that
     are truly unmatched
@@ -107,7 +105,7 @@ def checkUnmatched(final_frame, peps):
         ]
     )
     actual_unmatched = pep_df.query("~(`peptideIds`.isin(@all_peps))")
-    fasta_str = getFastaStr(actual_unmatched, "peptideIds")
+    fasta_str = get_fasta_str(actual_unmatched, "peptideIds")
     return (actual_unmatched, fasta_str)
 
 
@@ -117,14 +115,10 @@ if __name__ == "__main__":
     m["database_hits"].to_csv(
         args["database_output"], sep="\t", index=False, na_rep="NA"
     )
-    m["unknown_hits"].to_csv(
-        args["unknown_output"], sep="\t", index=False, na_rep="NA"
-    )
+    m["unknown_hits"].to_csv(args["unknown_output"], sep="\t", index=False, na_rep="NA")
     with open(args["unknown_output_fasta"], "w") as f:
         f.write(m["fasta_str"])
-    unmatched_peptides = checkUnmatched(m["all"], args["unmatched_peptides"])
-    unmatched_peptides[0].to_csv(
-        args["unmatched_peptides"], sep="\t", index=False
-    )
+    unmatched_peptides = check_unmatched(m["all"], args["unmatched_peptides"])
+    unmatched_peptides[0].to_csv(args["unmatched_peptides"], sep="\t", index=False)
     with open("unmatched_peptides.fasta", "w") as u:
         u.write(unmatched_peptides[1])

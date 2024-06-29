@@ -20,14 +20,14 @@ getNodes <- function(g) {
   }
 }
 
-filter_known <- function(pathway_tb) {
+filterKnown <- function(pathway_tb) {
   pathway_tb |> filter((name %in% GENES | type != "gene") &
     (name %in% KO | type != "ortholog") & (name %in% PATHWAYS | type != "map"))
 }
 
-pathway_completeness <- function(pathway_tb) {
+pathwayCompleteness <- function(pathway_tb) {
   wanted_types <- c("gene", "ortholog", "map")
-  is_known <- filter_known(pathway_tb)
+  is_known <- filterKnown(pathway_tb)
   relevant <- pathway_tb |> filter(type %in% wanted_types)
   return(nrow(filter(is_known, type %in% wanted_types)) / nrow(relevant))
 }
@@ -84,8 +84,8 @@ fgseaGroup <- function(tb, grouping_col, gene_sets) {
     ) %>%
     filter(!is.na(mean_intensity) & !is.na(!!as.symbol(grouping_col)))
 
-  gene_sets_groups <- lapply(gene_sets, \(x) mapUnique(x, group_map))
-  f <- fgseaWrapper("mean_intensity", grouped_intensity, gene_sets_groups, id_col = "Group")
+  gene_sets_groups <- lapply(gene_sets, \(x) map_unique(x, group_map))
+  f <- fgseaWrapper("mean_intensity", grouped_intensity, gene_sets_groups, id_col = grouping_col)
   return(list(fgsea = f, groups = gene_sets_groups))
 }
 

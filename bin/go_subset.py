@@ -26,7 +26,6 @@ class SubsetGO:
         GO: nx.MultiDiGraph = obonet.read_obo(go_path)
         self.G: nx.MultiDiGraph = nx.MultiDiGraph()
         root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
-        GO = obonet.read_obo(go_path)
         self.G.add_nodes_from(self.roots.values())
         for go in self.sample_gos:
             if go in GO:
@@ -41,10 +40,11 @@ class SubsetGO:
         )
 
     def __getNodeData(self):
-        self.successors: dict = {}
+        self.successors: dict = {}  # Map of GO_IDs to list of child terms
         level_map: dict = {}
         from_sample: dict = {}
         # GO_IDs found in the sample are True, others (used to link GO terms back to their roots) are False
+        # Produces a data frame that maps GO terms to the number of children they have
         for node in self.G.nodes():
             if node in self.sample_gos:
                 from_sample[node] = True
@@ -179,11 +179,6 @@ def levelMap(G: nx.DiGraph, root=None) -> dict:
     return level_map
 
 
-# Group and find the lowest common ancestors???
-# current = GoSubDag(["GO:0031577"], path)
-# current.rcntobj.go2ancestors["GO:0031577"]
-
-
 def toJson(
     go_path: str,
     sample_path: str,
@@ -272,7 +267,6 @@ def parentGOs(
         v = result.get(k)
         if not v:
             result[k] = "unknown"
-            # print(f"Warning: {source} lacks terms from {k}")
             missing[k] = 1
             continue
         cur_map = rep_map[k]
@@ -290,7 +284,7 @@ def parentGOs(
     return result, missing
 
 
-def parentsFromDf(
+def find_go_parents(
     combined_results: str, go_info_path: str, parents_path: str, priority_path: str = ""
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Find higher-level GO terms of identified proteins in a results file
@@ -305,6 +299,7 @@ def parentsFromDf(
     id2ontology = dict(zip(info["GO_IDs"], info["ontology"]))
     id2term = dict(zip(info["GO_IDs"], info["term"]))
     data = pl.read_csv(combined_results, separator="\t", null_values="NA")
+    shape_before: tuple = data.shape
     has_go = data.filter(pl.col("GO_IDs").is_not_null())
     no_go = data.filter(pl.col("GO_IDs").is_null())
     if priority_path:
@@ -350,4 +345,12 @@ def parentsFromDf(
         .melt()
         .rename({"variable": "ontology", "value": "n_missing"})
     )
+    if not result.shape[0] == shape_before[0]:
+        raise ValueError(
+            f"""
+                        nrows before and after do not match!\n
+                        rows before: {shape_before[0]}\n
+                        rows current: {result.shape[0]}\n
+                         """
+        )
     return result.to_pandas(), missing_df.to_pandas()
