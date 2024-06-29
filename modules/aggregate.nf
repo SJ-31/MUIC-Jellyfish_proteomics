@@ -15,6 +15,7 @@ process AGGREGATE {
     path("Group-aggregated.tsv")
     path("*validation.tsv")
     path("Group-aggregated_slims.tsv")
+    path("GroupUP-*.tsv")
     path("${combined_results.baseName}.${combined_results.Extension}")
     path("*.log")
     //
@@ -30,7 +31,8 @@ process AGGREGATE {
             --go_path $params.go \
             --embeddings $embeddings \
             --outdir . \
-            --distances $distances
+            --distances $distances \
+            --aggregate
 
     null_distribution.py -i $combined_results \
         -c $params.storage \

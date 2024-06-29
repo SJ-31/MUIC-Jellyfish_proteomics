@@ -228,7 +228,7 @@ merge_clusters <- function(cluster_labels, tb, id_col) {
 #' @param nested_tb data tb after grouping by then nesting on the column
 #' containing the cluster labels
 associated_pathways <- function(tb, nested_tb, threshold = 50) {
-  kegg_pathways <- groupPathways(tb)
+  kegg_pathways <- group_pathways(tb)
   oneSet <- function(proteins) {
     check <- kegg_pathways$grouped %>%
       lapply(., \(x) {
@@ -277,7 +277,7 @@ associated_pathways <- function(tb, nested_tb, threshold = 50) {
 #'  Counts the number of unique GO IDs for each group.
 #'  Associates KEGG pathways with the groups.
 aggregate_metadata <- function(data, grouping_col) {
-  data <- mergeLfq(data, "mean") %>%
+  data <- merge_lfq(data, "mean") %>%
     inner_join(., data, by = join_by(ProteinId))
   nested <- data %>%
     group_by(!!as.symbol(grouping_col)) %>%

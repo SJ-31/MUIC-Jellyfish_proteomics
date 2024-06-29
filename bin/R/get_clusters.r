@@ -2,7 +2,9 @@ library("glue")
 library("tidyverse")
 library("optparse")
 
-aggregateEmbeddings <- function(args) {
+aggregate_embeddings <- function(args) {
+  original <- read_tsv(args$combined_results)
+  nrow_before <- nrow(original)
   e <- embeddingData(
     args$combined_results,
     args$sample_name,
@@ -26,13 +28,22 @@ aggregateEmbeddings <- function(args) {
   })
   print("Clusters obtained")
   e$metadata <- merge_clusters(clusters, e$metadata, "ProteinId")
-  write_tsv(e$metadata, args$combined_results)
+  if (nrow_before != nrow(e$metadata)) {
+    print("Rows changed")
+    print(glue("nrow before: {nrow_before}"))
+    print(glue("nrow now: {nrow(e$metadata)}"))
+  }
+  merged <- original |>
+    filter(!ProteinId %in% e$metadata$ProteinId) |>
+    bind_rows(e$metadata)
+  # Fix is just to add the proteins not in the previous
+  write_tsv(merged, args$combined_results)
   if (!is.null(args$ontologizer_path)) {
-    aggregateHelper(e$metadata, "cluster", args$ontologizer_path, args$go_path, args$outdir)
+    aggregate_helper(e$metadata, "cluster", args$ontologizer_path, args$go_path, args$outdir)
   }
 }
 
-aggregateHelper <- function(tb, grouping_col, ontologizer_path, go_path, outdir) {
+aggregate_helper <- function(tb, grouping_col, ontologizer_path, go_path, outdir) {
   nested <- aggregate_metadata(tb, grouping_col)
   slims <- nested$GO_slims %>%
     lapply(., ids_into_ontology) %>%
@@ -73,18 +84,18 @@ if (sys.nframe() == 0) {
   source(glue("{args$r_source}/rrvgo_modified.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
   tryCatch(
-    expr = aggregateEmbeddings(args),
+    expr = aggregate_embeddings(args),
     error = \(cnd) {
       last_error <- reticulate::py_last_error()
       message("Python error: ", last_error$type, "\n", last_error$value, "\n", last_error$traceback)
     }
   )
   if (args$aggregate) {
-    aggregateHelper(
+    aggregate_helper(
       read_tsv(args$combined_results), "Group",
       args$ontologizer_path, args$go_path, args$outdir
     )
-    aggregateHelper(
+    aggregate_helper(
       read_tsv(args$combined_results), "GroupUP",
       args$ontologizer_path, args$go_path, args$outdir
     )
