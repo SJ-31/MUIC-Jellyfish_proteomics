@@ -392,7 +392,7 @@ group_pathways <- function(tb, minimum = 20) {
   id2pathway <- tb %>%
     filter(!is.na(KEGG_Pathway)) %>%
     dplyr::select(ProteinId, KEGG_Pathway) %>%
-    tb_duplicate_at("KEGG_Pathway", "[;,]")
+    separate_longer_delim("KEGG_Pathway", "[;,]")
   pathway_lists <- id2pathway %>%
     group_by(KEGG_Pathway) %>%
     nest() %>%

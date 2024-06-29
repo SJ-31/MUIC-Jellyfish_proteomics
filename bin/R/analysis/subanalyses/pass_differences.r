@@ -48,7 +48,7 @@ SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 ALL_RESULTS <- bind_rows(
   mutate(M$run$first, pass = "first"),
   mutate(M$run$second, pass = "sec")
-) %>% tb_duplicate_at(., "MatchedPeptideIds", ";")
+) %>% separate_longer_delim(., "MatchedPeptideIds", ";")
 KEPT_PROTEINS <- c(ALL_RESULTS$ProteinId, ALL_RESULTS$MatchedPeptideIds)
 ALL_RESULTS <- local({
   expanded <- ALL_RESULTS %>%
@@ -62,9 +62,9 @@ ALL_RESULTS <- local({
 perEngine <- function(engine) {
   engine_results <- list()
   data <- dplyr::bind_rows(
-    tb_duplicate_at(first_pass[[engine]], "ProteinId", ",") %>%
+    separate_longer_delim(first_pass[[engine]], "ProteinId", ",") %>%
       mutate(., pass = "first"),
-    tb_duplicate_at(sec_pass[[engine]], "ProteinId", ",") %>%
+    separate_longer_delim(sec_pass[[engine]], "ProteinId", ",") %>%
       mutate(., pass = "sec"),
   ) %>%
     inner_join(., SEQ_MAP, by = join_by(x$ProteinId == y$id))

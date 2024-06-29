@@ -7,10 +7,7 @@ main <- function(dlfq_input) {
   sample_cols <- colnames(dlfq) %>%
     purrr::discard(grepl("protein|ion", .))
   names(sample_cols) <- paste0("maxlfq-", sample_cols)
-  dlfq <- dlfq %>% tb_duplicate_at(.,
-    col = "protein",
-    separator = ";"
-  )
+  dlfq <- dlfq %>% separate_longer_delim(., "protein", ";")
   dlfq_sep <- map(sample_cols, \(x) {
     dplyr::select(dlfq, c("protein", "ion", x)) %>%
       dplyr::filter(!!as.symbol(x) > 0) %>%

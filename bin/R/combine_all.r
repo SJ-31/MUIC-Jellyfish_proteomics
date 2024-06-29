@@ -115,7 +115,7 @@ mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
-    split_up <- tb_duplicate_at(has_multiple, "matchedPeptideIds", ";")
+    split_up <- separate_longer_delim(has_multiple, "matchedPeptideIds", ";")
     joined <- left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId))
     has_multiple <- meanTop3(joined, quant_name = quant_name)
   }

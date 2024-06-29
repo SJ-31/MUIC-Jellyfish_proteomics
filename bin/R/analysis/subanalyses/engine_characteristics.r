@@ -42,51 +42,19 @@ percolator_files <- list.files(PERCOLATOR_DIR,
 alignments <- alignmentData(M$path, "first")
 combined_results <- M$data
 
-# Engine distribution analysis
-ENGINES <- percolator_files %>%
-  map_chr(., \(x) {
-    gsub("_percolator_proteins.tsv", "", x) %>%
-      gsub(".*/", "", .)
-  })
 
-names(percolator_files) <- ENGINES
-percolator_files <- as.list(percolator_files)
-denovo_transcriptome_ids <- combined_results$MatchedPeptideIds %>%
-  discard(is.na) %>%
-  lapply(., str_split_1, pattern = ";") %>%
-  unlist()
-database_ids <- combined_results$ProteinId
-all_found_protein_ids <- c(database_ids, denovo_transcriptome_ids)
+percolator_all <- read_tsv(M$percolator_all)
+ENGINES <- unique(percolator_all$engine)
+percolator_tibbles <- list()
+# Engine distribution analysis
+for (e in ENGINES) {
+  percolator_tibbles[[e]] <- percolator_all |> filter(engine == e)
+}
+
 standard_search <- combined_results %>% filter(ID_method == "standard")
 
-engine_stats <- tibble()
-percolator_tibbles <- local({
-  getEngine <- function(file) {
-    tb <- tb_duplicate_at(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
-    filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
-      mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
-    row <- tibble(
-      engine = names(file),
-      n_groups_all = length(unique(tb$ProteinGroupId)),
-      n_groups_accepted = length(unique(filtered$ProteinGroupId)),
-      n_proteins_all = nrow(tb),
-      n_proteins_below_fdr = tb %>% filter(`q-value` <= M$fdr) %>% nrow(),
-      n_proteins_accepted = nrow(filtered),
-      # To be accepted, a protein needs to be matched by at least two other engines
-      # And the q value of at least two psm matches needs to be below the fdr
-      n_other_proteins = map_lgl(tb$ProteinId, \(x) str_detect(x, "D|T")) %>% sum(),
-    ) %>%
-      mutate(n_database = n_proteins_all - n_other_proteins)
-    engine_stats <<- dplyr::bind_rows(engine_stats, row)
-    return(filtered)
-  }
-  lmap(percolator_files, getEngine) %>% `names<-`(ENGINES)
-})
-
-TABLES$engine_stats <- engine_stats
-
 normal_engine_tbs <- percolator_tibbles[!names(percolator_tibbles) %in% open_search_engines]
-percolator_tb <- dplyr::bind_rows(percolator_tibbles)
+
 
 num_peptides_matched <- apply(combined_results, 1, \(x) {
   protein_id <- x["ProteinId"]
@@ -122,8 +90,15 @@ reticulate::source_python(glue("{M$python_source}/trace_alignments.py"))
 matched_peptides <- select(combined_results, c(ProteinId, MatchedPeptideIds))
 protein_tb <- normal_engine_tbs %>%
   bind_rows() %>%
-  tb_duplicate_at(., "peptideIds", " ") %>%
+  separate_longer_delim(., "peptideIds", " ") %>%
   mutate(peptideIds = map_chr(peptideIds, clean_peptide))
+
+measure_coverage_contribution <- function(protein_id) {
+  row <- ENGINES
+  return()
+}
+
+
 
 py$tracer <- AlignmentTracer(protein_tb, M$alignments$peptides, matched_peptides)
 # Try to measure the proportion of alignments each engine takes up with its peptides

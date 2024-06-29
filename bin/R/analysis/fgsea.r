@@ -104,7 +104,8 @@ pathway_intensity <- M$data |>
   inner_join(by_intensity) |>
   filter(!is.na(KEGG_Pathway)) |>
   distinct(Group, .keep_all = TRUE) |>
-  tb_duplicate_at("KEGG_Pathway", ";")
+  separate_longer_delim("KEGG_Pathway", ";")
+
 
 pathway_data <- pathway_data |>
   left_join(table2tb(pathway_table, "name"), by = join_by(name)) |>

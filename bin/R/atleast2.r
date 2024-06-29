@@ -12,7 +12,7 @@ ID_LIST <- list()
 
 get_matches <- function(file_name) {
   engine <- gsub(".*/", "", file_name) %>% gsub("_.*", "", .)
-  results <- tb_duplicate_at(read_tsv(file_name), "ProteinId", ",") %>%
+  results <- separate_longer_delim(read_tsv(file_name), "ProteinId", ",") %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
   matches <- results[[TARGET]]
   engine_results <- list(matches)

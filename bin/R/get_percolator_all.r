@@ -1,12 +1,14 @@
 library("tidyverse")
 library("glue")
 
+
 main <- function(args) {
   percolator_protein_files <- list.files(args$percolator_dir,
     pattern = "_percolator_proteins.tsv", full.names = TRUE
   )
   combined_results <- read_tsv(args$input)
 
+  kept_seqs <- combined_results$unique_peptides |> flatten_by(";")
   denovo_transcriptome_ids <- combined_results$MatchedPeptideIds %>%
     discard(is.na) %>%
     lapply(., str_split_1, pattern = ";") %>%
@@ -26,7 +28,7 @@ main <- function(args) {
   engine_stats <- tibble()
   protein_tbs <- local({
     get_engine <- function(file) {
-      tb <- tb_duplicate_at(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
+      tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
       filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
         mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
       row <- tibble(
@@ -42,17 +44,27 @@ main <- function(args) {
       ) %>%
         mutate(n_database = n_proteins_all - n_other_proteins)
       engine_stats <<- dplyr::bind_rows(engine_stats, row)
-      return(filtered)
+      return(tb)
     }
     lmap(percolator_files, get_engine) %>% `names<-`(ENGINES)
   })
 
-  seq_map <- get_seq_map(args$seq_map_path, args$unmatched_path, all_found_protein_ids)
+  seq_map <- get_seq_map(
+    args$seq_map_path, args$unmatched_path, all_found_protein_ids,
+    kept_seqs
+  )
 
   percolator_tb <- dplyr::bind_rows(protein_tbs)
-  peptide_tb <- tb_duplicate_at(percolator_tb, "peptideIds",
-    separator = " ", split_fn = split_peptides
-  ) |> select(ProteinId, ProteinGroupId, peptideIds, engine)
+  peptide_tb <- percolator_tb |>
+    mutate(peptideIds = map_chr(peptideIds, clean_peptide)) |>
+    separate_longer_delim(peptideIds, " ") |>
+    distinct(engine, peptideIds, .keep_all = TRUE)
+  dlfq <- read_tsv(args$dlfq_path) |>
+    rename(ProteinId = protein, peptideIds = ion) |>
+    select(ProteinId, peptideIds) |>
+    filter(!peptideIds %in% peptide_tb$peptideIds) |>
+    separate_longer_delim(ProteinId, ";")
+  peptide_tb <- bind_rows(peptide_tb, dlfq)
   result <- list(
     percolator_all = percolator_tb, metrics = engine_stats,
     seq_map = seq_map,
@@ -61,17 +73,16 @@ main <- function(args) {
 }
 
 
-split_peptides <- function(peptide_str) {
-  clean_peptide <- function(str) {
-    str |>
-      str_remove_all("\\[[0-9]+\\.[0-9]+\\]") |>
-      str_remove_all("\\[[a-z \\:A-Z]+\\]")
-  }
-  clean_peptide(peptide_str) |> str_split_1(" ")
+clean_peptide <- function(str) {
+  str |>
+    str_remove_all("\\[[0-9]+\\.[0-9]+\\]") |>
+    str_remove_all("\\[[a-z \\:A-Z]+\\]")
 }
 
-get_seq_map <- function(seq_map_path, unmatched_path, kept_ids) {
-  seq_map <- read_tsv(seq_map_path) |> filter(id %in% kept_ids)
+get_seq_map <- function(seq_map_path, unmatched_path, kept_ids, kept_seqs) {
+  seq_map <- read_tsv(seq_map_path) |>
+    filter(!grepl("rev_", id)) |>
+    filter(id %in% kept_ids | seq %in% kept_seqs)
   unmatched <- read_tsv(unmatched_path) |>
     filter(ProteinId %in% kept_ids) |>
     rename(id = ProteinId, seq = peptideIds) |>
@@ -89,6 +100,7 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-r", "--r_source"), type = "character", action = "store")
   parser <- add_option(parser, c("-i", "--input"), type = "character", action = "store")
   parser <- add_option(parser, c("-s", "--seq_map_path"), type = "character", action = "store")
+  parser <- add_option(parser, c("-d", "--dlfq_path"), type = "character", action = "store")
   parser <- add_option(parser, c("-f", "--fdr"),
     type = "numeric",
     action = "store", default = 0.05

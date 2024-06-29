@@ -12,6 +12,6 @@ combined <- run$first
 mapping <- combined %>%
   filter(!is.na(MatchedPeptideIds)) %>%
   select(c(MatchedPeptideIds, ProteinId)) %>%
-  tb_duplicate_at( "MatchedPeptideIds", ";")
+  separate_longer_delim( "MatchedPeptideIds", ";")
 
 write_tsv(mapping, "peptides2proteinId.tsv")
