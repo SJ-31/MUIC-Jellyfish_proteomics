@@ -18,23 +18,36 @@ process COVERAGE_SPLIT {
 }
 
 process COVERAGE_CALC {
-    publishDir "${outdir}/.coverage", mode: "copy"
+    publishDir "$outdir", mode: "copy"
 
     input:
     path(sequences)
+    path(seq_header_map)
+    path(peptide_map)
     val(outdir)
     //
 
     output:
-    tuple path("${sequences.baseName}_calculated.tsv"), path("${sequences.baseName}_alignments.tsv")
+    tuple path(calculated), path(alignments)
     //
 
     script:
-    """
-    Rscript ${params.bin}/R/protein_coverage.r \
-        --calculate \
-        --input $sequences
-    """
+    calculated = "${sequences.baseName}_calculated.tsv"
+    alignments = "${sequences.baseName}_alignments.tsv"
+    if (file("${outdir}/${calculated}").exists()) {
+        """
+        cp "${outdir}/${alignments}" .
+        cp "${outdir}/${calculated}" .
+        """
+    } else {
+        """
+        Rscript ${params.bin}/R/protein_coverage.r \
+            --calculate \
+            --input $sequences \
+            --seq_header_map $seq_header_map \
+            --peptide_map $peptide_map
+        """
+    }
 }
 
 process COVERAGE_MERGE {
@@ -51,7 +64,7 @@ process COVERAGE_MERGE {
     path("aligned_peptides.fasta")
     path("aligned_peptides.tsv")
     path("alignment_metrics.tsv")
-    path("all_replacements.tsv")
+    path("all_mismatches.tsv")
     //
 
     script:
@@ -67,7 +80,7 @@ process COVERAGE_MERGE {
     parse_alignment.py \
         -i aligned_peptides.fasta \
         -m alignment_metrics.tsv \
-        -r all_replacements.tsv
+        -r all_mismatches.tsv
 
     """
 }

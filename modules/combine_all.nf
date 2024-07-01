@@ -14,15 +14,23 @@ process COMBINE_ALL {
     //
 
     output:
-    path("${params.pref}_all.tsv"), emit: all
+    path(output), emit: all
     path("combine_all.log")
     path("${params.pref}_taxonomy.tsv")
     //
 
     script:
+    output = "${params.pref}_all.tsv"
     if (eggnog == "no_file") {
         eggnog = interpro = ""
     }
+    if (file("${outdir}/${output}").exists()) {
+     """
+     cp ${outdir}/${output} .
+     cp ${logdir}/combine_all.log .
+     cp ${outdir}/${params.pref}_taxonomy.tsv .
+     """
+    } else {
     """
     Rscript ${params.bin}/R/combine_all.r \
         --eggnog $eggnog \
@@ -51,5 +59,6 @@ process COMBINE_ALL {
 
     cat .command.log >> combine_all.log
     """
+    }
     //
 }

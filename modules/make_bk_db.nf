@@ -8,17 +8,24 @@ process MAKE_BK_DB {
     //
 
     output:
-    tuple val(engine), path("${engine}_bk_database.fasta")
+    tuple val(engine), path(output)
     //
 
     script:
-    """
-    make_bk_db.py $percolator_valid \
-        $percolator_decoys \
-        $database \
-        "${engine}_bk_database.fasta"
-    wc -l "${engine}_bk_database.fasta"
-    grep ">" "${engine}_bk_database.fasta" | wc -l
-    """
+    output = "${engine}_bk_database.fasta"
+    if (file("${outdir}/${output}").exists()) {
+        """
+        cp "${outdir}/${output}" .
+        """
+    } else {
+        """
+        make_bk_db.py $percolator_valid \
+            $percolator_decoys \
+            $database \
+            "${engine}_bk_database.fasta"
+        wc -l "${engine}_bk_database.fasta"
+        grep ">" "${engine}_bk_database.fasta" | wc -l
+        """
+    }
     //
 }

@@ -21,10 +21,10 @@ process SORT_BLAST {
     //
 
     shell:
-    check = file("${params.pref}_blast_matched.tsv")
+    check = file("${outdir}/${params.pref}_blast_matched.tsv")
     if (check.exists()) {
         '''
-        cp ${outdir}/*blast* .
+        cp !{outdir}/*blast* .
         '''
     } else {
         '''
