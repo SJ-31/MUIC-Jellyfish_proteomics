@@ -11,6 +11,7 @@ def clean_peptide(peptide):
 
 def get_fasta_str(df, col):
     copy = df.copy()
+    copy = copy[~copy["peptideIds"].isna()]
     copy["clean"] = copy["peptideIds"].apply(clean_peptide)
     fasta_str = "".join(
         copy.apply(
@@ -29,7 +30,8 @@ def parse_args():
     parser.add_argument("-d", "--database_output")
     parser.add_argument("--unknown_output")
     parser.add_argument("-k", "--unknown_output_fasta")
-    parser.add_argument("-u", "--unmatched_peptides")
+    parser.add_argument("--unmatched_peptides_in")
+    parser.add_argument("--unmatched_peptides_out")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
     return args
@@ -118,7 +120,7 @@ if __name__ == "__main__":
     m["unknown_hits"].to_csv(args["unknown_output"], sep="\t", index=False, na_rep="NA")
     with open(args["unknown_output_fasta"], "w") as f:
         f.write(m["fasta_str"])
-    unmatched_peptides = check_unmatched(m["all"], args["unmatched_peptides"])
-    unmatched_peptides[0].to_csv(args["unmatched_peptides"], sep="\t", index=False)
+    unmatched_peptides = check_unmatched(m["all"], args["unmatched_peptides_in"])
+    unmatched_peptides[0].to_csv(args["unmatched_peptides_out"], sep="\t", index=False)
     with open("unmatched_peptides.fasta", "w") as u:
         u.write(unmatched_peptides[1])
