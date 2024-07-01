@@ -4,7 +4,7 @@ library(glue)
 library(Biostrings)
 
 
-writeAlignments <- function(row, file_name) {
+write_alignments <- function(row, file_name) {
   header <- ifelse(row[["header"]] == "unknown", row[["ProteinId"]],
     row[["header"]]
   )
@@ -53,7 +53,7 @@ remove_substr <- function(pair) {
   }
 }
 
-splitWithGroups <- function(str) {
+split_with_groups <- function(str) {
   group_count <- 0
   groups <- unlist(str_extract_all(str, "(\\[[A-Z]+\\])"))
   mask <- gsub("(\\[[A-Z]+\\])", "0", str)
@@ -75,9 +75,9 @@ splitWithGroups <- function(str) {
 #' If the conflicting peptides have the same residues, then do nothing
 #' if peptide1 has an "A" residue but peptide2 has a "C" residue, since
 #' we don't know which is correct, this resolves into "[AC]"
-resolveAlignment <- function(seq1, seq2) {
+resolve_alignment <- function(seq1, seq2) {
   if (grepl("\\[", seq1)) {
-    split1 <- splitWithGroups(seq1)
+    split1 <- split_with_groups(seq1)
   } else {
     split1 <- str_split_1(seq1, "")
   }
@@ -106,7 +106,7 @@ resolveAlignment <- function(seq1, seq2) {
 }
 
 
-appendAllList <- function(lst, to_append) {
+append_all_list <- function(lst, to_append) {
   if (length(to_append) > 1) {
     new <- lapply(seq_along(lst), \(x) {
       lst[[x]] <- c(lst[[x]], to_append[x])
@@ -119,22 +119,23 @@ appendAllList <- function(lst, to_append) {
   return(new)
 }
 
-coverage <- function(protein, peps) {
+get_coverage <- function(protein, peps) {
   # Using alignment percent identity for the coverage
   # calculation takes into account gaps and mismatches
-  if (length(peps) > 1) {
-    combos <- combn(peps, 2)
-    peps <- unlist(lapply(seq_len(dim(combos)[2]), function(x) {
-      return(remove_substr(combos[, x]))
-    })) %>% unique()
-  }
+  #   if (length(peps) > 1) {
+  #     combos <- combn(peps, 2)
+  #     peps <- unlist(lapply(seq_len(dim(combos)[2]), function(x) {
+  #       return(remove_substr(combos[, x]))
+  #     })) %>% unique()
+  #   }
+  ids <- names(peps)
   align <- Biostrings::pairwiseAlignment(
     pattern = peps, subject = protein,
     type = "global-local"
   )
   vis <- sapply(aligned(align), as.character, USE.NAMES = FALSE)
   if (length(vis) > 1) {
-    vis <- purrr::reduce(vis, resolveAlignment)
+    vis <- purrr::reduce(vis, resolve_alignment)
   }
   cov <- Biostrings::coverage(align)
   cov <- tibble(values = cov@values, lengths = cov@lengths)
@@ -156,32 +157,107 @@ coverage <- function(protein, peps) {
     tb = tibble(
       pcoverage_nmatch = nmatch,
       pcoverage_align = sum_cov / chars,
-      alignment = vis
+      alignment = vis,
     ),
-    seqs = aligned(align)
+    seqs = tibble(
+      alignment = purrr::map_chr(aligned(align), as.character),
+      original = peps,
+      id = ids,
+      start = start(subject(align)),
+      end = end(subject(align)),
+      score = score(align),
+      n_match = nmatch(align),
+      n_mismatch = nmismatch(align),
+      seq_length = chars
+    )
   )
   return(result)
 }
 
 
+get_id_from_rows <- function(row, id_col) {
+  if (nrow(row) > 1) {
+    unmatched_removed <- row |> filter(!grepl("D", !!as.symbol(id_col)))
+    if (nrow(unmatched_removed) > 0) {
+      row <- slice_sample(unmatched_removed, n = 1)
+    } else {
+      row <- slice_sample(row, n = 1)
+    }
+  }
+  return(row[[id_col]])
+}
+
+
+
+# `seq_map` is `seq-header_map_found.tsv`
+# `peptide_map` is `percolator_peptide_map.tsv`
+# both from combine_percolator
+identify_peptides <- function(protein_id, matched_peptide_ids, unique_peptides) {
+  if (is.na(matched_peptide_ids)) {
+    matched <- NA
+  } else {
+    matched <- str_split_1(matched_peptide_ids, ";")
+  }
+  peps <- unique_peptides |> str_split_1(";")
+  cur_seq_map <- SEQ_MAP |> filter(id %in% matched)
+  cur_peptide_map <- PEPTIDE_MAP |> filter(ProteinId == protein_id | ProteinId %in% matched)
+  pep_metadata <- peps |>
+    map_chr(
+      \(x) {
+        # Want to search for the id in a narrowed window so as to reduce instances
+        # of spurious matches
+        id_row <- filter(cur_seq_map, seq == x)
+        if (nrow(id_row) > 0) {
+          return(get_id_from_rows(id_row, "id"))
+        }
+        id_row <- filter(cur_peptide_map, peptideIds == x)
+        if (nrow(id_row) > 0) {
+          return(get_id_from_rows(id_row, "ProteinId"))
+        }
+        id_row <- filter(PEPTIDE_MAP, peptideIds == x)
+        if (nrow(id_row) > 0) {
+          return(get_id_from_rows(id_row, "ProteinId"))
+        }
+        id_row <- filter(SEQ_MAP, seq == x)
+        if (nrow(id_row) > 0) {
+          return(get_id_from_rows(id_row, "id"))
+        }
+        "unknown"
+      }
+    )
+  names(peps) <- pep_metadata
+  peps
+}
+
+
 ALIGNMENT_TB <- tibble()
-appliedCoverage <- function(row) {
-  peps <- str_split_1(row[["unique_peptides"]], ";")
-  prot <- row[["seq"]]
-  cov <- coverage(prot, peps)
-  alignment_row <- tibble(
-    alignment = purrr::map_chr(cov$seqs, as.character),
-    ProteinId = row[["ProteinId"]],
-    UniProtKB_ID = row[["UniProtKB_ID"]]
+applied_coverage <- function(
+    protein_id, matched_peptide_ids, unique_peptides, seq,
+    uniprot_id) {
+  peps <- str_split_1(unique_peptides, ";")
+  peps <- identify_peptides(protein_id, matched_peptide_ids, unique_peptides)
+  cov <- get_coverage(seq, peps)
+  alignment_row <- cov$seqs |> mutate(
+    ProteinId = protein_id,
+    UniProtKB_ID = uniprot_id
   )
   ALIGNMENT_TB <<- dplyr::bind_rows(ALIGNMENT_TB, alignment_row)
   return(cov$tb)
 }
 
-coverageCalc <- function(prot_df) {
+calculate_coverage <- function(prot_df) {
   # Coverage calculation will only be performed on full-length proteins
   considered <- dplyr::filter(prot_df, !grepl("U|D", ProteinId))
-  cov_info <- apply(considered, 1, appliedCoverage) %>%
+  cov_info <- pmap(
+    list(
+      considered$ProteinId,
+      considered$MatchedPeptideIds,
+      considered$unique_peptides,
+      considered$seq,
+      considered$UniProtKB_ID
+    ),
+    applied_coverage
+  ) %>%
     dplyr::bind_rows() %>%
     dplyr::mutate(ProteinId = considered$ProteinId)
   return(cov_info)
@@ -189,8 +265,11 @@ coverageCalc <- function(prot_df) {
 
 #' Split the dataframe to take advantage of parallelism
 #'
-splitForCoverage <- function(tb, path) {
-  tb <- dplyr::filter(tb, !is.na(seq)) %>% dplyr::select(c(ProteinId, unique_peptides, seq, UniProtKB_ID))
+split_for_coverage <- function(tb, path) {
+  tb <- dplyr::filter(tb, !is.na(seq)) %>% dplyr::select(c(
+    ProteinId,
+    unique_peptides, seq, UniProtKB_ID, MatchedPeptideIds
+  ))
   size <- 500
   num_rows <- nrow(tb)
   window <- c(0, size)
@@ -206,18 +285,23 @@ splitForCoverage <- function(tb, path) {
   }
 }
 
-mergeWithPattern <- function(path, pattern) {
+merge_with_pattern <- function(path, pattern) {
   list.files(path, full.names = TRUE, pattern = pattern) %>%
     map(., read_tsv) %>%
     dplyr::bind_rows()
 }
 
-mergeCoverage <- function(tb_path, merge_into) {
-  coverage <- mergeWithPattern(tb_path, ".*_calculated.tsv") %>%
+#' Merge coverage results back into overall results
+#'
+#' @param merge_into tb containing overall results
+#' @param tb_path path to coverage files
+merge_coverage <- function(tb_path, merge_into) {
+  coverage <- merge_with_pattern(tb_path, ".*_calculated.tsv") %>%
     distinct()
-  alignments <- mergeWithPattern(tb_path, ".*_alignments.tsv") %>%
+  alignments <- merge_with_pattern(tb_path, ".*_alignments.tsv") %>%
     distinct()
-  tb <- inner_join(merge_into, coverage, by = join_by(ProteinId))
+  tb <- left_join(merge_into, coverage, by = join_by(ProteinId))
+  # Left join so as not to lose identified de novo peptides (which don't have coverage)
   return(list(coverage = tb, alignment = alignments))
 }
 
@@ -234,6 +318,8 @@ if (sys.nframe() == 0) {
     help = "Output path"
   )
   parser <- add_option(parser, "--input_path")
+  parser <- add_option(parser, "--seq_header_map")
+  parser <- add_option(parser, "--peptide_map")
   parser <- add_option(parser, c("-s", "--split"),
     action = "store_true", default = FALSE
   )
@@ -252,9 +338,11 @@ if (sys.nframe() == 0) {
   args <- parse_args(parser)
   input <- read_tsv(args$input)
   if (args$split) {
-    splitForCoverage(input, args$output_path)
+    split_for_coverage(input, args$output_path)
   } else if (args$calculate) {
-    calculated <- coverageCalc(input)
+    SEQ_MAP <- read_tsv(args$seq_header_map)
+    PEPTIDE_MAP <- read_tsv(args$peptide_map)
+    calculated <- calculate_coverage(input)
     new_name <- gsub(
       "\\.tsv",
       "_calculated.tsv", args$input
@@ -266,8 +354,8 @@ if (sys.nframe() == 0) {
     write_tsv(ALIGNMENT_TB, alignment_file)
     write_tsv(calculated, new_name)
   } else if (args$merge) {
-    m <- mergeCoverage(args$input_path, input)
-    apply(dplyr::filter(m$coverage, !is.na(seq)), 1, writeAlignments,
+    m <- merge_coverage(args$input_path, input)
+    apply(dplyr::filter(m$coverage, !is.na(seq)), 1, write_alignments,
       file_name = args$alignment_fasta
     )
     merged <- dplyr::select(m$coverage, -alignment)
