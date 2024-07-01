@@ -1,13 +1,16 @@
 process COMBINE_PERCOLATOR {
     publishDir "$outdir", mode: "copy"
-    publishDir "$params.logdir", mode: "copy", pattern: "*.log"
+    publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
     path(percolator_protein)
+    path(percolator_protein_open_search)
     path(combined_results)
+    path(directlfq_input) // For mapping more peptide sequences
     path(seq_header_map)
     path(unmatched_peptides)
     val(outdir)
+    val(logdir)
     //
 
     output:
@@ -24,6 +27,7 @@ process COMBINE_PERCOLATOR {
         -p . \
         -o . \
         -i $combined_results \
+        -d $directlfq_input \
         -s $seq_header_map \
         -u $unmatched_peptides \
         -r $params.bin/R

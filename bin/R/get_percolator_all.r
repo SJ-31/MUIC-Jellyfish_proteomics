@@ -87,7 +87,8 @@ get_seq_map <- function(seq_map_path, unmatched_path, kept_ids, kept_seqs) {
     filter(ProteinId %in% kept_ids) |>
     rename(id = ProteinId, seq = peptideIds) |>
     mutate(seq = map_chr(seq, clean_peptide)) |>
-    select(id, seq)
+    select(id, seq, engine) |>
+    separate_longer_delim(engine, ";")
   bind_rows(seq_map, unmatched)
 }
 
