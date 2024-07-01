@@ -30,6 +30,8 @@ workflow 'combine_searches' {
     outdir
     seq_header_mappings
     open_results
+    prot2intersect_open_search
+    directlfq_input
     blast_db
 
     main:
@@ -88,9 +90,11 @@ workflow 'combine_searches' {
     COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
                 interpro_matched, directlfq, flashlfq, maxlfq,
                 "$outdir", "$outdir/Logs")
-    COMBINE_PERCOLATOR(prot2intersect, COMBINE_ALL.out.all,
+    COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
+                        COMBINE_ALL.out.all,
+                        directlfq_input,
                         seq_header_mappings, unmatched_pep_tsv,
-                        "$outdir")
+                        "$outdir", "$outdir/Logs")
     unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
     // Key for "ProteinId" column:
     // P = protein from downloaded database
@@ -102,7 +106,7 @@ workflow 'combine_searches' {
     COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(),
         COMBINE_PERCOLATOR.out.seq_map.first(),
         COMBINE_PERCOLATOR.out.peptide_map.first(),
-        "$outdir")
+        "$outdir/.coverage")
     COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
 
     // Will not run if all proteins were matched

@@ -44,4 +44,5 @@ workflow 'open_search' {
 
     emit:
     open_results = SORT_OPEN.out
+    prot2intersect = PERCOLATOR.out.prot2intersect
 }

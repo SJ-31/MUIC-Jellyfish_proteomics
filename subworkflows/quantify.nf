@@ -45,5 +45,6 @@ workflow 'quantify'{
     maxlfq = MAX_LFQ.out
     unmatched_msms = UNMATCHED_MSMS.out
     unmatched_pep_tsv = UNMATCHED_PSMS.out.tsv
+    directlfq_input = DIRECTLFQ_FORMAT.out
 
 }

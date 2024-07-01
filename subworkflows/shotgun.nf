@@ -111,10 +111,9 @@ workflow 'search' {
         "$params.p1",
         db_seq_header_mapping,
         open_search_FIRST.out.open_results,
+        open_search_FIRST.out.prot2intersect.collect(),
+        quantify_FIRST.out.directlfq_input,
         params.blast_db)
-
-    // Create a new blast db from proteins identified in first pass
-    FILTER_DB(combine_searches_FIRST.out.result, "$params.p2")
 
     /* Second pass with Bern and Kil decoy database
     */
@@ -157,6 +156,8 @@ workflow 'search' {
        quantify_SECOND.out.unmatched_pep_tsv,
        "$params.p2",
        db_seq_header_mapping,
-        open_search_SECOND.out.open_results,
-       FILTER_DB.out.path)
+       open_search_SECOND.out.open_results,
+       open_search_SECOND.out.prot2intersect.collect(),
+       quantify_SECOND.out.directlfq_input,
+       params.blast_db)
 }
