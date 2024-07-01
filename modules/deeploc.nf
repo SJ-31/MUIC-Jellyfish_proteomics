@@ -30,6 +30,7 @@ process DEEPLOC {
     cp results/* deeploc_results.csv
 
     if [[ -e deeploc_results.csv ]]; then
+        source ${params.conda}/bin/activate
         Rscript $params.bin/R/merge_deeploc.r \
             -d deeploc_results.csv \
             -m $combined_results \
