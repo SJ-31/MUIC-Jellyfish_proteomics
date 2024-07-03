@@ -13,14 +13,14 @@ import matplotlib as ml
 import dna_features_viewer as dv
 
 
-def parentDir(file_str, parent_level=-1):
+def parent_dir(file_str, parent_level=-1):
     if parent_level > 0:
         raise ValueError("The parent level must be negative!")
     dirs = file_str.split("/")
     return "/".join(dirs[:parent_level])
 
 
-sys.path.append(parentDir(__file__))
+sys.path.append(parent_dir(__file__))
 from dna_features_viewer_modified import GraphicRecordCustom
 
 font = {
@@ -37,7 +37,7 @@ SESSION.mount("https://", HTTPAdapter(max_retries=retries))
 FIELDS = "ft_var_seq%2Cft_variant%2Cft_non_cons%2Cft_non_std%2Cft_non_ter%2Cft_conflict%2Cft_unsure%2Cft_act_site%2Cft_binding%2Cft_dna_bind%2Cft_site%2Cft_mutagen%2Cft_intramem%2Cft_topo_dom%2Cft_transmem%2Cft_chain%2Cft_crosslnk%2Cft_disulfid%2Cft_carbohyd%2Cft_init_met%2Cft_lipid%2Cft_mod_res%2Cft_peptide%2Cft_propep%2Cft_signal%2Cft_transit%2Cft_strand%2Cft_helix%2Cft_turn%2Cft_coiled%2Cft_compbias%2Cft_domain%2Cft_motif%2Cft_region%2Cft_repeat%2Cft_zn_fing"
 
 
-def checkResponse(response):
+def check_response(response):
     try:
         response.raise_for_status()
     except requests.HTTPError:
@@ -45,17 +45,17 @@ def checkResponse(response):
         raise
 
 
-def uniprotGetFeatures(uniprot_id: str, file_format: str = "gff") -> str | None:
+def get_uniprot_features(uniprot_id: str, file_format: str = "gff") -> str | None:
     url = f"{API_URL}/uniprotkb/{uniprot_id}.{file_format}?fields={FIELDS}"
     request = SESSION.get(url)
-    checkResponse(request)
+    check_response(request)
     response = request.content.decode()
     if len(split := response.splitlines()) <= 2 and len(split[1]) <= 3:
         return None
     return response
 
 
-def readGff(filename: str | io.StringIO) -> pl.DataFrame:
+def read_gff(filename: str | io.StringIO) -> pl.DataFrame:
     columns = [
         "seqname",
         "source",
@@ -90,14 +90,14 @@ def find_char(given: str, right: bool = False) -> int:
     return found_index
 
 
-def fasta2Dict(filename) -> dict[str, str]:
+def fasta2dict(filename) -> dict[str, str]:
     dct = {}
     for record in SeqIO.parse(filename, "fasta"):
         dct[record.id] = str(record.seq)
     return dct
 
 
-def writeFasta(filename, seqs, headers=None) -> dict[str, str]:
+def write_fasta(filename, seqs, headers=None) -> dict[str, str]:
     fasta: list = []
     fdict: dict = {}
     if not headers:
@@ -116,11 +116,11 @@ def writeFasta(filename, seqs, headers=None) -> dict[str, str]:
     return fdict
 
 
-def mergeIntervalData(x, y) -> tuple[list, list]:
+def merge_interval_data(x, y) -> tuple[list, list]:
     return (x[0] + y[0], x[1] + y[1])
 
 
-def recordAlignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTree]:
+def record_alignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTree]:
     ittree = it.IntervalTree()
     a_dict = {
         "full_seq": [],
@@ -145,11 +145,11 @@ def recordAlignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTre
             a_dict["id"].append(ids[index])
         ittree[start : stop + 1] = ([a_dict["id"][index]], [seq])
 
-    ittree.merge_overlaps(data_reducer=mergeIntervalData)
+    ittree.merge_overlaps(data_reducer=merge_interval_data)
     return pl.DataFrame(a_dict), ittree
 
 
-def mergeContaining(ittree: it.IntervalTree) -> it.IntervalTree:
+def merge_containing(ittree: it.IntervalTree) -> it.IntervalTree:
     removed: set = set()
     merged_tree = it.IntervalTree()
     intervals = ittree.items()
@@ -164,12 +164,12 @@ def mergeContaining(ittree: it.IntervalTree) -> it.IntervalTree:
             removed.add(e)
             if e.begin == i.begin and e.end == i.end:
                 continue
-            data = mergeIntervalData(data, e.data)
+            data = merge_interval_data(data, e.data)
         merged_tree[i.begin : i.end] = data
     return merged_tree
 
 
-def alignmentFeatureList(
+def alignment_feature_list(
     ittree: it.IntervalTree, entry_map: pl.DataFrame
 ) -> list[dv.GraphicFeature]:
     feature_list = []
@@ -193,7 +193,7 @@ def alignmentFeatureList(
     return feature_list
 
 
-def gffFeatureList(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
+def gff_feature_list(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
     """
     Create a list of GraphicFeatures from a gff file
     If `colors` is supplied, each unique feature in the gff file is randomly
@@ -220,13 +220,37 @@ def gffFeatureList(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
     return features
 
 
-def generateVisual(
+def add_uniprot_features(uniprot_id, features: list) -> list:
+    gff_df = pl.DataFrame()
+    if uniprot_id != "NA" and uniprot_id:
+        uniprot_request = get_uniprot_features(uniprot_id)
+        if uniprot_request:
+            gff_df = read_gff(io.StringIO(uniprot_request))
+    if not gff_df.is_empty():
+        feature_colors = [
+            "#eed49f",
+            "#f4dbd6",
+            "#fab387",
+            "#eba0ac",
+            "#f0c6c6",
+            "#c6a0f6",
+            "#b8c0e0",
+            "#cad3f5",
+            "#f5a97f",
+            "#a6da95",
+        ]
+        features = gff_feature_list(gff_df, feature_colors) + features
+    return features
+
+
+def generate_visual(
     protein_id: str,
     alignment_df: pl.DataFrame = pl.DataFrame(),
     alignments: list = None,
     sequence_df: pl.DataFrame = None,
     sequence: str = None,
     uniprot_id=None,
+    add_uniprot=False,
 ):
     if not alignment_df.is_empty():
         found = alignment_df.filter(pl.col("ProteinId") == protein_id)
@@ -242,27 +266,10 @@ def generateVisual(
         raise ValueError(
             "If no sequence dataframe is provided, the sequence must be given!"
         )
-    records, interval_tree = recordAlignments(alignments)
-    features = alignmentFeatureList(interval_tree, records)
-    gff_df = pl.DataFrame()
-    if uniprot_id != "NA" and uniprot_id:
-        uniprot_request = uniprotGetFeatures(uniprot_id)
-        if uniprot_request:
-            gff_df = readGff(io.StringIO(uniprot_request))
-    if not gff_df.is_empty():
-        feature_colors = [
-            "#eed49f",
-            "#f4dbd6",
-            "#fab387",
-            "#eba0ac",
-            "#f0c6c6",
-            "#c6a0f6",
-            "#b8c0e0",
-            "#cad3f5",
-            "#f5a97f",
-            "#a6da95",
-        ]
-        features = gffFeatureList(gff_df, feature_colors) + features
+    records, interval_tree = record_alignments(alignments)
+    features = alignment_feature_list(interval_tree, records)
+    if (uniprot_id != "NA" and uniprot_id) and add_uniprot:
+        features = add_uniprot_features(uniprot_id, features)
     graphic = GraphicRecordCustom(sequence=sequence, features=features)
     non_polar = {a: "#a6adc8" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
     polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
@@ -301,7 +308,7 @@ def main(args):
     align_df = pl.read_csv(args["alignment_file"], separator="\t", null_values="NA")
     ids = seq_df["ProteinId"].to_list()
     for id in ids:
-        fig, ax = generateVisual(id, alignment_df=align_df, sequence_df=seq_df)
+        fig, ax = generate_visual(id, alignment_df=align_df, sequence_df=seq_df)
         fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
 
 
