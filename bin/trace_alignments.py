@@ -1,9 +1,9 @@
 import sys
+import numpy as np
 import re
 import pandas as pd
 import polars as pl
 import intervaltree as it
-from thefuzz import process
 
 
 def group_peptide_origin(id_series: pl.Series) -> pl.DataFrame:
@@ -45,7 +45,17 @@ def parent_dir(file_str, parent_level=-1):
 
 
 sys.path.append(parent_dir(__file__))
-from view_alignments import findChar
+from view_alignments import find_char
+
+
+def categorize_by_id(id):
+    if "T" in id:
+        return "transcriptome"
+    elif "P" in id:
+        return "database"
+    elif "D" in id:
+        return "denovo"
+    return "unmatched_peptide"
 
 
 class AlignmentTracer:
@@ -55,143 +65,128 @@ class AlignmentTracer:
 
     def __init__(
         self,
-        proteins: pd.DataFrame,
-        alignments: pd.DataFrame,
-        matched_peptides: pd.DataFrame,
+        alignment_path: str,
+        peptide_map_path: str,
     ) -> None:
         """
-        :param proteins: dataframe (as provided from R) containing protein identifications from percolator with an "engine" column specifying which engine made each identification. Must
-        be filtered to be for a single ProteinId
-        :param alignments: dataframe containing alignments (output of
-        the `coverage_calc` process, filtered for the given ProteinId
+        :param alignment_path: path to output of the `coverage_calc` process
+        :param peptide_map_path: path to `percolator_peptide_map` file, file mapping
+        identified peptides in the pipeline to the engines which identified them
         """
-        self.proteins: pl.DataFrame = pl.from_pandas(proteins)
-        self.alignments: pl.DataFrame = pl.from_pandas(alignments)
-        self.alignments = self.alignments.with_columns(
-            interval=pl.col("alignment").map_elements(
-                lambda x: (findChar(x), findChar(x, True)),
-                return_dtype=pl.List(pl.Int64),
-            ),
+        alignments: pl.DataFrame = pl.read_csv(
+            alignment_path, separator="\t", null_values="NA"
         )
-        # Retrieve sequence of alignments i.e. ---ACTAGAT--- -> ACTAGAT
-        self.alignments = self.alignments.with_columns(
-            length=pl.col("interval").map_elements(
-                lambda x: x[1] - x[0], return_dtype=pl.Int16
-            ),
-            seq=pl.struct("alignment", "interval").map_elements(
-                lambda x: x["alignment"][x["interval"][0] : x["interval"][1]],
-                return_dtype=pl.String,
-            ),
+        unknown = alignments.filter(pl.col("id") == "unknown")
+        print(
+            f"Proportion of unidentified alignments: {unknown.shape[0]/alignments.shape[0] * 100}"
         )
-        # Get matched peptides from combined results
-        self.matched_peptides = (
-            pl.from_pandas(matched_peptides)
-            .filter(pl.col("MatchedPeptideIds").is_not_null())
-            .with_columns(
-                MatchedPeptideIds=pl.col("MatchedPeptideIds").map_elements(
-                    lambda x: set(x.split(";")), return_dtype=pl.Object
-                )
-            )
+        self.alignments = alignments.with_columns(
+            length=pl.col("end") - pl.col("start"),
+            interval=pl.Series(zip(alignments["start"], alignments["end"])),
         )
+        self.peptide_map: pl.DataFrame = pl.read_csv(
+            peptide_map_path, separator="\t", null_values="NA"
+        )
+        temp = (
+            self.peptide_map.filter(pl.col("engine").is_not_null())
+            .unique(subset=["ProteinId", "engine"])
+            .group_by("ProteinId")
+            .agg(pl.col("engine"))
+        )
+        self.id2engines = dict(
+            zip(list(temp["ProteinId"]), [list(set(x)) for x in temp["engine"]])
+        )
+        self.alignment_types = [
+            "denovo",
+            "database",
+            "transcriptome",
+            "unmatched_peptide",
+        ]
+        self.engines: list = list(self.peptide_map["engine"].unique().drop_nulls())
         self.cur_protein: pl.DataFrame | None = None
         self.cur_alignments: pl.DataFrame | None = None
+        self.temp_data: dict = {
+            "ProteinId": [],
+            "unidentified_coverage": [],
+            "unidentified_count": [],
+            "total_count": [],
+        }
+        for lst in [self.alignment_types, self.engines]:
+            for val in lst:
+                for metric in ["count", "coverage"]:
+                    self.temp_data[f"{val}_{metric}"] = []
 
-    def __get_alignment_interval(self, sequence: str) -> list:
-        found = None
-        for match in process.extract(sequence, self.cur_alignments["seq"]):
-            if match[1] >= 90:
-                found = match[0]
-                break
-        if found:
-            return self.cur_alignments.filter(pl.col("seq") == found)["interval"][
-                0
-            ].to_list()
-        return [None, None]
-
-    def filter_protein_id(self, protein_id: str) -> None:
+    def filter_protein_id(self, protein_id: str) -> pl.DataFrame:
         """
         Filter main dataframe onto given protein
         """
-        self.cur_alignments = self.alignments.filter(pl.col("ProteinId") == protein_id)
-        find_matched = self.matched_peptides.filter(pl.col("ProteinId") == protein_id)
-        # Necessary when using aligning proteins from engines,
-        # as the engines' matched proteins could have been aligned back into the given
-        # protein
-        if find_matched.is_empty():
-            self.cur_protein = self.proteins.filter(pl.col("ProteinId") == protein_id)
-        else:
-            found = find_matched[0].select("MatchedPeptideIds").item()
-            self.cur_protein = self.proteins.filter(
-                (pl.col("ProteinId") == protein_id) | (pl.col("ProteinId").is_in(found))
-            )
-
-    def engine_alignment_intervals(
-        self, protein_id: str, engine: str
-    ) -> list[list[int]]:
-        self.filter_protein_id(protein_id)
-        temp_prot = self.cur_protein.filter(pl.col("engine") == engine)
-        tree = it.IntervalTree()
-        for seq in temp_prot["peptideIds"]:
-            begin, end = self.__get_alignment_interval(seq)
-            if begin is not None:
-                tree[begin : end + 1] = seq
-        tree.merge_overlaps()
-        return [list(v)[:-1] for v in tree]
-
-
-class DenovoAlignmentTracer(AlignmentTracer):
-    def __init__(
-        self,
-        proteins: pd.DataFrame,
-        alignments: pd.DataFrame,
-        matched_peptides: pd.DataFrame,
-        seq_map_path=None,
-        unmatched_path=None,
-    ) -> None:
-        super().__init__(proteins, alignments, matched_peptides)
-        grouped = group_peptide_origin(self.matched_peptides["MatchedPeptideIds"])
-        self.matched_peptides = pl.concat(
-            [
-                self.matched_peptides.select("ProteinId", "MatchedPeptideIds"),
-                grouped,
-            ],
-            how="horizontal",
-        )
-        split_list = list(
-            map(
-                lambda x: x.split(";"), self.proteins["MatchedPeptideIds"].drop_nulls()
+        df = self.alignments.filter(pl.col("ProteinId") == protein_id)
+        df = df.with_columns(
+            engine_matches=pl.col("id").map_elements(
+                lambda x: self.id2engines.get(x, []),
+                return_dtype=pl.List(pl.String),
+            ),
+            alignment_type=pl.col("id").map_elements(
+                lambda x: categorize_by_id(x), return_dtype=pl.String
             ),
         )
-        wanted = list({s for split in split_list for s in split})
-        self.seq_map: pl.DataFrame = get_seq_map(seq_map_path, unmatched_path, wanted)
-        self.seq_dict: dict = dict(zip(self.seq_map["seq"], self.seq_map["id"]))
-        self.seqs = list(self.seq_dict.keys())
-        self.alignments = self.alignments.join(self.seq_map, on="seq", how="left")
-        id_df = self.alignments.select(
-            pl.struct("id", "seq").map_elements(
-                lambda x: self.find_closest_seq(x["id"], x["seq"]),
-                return_dtype=pl.String,
-            )
+        # TODO Find ids and unmatched peptides better
+        # unmatched_peptides =
+
+        return df
+
+    def get_coverage_contributions(self, protein_id: str) -> None:
+        """
+        Retrieves the coverage (and aligned peptide count) contributions of the different engines and aligned peptide types for the given protein
+        """
+        df = self.filter_protein_id(protein_id)
+        metrics: dict = {}
+        for engine in self.engines:
+            current = df.filter(pl.col("engine_matches").list.contains(engine))
+            metrics[f"{engine}_coverage"] = coverage_helper(current)
+            metrics[f"{engine}_count"] = current.shape[0]
+        for type in self.alignment_types:
+            current = df.filter(pl.col("alignment_type") == type)
+            metrics[f"{type}_coverage"] = coverage_helper(current)
+            metrics[f"{type}_count"] = current.shape[0]
+        unidentified = df.filter(
+            (pl.col("engine_matches").list.len() == 0) | (pl.col("id") == "unknown")
         )
-        # TODO: Takes ages, so save to some hidden file
-        self.alignments = self.alignments.with_columns(id=id_df["id"])
+        metrics["unidentified_coverage"] = coverage_helper(unidentified)
+        metrics["unidentified_count"] = unidentified.shape[0]
+        for k in self.temp_data:
+            if k == "ProteinId":
+                self.temp_data[k].append(protein_id)
+            elif k == "total_count":
+                self.temp_data[k].append(df.shape[0])
+            else:
+                self.temp_data[k].append(metrics[k])
 
-    def find_closest_seq(self, id, seq):
-        if id:
-            return id
-        for match in process.extract(seq, self.seqs):
-            if match[1] >= 90:
-                return self.seq_dict[match[0]]
-        return pl.Null
+    def run(self) -> pl.DataFrame:
+        for id in self.alignments["ProteinId"].unique():
+            self.get_coverage_contributions(id)
+        return pl.DataFrame(self.temp_data)
 
-    # def denovo_alignment_intervals(self, protein_id: str):
-    #     m = self.matched_peptides.filter(pl.col("ProteinId") == protein_id)
-    #     coverage_dct = {"Denovo": 0, "Transcriptome": 0, "UPeptide": 0, "undetermined": 0}
-    #     for origin in ["Denovo", "Transcriptome", "UPeptide"]:
-    #         for id in m[f"Matched{origin}Ids"]:
-    #             for
-    # TODO: finish this
-    # return coverage_dct
+
+def coverage_helper(df: pl.DataFrame) -> float:
+    """
+    Helper function for computing coverage for the alignments of the given
+    dataframe
+    """
+
+    def total_coverage(intervals: list[list]) -> float:
+        return np.sum(list(map(lambda x: x[1] - x[0], intervals))) / length
+
+    if df.is_empty():
+        return np.float64(0)
+    tree = it.IntervalTree()
+    length = df["seq_length"][0]
+    for seq, interval in zip(df["original"], df["interval"]):
+        start, end = interval
+        tree[start:end] = seq
+    tree.merge_overlaps()
+    lst = [list(v)[:-1] for v in tree]
+    return total_coverage(lst)
 
 
 ENGINE_LIST = [
@@ -205,29 +200,6 @@ ENGINE_LIST = [
     "msfraggerGPTMD",
     "msfraggerGlyco",
 ]
-
-
-def get_interval_groups(interval_dict, id):
-    tt = it.IntervalTree()
-    for engine, interval_list in interval_dict.items():
-        if interval_list:
-            for interval in interval_list:
-                tt[interval[0] : interval[1]] = engine
-    tt.split_overlaps()
-    tt.merge_equals(data_reducer=lambda x, y: f"{x};{y}")
-    tt = sorted(tt)
-    info = {e: [] for e in ENGINE_LIST}
-    for index, interval in enumerate(tt):
-        for engine in ENGINE_LIST:
-            if engine in set(interval.data.split(";")):
-                info[engine].append(str(index + 1))
-    for key in info.keys():
-        if not info[key]:
-            info[key] = pd.NA
-        else:
-            info[key] = ";".join(info[key])
-    info["n_unique"] = len(tt)
-    return pd.DataFrame(info, index=[id])
 
 
 def substitution_type(type_str: str, target: str = "conservative") -> int:
@@ -289,7 +261,7 @@ def classify_mismatches(df: pl.DataFrame) -> pl.DataFrame:
 
 
 def seq_from_alignment(alignment: str) -> str:
-    start, stop = findChar(alignment), findChar(alignment, True)
+    start, stop = find_char(alignment), find_char(alignment, True)
     return alignment[start : stop + 1]
 
 
@@ -314,27 +286,16 @@ def denovo_mismatch_metrics(
     mismatches = pl.from_pandas(mismatches)
     id_map = get_seq_map(seq_map_path, unmatched_path, ids_to_keep_denovo)
     peptides = (
-        pl.from_pandas(aligned_peptides)
-        .filter(pl.col("ProteinId").is_in(ids_to_keep))
-        .with_columns(
-            sequence=pl.col("alignment").map_elements(
-                seq_from_alignment, return_dtype=pl.String
-            ),
-            start=pl.col("alignment").map_elements(
-                lambda x: findChar(x), return_dtype=pl.Int32
-            ),
-            stop=pl.col("alignment").map_elements(
-                lambda x: findChar(x, True), return_dtype=pl.Int32
-            ),
-        )  # Obtain sequence from alignment i.e. ---AGCMNAR--- AGCMNAR
-        # And try to map this with original
+        pl.from_pandas(aligned_peptides).filter(pl.col("ProteinId").is_in(ids_to_keep))
     ).select(pl.col("*").exclude("UniProtKB_ID", "alignment"))
-    denovo_map = peptides.join(id_map, left_on="sequence", right_on="seq", how="inner")
+    denovo_map = peptides.join(
+        id_map, left_on="sequence", right_on="original", how="inner"
+    )
 
     metrics = (
         denovo_map.join(mismatches, on="ProteinId")
         .filter(
-            (pl.col("start") <= pl.col("index")) & (pl.col("index") <= pl.col("stop"))
+            (pl.col("start") <= pl.col("index")) & (pl.col("index") <= pl.col("end"))
         )
         .pipe(classify_mismatches)
         .pipe(lambda x: aggregate_mismatches(x, "id", True))
@@ -363,3 +324,46 @@ def get_seq_map(file_path: str, unmatched_path: str, ids_to_keep: list) -> pl.Da
         .filter(pl.col("id").is_in(map_to))
     )
     return pl.concat([id_map, unmatched])
+
+
+def get_engine_counts(percolator_path: str, data: pd.DataFrame) -> pl.DataFrame:
+    def get_engine_counts_row(id_list):
+        filtered = (
+            PERCOLATOR_ALL.filter(pl.col("ProteinId").is_in(id_list))
+            .group_by("engine")
+            .agg(num_peps=pl.col("num_peps").sum())
+        )
+        engine2num_peps = dict(zip(filtered["engine"], filtered["num_peps"]))
+        for e in ENGINES:
+            if e in engine2num_peps:
+                continue
+            else:
+                engine2num_peps[e] = 0
+        df = pl.DataFrame(engine2num_peps).with_columns(ProteinId=pl.lit(id_list[0]))
+        return df.select(sorted(df.columns))
+
+    PERCOLATOR_ALL = pl.read_csv(percolator_path, separator="\t").with_columns(
+        num_peps=pl.col("peptideIds").str.count_matches(" ") + 1
+    )
+
+    ids_to_get = (
+        (
+            pl.from_pandas(data)
+            .fill_null(value="")
+            .with_columns(
+                pl.col("MatchedPeptideIds").str.split(";"),
+                pl.col("ProteinId").map_elements(
+                    lambda x: [x], return_dtype=pl.List(pl.String)
+                ),
+            )
+            .with_columns(
+                ids_to_get=pl.col("ProteinId").list.concat(pl.col("MatchedPeptideIds"))
+            )
+        )
+        .select("ids_to_get")
+        .to_series()
+    )
+    ENGINES = PERCOLATOR_ALL["engine"].unique()
+    rows = map(get_engine_counts_row, ids_to_get)
+    result = pl.concat(rows, how="vertical", rechunk=True)
+    return result
