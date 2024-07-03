@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 
 
-def markUnmatched(row):
+def mark_unmatched(row):
     if "U" in row["ProteinId"] and "-" in row["ProteinGroupId"]:
         return row["ProteinGroupId"].replace("-", "U")
     else:
@@ -35,15 +35,15 @@ def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
     return combined[combined["ProteinId"].isin(queries)]
 
 
-def writeUnmatched(queries_df, failed_filter, prot_df, tsv_name):
+def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
     """
-    Write the entries unmatched by blast to a new fasta and tsv file
+    Write the entries unmatched by blast to a new fasta file
     """
     unmatched_fasta = ""
     unmatched = prot_df[~prot_df["ProteinId"].isin(queries_df["queryID"].unique())]
     unmatched = unmatched[~unmatched["ProteinId"].isin(failed_filter["ProteinId"])]
     unmatched = pd.concat([unmatched, failed_filter])
-    unmatched["ProteinGroupId"] = unmatched.apply(markUnmatched, axis=1)
+    unmatched["ProteinGroupId"] = unmatched.apply(mark_unmatched, axis=1)
     unmatched.to_csv(tsv_name, sep="\t", index=False)
     for row in unmatched.iterrows():
         entry = f">{row[1]['ProteinId']}\n{row[1]['seq']}\n"
@@ -75,7 +75,7 @@ def adjust_prob(df):
     return df
 
 
-def markBest(df):
+def mark_best(df):
     df = df.sort_values(["evalue", "bitscore"], ascending=[True, False])
     best_list = [0] * df.shape[0]
     degenerate_list = [df.iloc[0]["queryID"]] * df.shape[0]
@@ -104,7 +104,7 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     copy = joined.copy()
     # Mark the blast hit with the lowest e-value and highest
     # If this is False, then degenerate peptides are allowed
-    joined = joined.groupby("queryID").apply(markBest)
+    joined = joined.groupby("queryID").apply(mark_best)
 
     # Adjust Percolator PEPs by the number of proteins at peptide
     # is matched with
@@ -126,7 +126,7 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     multi_hit = joined[joined["queryID"].str.contains(";")]
     multi_hit["is_blast_one_hit"] = 0
     joined = pd.concat([one_hits, multi_hit])
-    joined["ProteinGroupId"] = joined.apply(markUnmatched, axis=1)
+    joined["ProteinGroupId"] = joined.apply(mark_unmatched, axis=1)
     return joined, did_not_pass
 
 
@@ -248,7 +248,7 @@ def main(args: dict):
     # The number of unique matches that were accepted
     stats = pd.Series(stats)
     print(stats)
-    unmatched = writeUnmatched(blast_df, joined[1], query_df, args["unmatched_tsv"])
+    unmatched = write_unmatched(blast_df, joined[1], query_df, args["unmatched_tsv"])
     with open(args["unmatched_fasta"], "w") as f:
         f.write(unmatched)
     in_db = known_from_database(joined[0], group_df)

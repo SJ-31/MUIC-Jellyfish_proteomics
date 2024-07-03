@@ -15,7 +15,6 @@ process COMBINE_PERCOLATOR {
 
     output:
     path("percolator_all.tsv")
-    path("engine_stats.tsv")
     path("seq-header_map_found.tsv"), emit: seq_map
     path("percolator_peptide_map.tsv"), emit: peptide_map
     path("*.log")

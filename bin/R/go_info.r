@@ -31,9 +31,9 @@ if (sys.nframe() == 0) {
     )
   } else if (args$mode == "write_results") {
     reticulate::source_python(glue("{args$python_source}/go_subset.py"))
-    result <- parentsFromDf(
+    result <- reticulate_show_error(find_go_parents(
       args$input, args$go_info_path, args$parent_mapping, args$predefined_groups
-    ) |> lapply(as_tibble)
+    )) |> lapply(as_tibble)
     new_name <- str_replace(args$input, "wcoverage", "wcategory")
     result[[1]] %>%
       dplyr::relocate(., contains("GO_category"), .after = "GO_slims") %>%

@@ -43,7 +43,7 @@ get_run <- function(prefix, path, remove_dupes = TRUE, which = "both") {
   }
 }
 
-alignmentData <- function(path, which = "combine") {
+get_alignment_data <- function(path, which = "combine") {
   helper <- function(pass) {
     lst <- list(
       mismatches = read_tsv(glue("{path}/{pass}/all_mismatches.tsv")),

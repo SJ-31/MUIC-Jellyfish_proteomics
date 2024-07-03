@@ -43,14 +43,17 @@ M$fdr <- 0.05
 M$outdir <- glue("{M$path}/Analysis")
 M$prottrans_embd <- glue("{M$outdir}/Embeddings_prottrans/embeddings.hdf5")
 M$prottrans_dist <- glue("{M$outdir}/Embeddings_prottrans/distances.hdf5")
+M$percolator_all_path <- glue("{M$path}/{M$chosen_pass}/percolator_all.tsv")
 M$unmatched_path <- glue("{M$path}/{M$chosen_pass}/Quantify/Unmatched/unmatched_peptides.tsv")
 M$seq_map_path <- glue("{M$path}/Databases/seq-header_mappings.tsv")
+M$aligned_peptides_path <- glue("{M$path}/{M$chosen_pass}/aligned_peptides.tsv")
 M$sample_name <- "C_indra"
 M$r_source <- glue("{M$wd}/bin/R")
 M$python_source <- glue("{M$wd}/bin")
 M$embd_type <- "protein"
 M$uniprot_data_dir <- glue("{M$wd}/data/protein_databases/comparison_taxa")
 M$combined_results <- glue("{M$path}/{M$chosen_pass}/{M$sample_name}_all_wcoverage.tsv")
+M$peptide_map_path <- glue("{M$path}/{M$chosen_pass}/percolator_peptide_map.tsv")
 M$ontologizer_path <- glue("{M$outdir}/Ontologizer")
 M$embedding_path <- glue("{M$wd}/data/reference/go_embedded.npz")
 M$ontologizer_exec <- glue("{M$tools}/Ontologizer.jar")
@@ -85,7 +88,7 @@ if (!dir.exists(M$outdir)) {
 M$run <- get_run("C_indra", M$path)
 M$taxa_tb <- read_tsv(glue("{M$path}/{M$chosen_pass}/{M$sample_name}_taxonomy.tsv"))
 M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
-M$alignments <- alignmentData(M$path, M$chosen_pass)
+M$alignments <- get_alignment_data(M$path, M$chosen_pass)
 
 GET_GO <- FALSE
 if (GET_GO) {

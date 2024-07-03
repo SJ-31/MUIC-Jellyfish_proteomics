@@ -77,7 +77,7 @@ def readGff(filename: str | io.StringIO) -> pl.DataFrame:
     return df.select(cs.by_name(columns))
 
 
-def findChar(given: str, right: bool = False) -> int:
+def find_char(given: str, right: bool = False) -> int:
     length: int = len(given)
     start, end, step = (-1, -length - 1, -1) if right else (0, length, 1)
     found_index = -1
@@ -133,8 +133,8 @@ def recordAlignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTre
     if ids and not len(ids) != len(alignments):
         raise ValueError("Uneven number of ids and alignments!")
     for index, a in enumerate(alignments):
-        a_dict["start"].append((start := findChar(a)))
-        a_dict["stop"].append((stop := findChar(a, right=True)))
+        a_dict["start"].append((start := find_char(a)))
+        a_dict["stop"].append((stop := find_char(a, right=True)))
         a_dict["full_seq"].append(a)
         seq = a[start : stop + 1]
         a_dict["seq"].append(seq)

@@ -215,7 +215,9 @@ def TextFace(text: str, **kwargs) -> tvf.TextFace:
     return face
 
 
-def rankLegend(legend: tv.FaceContainer, max_rank: str) -> None:
+def rankLegend(
+    legend: tv.FaceContainer, max_rank: str, min_ranks: tuple = tuple()
+) -> None:
     left_margin, top_margin = 20, 15
     header = TextFace(
         "Key to main taxonomic ranks",
@@ -226,6 +228,8 @@ def rankLegend(legend: tv.FaceContainer, max_rank: str) -> None:
     )
     legend.add_face(header, column=1)
     for rank in RANKS:
+        if rank in min_ranks:
+            continue
         size = getRankSize(rank)
         item = TextFace(
             f"{rank.capitalize()}",

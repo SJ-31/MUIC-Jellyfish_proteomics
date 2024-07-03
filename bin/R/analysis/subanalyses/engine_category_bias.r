@@ -202,7 +202,8 @@ hits <- hits |> inner_join(intensity, by = join_by(ProteinId))
 
 intense <- chisqNME(
   tb = hits, var_a_levels = engines,
-  var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class"
+  var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class",
+  binary = TRUE
 )
 
 TABLES$engine_intensity_chi <- intense$gt$chi
