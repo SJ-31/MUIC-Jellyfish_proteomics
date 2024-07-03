@@ -12,7 +12,7 @@ data <- M$data %>% filter(pcoverage_align >= coverage_threshold)
 nd_data <- get_run("ND_C_indra", glue("{M$wd}/results/ND_C_indra"),
   which = M$chosen_pass
 ) %>% filter(ProteinId %in% data$ProteinId)
-nd_alignments <- alignmentData(glue("{M$wd}/results/ND_C_indra"), which = M$chosen_pass)
+nd_alignments <- get_alignment_data(glue("{M$wd}/results/ND_C_indra"), which = M$chosen_pass)
 alignments <- M$alignments
 
 unmatched_peptides <- read_tsv(M$unmatched_path) %>%
@@ -53,15 +53,16 @@ merged <- bind_rows(
 )
 
 
-GRAPHS$peptides_vs_mismatches <- ggplot(merged, aes(
-  x = num_unique_peps, y = n_mismatches,
-  color = mode, alpha = n_disagreements / n_mismatches
-)) +
-  geom_point() +
-  xlab("Number of unique peptides") +
-  ylab("n mismatches") +
-  labs(alpha = "n disagreements / n mismatches") +
-  scale_color_paletteer_d(PALETTE)
+# TODO: This is kinda weird and misleading, maybe something better...
+# GRAPHS$peptides_vs_mismatches <- ggplot(merged, aes(
+#   x = num_unique_peps, y = n_mismatches,
+#   color = mode, alpha = n_disagreements / n_mismatches
+# )) +
+#   geom_point() +
+#   xlab("Number of unique peptides") +
+#   ylab("n mismatches") +
+#   labs(alpha = "n disagreements / n mismatches") +
+#   scale_color_paletteer_d(PALETTE)
 
 test <- cor.test(merged$n_mismatches, merged$num_unique_peps) |>
   to("data.name", "number of mismatches vs number of unique peptides") |>

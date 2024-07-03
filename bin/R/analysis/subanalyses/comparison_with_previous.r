@@ -67,18 +67,29 @@ compare_long <- compare_all |>
   pivot_longer(cols = -c(ID, greater)) |>
   mutate(is_greater = map2_lgl(value, greater, \(x, y) abs(x) == y))
 
+
 n_greater <- local({
   previous <- filter(compare_long, name == "previous")$is_greater |> sum()
   first <- filter(compare_long, name == "first")$is_greater |> sum()
   list(previous = previous, first = first)
 })
 
-compare_long <- compare_all |>
-  select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
-  rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
-  mutate(change = first - previous)
 
-compare_long
+GRAPHS$protein_wise_coverage2 <- local({
+  compare_long <- compare_all |>
+    select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
+    rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
+    mutate(change = first - previous, Improved = change < 0)
+  ggplot(
+    compare_long,
+    aes(x = previous, y = change, color = Improved)
+  ) +
+    geom_point() +
+    scale_fill_paletteer_d(PALETTE) +
+    xlab("Previous coverage (%)") +
+    ylab("Change in coverage (%)")
+})
+
 
 
 protein_wise_coverage <- local({
