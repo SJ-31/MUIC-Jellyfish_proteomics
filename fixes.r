@@ -7,6 +7,46 @@ args <- list(
 )
 
 
+#' Add `engine` column in the unmatched peptide file showing which engines mapped
+#' to that peptide
+#'
+find_engine_unmatched <- function(percolator_dir, unmatched_path) {
+  get_percolator_peptides <- function() {
+    transform_seq <- function(tb, engine) {
+      tb |> mutate(
+        peptide = map_chr(peptide, \(x) {
+          str_replace_all(x, "[\\.-]", "")
+        }),
+        engine = engine
+      )
+    }
+    file_list <- list.files(percolator_dir, pattern = "*_percolator_psms.tsv", full.names = TRUE)
+    engines <- file_list %>%
+      map_chr(., \(x) {
+        gsub("_percolator_psms.tsv", "", x) %>%
+          gsub(".*/", "", .)
+      })
+    tsvs <- lapply(file_list, read_tsv) %>% `names<-`(engines)
+    if ("tide" %in% names(tsvs)) {
+      tsvs$tide <- tsvs$tide |> rename(peptide = sequence)
+    }
+    lmap(tsvs, \(x) transform_seq(x[[1]], names(x))) %>% `names<-`(engines)
+  }
+
+  unmatched <- read_tsv(unmatched_path)
+  peps <- get_percolator_peptides()
+  to_join <- list()
+  for (e in names(peps)) {
+    to_join[[e]] <- inner_join(unmatched, peps[[e]], by = join_by(x$peptideIds == y$peptide)) |>
+      select(ProteinId, engine)
+  }
+  all <- left_join(unmatched, bind_rows(to_join)) |>
+    group_by(ProteinId) |>
+    summarise(engine = paste0(engine, collapse = ";"))
+  inner_join(unmatched, all, by = join_by(ProteinId))
+}
+
+
 #' Correct the "NCBI_ID" entry for database proteins that were originally derived
 #' from UniProt
 correctIds <- function(tb) {
