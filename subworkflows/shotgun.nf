@@ -11,7 +11,7 @@ include { TIDE_COMBINED_PEP } from '../modules/tide'
 include { PERCOLATOR } from '../modules/percolator'
 include { RAWPARSE } from '../modules/rawparse' addParams(logdir: preprocessed_logs)
 include { DEISOTOPE } from '../modules/deisotope' addParams(logdir: preprocessed_logs)
-include { MS_MAPPING } from '../modules/ms_mapping' addParams(logdir: preprocessed_logs)
+include { MS_MAPPING } from '../modules/ms_mapping'
 include { CALIBRATE } from '../modules/calibrate' addParams(logdir: preprocessed_logs)
 include { FALCON } from '../modules/falcon' addParams(logdir: preprocessed_logs)
 include { bk_decoys } from './bk_decoys.nf'

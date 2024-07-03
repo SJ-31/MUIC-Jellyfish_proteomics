@@ -1,7 +1,10 @@
+
 include { MSFRAGGER as MSFRAGGER_OPEN } from "../modules/msfragger"
 include { MSFRAGGER as MSFRAGGER_GLYCO } from "../modules/msfragger"
 include { METAMORPHEUS as METAMORPHEUS_GET_GPTMD } from "../modules/metamorpheus"
 include { PERCOLATOR } from "../modules/percolator"
+include { MAP_SCANS } from '../modules/map_scans'
+include { MS_MAPPING } from '../modules/ms_mapping'
 include { METAMORPHEUS as METAMORPHEUS_SEARCH_GPTMD } from "../modules/metamorpheus"
 include { METAMORPHEUS as METAMORPHEUS_GLYCO } from "../modules/metamorpheus"
 include { SORT_OPEN } from "../modules/sort_open_searches"
@@ -18,6 +21,7 @@ workflow 'open_search' {
     seq_header_mapping
 
     main:
+    MS_MAPPING(mzML.collect(), "$outdir")
     MSFRAGGER_OPEN(mzML.collect(), "$params.config_dir/open_fragger.params",
                    "GPTMD", "$outdir/MsFragger_open", "$outdir/Logs", dbPlusDecoys)
     MSFRAGGER_GLYCO(mzML.collect(), "$params.config_dir/Nglyco_fragger.params",
@@ -41,6 +45,20 @@ workflow 'open_search' {
     SORT_OPEN(PERCOLATOR.out.prot2intersect.collect(),
               seq_header_mapping,
               "$outdir")
+
+    PERCOLATOR.out.psms.filter({ !(it =~ /.*metamorpheus.*/ )})
+                            .mix(METAMORPHEUS_SEARCH_GPTMD.out.psms)
+                            .map { it = [ it.baseName.replaceFirst(/_.*/, ""), it ] }
+                            .set { psm }
+
+   PERCOLATOR.out.prot2intersect
+        .map { it = [ it.baseName.replaceFirst(/_.*/, ""), it ] }
+        .set { prot }
+
+    MAP_SCANS(psm.join(prot),
+              Channel.fromPath("$params.config/NO_FILE"),
+              MS_MAPPING.out,
+              "$outdir/Mapped_scans")
 
     emit:
     open_results = SORT_OPEN.out
