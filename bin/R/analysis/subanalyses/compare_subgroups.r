@@ -1,3 +1,5 @@
+TABLES <- list()
+GRAPHS <- list()
 #' Are there any meaningful differences between the sub-groups of proteins
 #' identified in the data?
 #'
@@ -24,3 +26,37 @@ toxins <- cluster_aggregated |>
 unknown_others |>
   filter(cluster %in% toxins$cluster) |>
   pluck("header")
+
+
+# ----------------------------------------
+# Relation between identifcation method and protein categories
+category_col <- "GO_category_CC"
+# Will choose cellular location, because this has the largest impact on acquisition
+# among GO terms
+cur <- M$data |> select(ID_method, {{ category_col }})
+id_methods <- unique(cur$ID_method)
+result <- chisqNME(
+  cur, id_methods,
+  category_col, "ID_method", category_col, "ID_method",
+  binary = FALSE
+)
+
+TABLES$id_method_cc_chi <- result$gt$chi
+TABLES$id_method_cc_contingency <- result$gt$contingency
+
+# ----------------------------------------
+category_col <- "GO_category_MF"
+cur <- inner_join(M$data, M$taxa_tb, by = join_by(ProteinId)) |> select(Class, {{ category_col }})
+classes <- unique(cur$Class) |> discard(is.na)
+result <- chisqNME(cur, classes, category_col, "Class", category_col, "Class",
+  binary = FALSE
+)
+
+TABLES$class_mf_chi <- result$gt$chi
+TABLES$class_mf_contingency <- result$gt$contingency
+
+# ----------------------------------------
+
+
+
+save(c(TABLES, GRAPHS), glue("{M$outdir}/figures/subgroup_comparisons"))
