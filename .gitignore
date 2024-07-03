@@ -41,3 +41,9 @@ tests
 bin/.unison.ontologizer_wrapper.py.38746f100f9915f96057a1f9f4d56fdd.unison.tmp
 bin/R/analysis/.unison.all_analyses.r.38746f100f9915f96057a1f9f4d56fdd.unison.tmp
 bin/R/get_clusters.r
+docs/systems
+docs/words
+bin/R/analysis/Rplots.pdf
+tests/modules/coverage.coverage_calc.nf.test
+docs/benchmark_prop_comparison.png
+null

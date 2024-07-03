@@ -13,54 +13,23 @@ read_percolator <- function(file) {
   return(t)
 }
 
-split_ambiguous <- function(table, index) {
-  base <- strsplit(table[index, ]$`Base.Sequence`, "\\|")[[1]]
-  row <- lapply(seq_along(base), function(x) {
-    return(data.frame(
-      `File.Name` = table[index, ]$`File.Name`,
-      `Precursor.Charge` = table[index, ]$`Precursor.Charge`,
-      `Base.Sequence` = base[x],
-      `Protein.Accession` = table$`Protein.Accession`,
-      `Scan.Number` = table$`Scan.Number`
-    ))
-  })[[1]]
-  return(row)
-}
-
-sort_ambiguous <- function(mm) {
-  #' Split a metamorpheus psm matching to multiple proteins into multiple rows
-  ambiguous <- mm %>% filter(grepl("\\|", `Base.Sequence`))
-  if (dim(ambiguous)[1] == 0) {
-    return(mm)
-  }
-  single <- mm %>% filter(!grepl("\\|", `Base.Sequence`))
-  changed <- lapply(1:dim(ambiguous)[1], split_ambiguous,
-    table = ambiguous
-  ) %>%
-    bind_rows()
-  bound <- bind_rows(list(single, changed)) %>%
-    as_tibble()
-  return(bound)
-}
-
 read_metamorpheus <- function(metamorpheus_file) {
   # Needs metamorpheus AllPSMS.psmtsv
   old_names <- c(
-    "File.Name", "Precursor.Charge",
-    "Base.Sequence",
-    "Protein.Accession",
-    "Scan.Number"
+    "File Name", "Precursor Charge",
+    "Base Sequence",
+    "Protein Accession",
+    "Scan Number"
   )
   new_names <- c("file", "precursorCharge", "peptide", "protein", "scan")
-  mm <- read.delim(metamorpheus_file, sep = "\t") %>%
-    as_tibble() %>%
+  mm <- read_tsv(metamorpheus_file) %>%
     filter(Decoy == "N") %>%
     select(all_of(old_names))
-  mm <- sort_ambiguous(mm) %>%
-    distinct(`Base.Sequence`, .keep_all = TRUE) %>%
-    mutate(`Scan.Number` = paste0(
-      `File.Name`, ".",
-      `Scan.Number`
+  mm <- separate_longer_delim(mm, `Base Sequence`, delim = "|") %>%
+    distinct(`Base Sequence`, .keep_all = TRUE) %>%
+    mutate(`Scan Number` = paste0(
+      `File Name`, ".",
+      `Scan Number`
     )) %>%
     rename_with(~new_names, all_of(old_names)) %>%
     mutate(protein = unlist(lapply(protein, gsub,
@@ -69,7 +38,6 @@ read_metamorpheus <- function(metamorpheus_file) {
     )))
   return(mm)
 }
-
 
 read_tide <- function(tide_file, mapping) {
   # Needs tide-search.target.txt
@@ -181,14 +149,14 @@ read_engine_psms <- function(args) {
   return(psms)
 }
 
-expandProteinRows <- function(row) {
+expand_protein_rows <- function(row) {
   ProteinId <- row[["ProteinId"]] %>% str_split_1(",")
   peptide <- row[["peptideIds"]] %>% str_split_1(" ")
   combos <- crossing(ProteinId, peptide)
   return(combos)
 }
 
-noTermini <- function(peptide_col) {
+remove_termini <- function(peptide_col) {
   unlist(lapply(peptide_col, \(x) {
     return(substr(x, start = 3, stop = nchar(x) - 2))
   }))
@@ -199,14 +167,14 @@ merge_unmatched <- function(final_df, unmatched_peptides, proteins) {
   #' so that they may be quantified
   prot_df <- read_tsv(proteins) %>%
     select(ProteinId, peptideIds) %>%
-    apply(., 1, expandProteinRows) %>%
+    apply(., 1, expand_protein_rows) %>%
     bind_rows()
   u_df <- read_tsv(unmatched_peptides) |> select(-engine)
   unwanted_cols <- colnames(u_df) %>% discard(., \(x) x %in% "peptideIds")
   # Join with unmatched peptides
   no_prot1 <- final_df %>%
     filter(is.na(protein)) %>%
-    mutate(no_termini = noTermini(peptide))
+    mutate(no_termini = remove_termini(peptide))
   has_prot1 <- final_df %>% filter(!is.na(protein))
   joined1 <- left_join(no_prot1, u_df,
     by =
@@ -259,7 +227,7 @@ if (sys.nframe() == 0) {
   )
   args <- parse_args(parser)
   f <- read_engine_psms(args)
-  if (any(is.na(f$protein))) {
+  if (any(is.na(f$protein)) && file.size(args$unmatched_peptides) > 0) {
     final <- merge_unmatched(f, args$unmatched_peptides, args$protein)
     write_delim(final, args$output, delim = "\t")
   } else {
