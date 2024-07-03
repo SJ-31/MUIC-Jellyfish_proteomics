@@ -3,135 +3,64 @@ if (!exists("SOURCED")) {
   SOURCED <- TRUE
 }
 PALETTE <- "ggthemes::colorblind"
+PALETTE2 <- "ggthemes::Classic_10_Medium"
 library("ggplot2")
 library("ggVennDiagram")
 TABLES <- list()
 GRAPHS <- list()
 
-get_all_intervals <- function(ids) {
-  get_id_intervals <- function(id) {
-    lapply(ENGINES, \(x) py$tracer$engine_alignment_intervals(id, x)) %>%
-      `names<-`(ENGINES)
-  }
-  lapply(ids, get_id_intervals) %>% `names<-`(ids)
-}
-
-interval_coverage <- function(interval_list, length, id) {
-  sum_interval <- function(intervals) {
-    if (length(intervals) == 0) {
-      return(0)
-    }
-    s <- sum(map_dbl(intervals, \(x) x[2] - x[1]))
-    s / length
-  }
-  lmap(
-    interval_list,
-    \(x) tibble(engine = names(x), ProteinId = id, coverage = sum_interval(x[[1]]))
-  ) %>%
-    bind_rows() %>%
-    pivot_wider(names_from = engine, values_from = coverage)
-}
-
 # File and path setup
-pass <- "1-First_pass"
-PERCOLATOR_DIR <- c(glue("{M$path}/{pass}/Percolator"), glue("{M$path}/{pass}/Open_search/Percolator"))
 open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
-percolator_files <- list.files(PERCOLATOR_DIR,
-  pattern = "_percolator_proteins.tsv", full.names = TRUE
-)
-alignments <- alignmentData(M$path, "first")
-combined_results <- M$data
-
-
 percolator_all <- read_tsv(M$percolator_all)
-ENGINES <- unique(percolator_all$engine)
-percolator_tibbles <- list()
-# Engine distribution analysis
-for (e in ENGINES) {
-  percolator_tibbles[[e]] <- percolator_all |> filter(engine == e)
+ENGINES <- percolator_all$engine |> unique()
+standard_search_engines <- ENGINES[!ENGINES %in% open_search_engines]
+
+
+data <- M$data
+
+ta <- new.env()
+reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
+per_protein_alignment_metrics_file <- glue("{M$outdir}/per_protein_alignment_metrics.tsv")
+if (file.exists(per_protein_alignment_metrics_file)) {
+  per_protein_alignment_metrics <- read_tsv(per_protein_alignment_metrics_file)
+} else {
+  tracer <- ta$AlignmentTracer(M$aligned_peptides_path, M$peptide_map_path)
+  per_protein_alignment_metrics <- tracer$run() |> as_tibble()
+  write_tsv(per_protein_alignment_metrics, per_protein_alignment_metrics_file)
 }
 
-standard_search <- combined_results %>% filter(ID_method == "standard")
+engine_alignment_metrics <- per_protein_alignment_metrics |> select(
+  ProteinId,
+  contains(ENGINES), -matches("count|unmatched")
+)
 
-normal_engine_tbs <- percolator_tibbles[!names(percolator_tibbles) %in% open_search_engines]
-
-
-num_peptides_matched <- apply(combined_results, 1, \(x) {
-  protein_id <- x["ProteinId"]
-  ids_to_match <- protein_id
-  matched_peptides <- x["MatchedPeptideIds"]
-  if (!is.na(matched_peptides)) {
-    ids_to_match <- c(ids_to_match, str_split_1(matched_peptides, ";"))
-  }
-  row <- tibble(ProteinId = protein_id)
-  for (e in ENGINES) {
-    current <- percolator_tibbles[[e]] %>% filter(ProteinId %in% ids_to_match)
-    if (nrow(current) != 0) {
-      col <- tibble(!!e := sum(current$num_peps))
-    } else {
-      col <- tibble(!!e := 0)
-    }
-    row <- bind_cols(row, col)
-  }
-  return(row)
-}) %>%
-  bind_rows()
-
-# Determine which engines contributed the most to protein coverage
-# Do so by multivariate linear regression -> it makes sense that
-with_normal <- local({
-  normal <- num_peptides_matched %>% select(all_of(c("ProteinId", names(normal_engine_tbs))))
-  standard_search %>%
-    select(., c(ProteinId, pcoverage_align)) %>%
-    inner_join(., normal, by = join_by("ProteinId"))
-})
-
-reticulate::source_python(glue("{M$python_source}/trace_alignments.py"))
-matched_peptides <- select(combined_results, c(ProteinId, MatchedPeptideIds))
-protein_tb <- normal_engine_tbs %>%
-  bind_rows() %>%
-  separate_longer_delim(., "peptideIds", " ") %>%
-  mutate(peptideIds = map_chr(peptideIds, clean_peptide))
-
-measure_coverage_contribution <- function(protein_id) {
-  row <- ENGINES
-  return()
-}
-
-
-
-py$tracer <- AlignmentTracer(protein_tb, M$alignments$peptides, matched_peptides)
-# Try to measure the proportion of alignments each engine takes up with its peptides
-traced_intervals <- get_all_intervals(combined_results$ProteinId)
-interval_coverage <- pmap(
-  list(traced_intervals, combined_results$length, combined_results$ProteinId),
-  \(x, y, z) interval_coverage(x, y, z)
-) %>% bind_rows()
-interval_groups <- pmap(
-  list(traced_intervals, combined_results$ProteinId),
-  \(x, y) get_interval_groups(x, y)
-) %>%
-  bind_rows() %>%
-  as_tibble()
-
-standard_engine_coverage <- interval_coverage %>%
-  filter(ProteinId %in% standard_search$ProteinId) %>%
-  select(-all_of(open_search_engines))
-
-GRAPHS$engine_peptide_coverage <- standard_engine_coverage %>%
+GRAPHS$engine_peptide_coverage <- engine_alignment_metrics %>%
   pivot_longer(., cols = -ProteinId) %>%
-  ggplot(aes(y = value, x = name, fill = name)) +
+  mutate(
+    value = log(value * 100),
+    name = map_chr(name, \(x) str_replace(x, "_coverage", "")),
+    type = case_when(
+      name %in% standard_search_engines ~ "standard",
+      name %in% open_search_engines ~ "open search",
+    )
+  ) |>
+  ggplot(aes(y = value, x = name, fill = name, color = type)) +
   geom_boxplot() +
   labs(title = "Density of per-engine peptide coverage") +
-  ylab("Coverage (%)") +
+  ylab("log coverage (%)") +
   xlab("Engine name") +
-  theme(legend.position = "none") +
-  scale_fill_paletteer_d(PALETTE)
+  guides(fill = "none") +
+  scale_fill_paletteer_d(PALETTE2) +
+  scale_color_manual(values = c("standard" = "#4c4f69", "open search" = "#d20f39")) +
+  scale_x_discrete(
+    limits = c(standard_search_engines, open_search_engines)
+  )
 
 # Identify which engine, if any, is the best-performing
-cov_list <- standard_engine_coverage %>%
-  select(-ProteinId) %>%
+cov_list <- engine_alignment_metrics %>%
+  select(-ProteinId) |>
   as.list()
+names(cov_list) <- names(cov_list) |> map_chr(\(x) str_replace(x, "_coverage", ""))
 ks <- kruskal.test(cov_list)
 combos <- combn(names(cov_list), 2)
 test_tb <- lapply(
@@ -160,10 +89,12 @@ test_tb <- test_tb %>%
   ) %>%
   rename(pair = data)
 TABLES$engine_coverage_pairwise <- gt(test_tb)
+TABLES$engine_coverage_pairwise_sig <- gt(conclude_one_sided(test_tb))
 
-#' Group engines that identify the same peptide groups using Jaccard distance
-enginesXProtein <- peps <- num_peptides_matched %>%
-  select(-all_of(open_search_engines)) %>%
+num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |> as_tibble()
+# #' Group engines that identify the same peptide groups using Jaccard distance
+enginesXProtein <- num_peptides_matched %>%
+  # select(-all_of(open_search_engines)) %>%
   tb_transpose()
 
 engine_dist <- vegan::vegdist(enginesXProtein, method = "jaccard")
@@ -172,18 +103,48 @@ dist_longer <- engine_dist |>
   as.data.frame() |>
   rownames_to_column(var = "engine") |>
   pivot_longer(cols = -engine)
+pcoa <- vegan::wcmdscale(engine_dist, eig = TRUE)$points %>%
+  as.data.frame() |>
+  rownames_to_column(var = "engine")
 GRAPHS$engine_sim_jaccard <- dist_longer |> ggplot(aes(x = engine, y = name, fill = value)) +
   geom_tile() +
   ylab("Engine") +
   xlab("Engine") +
-  scale_fill_paletteer_c("ggthemes::Orange-Gold", name = "Jaccard distance")
+  scale_fill_paletteer_c("ggthemes::Orange-Gold", name = "Jaccard distance") +
+  theme(axis.text.x = element_text(angle = 90))
+GRAPHS$engine_sim_jaccard_biplot <- pcoa |> ggplot(aes(x = Dim1, y = Dim2, color = engine)) +
+  geom_point()
 
+
+
+standard_engine_tbs <- lapply(standard_search_engines, \(x) {
+  percolator_all |> filter(engine == x)
+}) %>%
+  `names<-`(standard_search_engines)
 
 #' Venn diagram for overlap
-id_list <- lapply(normal_engine_tbs, \(x) x$ProteinId) %>%
-  `names<-`(names(normal_engine_tbs))
+id_list <- lapply(standard_engine_tbs, \(x) x$ProteinId) %>%
+  `names<-`(names(standard_engine_tbs))
 venn <- ggVennDiagram(id_list, label = "none") +
-  scale_fill_gradient(low = "grey90", high = "blue")
+  scale_fill_paletteer_c("ggthemes::Classic Blue")
 GRAPHS$engine_venn <- venn
+
+# ----------------------------------------
+# Evaluate the contribution of each alignment type onto the protein
+no_denovo <- read_tsv(glue("{M$wd}/results/ND_C_indra/{M$chosen_pass}/ND_C_indra_all_wcoverage.tsv"))
+type_alignment_metrics <- per_protein_alignment_metrics |>
+  select(
+    ProteinId, contains(c("transcriptome", "unmatched", "denovo", "database")),
+    -contains("count")
+  ) |>
+  inner_join(select(no_denovo, ProteinId, pcoverage_nmatch)) |>
+  rename(database_nd = pcoverage_nmatch) |>
+  inner_join(select(data, ProteinId, pcoverage_align)) |>
+  rename(total = pcoverage_align)
+
+type_alignment_metrics_long <- type_alignment_metrics |>
+  pivot_longer(cols = -ProteinId) |>
+  mutate(name = map_chr(\(x) str_replace("_coverage", "")))
+
 
 save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/engine_characteristics"))

@@ -168,6 +168,5 @@ peptides <- peptides |> filter(!length >= 500)
 GRAPHS$peptide_lengths <- ggplot(peptides, aes(x = length)) +
   geom_histogram(binwidth = 10)
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/general_metrics"))
 
-GRAPHS$per_protein_change
+save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/general_metrics"))
