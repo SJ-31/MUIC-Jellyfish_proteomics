@@ -25,25 +25,11 @@ main <- function(args) {
   names(percolator_protein_files) <- ENGINES
   percolator_files <- as.list(percolator_protein_files)
 
-  engine_stats <- tibble()
   protein_tbs <- local({
     get_engine <- function(file) {
       tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
       filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
         mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
-      row <- tibble(
-        engine = names(file),
-        n_groups_all = length(unique(tb$ProteinGroupId)),
-        n_groups_accepted = length(unique(filtered$ProteinGroupId)),
-        n_proteins_all = nrow(tb),
-        n_proteins_below_fdr = tb %>% filter(`q-value` <= args$fdr) %>% nrow(),
-        n_proteins_accepted = nrow(filtered),
-        # To be accepted, a protein needs to be matched by at least two other engines
-        # And the q value of at least two psm matches needs to be below the fdr
-        n_other_proteins = map_lgl(tb$ProteinId, \(x) str_detect(x, "D|T")) %>% sum(),
-      ) %>%
-        mutate(n_database = n_proteins_all - n_other_proteins)
-      engine_stats <<- dplyr::bind_rows(engine_stats, row)
       return(tb)
     }
     lmap(percolator_files, get_engine) %>% `names<-`(ENGINES)
@@ -66,7 +52,7 @@ main <- function(args) {
     separate_longer_delim(ProteinId, ";")
   peptide_tb <- bind_rows(peptide_tb, dlfq)
   result <- list(
-    percolator_all = percolator_tb, metrics = engine_stats,
+    percolator_all = percolator_tb,
     seq_map = seq_map,
     peptides = peptide_tb
   )
@@ -111,7 +97,6 @@ if (sys.nframe() == 0) {
   source(glue("{args$r_source}/helpers.r"))
   results <- main(args)
   write_tsv(results$percolator_all, glue("{args$outdir}/percolator_all.tsv"))
-  write_tsv(results$metrics, glue("{args$outdir}/engine_stats.tsv"))
   write_tsv(results$seq_map, glue("{args$outdir}/seq-header_map_found.tsv"))
   write_tsv(results$peptides, glue("{args$outdir}/percolator_peptide_map.tsv"))
 }
