@@ -400,3 +400,82 @@ group_by_unique_peptides <- function(tb) {
     inner_join(group_map) |>
     relocate(GroupUP, .after = Group)
 }
+
+#' Replace discrete labels in a ggplot
+#'
+#' @description
+#' @param mapping a named vector where names are the new labels and values are the old
+#' @value a function that takes in breaks and converts the old labels to the new ones
+#' Use this as "scale_x_discrete(labels = get_label_replacement(YOUR_LABEL_MAPPING))"
+get_label_replacement <- function(mapping) {
+  \(breaks) {
+    reversed <- as.list(setNames(names(mapping), mapping))
+    map_chr(breaks, \(x) {
+      if (x %in% names(reversed)) {
+        reversed[[x]]
+      } else {
+        x
+      }
+    })
+  }
+}
+
+#' Automatically determine which variable was greater/lesser from a tibble of the
+#' one-sided hypothesis tests
+#'
+#' @description
+#' The assumption is that the two sided test for this pair is significant
+get_one_sided_conclusion <- function(alternative, pair, pair_sep, is_significant) {
+  if (alternative == "two sided") {
+    return(NA)
+  }
+  splits <- str_split_1(pair, pair_sep) |> map_chr(str_trim)
+  first <- splits[1]
+  second <- splits[2]
+  direction <- case_when(
+    str_detect(alternative, "greater") ~ "greater",
+    str_detect(alternative, "less") ~ "less",
+    .default = NA
+  )
+  if (is.na(direction)) {
+    stop("The alternative must be formulated as \"`x` greater/less!\"")
+  }
+  alternative_var <- str_replace(alternative, direction, "") |> str_trim()
+  if (!alternative_var %in% splits) {
+    stop("No recognizable variable for the alternative specified! It must be one of the pair")
+  }
+  case_when(
+    is_significant == 1 && alternative_var == first ~ glue("{alternative_var} {direction} than {second}"),
+    is_significant == 1 && alternative_var == second ~ glue("{alternative_var} {direction} than {first}"),
+    is_significant == 0 && alternative_var == first ~ glue("{second} {direction} than {first}"),
+    is_significant == 0 && alternative_var == second ~ glue("{first} {direction} than {first}"),
+  )
+}
+
+#' Conclude the results of a series of one and two-sided tests
+#'
+#' @description
+#' Automatically determine which variable in a one-sided test had the statistically
+#' significant direction
+#' @value a tibble containing pairs that were significant, and a `conclusion` column
+#' indicating how to interpret the one-sided test result
+conclude_one_sided <- function(htest_tb, pair_sep = "x") {
+  unique_pairs <- htest_tb$pair |> unique()
+  two_sided_was_significant <- lapply(unique_pairs, \(x) {
+    row <- htest_tb |> filter(pair == x & alternative == "two sided")
+    if (row$significant == 1) {
+      return(x)
+    }
+    NA
+  }) |>
+    unlist() |>
+    discard(is.na)
+  tb <- htest_tb |> filter(pair %in% two_sided_was_significant)
+  winning_vars <- pmap(
+    list(tb$alternative, tb$pair, rep(pair_sep, length(tb$pair)), tb$significant),
+    get_one_sided_conclusion
+  ) |> unlist()
+  tb |>
+    mutate(conclusion = winning_vars) |>
+    filter(!is.na(conclusion))
+}
