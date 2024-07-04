@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 
+from matplotlib.collections import PatchCollection
+from matplotlib.axes import Axes
+from Bio import Align
+from pathlib import Path
+import pymsaviz as pv
+from matplotlib.patches import Rectangle
 import string
+from Bio.SeqRecord import SeqRecord
 import intervaltree as it
 import polars as pl
 import polars.selectors as cs
@@ -297,6 +304,235 @@ def parseArgs():
     parser.add_argument("-o", "--outdir")
     args = vars(parser.parse_args())
     return args
+
+
+class PeptideViz(pv.MsaViz):
+    """Class for representing peptides aligned to a central protein sequence
+    Code adapted from https://github.com/moshi4/pyMSAviz
+    """
+
+    def __init__(
+        self,
+        msa: str | Path | Align.MultipleSeqAlignment,
+        *,
+        aligned_to: SeqRecord = None,
+        format: str = "fasta",
+        color_scheme: str | None = None,
+        start: int = 1,
+        end: int | None = None,
+        wrap_length: int | None = None,
+        wrap_space_size: float = 3.0,
+        show_label: bool = True,
+        label_type: str = "id",
+        show_seq_char: bool = True,
+        show_grid: bool = False,
+        show_count: bool = False,
+        unknown_char="-",
+        show_consensus: bool = False,
+        consensus_color: str = "#1f77b4",
+        consensus_size: float = 2.0,
+        sort: bool = False,
+    ):
+        super().__init__(
+            msa,
+            format=format,
+            color_scheme=color_scheme,
+            start=start,
+            end=end,
+            wrap_length=wrap_length,
+            wrap_space_size=wrap_space_size,
+            show_label=show_label,
+            label_type=label_type,
+            show_seq_char=show_seq_char,
+            show_grid=show_grid,
+            show_count=show_count,
+            show_consensus=show_consensus,
+            consensus_color=consensus_color,
+            consensus_size=consensus_size,
+            sort=sort,
+        )
+        self.unknown_char = unknown_char
+        self.aligned_to: SeqRecord = aligned_to
+        self.matched_positions: set = set()
+        for i in range(msa.get_alignment_length()):
+            if set(msa[:, i]) | {"X", "-"} != {"X", "-"}:
+                self.matched_positions.add(i)
+
+    def _plot_consensus(
+        self, ax: Axes, start: int | None = None, end: int | None = None
+    ) -> None:
+        """Plot the sequence of the complete protein that the peptides
+        were aligned to
+        """
+        # Set xlim, ylim
+        start = 0 if start is None else start
+        end = self.alignment_length if end is None else end
+        ax.set_xlim(start, start + self._wrap_length)
+        ax.set_ylim(0, 80)  # 0 - 100 [%]
+
+        # Plot label text
+        y_lower = 50
+        if self._show_label and self._consensus_size != 0:
+            ax.text(
+                start - 1, y_lower, self.aligned_to.id, ha="right", va="center", size=10
+            )
+
+        # Set spines & tick params
+        for pos in ("left", "right", "top", "bottom"):
+            ax.spines[pos].set_visible(False)
+        ax.tick_params(bottom=False, left=False, labelleft=False, pad=0)
+        ax.axis("off")
+
+        plot_patches = []
+        y_center = y_lower + 0.5
+        seq = self.aligned_to.seq
+        for x_left in range(start, end):
+            seq_char = seq[x_left]
+            x_center = x_left + 0.5
+            ax.text(
+                x_center,
+                y_center,
+                seq_char,
+                ha="center",
+                va="center",
+                size=10,
+            )
+            if x_left in self.matched_positions:
+                # Highlight residues that have at least one peptide residue aligned
+                rect_prop: dict = dict(
+                    xy=(x_left, 32), width=1, height=40, color="none", lw=0
+                )
+                highlight_positions = self._highlight_positions
+                if highlight_positions is None or x_left in highlight_positions:
+                    color = self.color_scheme.get(seq_char, "#FFFFFF")
+                    if self._color_scheme_name == "Identity":
+                        color = self._get_identity_color(seq_char, x_left)
+                    if self._custom_color_func is not None:
+                        custom_color = self._custom_color_func(
+                            0, x_left, seq_char, self.msa
+                        )
+                        color = color if custom_color is None else custom_color
+                    rect_prop.update(**dict(color=color, lw=0, fill=True))
+                plot_patches.append(Rectangle(**rect_prop))
+
+        # Plot colored rectangle patch collection (Use collection for speedup)
+        collection = PatchCollection(plot_patches, match_original=True, clip_on=False)
+        ax.add_collection(collection)  # type: ignore
+
+    def _plot_msa(
+        self, ax: Axes, start: int | None = None, end: int | None = None
+    ) -> None:
+        """Plot MSA
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes to be plotted
+        start : int | None, optional
+            Start position. If None, `0` is set.
+        end : int | None, optional
+            End position. If None, `alignment_length` is set.
+        """
+        # Set xlim, ylim
+        start = 0 if start is None else start
+        end = self.alignment_length if end is None else end
+        ax.set_xlim(start, start + self._wrap_length)
+        ax.set_ylim(0, self.msa_count)
+
+        # Set spines & tick params (Only show bottom ticklables)
+        for pos in ("left", "right", "top", "bottom"):
+            ax.spines[pos].set_visible(False)
+        ax.tick_params(left=False, labelleft=False)
+
+        # Plot alignment position every 10 chars on xticks
+        ticks_interval = self._ticks_interval
+        if ticks_interval is None:
+            ax.tick_params(bottom=False, labelbottom=False)
+        else:
+            tick_ranges = range(start + 1, end + 1)
+            xticklabels = list(filter(lambda n: n % ticks_interval == 0, tick_ranges))
+            xticks = [n - 0.5 for n in xticklabels]
+            ax.set_xticks(xticks, xticklabels, size=8)  # type: ignore
+
+        plot_patches = []
+        for cnt in range(self.msa_count):
+            msa_seq = self.seq_list[cnt]
+            y_lower = self.msa_count - (cnt + 1)
+            y_center = y_lower + 0.5
+            # Plot label text
+            if self._show_label:
+                if self._label_type == "id":
+                    label = self.id_list[cnt]
+                elif self._label_type == "description":
+                    label = self.desc_list[cnt]
+                else:
+                    err_msg = f"{self._label_type=} is invalid (`id`|`description`)"
+                    raise ValueError(err_msg)
+                ax.text(
+                    start - 1,
+                    y_center,
+                    label,
+                    ha="right",
+                    va="center",
+                    size=10,
+                )
+            # Plot count text
+            if self._show_count:
+                scale = end - self._start - msa_seq[self._start : end].count("-")
+                ax.text(
+                    end + 1,
+                    y_center,
+                    str(scale),
+                    ha="left",
+                    va="center",
+                    size=10,
+                )
+            for x_left in range(start, end):
+                # Add colored rectangle patch
+                seq_char = msa_seq[x_left]
+                if seq_char == "X" or seq_char == "-":
+                    seq_char = self.unknown_char
+                rect_prop: dict = dict(
+                    xy=(x_left, y_lower), width=1, height=1, color="none", lw=0
+                )
+                highlight_positions = self._highlight_positions
+                if highlight_positions is None or x_left in highlight_positions:
+                    color = self.color_scheme.get(seq_char, "#FFFFFF")
+                    if self._color_scheme_name == "Identity":
+                        color = self._get_identity_color(seq_char, x_left)
+                    if self._custom_color_func is not None:
+                        custom_color = self._custom_color_func(
+                            cnt, x_left, seq_char, self.msa
+                        )
+                        color = color if custom_color is None else custom_color
+                    rect_prop.update(**dict(color=color, lw=0, fill=True))
+                if self._show_grid:
+                    rect_prop.update(**dict(ec=self._grid_color, lw=0.5))
+                plot_patches.append(Rectangle(**rect_prop))
+
+                # Plot seq char text
+                x_center = x_left + 0.5
+                if self._show_seq_char:
+                    ax.text(
+                        x_center,
+                        y_center,
+                        seq_char,
+                        ha="center",
+                        va="center",
+                        size=10,
+                    )
+                # Plot marker
+                if cnt == 0 and x_left in self._pos2marker_kws:
+                    marker_kws = self._pos2marker_kws[x_left]
+                    ax.plot(x_center, y_center + 1, **marker_kws)
+                # Plot text annotation
+                if cnt == 0 and x_left in self._pos2text_kws:
+                    text_kws = self._pos2text_kws[x_left]
+                    ax.text(**text_kws)
+
+        # Plot colored rectangle patch collection (Use collection for speedup)
+        collection = PatchCollection(plot_patches, match_original=True, clip_on=False)
+        ax.add_collection(collection)  # type: ignore
 
 
 def main(args):
