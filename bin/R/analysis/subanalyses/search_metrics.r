@@ -1,3 +1,5 @@
+library("MSnbase")
+
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
   SOURCED <- TRUE
@@ -5,6 +7,7 @@ if (!exists("SOURCED")) {
 
 GRAPHS <- list()
 TABLES <- list()
+PASSES <- list("1-First_pass", "2-Second_pass")
 
 get_engine_stats <- function(engine, percolator_dir, all_protein_ids, fdr = 0.05) {
   protein_file <- glue("{percolator_dir}/{engine}_percolator_proteins.tsv")
@@ -72,40 +75,45 @@ get_engine_counts <- function(type, run_data) {
       mutate(pass = pass)
   }
 
-  passes <- list("1-First_pass", "2-Second_pass")
   metrics <- list()
   lapply(c(1, 2), \(x) {
-    pass <- passes[[x]]
+    pass <- PASSES[[x]]
     metrics[[pass]] <- get_helper(pass, get_all_ids(run_data[[x]]))
   }) |> bind_rows()
 }
 
-get_mapped_scans <- function(pass) {
-  list.files(glue("{M$path}/{pass}/Quantify/Mapped_scans"), pattern = "*.tsv", full.names = TRUE) |>
+get_mapped_scans <- function(pass, mode = "standard") {
+  if (mode == "standard") {
+    path <- glue("{M$path}/{pass}/Quantify/Mapped_scans")
+  } else {
+    path <- glue("{M$path}/{pass}/Open_search/Mapped_scans")
+  }
+  list.files(path, pattern = "*.tsv", full.names = TRUE) |>
     lapply(read_tsv) |>
     bind_rows()
 }
 
 count_spectra <- function(
-    spectra_filename, mapped_scans,
-    spectra_path = glue("{M$wd}/data/MS/mzML")) {
-  ms <- readMSData(glue("{spectra_path}/{spectra_filename}.mzML"), mode = "onDisk")
+    spectra_path, mapped_scans) {
+  filename <- str_extract(spectra_path, ".*/(.*).mzML", group = 1)
+  ms <- readMSData(spectra_path, mode = "onDisk")
   header <- header(ms) |> as_tibble()
   spectra_levels <- header$msLevel |> table()
   current_scans <- mapped_scans |> filter(file == filename)
   ms1_current <- filter(current_scans, msLevel == 1)
   ms2_current <- filter(current_scans, msLevel == 2)
   ms_metrics <- tibble(
+    file = filename,
     n_ms1_spectra = spectra_levels[1],
     n_ms2_spectra = spectra_levels[2],
-    n_psms_ms1 = nrow(ms1_current), # Number f
+    n_psms_ms1 = nrow(ms1_current),
     n_matched_ms1 = length(unique(ms1_current$scan)),
-    n_matched_ms2 = nrow(ms2_current), # Number of psms generated from ms2 spectra
+    n_psms_ms2 = nrow(ms2_current), # Number of psms generated from ms2 spectra
     # a given spectra ms2 spectra can form multiple psms (saw at most 2)
     n_matched_ms2 = length(unique(ms2_current$scan)), # Number of ms2 spectra
     # that were matched, i.e. the unique ms2 spectra that matched
-    n_unmatched =
-    )
+  )
+  # if
   engine_metrics <- current_scans$engine |>
     table() |>
     table2tb(id_col = "engine") |>
@@ -115,30 +123,56 @@ count_spectra <- function(
 }
 
 get_unmatched_mzml <- function(pass) {
-  list.files(glue("{M$path}/{pass}/Quantify/Unmatched"), pattern = "*.mzML") |>
-    map_chr(\(x) str_replace(x, ".mzML", ""))
+  list.files(glue("{M$path}/{pass}/Quantify/Unmatched"), pattern = "*.mzML", full.names = TRUE)
 }
 
+get_spectra_metrics <- function(spectra_file_list, pass, unmatched_ms = FALSE) {
+  if (unmatched_ms) {
+    scans <- get_mapped_scans(pass, mode = "open")
+  } else {
+    scans <- get_mapped_scans(pass)
+  }
+  lst <- lapply(spectra_file_list, \(x) {
+    count_spectra(x, scans)
+  })
+  reduced <- lst |> purrr::reduce(
+    \(x, y) list(bind_rows(x[[1]], y[[1]]), bind_rows(x[[2]], y[[2]]))
+  )
+  engines <- reduced[[2]] |>
+    pivot_wider(names_from = engine, values_from = n_matched_spectra) |>
+    mutate(pass = pass) # Number of engine psms for both ms1 and ms2 spectra
+  spectra <- reduced[[1]] |> mutate(pass = pass)
+  return(list(engine_n_psms_12 = engines, spectra_metrics = spectra))
+}
+
+mzmls <- list.files(glue("{M$wd}/data/MS/mzML"), pattern = "*.mzML", full.names = TRUE)
+spectra_metrics_1 <- get_spectra_metrics(mzmls, PASSES[[1]])
+spectra_metrics_2 <- get_spectra_metrics(mzmls, PASSES[[2]])
+
+unmatched_spectra_metrics_1 <- get_spectra_metrics(get_unmatched_mzml(PASSES[[1]]), PASSES[[1]], TRUE)
+unmatched_spectra_metrics_2 <- get_spectra_metrics(get_unmatched_mzml(PASSES[[2]]), PASSES[[2]], TRUE)
+
+TABLES$spectra_metrics <- bind_rows(
+  spectra_metrics_1$spectra_metrics,
+  spectra_metrics_2$spectra_metrics
+)
+
+TABLES$engine_psm_counts <- bind_rows(
+  spectra_metrics_1$engine_n_psms_12,
+  spectra_metrics_2$engine_n_psms_12
+)
+TABLES$unmatched_spectra_metrics <- bind_rows(
+  unmatched_spectra_metrics_1$spectra_metrics,
+  unmatched_spectra_metrics_2$spectra_metrics
+)
+
+TABLES$open_engine_psm_counts <- bind_rows(
+  unmatched_spectra_metrics_1$engine_n_psms_12,
+  unmatched_spectra_metrics_2$engine_n_psms_12
+)
 
 TABLES$standard_search_metrics <- get_engine_counts("standard", M$run)
 TABLES$open_search_metrics <- get_engine_counts("open", M$run)
 
-unmatched_ms <- readMSData(glue("{M$path}/{pass}/Quantify/Unmatched/filtered_{spectra_filename}.mzML"),
-  mode = "onDisk"
-)
 
-mzmls <- list.files(glue("{M$wd}/data/MS/mzML"), pattern = "*.mzML") |> map_chr(\(x) str_replace(x, ".mzML", ""))
-
-spectra_metrics <- lapply(mzmls, \(x) {
-  count_spectra(x, get_mapped_scans("1-First_pass"))
-}) |> purrr::reduce(
-  \(x, y) list(bind_rows(x[[1]], y[[1]]), bind_rows(y[[1]], y[[2]]))
-)
-
-
-
-unmatched_mzmls_first <- get_unmatched_mzml("1-First_pass")
-
-
-
-# save(TABLES, glue("{M$outdir}/search_metrics"))
+save(TABLES, glue("{M$outdir}/figures/search_metrics"))
