@@ -7,8 +7,6 @@ include { EMBEDDINGS as GO_EMBEDDINGS } from '../modules/embeddings' addParams(l
 include { COMPARISON_EMBEDDINGS } from '../modules/comparison_embeddings' addParams(logdir: analysis_logs)
 include { GO_PARENTS } from '../modules/go_parents' addParams(logdir: analysis_logs)
 include { AGGREGATE } from '../modules/aggregate' addParams(logdir: analysis_logs, sem_distances: "/mnt/data/shannc/nf/results/C_indra/Analysis/sem_matrices.hdf5")
-include { MSA } from '../modules/msa' addParams(logdir: analysis_logs)
-include { MAKETREE } from '../modules/maketree' addParams(logdir: analysis_logs)
 include { VIEW_ALIGNMENTS } from '../modules/view_alignments' addParams(logdir: analysis_logs)
 include { GET_REPRESENTATIVES } from '../modules/get_representatives' addParams(logdir: analysis_logs)
 include { DR } from '../modules/dimensionality_reduction' addParams(logdir: analysis_logs)
@@ -18,12 +16,13 @@ workflow 'analyze' {
     take:
     combined_tsv
     alignments
+    peptide_map
     outdir
 
     main:
     MAKE_ORGDB(combined_tsv, outdir)
     GO_PARENTS(combined_tsv, outdir)
-    VIEW_ALIGNMENTS(combined_tsv, alignments, "$outdir/Alignments")
+    VIEW_ALIGNMENTS(combined_tsv, alignments, peptide_map, "$outdir/Alignments")
     ONTOLOGIZER(combined_tsv, "$outdir/Ontologizer") // Overrepresentation analysis
     GO_EMBEDDINGS(combined_tsv, "$outdir/GO_term_embeddings", "a2v_go")
     model = "prottrans" // esm | prottrans | a2v (for GO embeddings)

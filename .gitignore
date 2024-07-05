@@ -4,6 +4,7 @@ work/*
 .nf-test.log
 *.nf.test.snap
 run_summary.org
+*Session*
 docs/__*
 tests/__pycache__
 tests/results/*
@@ -47,3 +48,8 @@ bin/R/analysis/Rplots.pdf
 tests/modules/coverage.coverage_calc.nf.test
 docs/benchmark_prop_comparison.png
 null
+.temp
+.run
+.vscode
+logs/py4cytoscape.log
+.dir-locals.el

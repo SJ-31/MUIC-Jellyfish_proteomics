@@ -1,9 +1,28 @@
 import sys
+from Bio.motifs.matrix import GenericPositionMatrix
+from Bio.SeqRecord import SeqRecord
+from Bio import Align
+import math
+from Bio.Seq import Seq
+from Bio import motifs
 import numpy as np
 import re
 import pandas as pd
 import polars as pl
 import intervaltree as it
+
+AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWYUO"
+
+
+def parent_dir(file_str, parent_level=-1):
+    if parent_level > 0:
+        raise ValueError("The parent level must be negative!")
+    dirs = file_str.split("/")
+    return "/".join(dirs[:parent_level])
+
+
+sys.path.append(parent_dir(__file__))
+from view_alignments import PeptideViz, COLOR_SCHEME
 
 
 def group_peptide_origin(id_series: pl.Series) -> pl.DataFrame:
@@ -55,7 +74,9 @@ def categorize_by_id(id):
         return "database"
     elif "D" in id:
         return "denovo"
-    return "unmatched_peptide"
+    elif "U" in id:
+        return "unmatched_peptide"
+    return "unknown"
 
 
 class AlignmentTracer:
@@ -105,16 +126,24 @@ class AlignmentTracer:
         self.engines: list = list(self.peptide_map["engine"].unique().drop_nulls())
         self.cur_protein: pl.DataFrame | None = None
         self.cur_alignments: pl.DataFrame | None = None
+        self.id2metadata: dict = {}
         self.temp_data: dict = {
             "ProteinId": [],
             "unidentified_coverage": [],
             "unidentified_count": [],
             "total_count": [],
         }
+        self.temp_data_differences: dict = {"ProteinId": [], "total_coverage": []}
         for lst in [self.alignment_types, self.engines]:
             for val in lst:
+                self.temp_data_differences[val] = []
                 for metric in ["count", "coverage"]:
                     self.temp_data[f"{val}_{metric}"] = []
+
+    def get_id2metadata(self, data_path: str) -> None:
+        df = pl.read_csv(data_path, separator="\t", null_values="NA")
+        meta = [(s, h) for s, h in zip(df["seq"], df["header"])]
+        self.id2metadata = dict(zip(df["ProteinId"], meta))
 
     def filter_protein_id(self, protein_id: str) -> pl.DataFrame:
         """
@@ -130,16 +159,44 @@ class AlignmentTracer:
                 lambda x: categorize_by_id(x), return_dtype=pl.String
             ),
         )
-        # TODO Find ids and unmatched peptides better
-        # unmatched_peptides =
-
         return df
 
-    def get_coverage_contributions(self, protein_id: str) -> None:
+    def get_coverage_differences(self, protein_id: str, df) -> dict:
+        """Estimates the change in coverage resulting from removing a certain
+        engine or source of peptide
+        1. Filter alignment data on protein id = df1
+        2. For every engine and alignment type, filter df1 to leave only alignments NOT
+        associated with that engine/type = df2
+        3. Calculate coverage of alignments on df2
+        4. Repeat 2-3
+        """
+        coverage: dict = {}
+        total_coverage = coverage_helper(df)
+        coverage["total"] = total_coverage
+        self.temp_data_differences["total_coverage"].append(total_coverage)
+        self.temp_data_differences["ProteinId"].append(protein_id)
+        for val in [*self.engines, *self.alignment_types]:
+            if val in self.engines:
+                # Remove alignments identified ONLY by `e`
+                filtered = df.filter(
+                    ~(
+                        (pl.col("engine_matches").list.set_union([val]) == [val])
+                        & (pl.col("engine_matches").list.len() != 0)
+                    )
+                )
+            else:
+                filtered = df.filter(pl.col("alignment_type") != val)
+            coverage_without = coverage_helper(filtered)
+            coverage[val] = coverage_without
+            self.temp_data_differences[val].append(coverage_without)
+        return coverage
+
+    def get_coverage_contributions(self, protein_id: str, df: pl.DataFrame) -> dict:
         """
         Retrieves the coverage (and aligned peptide count) contributions of the different engines and aligned peptide types for the given protein
+        :param: df Dataframe resulting from calling `filter_protein_id` on
+        `protein_id`
         """
-        df = self.filter_protein_id(protein_id)
         metrics: dict = {}
         for engine in self.engines:
             current = df.filter(pl.col("engine_matches").list.contains(engine))
@@ -161,11 +218,90 @@ class AlignmentTracer:
                 self.temp_data[k].append(df.shape[0])
             else:
                 self.temp_data[k].append(metrics[k])
+        return metrics
 
-    def run(self) -> pl.DataFrame:
+    def run(self, mode="contributions") -> pl.DataFrame:
         for id in self.alignments["ProteinId"].unique():
-            self.get_coverage_contributions(id)
-        return pl.DataFrame(self.temp_data)
+            df = self.filter_protein_id(id)
+            if mode == "contributions":
+                _ = self.get_coverage_contributions(id, df)
+            else:
+                _ = self.get_coverage_differences(id, df)
+        if mode == "contributions":
+            return pl.DataFrame(self.temp_data)
+        return pl.DataFrame(self.temp_data_differences)
+
+    def plot_engines_alignment(
+        self, protein_id: str, outdir: str, filetype: str = "svg"
+    ) -> None:
+        """Obtain the consensus sequnces of each engines' peptides
+        for `protein_id`, creating a visualization of the peptides
+        aligned onto the sequence of `protein_id`
+        """
+
+        def seq_or_blank(seq: str, length: int) -> str:
+            if not seq:
+                return "-" * length
+            return seq
+
+        if not self.id2metadata:
+            raise ValueError("Must initialize id2seq mapping first!")
+        filtered_df: pl.DataFrame = self.filter_protein_id(protein_id)
+        contributions: dict = self.get_coverage_contributions(protein_id, filtered_df)
+        engine_order = sorted(
+            self.engines, key=lambda x: contributions.get(f"{x}_coverage")
+        )
+        seq, header = self.id2metadata[protein_id]
+        seq_list = [
+            seq_or_blank(get_engine_consensus(filtered_df, e), len(seq))
+            for e in engine_order
+        ]
+        engine_order = [f"{e}, n = {contributions[f'{e}_count']}" for e in engine_order]
+        seqs = into_msa(dict(zip(engine_order, seq_list)))
+        cur_seq: SeqRecord = SeqRecord(seq=seq, id=header)
+        msa = PeptideViz(
+            seqs,
+            wrap_length=90,
+            show_consensus=True,
+            aligned_to=cur_seq,
+        )
+        msa.set_custom_color_scheme(COLOR_SCHEME)
+        outfile = f"{outdir}/{protein_id}.{filetype}"
+        msa.savefig(outfile)
+
+
+def get_engine_consensus(df, engine) -> Seq | None:
+    """Convert all the alignments produced by the given engine into `filename`"""
+    cur_engine: pl.DataFrame = df.filter(pl.col("engine_matches").list.contains(engine))
+    if not cur_engine.is_empty():
+        motif = motifs.create(cur_engine["alignment"], alphabet=AMINO_ACIDS)
+        return get_consensus(motif.counts)
+
+
+def into_msa(header2seq: dict[str, str]) -> Align.MultipleSeqAlignment:
+    seqs = [SeqRecord(seq=v, id=k) for k, v in header2seq.items()]
+    return Align.MultipleSeqAlignment(seqs)
+
+
+def get_consensus(m: GenericPositionMatrix):
+    if set(m.alphabet).union("ACGTUN-") == set("ACGTUN-"):
+        undefined = "N"
+    else:
+        undefined = "X"
+    sequence = ""
+    for i in range(m.length):
+        maximum = -math.inf
+        current_letter = ""
+        for letter in m.alphabet:
+            count = m[letter][i]
+            if count > maximum and count != 0:
+                maximum = count
+                current_letter = letter
+        if not current_letter:
+            sequence += undefined
+        else:
+            sequence += current_letter
+    return Seq(sequence)
 
 
 def coverage_helper(df: pl.DataFrame) -> float:
@@ -367,3 +503,6 @@ def get_engine_counts(percolator_path: str, data: pd.DataFrame) -> pl.DataFrame:
     rows = map(get_engine_counts_row, ids_to_get)
     result = pl.concat(rows, how="vertical", rechunk=True)
     return result
+
+
+# if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:

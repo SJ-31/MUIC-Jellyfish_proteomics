@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 
+from matplotlib.collections import PatchCollection
+from matplotlib.axes import Axes
+from Bio import Align
+from pathlib import Path
+import pymsaviz as pv
+from matplotlib.patches import Rectangle
 import string
+from Bio.SeqRecord import SeqRecord
 import intervaltree as it
 import polars as pl
 import polars.selectors as cs
@@ -12,16 +19,23 @@ from Bio import SeqIO
 import matplotlib as ml
 import dna_features_viewer as dv
 
+non_polar = {a: "#a6e3a1" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
+polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
+polar_acidic = {a: "#f38ba8" for a in ["E", "D", "U"]}
+polar_basic = {a: "#cba6f7" for a in ["R", "K", "H", "O"]}
+COLOR_SCHEME = {**non_polar, **polar_neutral, **polar_acidic, **polar_basic}
 
-def parentDir(file_str, parent_level=-1):
+
+def parent_dir(file_str, parent_level=-1):
     if parent_level > 0:
         raise ValueError("The parent level must be negative!")
     dirs = file_str.split("/")
     return "/".join(dirs[:parent_level])
 
 
-sys.path.append(parentDir(__file__))
+sys.path.append(parent_dir(__file__))
 from dna_features_viewer_modified import GraphicRecordCustom
+
 
 font = {
     "family": "monospace",
@@ -37,7 +51,7 @@ SESSION.mount("https://", HTTPAdapter(max_retries=retries))
 FIELDS = "ft_var_seq%2Cft_variant%2Cft_non_cons%2Cft_non_std%2Cft_non_ter%2Cft_conflict%2Cft_unsure%2Cft_act_site%2Cft_binding%2Cft_dna_bind%2Cft_site%2Cft_mutagen%2Cft_intramem%2Cft_topo_dom%2Cft_transmem%2Cft_chain%2Cft_crosslnk%2Cft_disulfid%2Cft_carbohyd%2Cft_init_met%2Cft_lipid%2Cft_mod_res%2Cft_peptide%2Cft_propep%2Cft_signal%2Cft_transit%2Cft_strand%2Cft_helix%2Cft_turn%2Cft_coiled%2Cft_compbias%2Cft_domain%2Cft_motif%2Cft_region%2Cft_repeat%2Cft_zn_fing"
 
 
-def checkResponse(response):
+def check_response(response):
     try:
         response.raise_for_status()
     except requests.HTTPError:
@@ -45,17 +59,17 @@ def checkResponse(response):
         raise
 
 
-def uniprotGetFeatures(uniprot_id: str, file_format: str = "gff") -> str | None:
+def get_uniprot_features(uniprot_id: str, file_format: str = "gff") -> str | None:
     url = f"{API_URL}/uniprotkb/{uniprot_id}.{file_format}?fields={FIELDS}"
     request = SESSION.get(url)
-    checkResponse(request)
+    check_response(request)
     response = request.content.decode()
     if len(split := response.splitlines()) <= 2 and len(split[1]) <= 3:
         return None
     return response
 
 
-def readGff(filename: str | io.StringIO) -> pl.DataFrame:
+def read_gff(filename: str | io.StringIO) -> pl.DataFrame:
     columns = [
         "seqname",
         "source",
@@ -90,14 +104,14 @@ def find_char(given: str, right: bool = False) -> int:
     return found_index
 
 
-def fasta2Dict(filename) -> dict[str, str]:
+def fasta2dict(filename) -> dict[str, str]:
     dct = {}
     for record in SeqIO.parse(filename, "fasta"):
         dct[record.id] = str(record.seq)
     return dct
 
 
-def writeFasta(filename, seqs, headers=None) -> dict[str, str]:
+def write_fasta(filename, seqs, headers=None) -> dict[str, str]:
     fasta: list = []
     fdict: dict = {}
     if not headers:
@@ -116,11 +130,11 @@ def writeFasta(filename, seqs, headers=None) -> dict[str, str]:
     return fdict
 
 
-def mergeIntervalData(x, y) -> tuple[list, list]:
+def merge_interval_data(x, y) -> tuple[list, list]:
     return (x[0] + y[0], x[1] + y[1])
 
 
-def recordAlignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTree]:
+def record_alignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTree]:
     ittree = it.IntervalTree()
     a_dict = {
         "full_seq": [],
@@ -145,11 +159,11 @@ def recordAlignments(alignments, ids=None) -> tuple[pl.DataFrame, it.IntervalTre
             a_dict["id"].append(ids[index])
         ittree[start : stop + 1] = ([a_dict["id"][index]], [seq])
 
-    ittree.merge_overlaps(data_reducer=mergeIntervalData)
+    ittree.merge_overlaps(data_reducer=merge_interval_data)
     return pl.DataFrame(a_dict), ittree
 
 
-def mergeContaining(ittree: it.IntervalTree) -> it.IntervalTree:
+def merge_containing(ittree: it.IntervalTree) -> it.IntervalTree:
     removed: set = set()
     merged_tree = it.IntervalTree()
     intervals = ittree.items()
@@ -164,12 +178,12 @@ def mergeContaining(ittree: it.IntervalTree) -> it.IntervalTree:
             removed.add(e)
             if e.begin == i.begin and e.end == i.end:
                 continue
-            data = mergeIntervalData(data, e.data)
+            data = merge_interval_data(data, e.data)
         merged_tree[i.begin : i.end] = data
     return merged_tree
 
 
-def alignmentFeatureList(
+def alignment_feature_list(
     ittree: it.IntervalTree, entry_map: pl.DataFrame
 ) -> list[dv.GraphicFeature]:
     feature_list = []
@@ -193,7 +207,7 @@ def alignmentFeatureList(
     return feature_list
 
 
-def gffFeatureList(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
+def gff_feature_list(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
     """
     Create a list of GraphicFeatures from a gff file
     If `colors` is supplied, each unique feature in the gff file is randomly
@@ -220,13 +234,37 @@ def gffFeatureList(gff: pl.DataFrame, colors=list) -> list[dv.GraphicFeature]:
     return features
 
 
-def generateVisual(
+def add_uniprot_features(uniprot_id, features: list) -> list:
+    gff_df = pl.DataFrame()
+    if uniprot_id != "NA" and uniprot_id:
+        uniprot_request = get_uniprot_features(uniprot_id)
+        if uniprot_request:
+            gff_df = read_gff(io.StringIO(uniprot_request))
+    if not gff_df.is_empty():
+        feature_colors = [
+            "#eed49f",
+            "#f4dbd6",
+            "#fab387",
+            "#eba0ac",
+            "#f0c6c6",
+            "#c6a0f6",
+            "#b8c0e0",
+            "#cad3f5",
+            "#f5a97f",
+            "#a6da95",
+        ]
+        features = gff_feature_list(gff_df, feature_colors) + features
+    return features
+
+
+def generate_visual(
     protein_id: str,
     alignment_df: pl.DataFrame = pl.DataFrame(),
     alignments: list = None,
     sequence_df: pl.DataFrame = None,
     sequence: str = None,
     uniprot_id=None,
+    add_uniprot=False,
 ):
     if not alignment_df.is_empty():
         found = alignment_df.filter(pl.col("ProteinId") == protein_id)
@@ -242,27 +280,10 @@ def generateVisual(
         raise ValueError(
             "If no sequence dataframe is provided, the sequence must be given!"
         )
-    records, interval_tree = recordAlignments(alignments)
-    features = alignmentFeatureList(interval_tree, records)
-    gff_df = pl.DataFrame()
-    if uniprot_id != "NA" and uniprot_id:
-        uniprot_request = uniprotGetFeatures(uniprot_id)
-        if uniprot_request:
-            gff_df = readGff(io.StringIO(uniprot_request))
-    if not gff_df.is_empty():
-        feature_colors = [
-            "#eed49f",
-            "#f4dbd6",
-            "#fab387",
-            "#eba0ac",
-            "#f0c6c6",
-            "#c6a0f6",
-            "#b8c0e0",
-            "#cad3f5",
-            "#f5a97f",
-            "#a6da95",
-        ]
-        features = gffFeatureList(gff_df, feature_colors) + features
+    records, interval_tree = record_alignments(alignments)
+    features = alignment_feature_list(interval_tree, records)
+    if (uniprot_id != "NA" and uniprot_id) and add_uniprot:
+        features = add_uniprot_features(uniprot_id, features)
     graphic = GraphicRecordCustom(sequence=sequence, features=features)
     non_polar = {a: "#a6adc8" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
     polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
@@ -280,16 +301,239 @@ def generateVisual(
     return fig, axs
 
 
-def parseArgs():
-    import argparse
+class PeptideViz(pv.MsaViz):
+    """Class for representing peptides aligned to a central protein sequence
+    Code adapted from https://github.com/moshi4/pyMSAviz
+    """
 
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-r", "--results_file")
-    parser.add_argument("-c", "--coverage_threshold", type=float)
-    parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
-    parser.add_argument("-o", "--outdir")
-    args = vars(parser.parse_args())
-    return args
+    def __init__(
+        self,
+        msa: str | Path | Align.MultipleSeqAlignment,
+        *,
+        aligned_to: SeqRecord = None,
+        format: str = "fasta",
+        color_scheme: str | None = None,
+        start: int = 1,
+        end: int | None = None,
+        wrap_length: int | None = None,
+        wrap_space_size: float = 3.0,
+        show_label: bool = True,
+        label_type: str = "id",
+        show_seq_char: bool = True,
+        show_grid: bool = False,
+        show_count: bool = False,
+        unknown_char="-",
+        show_consensus: bool = False,
+        consensus_color: str = "#1f77b4",
+        consensus_size: float = 2.0,
+        sort: bool = False,
+    ):
+        super().__init__(
+            msa,
+            format=format,
+            color_scheme=color_scheme,
+            start=start,
+            end=end,
+            wrap_length=wrap_length,
+            wrap_space_size=wrap_space_size,
+            show_label=show_label,
+            label_type=label_type,
+            show_seq_char=show_seq_char,
+            show_grid=show_grid,
+            show_count=show_count,
+            show_consensus=show_consensus,
+            consensus_color=consensus_color,
+            consensus_size=consensus_size,
+            sort=sort,
+        )
+        self.unknown_char = unknown_char
+        self.aligned_to: SeqRecord = aligned_to
+        self.matched_positions: set = set()
+        for i in range(msa.get_alignment_length()):
+            if set(msa[:, i]) | {"X", "-"} != {"X", "-"}:
+                self.matched_positions.add(i)
+
+    def _plot_consensus(
+        self, ax: Axes, start: int | None = None, end: int | None = None
+    ) -> None:
+        """Plot the sequence of the complete protein that the peptides
+        were aligned to
+        """
+        # Set xlim, ylim
+        start = 0 if start is None else start
+        end = self.alignment_length if end is None else end
+        ax.set_xlim(start, start + self._wrap_length)
+        ax.set_ylim(0, 80)  # 0 - 100 [%]
+
+        # Plot label text
+        y_lower = 50
+        if self._show_label and self._consensus_size != 0:
+            ax.text(
+                start + 15 + ((end - start) / 2),
+                y_lower - 50,
+                self.aligned_to.id,
+                ha="right",
+                va="center",
+                size=10,
+                fontweight="bold",
+            )
+
+        # Set spines & tick params
+        for pos in ("left", "right", "top", "bottom"):
+            ax.spines[pos].set_visible(False)
+        ax.tick_params(bottom=False, left=False, labelleft=False, pad=0)
+        ax.axis("off")
+
+        plot_patches = []
+        y_center = y_lower + 0.5
+        seq = self.aligned_to.seq
+        for x_left in range(start, end):
+            seq_char = seq[x_left]
+            x_center = x_left + 0.5
+            ax.text(
+                x_center,
+                y_center,
+                seq_char,
+                ha="center",
+                va="center",
+                size=10,
+            )
+            if x_left in self.matched_positions:
+                # Highlight residues that have at least one peptide residue aligned
+                rect_prop: dict = dict(
+                    xy=(x_left, 32), width=1, height=40, color="none", lw=0
+                )
+                highlight_positions = self._highlight_positions
+                if highlight_positions is None or x_left in highlight_positions:
+                    color = self.color_scheme.get(seq_char, "#FFFFFF")
+                    if self._color_scheme_name == "Identity":
+                        color = self._get_identity_color(seq_char, x_left)
+                    if self._custom_color_func is not None:
+                        custom_color = self._custom_color_func(
+                            0, x_left, seq_char, self.msa
+                        )
+                        color = color if custom_color is None else custom_color
+                    rect_prop.update(**dict(color=color, lw=0, fill=True))
+                plot_patches.append(Rectangle(**rect_prop))
+
+        # Plot colored rectangle patch collection (Use collection for speedup)
+        collection = PatchCollection(plot_patches, match_original=True, clip_on=False)
+        ax.add_collection(collection)  # type: ignore
+
+    def _plot_msa(
+        self, ax: Axes, start: int | None = None, end: int | None = None
+    ) -> None:
+        """Plot MSA
+
+        Parameters
+        ----------
+        ax : Axes
+            Matplotlib axes to be plotted
+        start : int | None, optional
+            Start position. If None, `0` is set.
+        end : int | None, optional
+            End position. If None, `alignment_length` is set.
+        """
+        # Set xlim, ylim
+        start = 0 if start is None else start
+        end = self.alignment_length if end is None else end
+        ax.set_xlim(start, start + self._wrap_length)
+        ax.set_ylim(0, self.msa_count)
+
+        # Set spines & tick params (Only show bottom ticklables)
+        for pos in ("left", "right", "top", "bottom"):
+            ax.spines[pos].set_visible(False)
+        ax.tick_params(left=False, labelleft=False)
+
+        # Plot alignment position every 10 chars on xticks
+        ticks_interval = self._ticks_interval
+        if ticks_interval is None:
+            ax.tick_params(bottom=False, labelbottom=False)
+        else:
+            tick_ranges = range(start + 1, end + 1)
+            xticklabels = list(filter(lambda n: n % ticks_interval == 0, tick_ranges))
+            xticks = [n - 0.5 for n in xticklabels]
+            ax.set_xticks(xticks, xticklabels, size=8)  # type: ignore
+
+        plot_patches = []
+        for cnt in range(self.msa_count):
+            msa_seq = self.seq_list[cnt]
+            y_lower = self.msa_count - (cnt + 1)
+            y_center = y_lower + 0.5
+            # Plot label text
+            if self._show_label:
+                if self._label_type == "id":
+                    label = self.id_list[cnt]
+                elif self._label_type == "description":
+                    label = self.desc_list[cnt]
+                else:
+                    err_msg = f"{self._label_type=} is invalid (`id`|`description`)"
+                    raise ValueError(err_msg)
+                ax.text(
+                    start - 1,
+                    y_center,
+                    label,
+                    ha="right",
+                    va="center",
+                    size=10,
+                )
+            # Plot count text
+            if self._show_count:
+                scale = end - self._start - msa_seq[self._start : end].count("-")
+                ax.text(
+                    end + 1,
+                    y_center,
+                    str(scale),
+                    ha="left",
+                    va="center",
+                    size=10,
+                )
+            for x_left in range(start, end):
+                # Add colored rectangle patch
+                seq_char = msa_seq[x_left]
+                rect_prop: dict = dict(
+                    xy=(x_left, y_lower), width=1, height=1, color="none", lw=0
+                )
+                highlight_positions = self._highlight_positions
+                if highlight_positions is None or x_left in highlight_positions:
+                    color = self.color_scheme.get(seq_char, "#FFFFFF")
+                    if self._color_scheme_name == "Identity":
+                        color = self._get_identity_color(seq_char, x_left)
+                    if self._custom_color_func is not None:
+                        custom_color = self._custom_color_func(
+                            cnt, x_left, seq_char, self.msa
+                        )
+                        color = color if custom_color is None else custom_color
+                    rect_prop.update(**dict(color=color, lw=0, fill=True))
+                if self._show_grid:
+                    rect_prop.update(**dict(ec=self._grid_color, lw=0.5))
+                plot_patches.append(Rectangle(**rect_prop))
+
+                # Plot seq char text
+                if seq_char == "X" or seq_char == "-":
+                    seq_char = self.unknown_char
+                x_center = x_left + 0.5
+                if self._show_seq_char:
+                    ax.text(
+                        x_center,
+                        y_center,
+                        seq_char,
+                        ha="center",
+                        va="center",
+                        size=10,
+                    )
+                # Plot marker
+                if cnt == 0 and x_left in self._pos2marker_kws:
+                    marker_kws = self._pos2marker_kws[x_left]
+                    ax.plot(x_center, y_center + 1, **marker_kws)
+                # Plot text annotation
+                if cnt == 0 and x_left in self._pos2text_kws:
+                    text_kws = self._pos2text_kws[x_left]
+                    ax.text(**text_kws)
+
+        # Plot colored rectangle patch collection (Use collection for speedup)
+        collection = PatchCollection(plot_patches, match_original=True, clip_on=False)
+        ax.add_collection(collection)  # type: ignore
 
 
 def main(args):
@@ -300,11 +544,33 @@ def main(args):
     )
     align_df = pl.read_csv(args["alignment_file"], separator="\t", null_values="NA")
     ids = seq_df["ProteinId"].to_list()
-    for id in ids:
-        fig, ax = generateVisual(id, alignment_df=align_df, sequence_df=seq_df)
-        fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
+    if args["mode"] == "engine_alignment":
+        from trace_alignments import AlignmentTracer
+
+        tracer = AlignmentTracer(args["alignment_file"], args["peptide_map_file"])
+        tracer.get_id2metadata(args["results_file"])
+        for id in ids:
+            tracer.plot_engines_alignment(id, args["outdir"])
+    elif args["mode"] == "with_uniprot":
+        for id in ids:
+            fig, ax = generate_visual(id, alignment_df=align_df, sequence_df=seq_df)
+            fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
+
+
+def parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-r", "--results_file")
+    parser.add_argument("-c", "--coverage_threshold", type=float)
+    parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
+    parser.add_argument("-p", "--peptide_map_file")
+    parser.add_argument("-m", "--mode")
+    parser.add_argument("-o", "--outdir")
+    args = vars(parser.parse_args())
+    return args
 
 
 if __name__ == "__main__" and not "ipykernel" in sys.argv[0]:
-    args = parseArgs()
+    args = parse_args()
     main(args)

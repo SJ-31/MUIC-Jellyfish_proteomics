@@ -1,0 +1,20 @@
+session_name: "workflow"
+start_directory: "./"
+shell_command_before:
+  - cmd: source ~/.venv/default/bin/activate
+environment:
+  bin: "./bin"
+  config: "./config"
+  results: "./results"
+  data: "./data"
+  tests: "./tests"
+  nf_test: "./tests/nf-test-out"
+windows:
+  - window_name: results
+    start_directory: ./results
+    panes:
+      - "ranger"
+  - window_name: "git"
+    panes:
+      - "gitui"
+  - window_name: "main"
