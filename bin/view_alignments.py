@@ -19,6 +19,12 @@ from Bio import SeqIO
 import matplotlib as ml
 import dna_features_viewer as dv
 
+non_polar = {a: "#a6adc8" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
+polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
+polar_acidic = {a: "#f38ba8" for a in ["E", "D", "U"]}
+polar_basic = {a: "#cba6f7" for a in ["R", "K", "H", "O"]}
+COLOR_SCHEME = {**non_polar, **polar_neutral, **polar_acidic, **polar_basic}
+
 
 def parent_dir(file_str, parent_level=-1):
     if parent_level > 0:
@@ -29,6 +35,7 @@ def parent_dir(file_str, parent_level=-1):
 
 sys.path.append(parent_dir(__file__))
 from dna_features_viewer_modified import GraphicRecordCustom
+
 
 font = {
     "family": "monospace",
@@ -294,18 +301,6 @@ def generate_visual(
     return fig, axs
 
 
-def parseArgs():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("-r", "--results_file")
-    parser.add_argument("-c", "--coverage_threshold", type=float)
-    parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
-    parser.add_argument("-o", "--outdir")
-    args = vars(parser.parse_args())
-    return args
-
-
 class PeptideViz(pv.MsaViz):
     """Class for representing peptides aligned to a central protein sequence
     Code adapted from https://github.com/moshi4/pyMSAviz
@@ -490,8 +485,6 @@ class PeptideViz(pv.MsaViz):
             for x_left in range(start, end):
                 # Add colored rectangle patch
                 seq_char = msa_seq[x_left]
-                if seq_char == "X" or seq_char == "-":
-                    seq_char = self.unknown_char
                 rect_prop: dict = dict(
                     xy=(x_left, y_lower), width=1, height=1, color="none", lw=0
                 )
@@ -511,6 +504,8 @@ class PeptideViz(pv.MsaViz):
                 plot_patches.append(Rectangle(**rect_prop))
 
                 # Plot seq char text
+                if seq_char == "X" or seq_char == "-":
+                    seq_char = self.unknown_char
                 x_center = x_left + 0.5
                 if self._show_seq_char:
                     ax.text(
@@ -543,11 +538,33 @@ def main(args):
     )
     align_df = pl.read_csv(args["alignment_file"], separator="\t", null_values="NA")
     ids = seq_df["ProteinId"].to_list()
-    for id in ids:
-        fig, ax = generate_visual(id, alignment_df=align_df, sequence_df=seq_df)
-        fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
+    if args["mode"] == "engine_alignment":
+        from trace_alignments import AlignmentTracer
+
+        tracer = AlignmentTracer(args["alignment_file"], args["peptide_map_file"])
+        tracer.get_id2metadata(args["results_file"])
+        for id in ids:
+            tracer.plot_engines_alignment(id, args["outdir"])
+    elif args["mode"] == "with_uniprot":
+        for id in ids:
+            fig, ax = generate_visual(id, alignment_df=align_df, sequence_df=seq_df)
+            fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
+
+
+def parse_args():
+    import argparse
+
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-r", "--results_file")
+    parser.add_argument("-c", "--coverage_threshold", type=float)
+    parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
+    parser.add_argument("-p", "--peptide_map_file")
+    parser.add_argument("-m", "--mode")
+    parser.add_argument("-o", "--outdir")
+    args = vars(parser.parse_args())
+    return args
 
 
 if __name__ == "__main__" and not "ipykernel" in sys.argv[0]:
-    args = parseArgs()
+    args = parse_args()
     main(args)
