@@ -1,171 +1,229 @@
 digraph boxes_and_circles {
-    ranksep=2
-    graph [style=invis; fontname="Helvetica"]
-    newrank=true
-    node [fontname="Helvetica"; fontsize=30;
-          style=filled]
-
-    node [shape=folder; color=lightcyan4; fillcolor=lightcyan]; rawRNA1; rawRNA2; mtdna; raw; unip; ncbi
-
-    node [shape=component; color=honeydew4; fillcolor=honeydew1]; fp; bbduk; spades; tdc; busco; sms; pepnet; csnv; intersect; api; interpro; flcn; wiz; meta; tide; mq; idpy; msfrag; comet; dlfq; empai; flfq; bk_decoy; cov; blast; glyco; ptm; eggnog; onto; meta_calibrate
-
-    node[shape=tab;color=lightslateblue; fillcolor=lightsteelblue1]; denovo; mgf; mzML; conf; decoy_db; other; unmatched; u_other; unmsms; unmatched_eggnog
-
-    node[shape=octagon;color=indigo;fillcolor=ivory]; quant; func; final
-
-    node [shape=plaintext; fillcolor=none;
-          ]; thermoparse
-
+    ranksep = 2;
+    graph [style = invis; fontname = "Helvetica";];
+    newrank = true;
+    node [fontname = "Helvetica"; fontsize = 30; style = filled;];
+    
+    node [shape = folder; color = lightcyan4; fillcolor = lightcyan;];
+    rawRNA1;
+    rawRNA2;
+    mtdna;
+    raw;
+    unip;
+    ncbi;
+    
+    node [shape = component; color = honeydew4; fillcolor = honeydew1;];
+    fp;
+    bbduk;
+    spades;
+    tdc;
+    busco;
+    sms;
+    pepnet;
+    csnv;
+    intersect;
+    api;
+    interpro;
+    wiz;
+    meta;
+    tide;
+    mq;
+    idpy;
+    msfrag;
+    comet;
+    dlfq;
+    maxLFQ;
+    flfq;
+    bk_decoy;
+    cov;
+    blast;
+    glyco;
+    ptm;
+    eggnog;
+    onto;
+    meta_calibrate;
+    
+    node [shape = tab; color = lightslateblue; fillcolor = lightsteelblue1;];
+    denovo;
+    mgf;
+    mzML;
+    conf;
+    decoy_db;
+    other;
+    unmatched;
+    u_other;
+    unmsms;
+    unmatched_eggnog;
+    
+    node [shape = octagon; color = indigo; fillcolor = ivory;];
+    quant;
+    func;
+    final;
+    
+    node [shape = plaintext; fillcolor = none;];
+    thermoparse;
+    
     subgraph cluster_rna {
-        fontsize="35"
-        margin=50
-        style=filled; fillcolor=seashell
-        label=<<b>[1] Transcriptome assembly</b>>
-        rawRNA1 [label=<<i>C. fleckeri</i><br/>short reads>]
-        rawRNA2 [label=<<i>C. yamaguchii</i><br/>short reads>]
-        mtdna [label="Cnidarian mtDNA"]
-        mtdna->bbduk
-        {rawRNA1,rawRNA2}->fp
-        fp [label=<<b>FastP</b><br/>Trim reads>]
-        bbduk->spades
-        fp->bbduk
-        spades [label=<<b>RNASpades</b><br/>Denovo transcriptome assembly>]
-        bbduk[label=<<b>BBduk</b><br/>Filter contaminants>]
-        spades->tdc
-        tdc->busco
-        busco[label=<<b>BUSCO</b><br/>Completeness assessment>]
-        tdc[label=<<b>Transdecode</b><br/>Proteome prediction>]
+        fontsize = "35";
+        margin = 50;
+        style = filled;
+        fillcolor = seashell;
+        label = <<b>[1] Transcriptome assembly</b>>;
+        rawRNA1 [label = <<i>C. fleckeri</i><br/>short reads>;];
+        rawRNA2 [label = <<i>C. yamaguchii</i><br/>short reads>;];
+        mtdna [label = "Cnidarian mtDNA";];
+        mtdna -> bbduk;
+        {rawRNA1 rawRNA2} -> fp;
+        fp [label = <<b>FastP</b><br/>Trim reads>;];
+        bbduk -> spades;
+        fp -> bbduk;
+        spades [label = <<b>RNASpades</b><br/>Denovo transcriptome assembly>;];
+        bbduk [label = <<b>BBduk</b><br/>Filter contaminants>;];
+        spades -> tdc;
+        tdc -> busco;
+        busco [label = <<b>BUSCO</b><br/>Completeness assessment>;];
+        tdc [label = <<b>Transdecode</b><br/>Proteome prediction>;];
     }
-
+    
     subgraph cluster_db {
-        decoy_db[label=<Complete target-decoy database>]
-        ncbi [label=<<b>NCBI</b><br/>Cnidarian proteins>]
-        unip [label=<<b>UniProt</b><br/>Cnidarian proteins>]
-        {unip,ncbi,tdc}->decoy_db
+        decoy_db [label = <Complete target-decoy database>;];
+        ncbi [label = <<b>NCBI</b><br/>Cnidarian proteins>;];
+        unip [label = <<b>UniProt</b><br/>Cnidarian proteins>;];
+        {unip ncbi tdc} -> decoy_db;
     }
-        raw[label=<Mass spectrometer RAW files>]
-        thermoparse->mzML
-
+    raw [label = <Mass spectrometer RAW files>;];
+    thermoparse -> mzML;
+    
     subgraph cluster_pre {
-        fontsize="35"
-        label=<<b>[1] MS/MS Cleaning</b>>
-        style=filled; fillcolor=azure
-        margin=50
-        mzML->{flcn,wiz,meta_calibrate} [color=webgreen]
-        {flcn,wiz,meta_calibrate} -> thermoparse [color=lightcoral]
-        meta_calibrate[label=<<b>Metamorpheus</b><br/>m/z peak calibration>]
-        wiz[label=<<b>Proteowizard</b><br/>Deisotoping, <br/>denoising, peak-picking>]
-        flcn[label=<<b>Falcon</b><br/>Spectral clustering>]
+        fontsize = "35";
+        label = <<b>[1] MS/MS Cleaning</b>>;
+        style = filled;
+        fillcolor = azure;
+        margin = 50;
+        mzML -> {wiz meta_calibrate} [color = webgreen;];
+        {wiz meta_calibrate} -> thermoparse [color = lightcoral;];
+        meta_calibrate [label = <<b>Metamorpheus</b><br/>m/z peak calibration>;];
+        wiz [label = <<b>Proteowizard</b><br/>Deisotoping, <br/>denoising, peak-picking>;];
     }
-    raw->thermoparse
-
-
+    raw -> thermoparse;
+    
     subgraph cluster_denovo {
-        fontsize="35"
-        label=<<b>[1] De-novo peptide sequencing</b>>
-        style=filled; fillcolor=aliceblue
-        thermoparse [label=<File format conversion>]
-        sms[label=<<b>SMSNet</b>>]
-        pepnet[label=<<b>PepNet</b>>]
-        csnv[label=<<b>Casanovo</b>>]
-        denovo [label=<Denovo peptides>]
-        thermoparse->mgf->{csnv,sms,pepnet}->denovo
+        fontsize = "35";
+        label = <<b>[1] De-novo peptide sequencing</b>>;
+        style = filled;
+        fillcolor = aliceblue;
+        thermoparse [label = <File format conversion>;];
+        sms [label = <<b>SMSNet</b>>;];
+        pepnet [label = <<b>PepNet</b>>;];
+        csnv [label = <<b>Casanovo</b>>;];
+        denovo [label = <Denovo peptides>;];
+        thermoparse -> mgf -> {csnv sms pepnet} -> denovo;
     }
-
-    denovo->decoy_db
-
+    denovo -> decoy_db;
+    
     subgraph cluster_search {
-        fontsize="35"
-        label=<<b>[2] Default database searches</b>>
-        margin=40
-        style=filled; fillcolor=whitesmoke
-        {decoy_db,mzML}->search
-        search [label="Search with 6 engines"; shape=plaintext; fillcolor=invis]
-        node [shape=component]
-        search->{comet,mq,idpy,msfrag,meta,tide}
-        comet[label=<<b>Comet</b>>]
-        idpy[label=<<b>Identipy</b>>]
-        meta[label=<<b>Metamorpheus</b>>]
-        mq[label=<<b>Maxquant</b>>]
-        tide[label=<<b>Tide</b>>]
-        msfrag[label=<<b>MSFragger</b>>]
-        {rank=same; mq; meta; tide; comet; idpy; msfrag}
-        {mq,meta,tide}->perc
-        {comet,idpy,msfrag}->bk_decoy [color=webgreen]
-        bk_decoy [label=<<b>Second-pass search</b><br/>Construct and search Bern &amp; Kil decoy database<br/>(Bern &amp; Kil, 2011)>]
-        perc [shape=cylinder;fillcolor=lightskyblue;label=<<b>Percolator</b><br/>FDR calculation, Protein inference>; color=skyblue4]
-        intersect [label=<<b>Intersect protein identifications</b><br/>To combine results from all engines<br/>(Zhao et al., 2017)>]
-        bk_decoy -> perc [color=lightcoral]
-        perc->unmatched
-        perc->intersect
-        intersect->other
-        intersect->conf
+        fontsize = "35";
+        label = <<b>[2] Default database searches</b>>;
+        margin = 40;
+        style = filled;
+        fillcolor = whitesmoke;
+        {decoy_db mzML} -> search;
+        search [label = "Search with 6 engines";shape = plaintext;fillcolor = invis;];
+        node [shape = component;];
+        search -> {comet mq idpy msfrag meta tide};
+        comet [label = <<b>Comet</b>>;];
+        idpy [label = <<b>Identipy</b>>;];
+        meta [label = <<b>Metamorpheus</b>>;];
+        mq [label = <<b>Maxquant</b>>;];
+        tide [label = <<b>Tide</b>>;];
+        msfrag [label = <<b>MSFragger</b>>;];
+        subgraph {
+            rank = same;
+            mq;
+            meta;
+            tide;
+            comet;
+            idpy;
+            msfrag;
+        }
+        {mq meta tide} -> perc;
+        {comet idpy msfrag} -> bk_decoy [color = webgreen;];
+        bk_decoy [label = <<b>Second-pass search</b><br/>Construct and search Bern &amp; Kil decoy database<br/>(Bern &amp; Kil, 2011)>;];
+        perc [shape = cylinder;fillcolor = lightskyblue;label = <<b>Percolator</b><br/>FDR calculation, Protein inference>;color = skyblue4;];
+        intersect [label = <<b>Intersect protein identifications</b><br/>To combine results from all engines<br/>(Zhao et al., 2017)>;];
+        bk_decoy -> perc [color = lightcoral;];
+        perc -> unmatched;
+        perc -> intersect;
+        intersect -> other;
+        intersect -> conf;
     }
-
+    
     subgraph cluster_open {
-        fontsize="35"
-        margin=100
-        style=filled; fillcolor=mintcream;
-        label=<<b>[2] Open searches</b>>
-        glyco[label=<<b>MSfragger</b><br/>N-,O-linked glycan search>]
-        ptm[label=<<b>MSfragger, Metamorpheus</b><br/>Global PTM search>]
-        {glyco,ptm}->perc [color=lightcoral]
-        unmsms [label=<Unmatched MS/MS spectra>]
-        unmsms -> {glyco,ptm} [color=webgreen]
+        fontsize = "35";
+        margin = 100;
+        style = filled;
+        fillcolor = mintcream;
+        label = <<b>[2] Open searches</b>>;
+        glyco [label = <<b>MSfragger</b><br/>N-,O-linked glycan search>;];
+        ptm [label = <<b>MSfragger, Metamorpheus</b><br/>Global PTM search>;];
+        {glyco ptm} -> perc [color = lightcoral;];
+        unmsms [label = <Unmatched MS/MS spectra>;];
+        unmsms -> {glyco ptm} [color = webgreen;];
     }
-
+    
     subgraph cluster_combine {
-        fontsize="35"
-        margin=50
-        style=filled; fillcolor=ghostwhite
-        label=<<b>[3] Protein annotation</b>>
-        conf [label=<Database protein matches>]
-        {unip; ncbi} -> blast
-        blast->conf
-        conf -> api
-        api [label=<<b>UniProt Mapping API</b><br/>GO, Panther classifications>]
-        unmatched [label=<Unmatched peptides>]
-        other [label=<Denovo &amp; transcriptome peptides>]
-        eggnog [label=<<b>eggNOG-mapper</b><br/>Ortholog-based functional annotation>]
-        unmatched -> eggnog
-        other -> blast -> u_other
-
-        blast [label=<<b>BLAST</b><br/>BLAST against<br/> downloaded database>]
-        u_other [label=<Unmatched denovo &amp; <br/>transcriptome peptides>]
-        unmatched_eggnog [label=<Unmatched peptides>]
-        interpro [label=<<b>InterproScan</b><br/>Homology-based<br/> functional prediction>]
-        func[label=<Annotated proteins>]
-        cov[label=<<b>Global-local alignment</b><br/>Calculate protein coverage by peptides>]
-
-        u_other -> eggnog -> unmatched_eggnog
-        unmatched_eggnog -> interpro
-        {interpro;api} -> cov
-        eggnog -> cov
-        cov -> func
-
+        fontsize = "35";
+        margin = 50;
+        style = filled;
+        fillcolor = ghostwhite;
+        label = <<b>[3] Protein inference</b>>;
+        conf [label = <Database protein matches>;];
+        {unip ncbi} -> blast;
+        blast -> conf;
+        conf -> api;
+        api [label = <<b>UniProt Mapping API</b><br/>GO, Panther classifications>;];
+        unmatched [label = <Unmatched peptides>;];
+        other [label = <Denovo &amp; transcriptome peptides>;];
+        eggnog [label = <<b>eggNOG-mapper</b><br/>Ortholog-based functional annotation>;];
+        unmatched -> eggnog;
+        other -> blast -> u_other;
+        
+        blast [label = <<b>BLAST</b><br/>BLAST against<br/> downloaded database>;];
+        u_other [label = <Unmatched denovo &amp; <br/>transcriptome peptides>;];
+        unmatched_eggnog [label = <Unmatched peptides>;];
+        interpro [label = <<b>InterproScan</b><br/>Homology-based<br/> functional prediction>;];
+        func [label = <Annotated proteins>;];
+        cov [label = <<b>Global-local alignment</b><br/>Calculate protein coverage by peptides>;];
+        
+        u_other -> eggnog -> unmatched_eggnog;
+        unmatched_eggnog -> interpro;
+        {interpro api} -> cov;
+        eggnog -> cov;
+        cov -> func;
     }
-        perc->unmsms [color=webgreen; weight=2]
-
-
+    perc -> unmsms [color = webgreen; weight = 2;];
+    
+    
     subgraph cluster_quant {
-        fontsize="35"
-        style=filled; fillcolor=linen
-        label=<<b>[3] Label-free quantification</b>>
-        margin=100
-        func->{empai,dlfq,flfq}
-        {empai,dlfq,flfq}->quant
-        empai[label=<<b>emPAI</b><br/>Exponentially <br/> modified protein abundance index>]
-        dlfq[label=<<b>DirectLFQ</b>>]
-        flfq[label=<<b>FlashLFQ</b>>]
-        quant[label=<Estimations of protein abundance>]
+        fontsize = "35";
+        style = filled;
+        fillcolor = linen;
+        label = <<b>[3] Label-free quantification</b>>;
+        margin = 100;
+        func -> {maxLFQ dlfq flfq};
+        {maxLFQ dlfq flfq} -> quant;
+        maxLFQ [label = <<b>maxLFQ</b>>;];
+        dlfq [label = <<b>DirectLFQ</b>>;];
+        flfq [label = <<b>FlashLFQ</b>>;];
+        quant [label = <Estimations of protein abundance>;];
     }
     subgraph final {
-        onto[label=<<b>Ontologizer</b><br/>GO enrichment analysis>]
-        final[label=<Venome characterization>]
-
-        style=invis
-        func -> onto -> final
-        func -> final
-        quant -> final
+        onto [label = <<b>Ontologizer</b><br/>GO enrichment analysis>;];
+        final [label = <Venome characterization>;];
+        
+        style = invis;
+        func -> onto -> final;
+        func -> final;
+        quant -> final;
     }
 }
