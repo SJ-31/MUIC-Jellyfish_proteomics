@@ -180,10 +180,7 @@ class AlignmentTracer:
                 # Remove alignments identified ONLY by `e`
                 filtered = df.filter(
                     ~(
-                        (
-                            pl.col("engine_matches").list.set_union(["comet"])
-                            == ["comet"]
-                        )
+                        (pl.col("engine_matches").list.set_union([val]) == [val])
                         & (pl.col("engine_matches").list.len() != 0)
                     )
                 )
