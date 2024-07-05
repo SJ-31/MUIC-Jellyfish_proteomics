@@ -200,6 +200,12 @@ class AlignmentTracer:
         for `protein_id`, creating a visualization of the peptides
         aligned onto the sequence of `protein_id`
         """
+
+        def seq_or_blank(seq: str, length: int) -> str:
+            if not seq:
+                return "-" * length
+            return seq
+
         if not self.id2metadata:
             raise ValueError("Must initialize id2seq mapping first!")
         filtered_df: pl.DataFrame = self.filter_protein_id(protein_id)
@@ -207,10 +213,13 @@ class AlignmentTracer:
         engine_order = sorted(
             self.engines, key=lambda x: contributions.get(f"{x}_coverage")
         )
-        seq_list = [str(get_engine_consensus(filtered_df, e)) for e in engine_order]
+        seq, header = self.id2metadata[protein_id]
+        seq_list = [
+            seq_or_blank(get_engine_consensus(filtered_df, e), len(seq))
+            for e in engine_order
+        ]
         engine_order = [f"{e}, n = {contributions[f'{e}_count']}" for e in engine_order]
         seqs = into_msa(dict(zip(engine_order, seq_list)))
-        seq, header = self.id2metadata[protein_id]
         cur_seq: SeqRecord = SeqRecord(seq=seq, id=header)
         msa = PeptideViz(
             seqs,
@@ -223,11 +232,12 @@ class AlignmentTracer:
         msa.savefig(outfile)
 
 
-def get_engine_consensus(df, engine) -> Seq:
+def get_engine_consensus(df, engine) -> Seq | None:
     """Convert all the alignments produced by the given engine into `filename`"""
-    cur_engine = df.filter(pl.col("engine_matches").list.contains(engine))
-    motif = motifs.create(cur_engine["alignment"], alphabet=AMINO_ACIDS)
-    return get_consensus(motif.counts)
+    cur_engine: pl.DataFrame = df.filter(pl.col("engine_matches").list.contains(engine))
+    if not cur_engine.is_empty():
+        motif = motifs.create(cur_engine["alignment"], alphabet=AMINO_ACIDS)
+        return get_consensus(motif.counts)
 
 
 def into_msa(header2seq: dict[str, str]) -> Align.MultipleSeqAlignment:
