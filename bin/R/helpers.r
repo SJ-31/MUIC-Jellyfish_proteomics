@@ -113,18 +113,26 @@ assertArg <- function(arg, predicate) {
 #' Run pairwise tests against elements in `to_test`, using a
 #' pre-determined testing function.
 #' Note: does not adjust for multiple testing
-testAllPairs <- function(to_test, hypothesisTest) {
+test_all_pairs <- function(to_test, htest_fn, alternative_suffix = "", two_sided = FALSE) {
   assertArg(to_test, \(x) class(x) == "list" && !is.null(names(x)))
   combos <- combn(names(to_test), 2)
   lapply(seq_len(ncol(combos)), \(x) {
     a <- combos[1, x]
     b <- combos[2, x]
-    test <- hypothesisTest(
+    test <- htest_fn(
       to_test[[a]],
       to_test[[b]]
     )
-    tibble(comparison = glue("{a} x {b}"), p_value = test$p.value, alternative = test$alternative)
-  }) %>% bind_rows()
+    test$data.name <- glue("{a} x {b}")
+    if (!two_sided) {
+      test$alternative <- glue("{a} {alternative_suffix}")
+    } else {
+      test$alternative <- glue("two sided")
+    }
+    htest2tb(test)
+  }) %>%
+    bind_rows() |>
+    rename(pair = data)
 }
 
 table2tb <- function(table, id_col) {
@@ -476,6 +484,5 @@ conclude_one_sided <- function(htest_tb, pair_sep = "x") {
     get_one_sided_conclusion
   ) |> unlist()
   tb |>
-    mutate(conclusion = winning_vars) |>
-    filter(!is.na(conclusion))
+    mutate(conclusion = winning_vars)
 }

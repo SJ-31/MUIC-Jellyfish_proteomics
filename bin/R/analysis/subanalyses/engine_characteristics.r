@@ -13,13 +13,15 @@ GRAPHS <- list()
 open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
 percolator_all <- read_tsv(M$percolator_all)
 ENGINES <- percolator_all$engine |> unique()
+alignment_types <- c("denovo", "transcriptome", "database", "unmatched_peptide")
 standard_search_engines <- ENGINES[!ENGINES %in% open_search_engines]
 
 
 data <- M$data
-
 ta <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
+
+# Get general alignment metrics
 per_protein_alignment_metrics_file <- glue("{M$outdir}/per_protein_alignment_metrics.tsv")
 if (file.exists(per_protein_alignment_metrics_file)) {
   per_protein_alignment_metrics <- read_tsv(per_protein_alignment_metrics_file)
@@ -29,6 +31,19 @@ if (file.exists(per_protein_alignment_metrics_file)) {
   write_tsv(per_protein_alignment_metrics, per_protein_alignment_metrics_file)
 }
 
+# Get file for evaluating cost of removing a type of alignment from data
+per_protein_alignment_differences_file <- glue("{M$outdir}/per_protein_alignment_differences.tsv")
+if (file.exists(per_protein_alignment_differences_file)) {
+  per_protein_alignment_differences <- read_tsv(per_protein_alignment_differences_file)
+} else {
+  tracer <- ta$AlignmentTracer(M$aligned_peptides_path, M$peptide_map_path)
+  per_protein_alignment_differences <- tracer$run(mode = "differences") |> as_tibble()
+  write_tsv(per_protein_alignment_differences, per_protein_alignment_differences_file)
+}
+
+
+# ----------------------------------------
+# Engine alignments
 engine_alignment_metrics <- per_protein_alignment_metrics |> select(
   ProteinId,
   contains(ENGINES), -matches("count|unmatched")
@@ -56,11 +71,15 @@ GRAPHS$engine_peptide_coverage <- engine_alignment_metrics %>%
     limits = c(standard_search_engines, open_search_engines)
   )
 
+
 # Identify which engine, if any, is the best-performing
 cov_list <- engine_alignment_metrics %>%
   select(-ProteinId) |>
   as.list()
 names(cov_list) <- names(cov_list) |> map_chr(\(x) str_replace(x, "_coverage", ""))
+
+
+
 ks <- kruskal.test(cov_list)
 combos <- combn(names(cov_list), 2)
 test_tb <- lapply(
@@ -115,8 +134,6 @@ GRAPHS$engine_sim_jaccard <- dist_longer |> ggplot(aes(x = engine, y = name, fil
 GRAPHS$engine_sim_jaccard_biplot <- pcoa |> ggplot(aes(x = Dim1, y = Dim2, color = engine)) +
   geom_point()
 
-
-
 standard_engine_tbs <- lapply(standard_search_engines, \(x) {
   percolator_all |> filter(engine == x)
 }) %>%
@@ -130,21 +147,35 @@ venn <- ggVennDiagram(id_list, label = "none") +
 GRAPHS$engine_venn <- venn
 
 # ----------------------------------------
-# Evaluate the contribution of each alignment type onto the protein
-no_denovo <- read_tsv(glue("{M$wd}/results/ND_C_indra/{M$chosen_pass}/ND_C_indra_all_wcoverage.tsv"))
-type_alignment_metrics <- per_protein_alignment_metrics |>
-  select(
-    ProteinId, contains(c("transcriptome", "unmatched", "denovo", "database")),
-    -contains("count")
+# Evaluate the contribution of each engine onto the protein
+# the only
+engine_tb <- per_protein_alignment_differences |>
+  select(ProteinId, contains(ENGINES)) |>
+  select(-unmatched_peptide)
+engine_longer <- engine_tb |>
+  pivot_longer(cols = -ProteinId)
+
+cov_list <- engine_tb |>
+  select(-ProteinId) |>
+  as.list()
+cov_list$total <- per_protein_alignment_differences$total_coverage
+
+cov_tests <- test_all_pairs(cov_list, wilcox.test, two_sided = TRUE) |>
+  bind_rows(
+    test_all_pairs(cov_list, \(x, y) wilcox.test(x, y, alternative = "less"), alternative_suffix = "less")
   ) |>
-  inner_join(select(no_denovo, ProteinId, pcoverage_nmatch)) |>
-  rename(database_nd = pcoverage_nmatch) |>
-  inner_join(select(data, ProteinId, pcoverage_align)) |>
-  rename(total = pcoverage_align)
+  mutate(p_adjust = p.adjust(p_value), significant = ifelse(p_adjust < 0.05, 1, 0))
 
-type_alignment_metrics_long <- type_alignment_metrics |>
-  pivot_longer(cols = -ProteinId) |>
-  mutate(name = map_chr(\(x) str_replace("_coverage", "")))
+# "x less than y" means that removing engine x's peptides has a greater impact on coverage compared to y
+cov_test_conclusion <- conclude_one_sided(cov_tests) |> filter(!is.na(conclusion))
 
+TABLES$coverage_impact_conclusion <- gt(cov_test_conclusion)
+
+
+GRAPHS$engines_removed <- engine_longer |> ggplot(aes(y = value, fill = name)) +
+  geom_boxplot() +
+  scale_fill_paletteer_d(PALETTE2) +
+  guides(fill = guide_legend(title = "Engine")) +
+  ylab("Coverage (%) if engine's peptides were removed")
 
 save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/engine_characteristics"))

@@ -71,14 +71,17 @@ num_unique_peps <- get_common_col(
   \(x) dplyr::filter(x, x$ProteinId %in% common_ids & !is.na(num_unique_peps))
 )
 
-test_and_visualize <- function(data_list, plot_type, pairwiseTest, transform_fn = NULL) {
-  results <- list(graph = NULL, pairwise = NULL, kruskal = NULL)
+test_and_visualize <- function(data_list, plot_type, transform_fn = NULL) {
+  results <- list(graph = NULL, pairwise = NULL, kruskal = NULL, pairwise_conclusion = NULL)
   results$kruskal <- kruskal.test(data_list)
   if (results$kruskal$p.value < 0.05) {
-    results$pairwise <- testAllPairs(data_list, pairwiseTest) %>% mutate(
-      p_adjust = p.adjust(p_value),
-      is_significant = ifelse(p_adjust < 0.05, "Y", "N")
-    )
+    results$pairwise <- test_all_pairs(
+      data_list,
+      \(x, y) wilcox.test(x, y, alternative = "greater"), "greater"
+    ) |>
+      bind_rows(test_all_pairs(data_list, wilcox.test, two_sided = TRUE)) |>
+      mutate(p_adjust = p.adjust(p_value), significant = map_dbl(p_adjust, \(x) x < 0.05))
+    results$pairwise_conclusion <- conclude_one_sided(results$pairwise)
   }
   if (!is.null(transform_fn)) {
     data_list <- transform_fn(data_list)
@@ -88,11 +91,12 @@ test_and_visualize <- function(data_list, plot_type, pairwiseTest, transform_fn 
 }
 
 
-cc <- test_and_visualize(coverage_comparison, "boxplot", wilcox.test,
-  transform_fn = \(x) lapply(x, \(y) -log(y))
-)
+cc <- test_and_visualize(coverage_comparison, "boxplot", transform_fn = \(x) lapply(x, \(y) log(y)))
 
-coverage_comparison_g <- cc$graph + ylab("-log Percent coverage") +
+TABLES$coverage_comparison_conclusion <- gt(cc$pairwise_conclusion)
+TABLES$coverage_comparison <- cc$pairwise
+
+coverage_comparison_g <- cc$graph + ylab("log Percent coverage") +
   scale_color_paletteer_d(PALETTE) +
   guides(color = guide_legend("Run parameter")) +
   theme(
@@ -105,7 +109,7 @@ legend <- get_legend(coverage_comparison_g)
 
 coverage_comparison_g <- coverage_comparison_g + guides(color = "none")
 
-peptide_number <- test_and_visualize(num_peps, "boxplot", wilcox.test,
+peptide_number <- test_and_visualize(num_peps, "boxplot",
   transform_fn = \(x) lapply(x, \(y) log(y))
 )
 peptide_number_g <- peptide_number$graph +
@@ -114,8 +118,11 @@ peptide_number_g <- peptide_number$graph +
   theme(axis.text.x = element_blank(), axis.title.x = element_blank()) +
   guides(color = "none")
 
+TABLES$peptide_number_conclusion <- gt(peptide_number$pairwise_conclusion)
+TABLES$peptide_number <- peptide_number$pairwise
+
 unique_peptide_number <- test_and_visualize(
-  num_unique_peps, "boxplot", wilcox.test,
+  num_unique_peps, "boxplot",
   transform_fn = \(x) lapply(x, \(y) log(y))
 )
 unique_peptide_number_g <- unique_peptide_number$graph +
@@ -123,14 +130,8 @@ unique_peptide_number_g <- unique_peptide_number$graph +
   scale_color_paletteer_d(PALETTE) +
   theme(axis.text.x = element_blank(), axis.title.x = element_blank()) + guides(color = "none")
 
-
-TABLES$all_params_tests <- bind_rows(
-  cc$pairwise |> mutate(metric = "coverage"),
-  peptide_number$pairwise |> mutate(metric = "peptide number"),
-  unique_peptide_number$pairwise |> mutate(metric = "unique peptide number")
-) |>
-  gt()
-
+TABLES$unique_peptide_number_conclusion <- gt(unique_peptide_number$pairwise_conclusion)
+TABLES$unique_peptide_number <- unique_peptide_number$pairwise
 
 GRAPHS$coverage_metrics <- grid.arrange(legend, coverage_comparison_g,
   peptide_number_g, unique_peptide_number_g,
