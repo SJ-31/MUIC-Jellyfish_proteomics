@@ -74,7 +74,9 @@ def categorize_by_id(id):
         return "database"
     elif "D" in id:
         return "denovo"
-    return "unmatched_peptide"
+    elif "U" in id:
+        return "unmatched_peptide"
+    return "unknown"
 
 
 class AlignmentTracer:
@@ -131,8 +133,10 @@ class AlignmentTracer:
             "unidentified_count": [],
             "total_count": [],
         }
+        self.temp_data_differences: dict = {"ProteinId": [], "total_coverage": []}
         for lst in [self.alignment_types, self.engines]:
             for val in lst:
+                self.temp_data_differences[val] = []
                 for metric in ["count", "coverage"]:
                     self.temp_data[f"{val}_{metric}"] = []
 
@@ -155,10 +159,40 @@ class AlignmentTracer:
                 lambda x: categorize_by_id(x), return_dtype=pl.String
             ),
         )
-        # TODO Find ids and unmatched peptides better
-        # unmatched_peptides =
-
         return df
+
+    def get_coverage_differences(self, protein_id: str, df) -> dict:
+        """Estimates the change in coverage resulting from removing a certain
+        engine or source of peptide
+        1. Filter alignment data on protein id = df1
+        2. For every engine and alignment type, filter df1 to leave only alignments NOT
+        associated with that engine/type = df2
+        3. Calculate coverage of alignments on df2
+        4. Repeat 2-3
+        """
+        coverage: dict = {}
+        total_coverage = coverage_helper(df)
+        coverage["total"] = total_coverage
+        self.temp_data_differences["total_coverage"].append(total_coverage)
+        self.temp_data_differences["ProteinId"].append(protein_id)
+        for val in [*self.engines, *self.alignment_types]:
+            if val in self.engines:
+                # Remove alignments identified ONLY by `e`
+                filtered = df.filter(
+                    ~(
+                        (
+                            pl.col("engine_matches").list.set_union(["comet"])
+                            == ["comet"]
+                        )
+                        & (pl.col("engine_matches").list.len() != 0)
+                    )
+                )
+            else:
+                filtered = df.filter(pl.col("alignment_type") != val)
+            coverage_without = coverage_helper(filtered)
+            coverage[val] = coverage_without
+            self.temp_data_differences[val].append(coverage_without)
+        return coverage
 
     def get_coverage_contributions(self, protein_id: str, df: pl.DataFrame) -> dict:
         """
@@ -189,11 +223,16 @@ class AlignmentTracer:
                 self.temp_data[k].append(metrics[k])
         return metrics
 
-    def run(self) -> pl.DataFrame:
+    def run(self, mode="contributions") -> pl.DataFrame:
         for id in self.alignments["ProteinId"].unique():
             df = self.filter_protein_id(id)
-            _ = self.get_coverage_contributions(id, df)
-        return pl.DataFrame(self.temp_data)
+            if mode == "contributions":
+                _ = self.get_coverage_contributions(id, df)
+            else:
+                _ = self.get_coverage_differences(id, df)
+        if mode == "contributions":
+            return pl.DataFrame(self.temp_data)
+        return pl.DataFrame(self.temp_data_differences)
 
     def plot_engines_alignment(
         self, protein_id: str, outdir: str, filetype: str = "svg"
