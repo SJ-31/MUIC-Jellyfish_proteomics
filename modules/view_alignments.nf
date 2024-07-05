@@ -5,6 +5,7 @@ process VIEW_ALIGNMENTS {
     input:
     path(identifications)
     path(alignments)
+    path(peptide_map)
     val(outdir)
     //
 
@@ -18,7 +19,9 @@ process VIEW_ALIGNMENTS {
         -r $identifications \
         -c 0.8 \
         -a $alignments \
-        -o .
+        -o . \
+        -m "engine_alignment" \
+        -p $peptide_map
 
     cp .command.out .log
     """

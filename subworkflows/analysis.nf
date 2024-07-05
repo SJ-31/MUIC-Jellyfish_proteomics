@@ -16,12 +16,13 @@ workflow 'analyze' {
     take:
     combined_tsv
     alignments
+    peptide_map
     outdir
 
     main:
     MAKE_ORGDB(combined_tsv, outdir)
     GO_PARENTS(combined_tsv, outdir)
-    VIEW_ALIGNMENTS(combined_tsv, alignments, "$outdir/Alignments")
+    VIEW_ALIGNMENTS(combined_tsv, alignments, peptide_map, "$outdir/Alignments")
     ONTOLOGIZER(combined_tsv, "$outdir/Ontologizer") // Overrepresentation analysis
     GO_EMBEDDINGS(combined_tsv, "$outdir/GO_term_embeddings", "a2v_go")
     model = "prottrans" // esm | prottrans | a2v (for GO embeddings)
