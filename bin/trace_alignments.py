@@ -195,7 +195,9 @@ class AlignmentTracer:
             _ = self.get_coverage_contributions(id, df)
         return pl.DataFrame(self.temp_data)
 
-    def plot_engines_alignment(self, protein_id: str, outdir: str) -> None:
+    def plot_engines_alignment(
+        self, protein_id: str, outdir: str, filetype: str = "svg"
+    ) -> None:
         """Obtain the consensus sequnces of each engines' peptides
         for `protein_id`, creating a visualization of the peptides
         aligned onto the sequence of `protein_id`
@@ -228,7 +230,7 @@ class AlignmentTracer:
             aligned_to=cur_seq,
         )
         msa.set_custom_color_scheme(COLOR_SCHEME)
-        outfile = f"{outdir}/{protein_id}.png"
+        outfile = f"{outdir}/{protein_id}.{filetype}"
         msa.savefig(outfile)
 
 

@@ -19,7 +19,7 @@ from Bio import SeqIO
 import matplotlib as ml
 import dna_features_viewer as dv
 
-non_polar = {a: "#a6adc8" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
+non_polar = {a: "#a6e3a1" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
 polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
 polar_acidic = {a: "#f38ba8" for a in ["E", "D", "U"]}
 polar_basic = {a: "#cba6f7" for a in ["R", "K", "H", "O"]}
@@ -369,7 +369,13 @@ class PeptideViz(pv.MsaViz):
         y_lower = 50
         if self._show_label and self._consensus_size != 0:
             ax.text(
-                start - 1, y_lower, self.aligned_to.id, ha="right", va="center", size=10
+                start + 15 + ((end - start) / 2),
+                y_lower - 50,
+                self.aligned_to.id,
+                ha="right",
+                va="center",
+                size=10,
+                fontweight="bold",
             )
 
         # Set spines & tick params
