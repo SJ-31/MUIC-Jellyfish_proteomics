@@ -22,7 +22,7 @@ def parent_dir(file_str, parent_level=-1):
 
 
 sys.path.append(parent_dir(__file__))
-import view_alignments as va
+from view_alignments import PeptideViz, COLOR_SCHEME
 
 
 def group_peptide_origin(id_series: pl.Series) -> pl.DataFrame:
@@ -136,7 +136,7 @@ class AlignmentTracer:
                 for metric in ["count", "coverage"]:
                     self.temp_data[f"{val}_{metric}"] = []
 
-    def get_id2seq(self, data_path: str) -> None:
+    def get_id2metadata(self, data_path: str) -> None:
         df = pl.read_csv(data_path, separator="\t", null_values="NA")
         meta = [(s, h) for s, h in zip(df["seq"], df["header"])]
         self.id2metadata = dict(zip(df["ProteinId"], meta))
@@ -203,18 +203,22 @@ class AlignmentTracer:
         if not self.id2metadata:
             raise ValueError("Must initialize id2seq mapping first!")
         filtered_df: pl.DataFrame = self.filter_protein_id(protein_id)
-        seq_list = [str(get_engine_consensus(filtered_df, e)) for e in self.engines]
-        seqs = into_msa(dict(zip(self.engines, seq_list)))
+        contributions: dict = self.get_coverage_contributions(protein_id, filtered_df)
+        engine_order = sorted(
+            self.engines, key=lambda x: contributions.get(f"{x}_coverage")
+        )
+        seq_list = [str(get_engine_consensus(filtered_df, e)) for e in engine_order]
+        engine_order = [f"{e}, n = {contributions[f'{e}_count']}" for e in engine_order]
+        seqs = into_msa(dict(zip(engine_order, seq_list)))
         seq, header = self.id2metadata[protein_id]
         cur_seq: SeqRecord = SeqRecord(seq=seq, id=header)
-        msa = va.PeptideViz(
+        msa = PeptideViz(
             seqs,
             wrap_length=90,
             show_consensus=True,
             aligned_to=cur_seq,
         )
-        msa.set_custom_color_scheme(va.COLOR_SCHEME)
-        # fig = msa.plotfig()
+        msa.set_custom_color_scheme(COLOR_SCHEME)
         outfile = f"{outdir}/{protein_id}.png"
         msa.savefig(outfile)
 
@@ -451,3 +455,6 @@ def get_engine_counts(percolator_path: str, data: pd.DataFrame) -> pl.DataFrame:
     rows = map(get_engine_counts_row, ids_to_get)
     result = pl.concat(rows, how="vertical", rechunk=True)
     return result
+
+
+# if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:
