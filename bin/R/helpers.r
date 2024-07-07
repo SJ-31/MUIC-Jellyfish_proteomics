@@ -5,6 +5,13 @@ flatten_by <- function(vector, sep, na.rm = TRUE) {
   lapply(vector, \(x) str_split(x, sep)) %>% unlist()
 }
 
+modes <- function(x) {
+  ux <- unique(x)
+  tab <- tabulate(match(x, ux))
+  ux[tab == max(tab)]
+}
+
+
 clean_peptide <- function(pep) {
   # Leave only residue characters in a peptide sequence
   if (grepl("\\]|[a-z0-9.]|-", pep)) {
@@ -96,14 +103,14 @@ substitute_all <- function(old, new, fn = NULL) {
 #' @param arg Function argument
 #' @param predicate Predicate function, such as one that checks if `arg`
 #' is of a specific class
-assertArg <- function(arg, predicate) {
+check_arg <- function(arg, predicate) {
   if (!predicate(arg)) {
     callstack <- sys.calls()
     top_level <- deparse(callstack[[1]])
     fn_start <- str_locate(top_level, "\\(")[, 2] - 1
     caller <- str_sub(top_level, start = 1L, end = fn_start)
     last <- deparse(callstack[[length(callstack)]])
-    failed_arg <- str_extract(last, "assertArg\\((.*),", group = 1)
+    failed_arg <- str_extract(last, "check_arg\\((.*),", group = 1)
     message <- glue("wrong argument in `{caller}`")
     message <- glue("{message}\n  Incorrect argument `{failed_arg}`")
     stop(message, call. = FALSE)
@@ -114,7 +121,7 @@ assertArg <- function(arg, predicate) {
 #' pre-determined testing function.
 #' Note: does not adjust for multiple testing
 test_all_pairs <- function(to_test, htest_fn, alternative_suffix = "", two_sided = FALSE) {
-  assertArg(to_test, \(x) class(x) == "list" && !is.null(names(x)))
+  check_arg(to_test, \(x) class(x) == "list" && !is.null(names(x)))
   combos <- combn(names(to_test), 2)
   lapply(seq_len(ncol(combos)), \(x) {
     a <- combos[1, x]
@@ -136,14 +143,14 @@ test_all_pairs <- function(to_test, htest_fn, alternative_suffix = "", two_sided
 }
 
 table2tb <- function(table, id_col) {
-  assertArg(table, \(x) class(x) == "table")
+  check_arg(table, \(x) class(x) == "table")
   tb <- as_tibble(table, .name_repair = "unique")
   colnames(tb)[1] <- id_col
   tb
 }
 
 table2df <- function(table) {
-  assertArg(table, \(x) class(x) == "table")
+  check_arg(table, \(x) class(x) == "table")
   convertRow <- function(n) {
     as.list(table[n, ]) %>% as.data.frame()
   }
@@ -186,7 +193,7 @@ to <- function(obj, x, val) {
 }
 
 index <- function(vector, a, b = NULL) {
-  assertArg(vector, is.atomic)
+  check_arg(vector, is.atomic)
   if (is.null(b)) {
     return(vector[a, length(vector)])
   }

@@ -263,7 +263,7 @@ get_ontologizer <- function(ontologizer_dir) {
 #' Create a tibble containing information about specific GO terms
 #'
 go_info_tb <- function(go_vector) {
-  assertArg(go_vector, \(x) is.atomic(x))
+  check_arg(go_vector, \(x) is.atomic(x))
   tb <- lapply(go_vector, \(x) {
     row <- tibble(
       GO_IDs = x, term = NA,
@@ -531,9 +531,10 @@ slims_from_go <- function(term_str, go_path, go_slim_path) {
 }
 
 #' Find the terms from a vector of GO Ids, grouping them by sub-ontology
+#' @param target `GOID` for ids, `Term` for term name
 #' @return a list of three GO term vectors, one for each sub-ontology
 ids_into_ontology <- function(id_vector, target = "Term", collapse = TRUE) {
-  assertArg(id_vector, \(x) is.atomic(x) || is.null(x))
+  check_arg(id_vector, \(x) is.atomic(x) || is.null(x))
   empty <- list("CC" = "", "BP" = "", "MF" = "")
   if (is.null(id_vector)) {
     return(empty)
@@ -554,6 +555,11 @@ ids_into_ontology <- function(id_vector, target = "Term", collapse = TRUE) {
       x %>%
         discard(., x == "") %>%
         paste0(., collapse = ";")
+    })
+  } else {
+    reduced <- purrr::map(reduced, \(x) {
+      x %>%
+        discard(., x == "")
     })
   }
   return(reduced)

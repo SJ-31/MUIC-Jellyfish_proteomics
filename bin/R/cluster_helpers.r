@@ -216,7 +216,7 @@ add_cluster_col <- function(args, tb) {
 #' Merge the cluster information in `cluster_labels` with the data in
 #' `tb` by `id_col`
 merge_clusters <- function(cluster_labels, tb, id_col) {
-  assertArg(cluster_labels, \(x) !is.null(names(x)))
+  check_arg(cluster_labels, \(x) !is.null(names(x)))
   col <- tibble(!!as.symbol(id_col) := names(cluster_labels),
     cluster = as.double(cluster_labels)
   )

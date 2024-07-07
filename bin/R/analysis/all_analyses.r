@@ -88,6 +88,7 @@ if (!dir.exists(M$outdir)) {
 M$run <- get_run("C_indra", M$path)
 M$taxa_tb <- read_tsv(glue("{M$path}/{M$chosen_pass}/{M$sample_name}_taxonomy.tsv"))
 M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
+M$repr <- read_tsv(glue("{M$outdir}/{M$sample_name}_all_representatives.tsv"))
 M$alignments <- get_alignment_data(M$path, M$chosen_pass)
 
 GET_GO <- FALSE
@@ -115,8 +116,9 @@ if (!file.exists(sem_matrix_file)) {
 PLOT_GO <- FALSE
 if (PLOT_GO) {
   go_map_ref <- read_tsv(glue("{M$wd}/data/reference/go_map_generic.tsv"))
+  M$go_abbrev_file <- glue("{M$wd}/data/reference/go_abbrevs.json")
   source(glue("{M$r_source}/GO_text_mining_helpers.r"))
-  clouds <- specialGoClouds(M$data)
+  clouds <- special_go_clouds(M$data)
   lapply(names(clouds), \(x) {
     ggsave(glue("{M$outdir}/figures/{x}_go_word_cloud.png"), clouds[[x]], width = 15, height = 15)
   })

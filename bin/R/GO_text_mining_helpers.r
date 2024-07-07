@@ -4,27 +4,7 @@ library("ggwordcloud")
 library("tidytext")
 DATA_DIR <- args$go_tm_dir
 
-compoundSpecial <- function(str, pattern, expected_matches) {
-  assertArg(str, \(x) is.atomic(x))
-  match <- str_match(str, pattern)
-  selected <- lapply(seq(2, expected_matches + 1), \(x)  {
-    match[, x] %>%
-      str_trim() %>%
-      str_replace_all(., " ", "_")
-  })
-  purrr::reduce(selected, \(x, y) paste0(x, " ", y)) %>% str_trim()
-}
-
-sandwichText <- function(str, leftFun, middleFun, rightFun) {
-  assertArg(str, \(x) is.atomic(x))
-  extracted <- lapply(
-    c(leftFun, middleFun, rightFun),
-    \(F) F(str) %>% map_chr(., \(x) ifelse(is.na(x), "", x))
-  )
-  purrr::reduce(extracted, \(x, y) paste0(x, " ", y))
-}
-
-getText <- function(file_name) {
+get_text <- function(file_name) {
   text <- read_lines(file_name)
   split <- str_split_1(text[1], "-")
   if (split[1] == "PRE") {
@@ -37,7 +17,7 @@ getText <- function(file_name) {
 }
 
 texts <- list.files(DATA_DIR, full.names = TRUE) %>%
-  lapply(getText) %>%
+  lapply(get_text) %>%
   unlist()
 
 other <- c(
@@ -63,71 +43,35 @@ other <- c(
 )
 PHRASES <- quanteda::phrase(c(other, texts))
 
-tbCompoundWord <- function(tb, word, fun) {
+tb_compound_word <- function(tb, word, fun) {
   has <- tb %>% filter(grepl(word, term))
   has_not <- tb %>% filter(!grepl(word, term))
   has$term <- fun(has$term)
   bind_rows(has, has_not)
 }
 
-compoundAll <- function(str) {
-  assertArg(str, \(x) is.atomic(x))
+compound_all <- function(str) {
+  check_arg(str, \(x) is.atomic(x))
   str_replace_all(str, " ", "_")
-  # str %>%
-  #   quanteda::corpus() %>%
-  #   quanteda::tokens() %>%
-  #   # quanteda::tokens_compound(., pattern = PHRASES) %>%
-  #   quanteda::tokens_lookup(., dictionary = REPLACEMENTS, exclusive = FALSE) %>%
-  #   quanteda::tokens_remove(., pattern = UNWANTED) %>%
-  #   as.list() %>%
-  #   map_chr(., \(x) str_c(x, collapse = " ")) %>%
-  #   `names<-`(NULL) %>%
-  #   map_chr(., \(x) { # Get only words that have been compounded
-  #     if (str_detect(x, "_")) {
-  #       extracted <- str_extract(x, "(\\b[a-zA-Z_]*_[a-zA-Z_]*\\b)")
-  #       return(extracted)
-  #     } else {
-  #       return(x)
-  #     }
-  #   })
 }
 
 
 # TODO Complete the abbreviation functions
 # Only abbreviations present in the data should be added
-ABBREVS <- c(
-  "localization" = "loc.",
-  "organization" = "org.",
-  "establishment" = "est.",
-  "processing" = "prcs.",
-  "biological" = "biol.",
-  "intracellular" = "intr.",
-  "activity" = "act.",
-  "extracellular" = "extr.",
-  "developmental|development" = "dev.",
-  "metabolic process" = "m.p.",
-  "proliferation" = "prol.",
-  "response" = "resp.",
-  "migration" = "mig.",
-  "maintenance" = "main.",
-  "signaling" = "sign.",
-  "regulation" = "reg.",
-  "homeostasis" = "hom.",
-  "differentiation" = "diff."
-)
+ABBREVS <- unlist(jsonlite::read(M$go_abbrev_file))
 F_ABBREVS <- local({
   lst <- ABBREVS
   names(lst) <- names(ABBREVS) %>% map_chr(., \(x) glue("\\b{x}\\b"))
   lst
 })
 
-findAbbrev <- function(str) {
+find_abbrev <- function(str) {
   lapply(names(ABBREVS), \(x) str_extract(str, x)) |>
     unlist() |>
     discard(is.na)
 }
 
-tokenize2Plot <- function(tb, params = NULL) {
+tokenize2plot <- function(tb, params = NULL) {
   min_count <- lget(params, "min_count", quantile(tb$n, 0.80, na.rm = TRUE))
   top_n <- lget(params, "top_n", 50)
   abbreviate <- lget(params, "abbreviate", TRUE)
@@ -137,7 +81,7 @@ tokenize2Plot <- function(tb, params = NULL) {
   result <- list()
   if (compound) {
     tb <- tb %>%
-      mutate(., term = compoundAll(!!as.symbol(term_col))) %>%
+      mutate(., term = compound_all(!!as.symbol(term_col))) %>%
       tidytext::unnest_tokens(., token, term) %>%
       filter(., !token %in% UNWANTED & nchar(token) > 2) %>%
       mutate(token = map_chr(token, \(x) str_replace_all(x, "_", " ")))
@@ -153,7 +97,7 @@ tokenize2Plot <- function(tb, params = NULL) {
     slice(1:top_n)
   if (abbreviate) {
     found_abbrevs <- tb$token |>
-      lapply(findAbbrev) |>
+      lapply(find_abbrev) |>
       unlist() |>
       discard(is.na)
     if (length(found_abbrevs) != 0) {
@@ -171,10 +115,10 @@ tokenize2Plot <- function(tb, params = NULL) {
   return(result)
 }
 
-wordcloudCustom <- function(tb, params, abbrev_legend = NULL) {
+wordcloud_custom <- function(tb, params, abbrev_legend = NULL) {
   color_col <- lget(params, "color_col", "type")
   max_size <- lget(params, "max_size", 40)
-  grid_size <- lget(params, "grid_size", 15)
+  grid_size <- lget(params, "grid_size", 25)
   max_grid_size <- lget(params, "max_grid_size", 200)
   size <- lget(params, "word_size", "n")
   shape <- lget(params, "shape", "pentagon")
@@ -212,12 +156,12 @@ LEVEL_MAP <- glue("{M$wd}/data/reference/go_level_map.tsv")
 MIN_MAX_LEVEL <- c(3, 7) # Closed interval for GO levels
 MAP_REF_FILE <- glue("{M$wd}/data/reference/go_map_generic.tsv")
 #' Higher-level interface for getting GO word clouds from results tbs
-specialGoClouds <- function(
+special_go_clouds <- function(
     tb, go_column = "GO_IDs",
     plot_params = list(),
     is_info_tb = FALSE,
     plot_special = TRUE, frequencies = NULL, to_generic = TRUE) {
-  assertArg(tb, \(x) ("tbl" %in% class(x)) && (go_column %in% colnames(x)))
+  check_arg(tb, \(x) ("tbl" %in% class(x)) && (go_column %in% colnames(x)))
   gos <- get_go_vec(tb, go_column = "GO_IDs") |> discard(\(x) x %in% UNWANTED)
   if (to_generic) {
     ref <- read_tsv(MAP_REF_FILE)
@@ -268,27 +212,27 @@ specialGoClouds <- function(
         .default = "unspecified metabolism"
       )
     }))
-  tokens <- lapply(to_plot, \(x) tokenize2Plot(x, plot_params))
+  tokens <- lapply(to_plot, \(x) tokenize2plot(x, plot_params))
   to_plot$main <- local({
     all <- lapply(to_plot, \(x) x$GO_IDs) %>% unlist()
     info_tb %>% filter(!GO_IDs %in% all)
   })
-  tokens$main <- tokenize2Plot(to_plot$main, list(compound = FALSE))
+  tokens$main <- tokenize2plot(to_plot$main, list(compound = FALSE))
   clouds <- list()
   plot_params_copy <- plot_params
   plot_params_copy$color_col <- "type"
-  clouds$bp_regulation <- wordcloudCustom(
+  clouds$bp_regulation <- wordcloud_custom(
     tokens$bp_regulation$tb,
     plot_params_copy,
     abbrev_legend = tokens$bp_regulation$abbrevs
   )
-  clouds$bp_process <- wordcloudCustom(
+  clouds$bp_process <- wordcloud_custom(
     tokens$bp_process$tb,
     plot_params_copy,
     abbrev_legend = tokens$bp_process$abbrevs
   )
   plot_params$color_col <- "ontology"
-  clouds$main <- wordcloudCustom(tokens$main$tb, plot_params,
+  clouds$main <- wordcloud_custom(tokens$main$tb, plot_params,
     abbrev_legend = tokens$main$abbrevs
   )
   return(clouds)
