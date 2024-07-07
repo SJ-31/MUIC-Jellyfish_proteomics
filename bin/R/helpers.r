@@ -493,3 +493,13 @@ conclude_one_sided <- function(htest_tb, pair_sep = "x") {
   tb |>
     mutate(conclusion = winning_vars)
 }
+
+#' From a list of queries, find the most frequent query within a character vector
+#' `targets` using grep
+#'
+grep_most_frequent <- function(queries, targets) {
+  t <- lapply(queries, \(x) sum(grepl(x, targets, ignore.case = TRUE))) |>
+    unlist() |>
+    `names<-`(queries)
+  names(t[order(t, decreasing = TRUE)][1])
+}
