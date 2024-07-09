@@ -1,0 +1,34 @@
+session_name: "workflow results"
+start_directory: "./"
+environment:
+  bin: "./bin"
+  config: "./config"
+  results: "./results"
+  data: "./data"
+  tests: "./tests"
+  nf_test: "./tests/nf-test-out"
+windows:
+  - window_name: results
+    start_directory: ./results
+    panes:
+      - "ranger"
+  - window_name: "analysis"
+    layout: even-horizontal
+    start_directory: ./results/C_indra/Analysis
+    panes:
+      - "ranger"
+      -
+  - window_name: "pytest"
+    layout: even-horizontal
+    panes:
+      -
+      - "ranger"
+    start_directory: ./tests/pytest
+  - window_name: "go_ref"
+    start_directory: ./results/C_indra/Analysis
+    panes:
+      - "vd /home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/Analysis/all_go_info.tsv"
+  - window_name: "testzone"
+    start_directory: "/home/shannc/Downloads/thesis_testzone"
+    panes:
+      - "ranger"

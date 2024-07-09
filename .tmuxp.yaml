@@ -10,6 +10,7 @@ environment:
   tests: "./tests"
   nf_test: "./tests/nf-test-out"
 windows:
+  - window_name: "main"
   - window_name: results
     start_directory: ./results
     panes:
@@ -17,4 +18,5 @@ windows:
   - window_name: "git"
     panes:
       - "gitui"
-  - window_name: "main"
+  - window_name: "pytest"
+    start_directory: ./tests/pytest
