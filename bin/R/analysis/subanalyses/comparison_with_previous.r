@@ -10,7 +10,7 @@ GRAPHS <- list()
 # Compare with previous results
 p_rename <- c(
   NCBI_ID = "Accession Number",
-  pcoverage_nmatch.prev = "Sequence coverage [%]"
+  pcoverage_align.prev = "Sequence coverage [%]"
 )
 p_all <- read_tsv(glue("{M$wd}/data/reference/previous_all.tsv")) %>%
   rename(., all_of(p_rename)) %>%
@@ -36,17 +36,17 @@ uniprot_joined <- inner_join(p_all, has_id, by = join_by(x$NCBI_ID == y$UniProtK
 compare_all <- inner_join(p_all, has_id, by = join_by(NCBI_ID)) |>
   bind_rows(uniprot_joined) |>
   mutate(
-    pcoverage_nmatch = pcoverage_nmatch * 100,
+    pcoverage_align = pcoverage_align * 100,
     ID = map2_chr(NCBI_ID, UniProtKB_ID, \(x, y) ifelse(is.na(x), y, x))
   )
 
 cov_longer <- compare_all %>%
   select(contains("coverage"), ID) %>%
-  rename(first = pcoverage_nmatch, previous = pcoverage_nmatch.prev) |>
+  rename(first = pcoverage_align, previous = pcoverage_align.prev) |>
   mutate(
     diff = first - previous,
   ) %>%
-  select(-c(first, previous, pcoverage_align)) %>%
+  select(-c(first, previous, pcoverage_nmatch)) %>%
   pivot_longer(cols = !ID) %>%
   mutate(value = round(value, 2))
 
@@ -61,25 +61,14 @@ GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value)) +
 # ALL had less than 30% sequence coverage, as well as any entries both second and first passes cannot be compared
 
 compare_long <- compare_all |>
-  select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
-  rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
-  mutate(greater = map2_dbl(first, previous, \(x, y) max(x, y)), previous = -previous) |>
-  pivot_longer(cols = -c(ID, greater)) |>
-  mutate(is_greater = map2_lgl(value, greater, \(x, y) abs(x) == y))
-
-
-n_greater <- local({
-  previous <- filter(compare_long, name == "previous")$is_greater |> sum()
-  first <- filter(compare_long, name == "first")$is_greater |> sum()
-  list(previous = previous, first = first)
-})
-
+  select(ID, pcoverage_align.prev, pcoverage_align) |>
+  rename(previous = pcoverage_align.prev, first = pcoverage_align)
 
 GRAPHS$protein_wise_coverage2 <- local({
   compare_long <- compare_all |>
-    select(ID, pcoverage_nmatch.prev, pcoverage_nmatch) |>
-    rename(previous = pcoverage_nmatch.prev, first = pcoverage_nmatch) |>
-    mutate(change = first - previous, Improved = change < 0)
+    select(ID, pcoverage_align.prev, pcoverage_align) |>
+    rename(previous = pcoverage_align.prev, first = pcoverage_align) |>
+    mutate(change = first - previous, Improved = change > 0)
   ggplot(
     compare_long,
     aes(x = previous, y = change, color = Improved)
@@ -90,40 +79,8 @@ GRAPHS$protein_wise_coverage2 <- local({
     ylab("Change in coverage (%)")
 })
 
-
-
-protein_wise_coverage <- local({
-  plot <- compare_long |>
-    ggplot(aes(x = ID, y = value, fill = name)) +
-    geom_bar(stat = "identity", position = "identity") +
-    ylab("Coverage (%)") +
-    theme(
-      axis.text.x = element_blank(),
-    ) +
-    xlab("Protein") +
-    ggtitle("Per-protein sequence coverage") +
-    scale_fill_paletteer_d(PALETTE) +
-    guides(fill = guide_legend("Run")) +
-    scale_y_continuous(
-      breaks = seq(-100, 100, by = 20),
-      labels = abs(seq(-100, 100, by = 20)),
-      limits = c(-100, 100)
-    )
-  for (i in seq_len(nrow(compare_long))) {
-    row <- compare_long[i, ]
-    if (row$is_greater) {
-      plot <- plot + geom_point(
-        x = row$ID, y = row$value, shape = 18,
-        show.legend = FALSE, color = "#f14124", alpha = 0.7
-      )
-    }
-  }
-  plot
-})
-GRAPHS$protein_wise_coverage <- protein_wise_coverage
-
-p_test <- wilcox.test(compare_all$pcoverage_nmatch.prev,
-  compare_all$pcoverage_nmatch,
+p_test <- wilcox.test(compare_all$pcoverage_align.prev,
+  compare_all$pcoverage_align,
   paired = TRUE, alternative = "less"
 ) |>
   to("data.name", "Coverage of proteins identified in maxquant-only run vs pipeline") |>

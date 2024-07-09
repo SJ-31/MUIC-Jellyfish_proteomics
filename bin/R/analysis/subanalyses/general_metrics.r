@@ -46,7 +46,7 @@ apply_over <- tb[[grouping_metric]] %>%
   names()
 cov_list <- group_list_from_tb(tb,
   v = apply_over, col_from = grouping_metric,
-  target_col = "pcoverage_nmatch"
+  target_col = "pcoverage_align"
 )
 intensity_list <- group_list_from_tb(lfq, apply_over, grouping_metric, "log_intensity")
 GRAPHS$intensity_categories <- gg_numeric_dist(intensity_list, "boxplot") +

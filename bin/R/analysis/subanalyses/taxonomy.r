@@ -15,14 +15,14 @@ cnidaria <- data |> filter(Phylum == "Cnidaria")
 others <- data |> filter(Phylum != "Cnidaria")
 
 GRAPHS$phyla_coverage <- gg_numeric_dist(list(
-  cnidaria$pcoverage_nmatch,
-  others$pcoverage_nmatch
+  cnidaria$pcoverage_align,
+  others$pcoverage_align
 ), method = "boxplot") + xlab("Phylum") + ylab("Coverage (%)") +
   guides(fill = element_blank()) + scale_x_discrete(labels = c("Cnidaria", "Other"))
 
 
 # Check if Cnidarian proteins have higher coverage (they should)
-tests <- wilcox.test(cnidaria$pcoverage_nmatch, others$pcoverage_nmatch, alternative = "greater") |>
+tests <- wilcox.test(cnidaria$pcoverage_align, others$pcoverage_align, alternative = "greater") |>
   to("data.name", "Coverage of Cnidarian proteins against other taxa") |>
   to("alternative", "Cnidarian proteins have greater coverage") |>
   htest2tb()
@@ -60,7 +60,7 @@ list(others$GO_category_MF, cnidaria$GO_category_MF) |>
 
 # What are the proteins in other taxa that have high coverage?
 highest_coverage <- others |>
-  arrange(desc(pcoverage_nmatch))
+  arrange(desc(pcoverage_align))
 highest_coverage$header
 
 # ----------------------------------------

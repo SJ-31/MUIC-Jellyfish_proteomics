@@ -19,7 +19,7 @@ num_peps <- compare_first_sec_W(M$run, "num_peps", "ProteinId", TRUE)
 tb <- M$data
 num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
-  select(c(ProteinGroupId, pcoverage_nmatch, ProteinId, num_peps, num_unique_peps)) %>%
+  select(c(ProteinGroupId, pcoverage_align, ProteinId, num_peps, num_unique_peps)) %>%
   mutate(engine_count = purrr::map_dbl(ProteinGroupId, \(x) {
     x <- split_group_str(x, TRUE, TRUE) %>%
       discard(\(x) x == "U")
@@ -175,11 +175,11 @@ Expected values are in parentheses"
 
 
 # Correlation between no. identifications by engines and coverage
-engine_cor <- cor.test(num_ids$engine_count, num_ids$pcoverage_nmatch)
+engine_cor <- cor.test(num_ids$engine_count, num_ids$pcoverage_align)
 engine_cor$data.name <- "Correlation between number of identifications by different engines and coverage"
 # A weak positive correlation, but statistically significant
 # Correlation between peptide number and coverage
-n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_nmatch)
+n_peps_cor <- cor.test(num_ids$num_unique_peps, num_ids$pcoverage_align)
 engine_cor$data.name <- "Correlation between number of identified peptides and coverage"
 TABLES$correlation <- gt(bind_rows(htest2tb(engine_cor), htest2tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant

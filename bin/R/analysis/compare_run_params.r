@@ -187,11 +187,11 @@ merged <- inner_join(data$default, data$no_denovo,
 )
 coverage <- list(default = merged$pcoverage_align.def, no_denovo = merged$pcoverage_align.nd)
 
-compare_cols <- c("pcoverage_nmatch", "pcoverage_align", "num_unique_peps", "num_peps")
+compare_cols <- c("pcoverage_align", "pcoverage_align", "num_unique_peps", "num_peps")
 merged <- merged %>% mutate(across(contains(compare_cols), as.numeric))
 tests <- pairwise_tests_tb(
   merged,
-  c("pcoverage_nmatch", "pcoverage_align", "num_unique_peps", "num_peps"),
+  c("pcoverage_align", "pcoverage_align", "num_unique_peps", "num_peps"),
   rep("greater", 4),
   \(x, y, ...) wilcox.test(x, y, paired = TRUE, ...),
   suffixes = c(".def", ".nd")
