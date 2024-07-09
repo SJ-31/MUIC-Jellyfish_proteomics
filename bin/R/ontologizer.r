@@ -77,13 +77,13 @@ wordClouds <- function(args) {
   )
   id_with_open <- prep(results$id_with_open, names(results$id_with_open_GO))
   unknown_to_db <- prep(results$unknown_to_db, names(results$unknown_to_db_GO))
-  with_open_tk <- tokenize2Plot(id_with_open, params)
-  unknown_tk <- tokenize2Plot(unknown_to_db, params)
-  with_open_cloud <- wordcloudCustom(
+  with_open_tk <- tokenize2plot(id_with_open, params)
+  unknown_tk <- tokenize2plot(unknown_to_db, params)
+  with_open_cloud <- wordcloud_custom(
     with_open_tk$tb, params,
     with_open_tk$abbrevs
   )
-  unknown_cloud <- wordcloudCustom(unknown_tk$tb, params, unknown_tk$abbrevs)
+  unknown_cloud <- wordcloud_custom(unknown_tk$tb, params, unknown_tk$abbrevs)
   ggsave(with_open_cloud, filename = "id_with_open_wordcloud.png")
   ggsave(unknown_cloud, filename = "unknown_to_db_wordcloud.png")
 }

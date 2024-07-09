@@ -11,10 +11,8 @@ import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import dendrogram
 import leidenalg as la
 
-# Or perhaps run it on a knn version of the embeddings?
 
-
-def saveDendogram(
+def save_dendogram(
     linkage_matrix: np.array,
     filename: str,
     cutoff: float,
@@ -29,7 +27,7 @@ def saveDendogram(
     return fig, ax
 
 
-def linkageMatrix(fitted_model):
+def linkage_matrix(fitted_model):
     counts = np.zeros(fitted_model.children_.shape[0])
     n_samples = len(fitted_model.labels_)
     for i, merge in enumerate(fitted_model.children_):
@@ -47,7 +45,7 @@ def linkageMatrix(fitted_model):
     return linkage_matrix
 
 
-def createGraph(nd_array, names) -> ig.Graph:
+def create_graph(nd_array, names) -> ig.Graph:
     """
     Create weighted graph from numpy array with names
     :param nd_array:
@@ -62,7 +60,7 @@ def createGraph(nd_array, names) -> ig.Graph:
 # # Modularity vertex partition doesn't work
 
 
-def partitionMetrics(partition) -> dict:
+def partition_metrics(partition) -> dict:
     metrics = {
         "n_clusters": len(partition),
         "n_elements": partition.n,
@@ -72,7 +70,7 @@ def partitionMetrics(partition) -> dict:
     return metrics
 
 
-def partitionOptimise(graph: ig.Graph, p_type, it=10) -> la.VertexPartition:
+def optimise_partition(graph: ig.Graph, p_type, it=10) -> la.VertexPartition:
     """
     Create a partition and attempt to optimize it.
     It is not possible to decide if a partition is optimal
@@ -88,13 +86,13 @@ def partitionOptimise(graph: ig.Graph, p_type, it=10) -> la.VertexPartition:
     return p
 
 
-def writeFasta(headers: list[str], seqs: list[str], filename: str) -> None:
+def write_fasta(headers: list[str], seqs: list[str], filename: str) -> None:
     text = "\n".join([f">{h}\n{s}" for h, s in zip(headers, seqs)])
     with open(filename, "w") as w:
         w.write(text)
 
 
-def mmseqsCluster(
+def mmseqs_cluster(
     headers: list[str],
     seqs: list[str],
     mmseqs_bin: str,
@@ -122,7 +120,7 @@ def mmseqsCluster(
     with tempfile.TemporaryDirectory() as tmpdir:
         pop: str = os.getcwd()
         os.chdir(tmpdir)
-        writeFasta(headers, seqs, "seqs.fasta")
+        write_fasta(headers, seqs, "seqs.fasta")
         try:
             run(
                 " ".join(
@@ -148,7 +146,7 @@ def mmseqsCluster(
     return reps, mapping
 
 
-def getGroupRepresentatives(
+def get_group_representatives(
     data: pl.DataFrame, mmseqs_bin: str
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     grouped: pl.DataFrame = (
@@ -161,7 +159,7 @@ def getGroupRepresentatives(
     mappings: list = []
     for group, ids, seqs, size in grouped.iter_rows():
         if size > 1 and len(set(seqs)) > 1:
-            df, mapping = mmseqsCluster(ids, seqs, mmseqs_bin, group)
+            df, mapping = mmseqs_cluster(ids, seqs, mmseqs_bin, group)
             try:
                 reps.extend(df["representative"])
                 groups.extend(df["Group"])
@@ -189,7 +187,7 @@ def getGroupRepresentatives(
     return data, rep_df
 
 
-def parseArgs():
+def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -201,10 +199,10 @@ def parseArgs():
 
 
 if __name__ == "__main__" and len(sys.argv) > 1:
-    args = parseArgs()
+    args = parse_args()
     df = pl.read_csv(args["input"], separator="\t", null_values="NA")
     if "Group_representative" in df.columns:
         df = df.drop("Group_representative")
-    df, representatives = getGroupRepresentatives(df, args["mmseqs"])
+    df, representatives = get_group_representatives(df, args["mmseqs"])
     df.write_csv(args["input"], separator="\t")
     representatives.write_csv(args["output"], separator="\t")

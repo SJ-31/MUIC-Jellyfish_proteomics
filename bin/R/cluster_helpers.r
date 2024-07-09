@@ -72,7 +72,7 @@ LEIDEN_METRICS <- data.frame()
     "CPM" = la$CPMVertexPartition,
     "Surprise" = la$SurpriseVertexPartition
   )
-  py$ptition <- partitionOptimise(py$graph, la_quality_funs[[partition_type]])
+  py$ptition <- partition_optimise(py$graph, la_quality_funs[[partition_type]])
   row <- as.data.frame(partitionMetrics(py$ptition))
   row$type <- partition_type
   LEIDEN_METRICS <<- dplyr::bind_rows(LEIDEN_METRICS, row)
@@ -401,14 +401,7 @@ enrich_groups <- function(tb, nested, ontologizer_path, go_path, group_name = "c
       return(NA)
     }
     tb <- as_tibble(ontologizer_df) |>
-      # mutate(
-      #   `p.adjusted` = p.adjust(p.adjusted, n = n_groups),
-      #   `is.trivial` = case_when(
-      #     `p.adjusted` < threshold ~ FALSE,
-      #     .default = TRUE
-      #   )
-      # ) |>
-      filter(!str_detect(name, "obsolete") & !is.trivial) |>
+     filter(!str_detect(name, "obsolete") & !is.trivial) |>
       pluck("ID") |>
       paste0(collapse = ";")
   }
