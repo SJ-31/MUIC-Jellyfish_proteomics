@@ -23,18 +23,18 @@ session = requests.Session()
 session.mount("https://", HTTPAdapter(max_retries=retries))
 
 
-def getFieldStr(fields: list):
+def get_field_str(fields: list):
     return functools.reduce(lambda x, y: f"{x}%2C{y}", fields)
 
 
-def getNextLink(headers):
+def get_next_link(headers):
     if "Link" in headers:
         match = re_next_link.match(headers["Link"])
         if match:
             return match.group(1)
 
 
-def checkResponse(response):
+def check_response(response):
     try:
         response.raise_for_status()
     except requests.HTTPError:
@@ -42,41 +42,41 @@ def checkResponse(response):
         raise HTTPError("API request failed!")
 
 
-def getBatch(batch_url):
+def get_batch(batch_url):
     """
     Generator
     """
     while batch_url:
         response = session.get(batch_url)
-        checkResponse(response)
+        check_response(response)
         total = response.headers["x-total-results"]
         yield response, total
-        batch_url = getNextLink(response.headers)
+        batch_url = get_next_link(response.headers)
 
 
-def tsvToFrame(response):
+def tsv2frame(response):
     return pd.read_csv(StringIO("\n".join(response.text.splitlines())), sep="\t")
 
 
-def processQueryFasta(query: str) -> str:
+def process_query_fasta(query: str) -> str:
     all_results = []
     url_string = (
         f"{API_URL}/{DATABASE}/search?compressed={COMPRESSION}"
         f"&format=fasta&query={query}&size={SIZE}"
     )
-    for batch, total in getBatch(url_string):
+    for batch, total in get_batch(url_string):
         all_results.extend(batch.text.splitlines())
     return "\n".join(all_results)
 
 
-def processQueryTSV(query: str, fields: str) -> pd.DataFrame:
+def process_query_tsv(query: str, fields: str) -> pd.DataFrame:
     all_results = pd.DataFrame()
     url_string = (
         f"{API_URL}/{DATABASE}/search?compressed={COMPRESSION}&fields="
         f"{fields}&format=tsv&query={query}&size={SIZE}"
     )
-    for batch, total in getBatch(url_string):
-        all_results = pd.concat([all_results, tsvToFrame(batch)])
+    for batch, total in get_batch(url_string):
+        all_results = pd.concat([all_results, tsv2frame(batch)])
     return all_results
 
 
@@ -98,10 +98,10 @@ def parse_args():
 if __name__ == "__main__":
     args = parse_args()
     if args["format"] == "tsv":
-        field_str = getFieldStr(args["fields"])
-        tsv = processQueryTSV(args["query"], field_str)
+        field_str = get_field_str(args["fields"])
+        tsv = process_query_tsv(args["query"], field_str)
         tsv.to_csv(args["output"], sep="\t", index=False)
     if args["format"] == "fasta":
-        fasta = processQueryFasta(args["query"])
+        fasta = process_query_fasta(args["query"])
         with open(args["output"], "w") as w:
             w.write(fasta)
