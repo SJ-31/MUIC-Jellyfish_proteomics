@@ -117,4 +117,4 @@ test <- wilcox.test(denovo_metrics$metrics$n_mismatches, y = NULL) |>
 TABLES$replacement_htests <- gt(test)
 
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/amino_acid_mismatches"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/amino_acid_mismatches"))

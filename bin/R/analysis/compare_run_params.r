@@ -243,4 +243,4 @@ TABLES$denovo_test <- tests |>
   mutate(alternative = map_chr(alternative, \(x) str_replace(x, "\\.def", "default"))) |>
   gt()
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/run_parameters"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/run_parameters"))

@@ -178,4 +178,4 @@ GRAPHS$engines_removed <- engine_longer |> ggplot(aes(y = value, fill = name)) +
   guides(fill = guide_legend(title = "Engine")) +
   ylab("Coverage (%) if engine's peptides were removed")
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/engine_characteristics"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/engine_characteristics"))

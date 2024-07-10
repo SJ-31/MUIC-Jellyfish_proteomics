@@ -35,11 +35,11 @@ class SubsetGO:
                 is_a = relationPath(paths, "is_a")
                 if is_a:
                     self.G.add_edges_from(is_a)
-        self.metadata = self.__getNodeData().join(
+        self.metadata = self.__get_node_data().join(
             metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
         )
 
-    def __getNodeData(self):
+    def __get_node_data(self):
         self.successors: dict = {}  # Map of GO_IDs to list of child terms
         level_map: dict = {}
         from_sample: dict = {}
@@ -54,8 +54,8 @@ class SubsetGO:
         for root in self.roots.values():
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
-            self.successors = ChainMap(self.successors, allSuccessors(current))
-            level_map = ChainMap(level_map, levelMap(current))
+            self.successors = ChainMap(self.successors, map_to_successors(current))
+            level_map = ChainMap(level_map, level_map(current))
 
         return (
             (
@@ -74,11 +74,11 @@ class SubsetGO:
             .sort("n_children", descending=True)
         )
 
-    def __checkParent(self, to_check: str, ancestors: list):
+    def __check_parent(self, to_check: str, ancestors: list):
         """Make sure the parent terms do not contain each other"""
         return all([to_check not in self.successors[e] for e in ancestors])
 
-    def getPredefined(self, path: str, ontology: str) -> dict:
+    def get_predefined(self, path: str, ontology: str) -> dict:
         with open(path, "r") as r:
             custom = json.load(r)
         id2group = {}
@@ -89,7 +89,7 @@ class SubsetGO:
                     id2group[member] = group
         return id2group
 
-    def getParents(self, ontology: str, n: int = 18, show=True, min_depth=2, pre=""):
+    def get_parents(self, ontology: str, n: int = 18, show=True, min_depth=2, pre=""):
         """Select higher-level parent GO terms from the specified ontology that partition the ontology into `n` bins.
         Goal is to map all child terms to some higher-level term to make for more concise summarization
         higher-level terms are selected by the number of children they have, as well as the specified depth. They can also be pre-specified with the `pre` argument
@@ -110,14 +110,14 @@ class SubsetGO:
         ).sort("n_children", descending=True)
         parents: list = []
         for go_id, *_ in filtered.iter_rows():
-            if self.__checkParent(go_id, parents):
+            if self.__check_parent(go_id, parents):
                 parents.append(go_id)
             if len(parents) == n:
                 break
         parent_df = filtered.filter(pl.col("GO_IDs").is_in(parents))
         if show:
             print(parent_df)
-        child_to_parent: dict = self.getPredefined(pre, ontology) if pre else {}
+        child_to_parent: dict = self.get_predefined(pre, ontology) if pre else {}
         unassigned: set = set(filtered["GO_IDs"])
         for parent in parents:
             for child in self.successors[parent]:
@@ -146,14 +146,14 @@ def relationPath(paths: list[tuple], relation: str) -> list:
     return result
 
 
-def joinDict(df: pl.DataFrame, dct: dict, by: str, colname: str):
+def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
     if isinstance(dct, ChainMap):
         dct = dict(dct)
     temp_df = pl.DataFrame(dct).melt().rename({"variable": by, "value": colname})
     return df.join(temp_df, on=by)
 
 
-def allSuccessors(G: nx.DiGraph) -> dict:
+def map_to_successors(G: nx.DiGraph) -> dict:
     """Return a dictionary mapping the nodes of G to ALL of their
     children/successors (unlike an adjacency list, which
     only returns the immediate) children
@@ -168,7 +168,7 @@ def allSuccessors(G: nx.DiGraph) -> dict:
     return successors
 
 
-def levelMap(G: nx.DiGraph, root=None) -> dict:
+def level_map(G: nx.DiGraph, root=None) -> dict:
     """Return a dictionary mapping the nodes of G to their levels in G"""
     level_map: dict = {}
     if not (root := G.graph.get("root", root)):
@@ -179,7 +179,7 @@ def levelMap(G: nx.DiGraph, root=None) -> dict:
     return level_map
 
 
-def toJson(
+def to_json(
     go_path: str,
     sample_path: str,
     go_info_path: str,
@@ -187,10 +187,11 @@ def toJson(
     n_groups: int,
     predefined: str = None,
 ):
+    """Write the GO parent map to a json file"""
     data = {"CC": None, "BP": None, "MF": None}
     S = SubsetGO(go_path, sample_path, go_info_path)
     for sub in data.keys():
-        rep = S.getParents(sub, n=n_groups, pre=predefined)
+        rep = S.get_parents(sub, n=n_groups, pre=predefined)
         data[sub] = {
             "map": rep["map"],
             "unassigned": list(rep["unassigned"]),
@@ -199,7 +200,7 @@ def toJson(
         json.dump(data, j)
 
 
-def intoOntology(gos: list, mapping: dict) -> dict:
+def into_ontology(gos: list, mapping: dict) -> dict:
     partitioned: dict = {"CC": [], "BP": [], "MF": []}
     for go in gos:
         lookup: str = mapping[go]
@@ -208,7 +209,7 @@ def intoOntology(gos: list, mapping: dict) -> dict:
     return partitioned
 
 
-def parentGOs(
+def parent_gos(
     source: str,
     go_terms: list,
     rep_map: dict,
@@ -225,7 +226,7 @@ def parentGOs(
         ontology_map (dict): map of GO ids to their sub-ontology
         ontology_map (dict): map of GO ids to their English terms
     """
-    grouped = intoOntology(go_terms, ontology_map)
+    grouped = into_ontology(go_terms, ontology_map)
     terms = pl.DataFrame()
     missing = {"CC": 0, "BP": 0, "MF": 0}
     found_special = False
@@ -321,7 +322,7 @@ def find_go_parents(
     cc, bp, mf = [], [], []
     missing_counts = {"CC": 0, "BP": 0, "MF": 0}
     for id, gos in zip(id_go["ProteinId"], id_go["GO_IDs"]):
-        parents, missing = parentGOs(
+        parents, missing = parent_gos(
             id, gos, rmap, id2term, id2ontology, priority=priority
         )
         cc.append(parents["CC"])

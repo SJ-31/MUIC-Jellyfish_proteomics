@@ -175,4 +175,4 @@ TABLES$standard_search_metrics <- get_engine_counts("standard", M$run)
 TABLES$open_search_metrics <- get_engine_counts("open", M$run)
 
 
-save(TABLES, glue("{M$outdir}/figures/search_metrics"))
+save(TABLES, glue("{M$outdir}/Figures/search_metrics"))

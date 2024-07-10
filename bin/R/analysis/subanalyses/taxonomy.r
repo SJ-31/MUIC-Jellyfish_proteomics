@@ -129,4 +129,4 @@ toxin_results <- data |>
 
 toxin_results |> filter(toxin_group == "porin")
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/figures/taxonomy"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/taxonomy"))

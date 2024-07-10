@@ -28,7 +28,9 @@ AAs = {
 }
 
 
-def record_mismatch(protein_id: str, old: str, new: str, index: int) -> pd.DataFrame:
+def record_mismatch(
+    protein_id: str, old: str, new: str, index: int
+) -> pd.DataFrame:
     temp = {"ProteinId": [], "change": [], "type": [], "index": []}
     temp["ProteinId"].append(protein_id)
     temp["change"].append(f"{old}->{new}")
@@ -63,7 +65,9 @@ def record_alignment(header: str, seq, alignment) -> tuple:
                             record_mismatch(protein_id, old, r, i),
                         ]
                     )
-            alignment = alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
+            alignment = (
+                alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
+            )
         elif new == "-":
             matches -= 1
         elif old != new:

@@ -179,4 +179,4 @@ TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
 
 TABLES$stats <- stats
 
-save(TABLES, glue("{M$outdir}/figures/pass_differences"))
+save(TABLES, glue("{M$outdir}/Figures/pass_differences"))

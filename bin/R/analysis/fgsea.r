@@ -39,7 +39,7 @@ fgsea_percolator_groups <- fgseaGroup(by_intensity,
 fgsea_percolator_groups$fgsea$result <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
 
 
-fgsea_dir <- glue("{M$outdir}/figures/fgsea")
+fgsea_dir <- glue("{M$outdir}/Figures/fgsea")
 if (!dir.exists(fgsea_dir)) {
   dir.create(fgsea_dir)
 }

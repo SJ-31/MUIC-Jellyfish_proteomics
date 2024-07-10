@@ -81,8 +81,8 @@ source(glue("{M$r_source}/analysis/metric_functions.r"))
 
 if (!dir.exists(M$outdir)) {
   dir.create(M$outdir)
-} else if (!dir.exists(glue("{M$outdir}/figures"))) {
-  dir.create(glue("{M$outdir}/figures"))
+} else if (!dir.exists(glue("{M$outdir}/Figures"))) {
+  dir.create(glue("{M$outdir}/Figures"))
 }
 
 M$run <- get_run("C_indra", M$path)
@@ -120,7 +120,7 @@ if (PLOT_GO) {
   source(glue("{M$r_source}/GO_text_mining_helpers.r"))
   clouds <- special_go_clouds(M$data)
   lapply(names(clouds), \(x) {
-    ggsave(glue("{M$outdir}/figures/{x}_go_word_cloud.png"), clouds[[x]], width = 15, height = 15)
+    ggsave(glue("{M$outdir}/Figures/{x}_go_word_cloud.png"), clouds[[x]], width = 15, height = 15)
   })
 }
 

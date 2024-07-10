@@ -46,7 +46,7 @@ cov_longer <- compare_all %>%
   mutate(
     diff = first - previous,
   ) %>%
-  select(-c(first, previous, pcoverage_nmatch)) %>%
+  select(-c(first, previous)) %>%
   pivot_longer(cols = !ID) %>%
   mutate(value = round(value, 2))
 
@@ -96,4 +96,4 @@ new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 # TODO: Get the identity of the previous proteins so you
 # can
-save(c(GRAPHS, TABLES), glue("{M$outdir}/figures/comparison_with_previous"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/comparison_with_previous"))
