@@ -32,7 +32,7 @@ class SubsetGO:
                 paths: list = nx.all_simple_edge_paths(
                     GO, source=go, target=self.roots[root_map[go]]
                 )
-                is_a = relationPath(paths, "is_a")
+                is_a = relation_only_paths(paths, "is_a")
                 if is_a:
                     self.G.add_edges_from(is_a)
         self.metadata = self.__get_node_data().join(
@@ -55,7 +55,7 @@ class SubsetGO:
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
             self.successors = ChainMap(self.successors, map_to_successors(current))
-            level_map = ChainMap(level_map, level_map(current))
+            level_map = ChainMap(level_map, get_level_map(current))
 
         return (
             (
@@ -88,6 +88,14 @@ class SubsetGO:
                 if member in reference["GO_IDs"]:
                     id2group[member] = group
         return id2group
+
+    def go_custom_groups(self, group_mapping_file: str, output: str) -> None:
+        """Find all the relevant child GO terms specified in `group_mapping_file`
+        :param: group_mapping_file path to a json file that maps user-specified groups to a list of `seed` GO terms. For each term, all of its children will be added to the list, UNLESS that GO term has already been specified as a `seed` term in the original file
+        :return: None
+        """
+
+        return
 
     def get_parents(self, ontology: str, n: int = 18, show=True, min_depth=2, pre=""):
         """Select higher-level parent GO terms from the specified ontology that partition the ontology into `n` bins.
@@ -132,7 +140,7 @@ class SubsetGO:
         }
 
 
-def relationPath(paths: list[tuple], relation: str) -> list:
+def relation_only_paths(paths: list[tuple], relation: str) -> list:
     """Find the path from a list of paths (which are edge lists)
     that consists only of `relation`
     """
@@ -168,7 +176,7 @@ def map_to_successors(G: nx.DiGraph) -> dict:
     return successors
 
 
-def level_map(G: nx.DiGraph, root=None) -> dict:
+def get_level_map(G: nx.DiGraph, root=None) -> dict:
     """Return a dictionary mapping the nodes of G to their levels in G"""
     level_map: dict = {}
     if not (root := G.graph.get("root", root)):

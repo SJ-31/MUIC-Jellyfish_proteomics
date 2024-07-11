@@ -78,30 +78,3 @@ def process_query_tsv(query: str, fields: str) -> pd.DataFrame:
     for batch, total in get_batch(url_string):
         all_results = pd.concat([all_results, tsv2frame(batch)])
     return all_results
-
-
-def parse_args():
-    import argparse
-
-    parser = argparse.ArgumentParser()
-    parser.add_argument("--fields", action="extend", nargs="+", type=str)
-    parser.add_argument("--format", type=str)
-    parser.add_argument("--query", type=str)
-    parser.add_argument("--output", type=str)
-    args = vars(parser.parse_args())  # convert to dict
-    return args
-
-
-# List of fields can be found here
-# https://www.uniprot.org/help/return_fields
-
-if __name__ == "__main__":
-    args = parse_args()
-    if args["format"] == "tsv":
-        field_str = get_field_str(args["fields"])
-        tsv = process_query_tsv(args["query"], field_str)
-        tsv.to_csv(args["output"], sep="\t", index=False)
-    if args["format"] == "fasta":
-        fasta = process_query_fasta(args["query"])
-        with open(args["output"], "w") as w:
-            w.write(fasta)

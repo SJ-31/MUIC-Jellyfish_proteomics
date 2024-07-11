@@ -4,7 +4,7 @@ import re
 import pandas as pd
 
 
-def addGos(receive, add):
+def add_gos(receive, add):
     if pd.isna(receive) and pd.isna(add):
         return None
     if pd.isna(receive) and pd.notna(add):
@@ -15,7 +15,7 @@ def addGos(receive, add):
     return ";".join(r | set(add.split(";")))
 
 
-def valueFromCol(df, query_column, target_column, query):
+def value_from_col(df, query_column, target_column, query):
     """
     Convenience function for retrieving the corresponding entry in
     `target column` where `query_column == query`
@@ -25,7 +25,7 @@ def valueFromCol(df, query_column, target_column, query):
     return try_find[target_column].iloc[0]
 
 
-def gosFromAcc(
+def gos_from_acc(
     map_df: pd.DataFrame,
     accession: str,
     is_pfam: bool,
@@ -46,29 +46,31 @@ def gosFromAcc(
         if find_accession := re.findall("^PF[0-9]+", accession):
             # When the accession is a proper PFAM acession code
             accession = find_accession[0].strip()
-            gos.add(valueFromCol(map_df, "accession", "GO", accession))
+            gos.add(value_from_col(map_df, "accession", "GO", accession))
         else:
             # When the accession is just the name of the pfam
-            gos.add(valueFromCol(map_df, "name", "GO", accession))
-            if pfam_accession := valueFromCol(pfam_db, "name", "accession", accession):
-                gos.add(valueFromCol(map_df, "accession", "GO", pfam_accession))
+            gos.add(value_from_col(map_df, "name", "GO", accession))
+            if pfam_accession := value_from_col(
+                pfam_db, "name", "accession", accession
+            ):
+                gos.add(value_from_col(map_df, "accession", "GO", pfam_accession))
             # Try to map a pfam accession to a interpro accession, which we
             # then map to GO
-            if interpro_accession := valueFromCol(
+            if interpro_accession := value_from_col(
                 pfam_db, "name", "interpro_accession", accession
             ):
                 gos.add(
-                    valueFromCol(interpro2go, "accession", "GO", interpro_accession)
+                    value_from_col(interpro2go, "accession", "GO", interpro_accession)
                 )
     else:
-        gos.add(valueFromCol(map_df, "accession", "GO", accession))
+        gos.add(value_from_col(map_df, "accession", "GO", accession))
     gos = gos - {None, pd.NA}
     if gos:
         return ";".join(gos)
     return pd.NA
 
 
-def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
+def go_from_row(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
     """
     From the corresponding mapping files, retrieve the
     GO ids of the corresponding row's PFAMs, EC and KEGG Reaction accessions
@@ -80,7 +82,7 @@ def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
         splits = re.split(spattern, row["PFAMs"])
         for s in splits:
             gos.add(
-                gosFromAcc(
+                gos_from_acc(
                     is_pfam=True,
                     map_df=pfam_map,
                     interpro2go=interpro_map,
@@ -93,14 +95,14 @@ def goFromRow(row, pfam_map, interpro_map, ec_map, kegg_map, pfam_db):
             if not pd.isna(row.get(db)):
                 splits = re.split(spattern, row[db])
                 for s in splits:
-                    gos.add(gosFromAcc(map, s, is_pfam=False))
+                    gos.add(gos_from_acc(map, s, is_pfam=False))
     gos = gos - {None, pd.NA}
     if gos:
         return ";".join(gos)
     return None
 
 
-def parseGoMapping(path, has_name):
+def parse_go_mapping(path, has_name):
     """
     Parse go mapping files (interpro2go, pfam2go, kegg_reaction2go, and ec2go)
     file into dataframe
@@ -144,7 +146,7 @@ def parseGoMapping(path, has_name):
     )
 
 
-def mapAllDb(
+def map_all_db(
     pfam_db_path, p2g_path, i2g_path, ec2g_path, k2g_path, to_annotate: pd.DataFrame
 ):
     """
@@ -158,12 +160,12 @@ def mapAllDb(
     if "GO" not in to_annotate.columns:
         return to_annotate
     pfam_db = pd.read_csv(pfam_db_path, sep="\t")
-    interpro2go = parseGoMapping(i2g_path, has_name=True)
-    pfam2go = parseGoMapping(p2g_path, has_name=True)
-    ec2go = parseGoMapping(ec2g_path, has_name=False)
-    kegg_reaction2go = parseGoMapping(k2g_path, has_name=False)
+    interpro2go = parse_go_mapping(i2g_path, has_name=True)
+    pfam2go = parse_go_mapping(p2g_path, has_name=True)
+    ec2go = parse_go_mapping(ec2g_path, has_name=False)
+    kegg_reaction2go = parse_go_mapping(k2g_path, has_name=False)
     retrieved_gos = to_annotate.apply(
-        goFromRow,
+        go_from_row,
         pfam_map=pfam2go,
         interpro_map=interpro2go,
         pfam_db=pfam_db,
@@ -171,6 +173,6 @@ def mapAllDb(
         ec_map=ec2go,
         axis=1,
     )
-    join_up = to_annotate["GO"].combine(retrieved_gos, addGos)
+    join_up = to_annotate["GO"].combine(retrieved_gos, add_gos)
     to_annotate["GO"] = join_up
     return to_annotate
