@@ -1,4 +1,5 @@
 library("gt")
+library("plotly")
 library("typed")
 library("tidyverse")
 library("ggplot2")
@@ -8,7 +9,7 @@ library("Peptides")
 library("glue")
 
 save <- function(to_save, outdir) {
-  byType <- function(name, object) {
+  by_type <- function(name, object) {
     if ("gg" %in% class(object) || "grob" %in% class(object)) {
       ggsave(glue("{outdir}/{name}.png"), object, width = 10, height = 10)
     } else if ("gt_tbl" %in% class(object)) {
@@ -16,13 +17,15 @@ save <- function(to_save, outdir) {
       gtsave(object, glue("{outdir}/{name}.tex"))
     } else if ("tbl_df" %in% class(object)) {
       write_tsv(object, glue("{outdir}/{name}.tsv"))
+    } else if ("plotly" %in% class(object) && "htmlwidget" %in% class(object)) {
+      plotly::save_image(object, glue("{outdir}/{name}.png"))
     }
   }
   if (!dir.exists(outdir)) {
     dir.create(outdir)
   }
   lapply(names(to_save), \(x) {
-    byType(x, to_save[[x]])
+    by_type(x, to_save[[x]])
   })
 }
 

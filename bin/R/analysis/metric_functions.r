@@ -13,7 +13,7 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
       localization = Localizations,
       category = Signals,
     ) %>%
-    select(all_of(c(colnames(um), "inferred_by", "localization", "category")))
+    select(all_of(c(colnames(um), "inferred_by", "localization")))
   return(merged)
 }
 
@@ -137,7 +137,6 @@ remove_digits <- function(x) {
 #'
 get_counts <- function(tb) {
   data <- list()
-  data$category <- get_freq_tb(tb$category, "category")
   data$organism <- get_freq_tb(tb$organism, "organism")
   # TODO: Restore this once you've figured out the error with
   # the columns being logicals
