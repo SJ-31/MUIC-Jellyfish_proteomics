@@ -17,7 +17,7 @@ process DEEPLOC {
     //
 
     script:
-    def check = file("deeploc_results.csv")
+    def check = file("${outdir}/deeploc_results.csv")
     if (check.exists()) {
     """
     cp ${outdir}/deeploc_results.csv .

@@ -19,6 +19,10 @@ process GET_REPRESENTATIVES {
     clustering.py \
         -m $params.mmseqs \
         -i $combined_tsv \
+        -o "${params.pref}_all_representatives_mmseqs.tsv"
+
+    Rscript $params.bin/R/analysis \
+        -i $combined_tsv \
         -o "${params.pref}_all_representatives.tsv"
 
     Rscript $params.bin/R/get_clusters.r \

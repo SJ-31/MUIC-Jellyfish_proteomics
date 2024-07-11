@@ -10,17 +10,26 @@ process PEPNET {
     //
 
     output:
-    path("${mgf.baseName}_pepnet.tsv"), emit: peps
+    path(output), emit: peps
     path("*.log"), emit: log
     //
 
     script:
+    output = "${mgf.baseName}_pepnet.tsv"
+    check = file("${outdir}/${output}")
+    if (check.exists()) {
+        """
+        cp "${outdir}/${output}" .
+        cp "${outdir}/pepnet.log" .
+        """
+    } else {
     """
     python $params.pepnet_exe \
         --input $mgf \
         --model $params.pepnetmodel \
         --output ${mgf.baseName}_pepnet.tsv > pepnet.log
     """
+    }
     //
 }
 

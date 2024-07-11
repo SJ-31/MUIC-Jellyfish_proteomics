@@ -53,7 +53,7 @@ process SORT_EGGNOG {
     //
 
     script:
-    def check = file("${params.pref}_eggnog_matched.tsv")
+    def check = file("${outdir}/${params.pref}_eggnog_matched.tsv")
     if (check.exists()) {
         """
         cp ${outdir}/*${params.pref}_eggnog* .

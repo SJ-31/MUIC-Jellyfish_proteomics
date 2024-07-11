@@ -1,7 +1,7 @@
 process CASANOVO {
     publishDir "$outdir", mode: "copy"
     publishDir "$params.logs", mode: "copy", pattern: "*.log"
-    memory "10 GB"
+    memory "20 GB"
     conda "/home/shannc/anaconda3/envs/casanovo"
 
     input:

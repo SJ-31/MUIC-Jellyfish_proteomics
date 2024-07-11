@@ -8,9 +8,16 @@ process SMSNET {
     val(outdir)
     //
     output:
-    path("${mgf.baseName}_smsnet.txt")
+    path(output)
     //
     shell:
+    output = "${mgf.baseName}_smsnet.txt"
+    check = file("${outdir}/${output}")
+    if (check.exists()) {
+        '''
+        cp "!{outdir}/!{output}" .
+        '''
+    } else {
     '''
     export CUDA_VISIBLE_DEVICES=0
     python !{params.smsnet_exe} \
@@ -18,7 +25,8 @@ process SMSNET {
         --inference_input_file !{mgf}
     mv ./_output/!{mgf.baseName} ./!{mgf.baseName}_smsnet.txt
     '''
-    //
+    }
+   //
 }
 
 process EXTRACT_SMSNET {

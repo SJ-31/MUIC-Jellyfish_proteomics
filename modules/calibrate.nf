@@ -19,7 +19,7 @@ process CALIBRATE {
     //
 
     shell:
-    def check = file("${params.pref}.calibrated.tsv")
+    def check = file("${outdir}/${params.pref}.calibrated.tsv")
     if (check.exists()) {
         '''
         cp !{outdir}/* .
