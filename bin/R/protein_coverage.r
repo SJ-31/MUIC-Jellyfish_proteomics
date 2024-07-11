@@ -105,7 +105,6 @@ resolve_alignment <- function(seq1, seq2) {
   return(str_flatten(resolved))
 }
 
-
 append_all_list <- function(lst, to_append) {
   if (length(to_append) > 1) {
     new <- lapply(seq_along(lst), \(x) {
@@ -122,12 +121,6 @@ append_all_list <- function(lst, to_append) {
 get_coverage <- function(protein, peps) {
   # Using alignment percent identity for the coverage
   # calculation takes into account gaps and mismatches
-  #   if (length(peps) > 1) {
-  #     combos <- combn(peps, 2)
-  #     peps <- unlist(lapply(seq_len(dim(combos)[2]), function(x) {
-  #       return(remove_substr(combos[, x]))
-  #     })) %>% unique()
-  #   }
   ids <- names(peps)
   align <- Biostrings::pairwiseAlignment(
     pattern = peps, subject = protein,
@@ -138,24 +131,16 @@ get_coverage <- function(protein, peps) {
     vis <- purrr::reduce(vis, resolve_alignment)
   }
   cov <- Biostrings::coverage(align)
+  # "Lengths" in the Rle object are stretches of peptide residues
+  # "Value" indicates whether or not it was covered
   cov <- tibble(values = cov@values, lengths = cov@lengths)
   sum_cov <- cov %>%
     dplyr::filter(values > 0) %>%
     select(lengths) %>%
     sum()
   chars <- nchar(protein)
-  nmatch <- sum(nmatch(align)) / chars
-  if (nmatch >= 1) {
-    # Redundant peptides (that differ by at least one residue) can cause nmatch to
-    # exceed 1
-    # We figure out the actual number of matches by taking the ratio of indices
-    # that are not "-" in the alignment string
-    total <- nchar(vis)
-    nmatch <- (total - str_count(vis, "-")) / total
-  }
   result <- list(
     tb = tibble(
-      pcoverage_nmatch = nmatch,
       pcoverage_align = sum_cov / chars,
       alignment = vis,
     ),

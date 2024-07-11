@@ -23,7 +23,7 @@ if (sys.nframe() == 0) {
       write_tsv(glue("{args$outdir}/all_go_info.tsv"))
   } else if (args$mode == "get_parents") {
     reticulate::source_python(glue("{args$python_source}/go_subset.py"))
-    toJson(
+    to_json(
       go_path = args$go_path, sample_path = args$input,
       go_info_path = args$go_info_path, outdir = args$outdir,
       predefined = args$predefined_groups,

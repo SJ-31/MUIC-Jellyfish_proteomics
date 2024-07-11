@@ -301,8 +301,8 @@ aggregate_metadata <- function(data, grouping_col) {
       GO_category_BP = map_chr(data, \(x) paste0(unique(x$GO_category_BP), collapse = ";")),
       GO_category_CC = map_chr(data, \(x) paste0(unique(x$GO_category_CC), collapse = ";")),
       GO_category_MF = map_chr(data, \(x) paste0(unique(x$GO_category_MF), collapse = ";")),
-      mean_coverage = map_dbl(data, \(x) mean(x$pcoverage_nmatch, na.rm = TRUE)),
-      median_coverage = map_dbl(data, \(x) median(x$pcoverage_nmatch, na.rm = TRUE)),
+      mean_coverage = map_dbl(data, \(x) mean(x$pcoverage_align, na.rm = TRUE)),
+      median_coverage = map_dbl(data, \(x) median(x$pcoverage_align, na.rm = TRUE)),
       mean_intensity = map_dbl(data, \(x) mean(x$log_intensity, na.rm = TRUE))
     ) %>%
     arrange(desc(size))
@@ -401,7 +401,7 @@ enrich_groups <- function(tb, nested, ontologizer_path, go_path, group_name = "c
       return(NA)
     }
     tb <- as_tibble(ontologizer_df) |>
-     filter(!str_detect(name, "obsolete") & !is.trivial) |>
+      filter(!str_detect(name, "obsolete") & !is.trivial) |>
       pluck("ID") |>
       paste0(collapse = ";")
   }
