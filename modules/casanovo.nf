@@ -15,7 +15,6 @@ process CASANOVO {
 
     script:
     """
-    export CUDA_VISIBLE_DEVICES=0
     casanovo \
         --mode=denovo \
         --peak_path=$mzMLs \
@@ -25,6 +24,7 @@ process CASANOVO {
     grep -v ^M temp.mztab > ${mzMLs.baseName}_casanovo.tsv
     """
     //
+    // export CUDA_VISIBLE_DEVICES=0
 }
 
 process EXTRACT_CASANOVO {
