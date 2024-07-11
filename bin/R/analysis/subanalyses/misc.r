@@ -1,7 +1,10 @@
+library("paletteer")
+library("ggVennDiagram")
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
   SOURCED <- TRUE
 }
+TABLES <- list()
 GRAPHS <- list()
 # --------------------------------------------------------
 # Investigating trends in missing quantification
@@ -22,7 +25,7 @@ rm(hasq)
 
 # Show that property of every protein in a Percolator group being matched
 # by the exact same peptides gets lost when creating new groups via union-find
-data <- M$data
+data <- M$data %>% inner_join(M$taxa_tb, by = join_by(ProteinId))
 nested <- data |>
   group_by(Group) |>
   nest() |>
@@ -88,11 +91,34 @@ if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
   plot <- ggplot(by_intensity, aes(x = log_intensity)) +
     geom_histogram(fill = "#69d2e7") +
     xlab("log 10 intensity")
-  ggsave(glue("{M$outdir}/figures/intensity_histogram.svg"), plot)
+  ggsave(glue("{M$outdir}/Figures/intensity_histogram.svg"), plot)
 } else {
   intensity <- lapply(c("low", "medium", "high"), \(x) read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")))
-  # TODO analyze differences between these
 }
+
+# ----------------------------------------
+# Analyses for intensity-enriched terms
+intensities <- c("high", "medium", "low")
+intensity_tbs <- lapply(
+  intensities,
+  \(x) read_tsv(glue("{M$outdir}/Ontologizer/{x}_intensity.tsv"))
+) |> `names<-`(intensities)
+
+intensity_vecs <- intensity_tbs |>
+  lapply(\(x) {
+    x |>
+      filter(p.adjusted < 0.05) |>
+      pluck("ID")
+  })
+
+
+high_intensity_vecs <- ids_into_ontology(high_intensity_vec,
+  target = "GOID",
+  collapse = FALSE
+)
+
+GRAPHS$intensity_overlap <- ggVennDiagram(intensity_vecs) + scale_fill_paletteer_c("ggthemes::Classic Red")
+
 
 # ----------------------------------------
 # Verification for new grouping strategy
@@ -116,11 +142,42 @@ for (g in grouping_cols) {
 # stderr was lower when grouping by unmatched peptides, indicating this is a better way
 # to form protein groups between different engines
 
-representatives <- read_tsv(glue("{M$outdir}/{M$sample_name}_all_representatives.tsv"))
+# ----------------------------------------
+# Verification for clustering by mmseqs
+# Ideally the group representative is the largest protein within the group
+
 repr_summarized <- data |>
   group_by(Group_representative) |>
   summarise(
     n_members = n(),
     n_groups = length(unique(GroupUP)),
-    GroupUP = paste0(unique(GroupUP), collapse = ";")
+    GroupUP = paste0(unique(GroupUP), collapse = ";"),
+    Genus = paste0(unique(Genus), collapse = ";"),
+    Family = paste0(unique(Family), collapse = ";")
   )
+
+summarize_tax_data <- function(data, grouping_col) {
+  data |>
+    group_by(!!as.symbol(grouping_col)) |>
+    summarise(
+      n_Genera = length(unique(Genus)),
+      n_Family = length(unique(Family)),
+      rep_Family = modes(Family),
+      rep_Genus = modes(Genus),
+      Genus = paste0(unique(Genus), collapse = ";"),
+      Family = paste0(unique(Family), collapse = ";"),
+    ) |>
+    ungroup()
+}
+
+group_up_summarized <- summarize_tax_data(data, "GroupUP")
+group_original_summarized <- summarize_tax_data(data, "Group")
+
+# summary(group_original_summarized$n_Family)
+# summary(group_up_summarized$n_Family)
+# summary(group_original_summarized$n_Genera)
+# summary(group_up_summarized$n_Genera)
+
+
+
+save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/misc"))
