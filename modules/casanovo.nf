@@ -16,15 +16,14 @@ process CASANOVO {
     script:
     """
     casanovo \
-        --mode=denovo \
-        --peak_path=$mzMLs \
+        sequence \
         --config ${params.config_dir}/casanovo.yaml \
-        --output=temp \
-        --model=$params.casanovomodel > casanovo.log
+        --model $params.casanovomodel \
+        --output temp.mztab \
+        $mzMLs  > casanovo.log
     grep -v ^M temp.mztab > ${mzMLs.baseName}_casanovo.tsv
     """
     //
-    // export CUDA_VISIBLE_DEVICES=0
 }
 
 process EXTRACT_CASANOVO {
