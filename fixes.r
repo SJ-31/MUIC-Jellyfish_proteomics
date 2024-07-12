@@ -90,18 +90,6 @@ cleanDuplicateIds <- function(tb) {
   return(tb)
 }
 
-get_to_fix <- function(pattern) {
-  if (str_detect(getwd(), "Bio_SDD")) {
-    wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
-  } else {
-    wd <- "/home/shannc/workflow"
-  }
-  return(list.files(glue("{wd}/results"),
-    pattern = pattern, full.names = TRUE,
-    recursive = TRUE
-  ))
-}
-
 fix <- function(filename, fix) {
   tb <- read_tsv(filename)
   if (fix == "unify_groups") {
@@ -178,9 +166,34 @@ fix <- function(filename, fix) {
   if (fix == "mismatch") {
     rename(tb, n_mismatches = n_replacements) |> write_tsv(file = filename)
   }
+  if (fix == "category") {
+    # 2024-07-11 Removed the category column before re-doing the category
+    # strategy
+    if ("category" %in% colnames(tb)) {
+      tb |>
+        select(-category) |>
+        write_tsv(file = filename)
+    }
+  }
+}
+
+get_to_fix <- function(pattern) {
+  if (str_detect(getwd(), "Bio_SDD")) {
+    wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
+  } else {
+    wd <- "/home/shannc/workflow"
+  }
+  return(list.files(glue("{wd}/results"),
+    pattern = pattern, full.names = TRUE,
+    recursive = TRUE
+  ))
 }
 
 
 apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
+
+files <- get_to_fix("C_indra_all.*tsv")
+
+apply_fixes(files, "category")
