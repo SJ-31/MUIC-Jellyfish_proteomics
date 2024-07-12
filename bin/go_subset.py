@@ -2,6 +2,7 @@
 import sys
 import networkx as nx
 import json
+import tomllib
 import polars as pl
 from collections import ChainMap
 import obonet
@@ -35,11 +36,11 @@ class SubsetGO:
                 is_a = relation_only_paths(paths, "is_a")
                 if is_a:
                     self.G.add_edges_from(is_a)
-        self.metadata = self.__get_node_data().join(
+        self.metadata = self.get_node_data().join(
             metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
         )
 
-    def __get_node_data(self):
+    def get_node_data(self):
         self.successors: dict = {}  # Map of GO_IDs to list of child terms
         level_map: dict = {}
         from_sample: dict = {}
@@ -88,14 +89,6 @@ class SubsetGO:
                 if member in reference["GO_IDs"]:
                     id2group[member] = group
         return id2group
-
-    def go_custom_groups(self, group_mapping_file: str, output: str) -> None:
-        """Find all the relevant child GO terms specified in `group_mapping_file`
-        :param: group_mapping_file path to a json file that maps user-specified groups to a list of `seed` GO terms. For each term, all of its children will be added to the list, UNLESS that GO term has already been specified as a `seed` term in the original file
-        :return: None
-        """
-
-        return
 
     def get_parents(self, ontology: str, n: int = 18, show=True, min_depth=2, pre=""):
         """Select higher-level parent GO terms from the specified ontology that partition the ontology into `n` bins.
@@ -293,7 +286,7 @@ def parent_gos(
     return result, missing
 
 
-def find_go_parents(
+def find_go_parents_auto(
     combined_results: str, go_info_path: str, parents_path: str, priority_path: str = ""
 ) -> tuple[pl.DataFrame, pl.DataFrame]:
     """Find higher-level GO terms of identified proteins in a results file
@@ -363,3 +356,75 @@ def find_go_parents(
                          """
         )
     return result.to_pandas(), missing_df.to_pandas()
+
+
+class CompleteGO(SubsetGO):
+    def __init__(self, go_path: str, metadata_path: str) -> None:
+        metadata = pl.read_csv(metadata_path, separator="\t")
+        self.roots = {"BP": "GO:0008150", "CC": "GO:0005575", "MF": "GO:0003674"}
+        GO: nx.MultiDiGraph = obonet.read_obo(go_path)
+        self.G: nx.MultiDiGraph = nx.MultiDiGraph()
+        root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
+        self.G.add_nodes_from(self.roots.values())
+        for go in metadata["GO_IDs"]:
+            if go in GO:
+                paths: list = nx.all_simple_edge_paths(
+                    GO, source=go, target=self.roots[root_map[go]]
+                )
+                is_a = relation_only_paths(paths, "is_a")
+                if is_a:
+                    self.G.add_edges_from(is_a)
+        self.metadata = self.get_node_data().join(
+            metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
+        )
+
+    def get_node_data(self):
+        self.successors: dict = {}
+        level_map: dict = {}
+        for root in self.roots.values():
+            current = nx.bfs_tree(self.G, root)
+            current.graph["root"] = root
+            self.successors = ChainMap(self.successors, map_to_successors(current))
+            level_map = ChainMap(level_map, get_level_map(current))
+
+        return (
+            (pl.DataFrame({"GO_IDs": list(self.G.nodes)}))
+            .with_columns(
+                n_children=pl.col("GO_IDs").map_elements(
+                    lambda x: len(self.successors[x]), return_dtype=pl.Int16
+                ),
+                level=pl.col("GO_IDs").map_elements(
+                    lambda x: level_map[x], return_dtype=pl.Int16
+                ),
+            )
+            .sort("n_children", descending=True)
+        )
+
+
+# TODO: Check that this works
+def create_group_mapping(
+    go_path: str,
+    metadata_path: str,
+    group_mapping_file: str,
+    output: str,
+    group_name=None,
+) -> None:
+    """Find all the relevant child GO terms to the terms specified in `group_mapping_file`
+    :param: group_mapping_file path to a toml file that maps user-specified groups to a list of `seed` GO terms. For each term, all of its children will be added to the list, UNLESS that GO term has already been specified as a `seed` term in the original file
+    :param: group_name the header of the toml table containing the desired group
+    :return: None
+    """
+    C = CompleteGO(go_path=go_path, metadata_path=metadata_path)
+    data_dict = {"GO_IDs": [], "Group": []}
+    with open(group_mapping_file, "rb") as f:
+        mapping = tomllib.load(f)
+    if group_name:
+        mapping = mapping[group_name]
+    for group, parents in mapping.items():
+        for parent in parents:
+            data_dict["GO_IDs"].append(parent)
+            data_dict["Group"].append(group)
+            for child in C.successors.get(parent, []):
+                data_dict["GO_IDs"].append(child)
+                data_dict["GO_IDs"].append(group)
+    pl.DataFrame(data_dict).write_csv(output, separator="\t")
