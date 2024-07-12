@@ -6,7 +6,7 @@ from pyteomics import mass
 from Bio import SeqIO
 
 
-def resolveResidue(seq):
+def resolve_residue(seq):
     non_standard: dict = {
         "X": [""],
         "B": ["N", "D"],
@@ -21,7 +21,11 @@ def resolveResidue(seq):
 
 
 def mass_calc(seq) -> float:
-    return mass.fast_mass(seq)
+    try:
+        return mass.fast_mass(seq)
+    except:
+        print(f"Offending sequence {seq}")
+        raise KeyError
 
 
 def write_lines(file: str, line_list: list) -> None:
@@ -60,7 +64,7 @@ for record in SeqIO.parse(input, "fasta"):
         is_download = True
     mapping["id"].extend([seq_id, f"rev_{seq_id}"])
     mapping["header"].extend([f"{record.description}", "DECOY"])
-    seq = resolveResidue(str(record.seq))
+    seq = resolve_residue(str(record.seq))
     mapping["seq"].extend([seq, str(seq[::-1])])
     norm_lines: list = [f">{seq_id}" + "\n", str(seq) + "\n"]
     decoy_lines: list = [f">rev_{seq_id}" + "\n", str(seq[::-1]) + "\n"]

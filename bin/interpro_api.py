@@ -18,6 +18,22 @@ from time import sleep
 from urllib.request import urlopen
 
 
+def save_interpro_json(source: str, target_databases: set[str], output_file=None):
+    """Convert"""
+    if not output_file:
+        output_file = source.replace(".json", ".tsv")
+    field_dict = {"Accession": [], "Name": [], "Source Database": []}
+    with open(source, "r") as j:
+        data = json.load(j)
+    for entry in data:
+        fields = entry["fields"]
+        if len(set(fields["source_database"]) & target_databases) > 0:
+            field_dict["Accession"].append(entry["id"])
+            field_dict["Name"].append(" ".join(fields["name"]))
+            field_dict["Source Database"].append(";".join(fields["source_database"]))
+    pl.DataFrame(field_dict).write_csv(output_file, separator="\t")
+
+
 def from_uniprot(query):
     query = "protein/UniProt/P50876"
     api_url = "https://www.ebi.ac.uk/interpro/api"
@@ -38,7 +54,6 @@ def json2df(payload) -> pl.DataFrame:
         "interpro_accession": [],
     }
     for result in payload["results"]:
-        print(result)
         md = result["metadata"]
         pfam_dict["accession"].append(md["accession"])
         pfam_dict["name"].append(md["name"])

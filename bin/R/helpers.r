@@ -503,3 +503,18 @@ grep_most_frequent <- function(queries, targets) {
     `names<-`(queries)
   names(t[order(t, decreasing = TRUE)][1])
 }
+
+#' Create a function that swaps out elements of a character vector using exact
+#' matches defined by the named vector `mapping`
+#' names of `mapping` are the old names, values are the new
+swap_w_map <- function(mapping) {
+  fn <- function(vec) {
+    map_chr(vec, \(x) {
+      if (x %in% names(mapping)) {
+        mapping[x]
+      } else {
+        x
+      }
+    })
+  }
+}
