@@ -1,14 +1,6 @@
 import polars as pl
-import sys
-import polars as pl
+import tomllib
 import re
-
-sys.path.append("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
-tf = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/reference/toxin_groups.tsv"
-d = "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv"
-pfam_map_file = (
-    "/home/shannc/Bio_SDD/MUIC_senior_project/workflow/data/reference/Pfam-A.clans.tsv"
-)
 
 REGEXES = {
     "pfam": re.compile("(PF.*?)_"),
@@ -27,8 +19,6 @@ ANNO_COLS = [
     "eggNOG_OGs",
     "GO_IDs",
 ]
-toxin_map = pl.read_csv(tf, separator="\t")
-pfam_map = pl.read_csv(pfam_map_file, separator="\t")
 
 
 def get_from_df(key, key_col, value_col, df, filter_criteria: tuple = ()):
@@ -58,19 +48,12 @@ def get_from_df(key, key_col, value_col, df, filter_criteria: tuple = ()):
     return try_find[value_col].item()
 
 
-short_name2acc: dict = dict(zip(pfam_map["short_name"], pfam_map["accession"]))
-
-data = pl.read_csv(d, separator="\t", null_values="NA").select(
-    ["ProteinId", "GroupUP"] + ANNO_COLS
-)
-
-
-def get_pfam_acc(pfam):
+def get_pfam_acc(pfam, mapping):
     if not pfam:
         return pfam
     if REGEXES["pfam"].match(pfam):
         return REGEXES["pfam"].findall(pfam)[0]
-    return short_name2acc.get(pfam, pfam)
+    return mapping.get(pfam, pfam)
 
 
 def entry_name_from_header(header: str) -> str:
@@ -86,15 +69,15 @@ def entry_name_from_header(header: str) -> str:
 ADDED = ["PFAM_IDs", "name"]
 
 
-def table(lst: list):
-    temp = pl.Series(lst).value_counts()
-    return dict(zip(temp[""], temp["count"]))
-
-
 class Grouper:
 
-    def __init__(self, map_df: pl.DataFrame, data: pl.DataFrame) -> None:
-        self.map: pl.DataFrame = map_df
+    def __init__(
+        self, map_df: pl.DataFrame, data: pl.DataFrame, pfam_map_path: str
+    ) -> None:
+        pfam_map = pl.read_csv(pfam_map_path, separator="\t")
+        short_name2acc: dict = dict(zip(pfam_map["short_name"], pfam_map["accession"]))
+
+        self.map: dict = dict(zip(map_df["Accession"], map_df["Group"]))
         aggregated = (
             data.with_columns(
                 name=pl.col("header").map_elements(
@@ -104,66 +87,129 @@ class Grouper:
             .with_columns(pl.col(ANNO_COLS).str.split(by=";"))
             .with_columns(
                 PFAM_IDs=pl.col("PFAMs").map_elements(
-                    lambda x: list(map(get_pfam_acc, x)), return_dtype=pl.List(str)
+                    lambda x: list(map(lambda y: get_pfam_acc(y, short_name2acc), x)),
+                    return_dtype=pl.List(str),
                 )
             )
             .group_by("GroupUP")
             .agg(pl.col("ProteinId"), pl.col(ANNO_COLS + ADDED).explode())
         )
+        self.cols_to_count_groups = ["PFAM_IDs", "interpro_accession", "PANTHER"]
+        # columns containing accessions that will be counted to determine groups
+        self.cols_to_sum = self.cols_to_count_groups.copy()
+        # names of columns containing the groups that will be considered when summarizing the group for an entry in  the `assign_groups` function
         self.data = aggregated
 
-    def group_count_row(self, to_count: list, source_db: str) -> pl.DataFrame:
-        in_groups = {}
+    def group_count_row(self, to_count: list) -> tuple:
+        group_tracker = {}
         for element in to_count:
             if element:
-                mapped_group = get_from_df(
-                    element, "Accession", "Group", self.map, ("Source", source_db)
-                )
+                mapped_group = self.map.get(element)
                 if mapped_group:
-                    in_groups[mapped_group] = in_groups.get(mapped_group, 0) + 1
-        if in_groups:
-            return (
-                pl.DataFrame(in_groups)
-                .melt(variable_name="Group")
-                .sort(pl.col("value"))[-1]
-            )
-        return pl.DataFrame()
+                    group_tracker[mapped_group] = group_tracker.get(mapped_group, 0) + 1
+        if group_tracker:
+            top = sorted(group_tracker.items(), key=lambda x: x[1])[-1]
+            return {"group": top[0], "count": top[1]}
+        return {"group": "NA", "count": 0}
 
-    def conclude_group(self, row: dict) -> str:
+    def assign_groups(self) -> pl.DataFrame:
         """From a polars row in dictionary form, conclude what Group the
         row's entry should be assigned to based on the Group mapping provided in `map_df`
         """
-
-        pairs = [  # Tuple of (column in row to pull elements from, column in map_df to filter on)
-            ("PFAM_IDs", "PFAM"),
-            ("interpro_accession", "INTERPRO"),
-            ("PANTHER", "PANTHER"),
-        ]
-        top: pl.DataFrame = pl.DataFrame(
-            {"Group": [], "value": []}, schema={"Group": pl.String, "value": pl.Int64}
+        concluded = self.data.with_columns(
+            pl.col(self.cols_to_count_groups).map_elements(
+                self.group_count_row,
+                return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
+            ),
         )
-        for p in pairs:
-            if row[p[0]] != [None]:
-                found_group = self.group_count_row(row[p[0]], p[1])
-                if not found_group.is_empty():
-                    top = top.vstack(found_group)
-        if top.is_empty():
-            return "NA"
-        winner = top.group_by("Group").sum().sort(pl.col("value"))[-1]
-        return winner["Group"].item()
+        concluded = concluded.select(
+            "GroupUP",
+            pl.struct(self.cols_to_sum)
+            .map_elements(find_max_struct, return_dtype=pl.String)
+            .alias("Group"),
+        )
+        return concluded.filter(pl.col("Group") != "")
+
+
+def find_max_struct(x):
+    return max(x.values(), key=lambda x: x["count"])["group"]
+
+
+def mapping_from_definition(dct: dict[str, list]) -> dict:
+    """Maps the elements of the values of dct to their keys"""
+    return {item: key for key, value in dct.items() for item in value}
+
+
+def find_in_headers(headers, mapping: dict) -> dict:
+    tracker = {}
+
+    def find_one(header: str):
+        for k, v in mapping.items():
+            if re.match(k.lower(), header.lower()):
+                tracker[v] = tracker.get(v, 0) + 1
+
+    [find_one(q) for q in headers]
+    if not tracker:
+        return {"group": "NA", "count": 0}
+
+    top = sorted(tracker.items(), key=lambda x: x[1])[-1]
+    return {"group": top[0], "count": top[1]}
+
+
+class ToxinGrouper(Grouper):
+
+    def __init__(
+        self,
+        map_df: pl.DataFrame,
+        data: pl.DataFrame,
+        toxin_header_map: dict,
+        pfam_map_path: str,
+    ) -> None:
+        super().__init__(map_df, data, pfam_map_path)
+        self.cols_to_sum.append("group_from_header")
+        self.toxin_header_map = mapping_from_definition(toxin_header_map)
 
     def assign_groups(self) -> pl.DataFrame:
-        groups = []
-        for row in self.data.rows(named=True):
-            g = self.conclude_group(row)
-            groups.append(g)
-        return self.data.select("ProteinId").with_columns(Group=pl.Series(groups))
+        self.data = self.data.with_columns(
+            group_from_header=pl.col("name").map_elements(
+                lambda x: find_in_headers(x, self.toxin_header_map),
+                return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
+            )
+        )
+        return super().assign_groups()
 
 
-# TODO: Add in the queries for JFTs and checks for eggNOG
+def parse_args():
+    import argparse
 
-g = Grouper(data=data, map_df=toxin_map)
-grouped = g.assign_groups()
+    parser = argparse.ArgumentParser()
+    parser.add_argument("-i", "--input")
+    parser.add_argument("-o", "--output")
+    parser.add_argument("-p", "--pfam_map_path")
+    parser.add_argument("-t", "--toxin_map_path")
+    parser.add_argument("-a", "--all_map_path")
+    parser.add_argument("-m", "--mode")
+    args = vars(parser.parse_args())
+    return args
 
-# grouped["Group"]
-# grouped.filter(pl.col("Group") != "NA")
+
+def main(args):
+    data = pl.read_csv(args["input"], separator="\t", null_values="NA").select(
+        ["ProteinId", "GroupUP"] + ANNO_COLS
+    )
+    toxin_map = pl.read_csv(args["toxin_map_path"], separator="\t")
+    with open(args["all_map_path"], "rb") as t:
+        maps = tomllib.load(t)
+    if args["mode"] == "toxin":
+        G = ToxinGrouper(
+            toxin_map, data, maps["header_names"]["toxins"], args["pfam_map_path"]
+        )
+        result = G.assign_groups()
+        result.write_csv(args["output"], separator="\t")
+    elif args["mode"] == "cog":
+        G = Grouper()
+
+
+if __name__ == "__main__":
+    args = parse_args()
+    main(args)
