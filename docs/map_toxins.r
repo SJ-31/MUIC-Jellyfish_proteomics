@@ -22,7 +22,10 @@ files <- list.files(search_dir, full.names = TRUE) |> discard(\(x) str_detect(x,
 map_prev_fn <- swap_w_map(c(
   "neurotoxin;3FTxs" = "neurotoxin",
   "snake venom metalloproteinase" = "metalloprotease",
-  "c-type lectin" = "c_type_lectin"
+  "c-type lectin" = "c_type_lectin",
+  "venom nerve growth factor" = "nerve_growth_factor",
+  "disintegrin" = "metalloprotease",
+  "amino acid oxidase" = "amino_acid_oxidase"
 ))
 previous <- read_csv(previous_toxins_file) |>
   rename(Accession = pfam_accession, Group = keywords, Name = name) |>
@@ -53,5 +56,8 @@ toxins <- files |>
 
 all_toxins <- bind_rows(toxins, previous) |>
   select(Accession, Name, Source, Group) |>
-  unique()
+  distinct(.keep_all = TRUE)
+
+
+
 write_tsv(all_toxins, glue("{M$wd}/data/reference/toxin_groups.tsv"))
