@@ -6,10 +6,12 @@ else:
     wd = "/home/shannc/workflow"
 
 args = {
-    "results_file": f"{wd}/results/C_indra.msconvert/1-First_pass/C_indra.msconvert_all_wcoverage.tsv",
-    "coverage_threshold": 0.8,
-    "alignment_file": f"{wd}/results/C_indra.msconvert/1-First_pass/aligned_peptides.tsv",
+    "results_file": f"{wd}/results/C_indra/1-First_pass/C_indra_all_wcoverage.tsv",
+    "coverage_threshold": 0.9,
+    "alignment_file": f"{wd}/results/C_indra/1-First_pass/aligned_peptides.tsv",
+    "peptide_map_file": f"{wd}/results/C_indra/1-First_pass/percolator_peptide_map.tsv",
     "outdir": f"{wd}/tests/pytest/output/alignment_viz",
+    "mode": "engine_alignment",
 }
 
 

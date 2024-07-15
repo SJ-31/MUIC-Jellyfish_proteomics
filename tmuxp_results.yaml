@@ -32,3 +32,7 @@ windows:
     start_directory: "/home/shannc/Downloads/thesis_testzone"
     panes:
       - "ranger"
+  - window_name: "reference"
+    start_directory: ./data/reference
+    panes:
+      - "ranger"
