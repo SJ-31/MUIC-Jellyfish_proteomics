@@ -12,8 +12,13 @@ def mark_unmatched(row):
 
 
 def removeX(peptide):
-    peptide = peptide.replace("X", "")
-    return peptide
+    try:
+        peptide = peptide.replace("X", "")
+        return peptide
+    except AttributeError:
+        print("Failed!")
+        print(peptide)
+        raise AttributeError
     # return "".join(re.findall("[A-Z]+", peptide))
 
 
@@ -28,7 +33,9 @@ def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
         text = q.readlines()
     queries = pd.Series(text).apply(lambda x: x.strip())
     unknown_df = pd.read_csv(unknown_tsv_path, sep="\t")
-    peptide_df = pd.read_csv(peptide_tsv_path, sep="\t")
+    peptide_df: pd.DataFrame = pd.read_csv(peptide_tsv_path, sep="\t")
+    print(f'n entries with no peptides: {np.sum(peptide_df["peptideIds"].isna())}')
+    peptide_df = peptide_df[~peptide_df["peptideIds"].isna()]
     peptide_df["seq"] = peptide_df["peptideIds"].apply(removeX)
     peptide_df["ID_method"] = "standard"
     combined = pd.concat([unknown_df, peptide_df])
@@ -103,7 +110,6 @@ def mergeBlast(b_df, prot_df, ident_thresh, e_thresh, pep_thresh, adjust):
     joined = pd.merge(b_df, prot_df, left_on="queryID", right_on="ProteinId")
     copy = joined.copy()
     # Mark the blast hit with the lowest e-value and highest
-    # If this is False, then degenerate peptides are allowed
     joined = joined.groupby("queryID").apply(mark_best)
 
     # Adjust Percolator PEPs by the number of proteins at peptide

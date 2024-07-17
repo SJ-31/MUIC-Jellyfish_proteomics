@@ -111,7 +111,7 @@ meanTop3 <- function(tb, quant_name) {
 # peptides (de novo, transcriptome etc.) in blast and interpro are
 # extracted and handled differently: the values are averaged
 # Compute average and median values across samples
-mergeWithQuant <- function(main_tb, quant_tb, quant_name) {
+merge_with_quant <- function(main_tb, quant_tb, quant_name) {
   has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
@@ -169,7 +169,7 @@ ANNO_COLS <- KEEP_AS_CHAR %>% discard(., \(x) {
   x %in% c("seq", "peptideIds", "ID_method", "inferred_by")
 })
 
-sortVals <- function(values) {
+sort_vals <- function(values) {
   v <- str_split_1(values, ";|,") %>% as.double()
   if (length(v) > 1) {
     v <- sort(v)[2]
@@ -177,7 +177,7 @@ sortVals <- function(values) {
   return(v)
 }
 
-loadFile <- function(path) {
+load_file <- function(path) {
   df <- read_tsv(path)
   to_character <- colnames(df)[!(colnames(df) %in% KEEP_AS_CHAR)]
   df <- df %>%
@@ -212,11 +212,11 @@ checkMatchedPeps <- function(tb) {
 LOGFILE <- "./combine_all.log"
 
 main <- function(args) {
-  downloads <- loadFile(args$download) %>%
+  downloads <- load_file(args$download) %>%
     mutate(header = replace(header, header == "NaN", "unknown"))
   if (!file.size(args$eggnog) == 0) {
-    eggnog <- loadFile(args$eggnog)
-    interpro <- loadFile(args$interpro)
+    eggnog <- load_file(args$eggnog)
+    interpro <- load_file(args$interpro)
     combined <- bind_rows(downloads, eggnog, interpro)
   } else {
     combined <- downloads
@@ -265,8 +265,8 @@ main <- function(args) {
   ## If a (standard) protein has at least two peptides are lower than the fdr threshold, it is kept
   combined <- combined %>%
     dplyr::mutate(
-      q_adjust = map_dbl(`q.value`, sortVals),
-      pep_adjust = map_dbl(posterior_error_prob, sortVals)
+      q_adjust = map_dbl(`q.value`, sort_vals),
+      pep_adjust = map_dbl(posterior_error_prob, sort_vals)
     ) %>%
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
@@ -288,7 +288,7 @@ main <- function(args) {
       expr = {
         pfam_env <- new.env()
         source_python(glue("{args$python_source}/map2go.py"), envir = pfam_env)
-        combined <- pfam_env$mapAllDb(
+        combined <- pfam_env$map_all_db(
           to_annotate = as.data.frame(combined),
           p2g_path = args$pfam2go,
           k2g_path = args$kegg2go,
@@ -344,19 +344,17 @@ main <- function(args) {
   }
 
   ## Record modifications
-  if (args$sort_mods) {
-    source(glue("{args$r_source}/sort_mods.r"))
-    combined <- sortModsMain(combined, FALSE)
-  }
+  source(glue("{args$r_source}/sort_mods.r"))
+  combined <- sortModsMain(combined, FALSE)
 
   ## Merge with quantification data
   if (MERGE_QUANT) {
     cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
-    combined <- mergeWithQuant(combined, read_tsv(args$directlfq), "directlfq") %>%
+    combined <- merge_with_quant(combined, read_tsv(args$directlfq), "directlfq") %>%
       mutate(across(contains("directlfq"), base::log2))
-    combined <- mergeWithQuant(combined, read_tsv(args$flashlfq), "flashlfq") %>%
+    combined <- merge_with_quant(combined, read_tsv(args$flashlfq), "flashlfq") %>%
       mutate(across(contains("flashlfq"), base::log2))
-    combined <- mergeWithQuant(combined, read_tsv(args$maxlfq), "maxlfq")
+    combined <- merge_with_quant(combined, read_tsv(args$maxlfq), "maxlfq")
     cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
   }
 
@@ -373,7 +371,7 @@ main <- function(args) {
     eggNOG_description = "Description",
     MatchedPeptideIds = "matchedPeptideIds"
   )
-  combined <- get_organism(combined)
+  combined <- get_organism(combined, denovo_org = str_replace_all(args$denovo_org, "_", " "))
   combined <- combined %>%
     dplyr::rename(any_of(rename_lookup)) %>%
     relocate(where(is.numeric),
@@ -404,6 +402,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--interpro", type = "character")
   parser <- add_option(parser, "--eggnog", type = "character")
   parser <- add_option(parser, "--downloads", type = "character")
+  parser <- add_option(parser, "--denovo_org", type = "character")
   parser <- add_option(parser, "--fdr", type = "double")
   parser <- add_option(parser, "--pep_thresh", type = "double")
   parser <- add_option(parser, "--directlfq", type = "character")
@@ -416,11 +415,6 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--go_path", type = "character")
   parser <- add_option(parser, "--go_slim_path", type = "character")
   parser <- add_option(parser, "--pfam_db", type = "character")
-  parser <- add_option(parser, "--sort_mods",
-    type = "character",
-    default = TRUE,
-    action = "store_true"
-  )
   parser <- add_option(parser, "--r_source", type = "character")
   parser <- add_option(parser, "--python_source", type = "character")
   args <- parse_args(parser)
