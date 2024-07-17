@@ -36,13 +36,13 @@ process COMBINE_ALL {
         --eggnog $eggnog \
         --interpro $interpro \
         --downloads $downloads \
-        --sort_mods TRUE \
         --pfam2go $params.pfam2go \
         --interpro2go $params.interpro2go \
         --kegg2go $params.kegg2go \
         --ec2go $params.ec2go \
         --pfam_db $params.pfam_entries \
         --fdr $params.fdr \
+        --denovo_org $params.species_spec \
         --pep_thresh $params.pep_thresh \
         --output "${params.pref}_all.tsv" \
         --directlfq $directlfq \

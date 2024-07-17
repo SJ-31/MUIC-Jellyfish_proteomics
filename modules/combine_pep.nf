@@ -16,10 +16,10 @@ process COMBINE_PEP {
     protein_header = 'ProteinId ProteinGroupID q-value PEP Is_decoy'
     if (is_psm) {
         header = psm_header
-        out = "combined_PEP_psms.tsv"
+        out = "combined_PEP_psms.csv"
     } else {
         header = protein_header
-        out = "combined_PEP_prot.tsv"
+        out = "combined_PEP_prot.csv"
     }
     println "Combining PEPs: $percolator_out\n Output path: $outdir\n Output file: $out\n\n"
     """

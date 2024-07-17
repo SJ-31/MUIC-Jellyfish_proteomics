@@ -57,7 +57,6 @@ process SORT_EGGNOG {
     if (check.exists()) {
         """
         cp ${outdir}/*${params.pref}_eggnog* .
-        cp ${outdir}/eggnog_*${params.pref}* .
         """
     } else {
         """

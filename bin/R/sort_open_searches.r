@@ -2,7 +2,7 @@ library(tidyverse)
 library(glue)
 #'
 #' Sort open searches, including combining different peptides
-# of the same protein together
+#' of the same protein together
 #'
 
 joinMods <- function(peptides) {
@@ -30,7 +30,6 @@ cleanNA <- function(vector) {
 cleanUp <- function(path) {
   # Format protein rows with multiple peptides (duplicates)
   # Separate duplicates into separate rows
-  # Filter by q-value
   engine <- gsub(".*/", "", path) %>% gsub("_.*", "", .)
   df <- read_tsv(path) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
