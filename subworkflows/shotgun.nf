@@ -13,7 +13,6 @@ include { RAWPARSE } from '../modules/rawparse' addParams(logdir: preprocessed_l
 include { DEISOTOPE } from '../modules/deisotope' addParams(logdir: preprocessed_logs)
 include { MS_MAPPING } from '../modules/ms_mapping'
 include { CALIBRATE } from '../modules/calibrate' addParams(logdir: preprocessed_logs)
-include { FALCON } from '../modules/falcon' addParams(logdir: preprocessed_logs)
 include { bk_decoys } from './bk_decoys.nf'
 include { combine_searches as combine_searches_FIRST } from './combine_searches'
 include { combine_searches as combine_searches_SECOND } from './combine_searches'
@@ -34,7 +33,6 @@ workflow 'pre' {
 
     RAWPARSE(raw.collect(),"$outdir/Converted")
     DEISOTOPE(RAWPARSE.out.collect(),"$outdir/Proteowizard")
-    FALCON(RAWPARSE.out.collect(), "$outdir/Falcon")
     CALIBRATE(mzML.collect(), normal_database, "$outdir/Metamorpheus")
 }
 
