@@ -35,7 +35,8 @@ class SubsetGO:
                 )
                 is_a = relation_only_paths(paths, "is_a")
                 if is_a:
-                    self.G.add_edges_from(is_a)
+                    for i in is_a:
+                        self.G.add_edges_from(i)
         self.metadata = self.get_node_data().join(
             metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
         )
@@ -133,18 +134,20 @@ class SubsetGO:
         }
 
 
-def relation_only_paths(paths: list[tuple], relation: str) -> list:
-    """Find the path from a list of paths (which are edge lists)
+def relation_only_paths(paths: list[tuple], relation: str) -> list[list]:
+    """Find the path(s) from a list of paths (which are edge lists)
     that consists only of `relation`
     """
-    result = []
+    all_results = []
     for path in paths:
+        result = []
         if all(map(lambda x: x[2] == relation, path)):
             for p in path:
                 result.append((*p[:2][::-1], p[2]))
         # Note: This changes the direction of the obonet GO graph so that successors are children and predecessors are ancestors
-        break
-    return result
+        if result:
+            all_results.append(result)
+    return all_results
 
 
 def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
@@ -154,16 +157,29 @@ def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
     return df.join(temp_df, on=by)
 
 
-def map_to_successors(G: nx.DiGraph) -> dict:
+def map_to_successors(
+    G: nx.DiGraph, ignore: list = None, with_term: bool = False, from_node: str = ""
+) -> dict:
     """Return a dictionary mapping the nodes of G to ALL of their
     children/successors (unlike an adjacency list, which
     only returns the immediate) children
+    :param: from_node indicates that G is the main GO graph, and the function should
+    start finding succesors from the GO term specified by `from_node`.
     """
     successors = {}
+    if from_node:
+        G_old = G
+        G = nx.bfs_tree(G, from_node)
+        if with_term:
+            term_dict = dict(G_old.nodes(data="term", default="NA"))
+            nx.set_node_attributes(G, term_dict, name="term")
     for node in G.nodes:
         tree = nx.bfs_tree(G, node)  # Creating a bfs tree for each
         # node restricts the view of G to `node` and everything below it
         children = list(tree.nodes)
+        if with_term:
+            children = [f"{c} {G.nodes[c].get('term', 'NA')}" for c in children]
+            node = f"{node} {G.nodes[node].get('term', 'NA')}"
         children.remove(node)
         successors[node] = children
     return successors
@@ -359,12 +375,15 @@ def find_go_parents_auto(
 
 
 class CompleteGO(SubsetGO):
-    def __init__(self, go_path: str, metadata_path: str) -> None:
+    def __init__(
+        self, go_path: str, metadata_path: str, get_metadata: bool = False
+    ) -> None:
         metadata = pl.read_csv(metadata_path, separator="\t")
         self.roots = {"BP": "GO:0008150", "CC": "GO:0005575", "MF": "GO:0003674"}
         GO: nx.MultiDiGraph = obonet.read_obo(go_path)
         self.G: nx.MultiDiGraph = nx.MultiDiGraph()
         root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
+        term_map: dict = dict(zip(metadata["GO_IDs"], metadata["term"]))
         self.G.add_nodes_from(self.roots.values())
         for go in metadata["GO_IDs"]:
             if go in GO:
@@ -373,9 +392,18 @@ class CompleteGO(SubsetGO):
                 )
                 is_a = relation_only_paths(paths, "is_a")
                 if is_a:
-                    self.G.add_edges_from(is_a)
+                    for i in is_a:
+                        self.G.add_edges_from(i)
+        nx.set_node_attributes(self.G, term_map, name="term")
+        self.metadata = metadata
+        self.successors = None
+        if get_metadata:
+            self.get_metadata()
+
+    def get_metadata(self):
         self.metadata = self.get_node_data().join(
-            metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
+            self.metadata.select("GO_IDs", "term", "definition", "ontology"),
+            on="GO_IDs",
         )
 
     def get_node_data(self):
