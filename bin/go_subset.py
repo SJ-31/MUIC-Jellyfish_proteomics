@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import sys
+import copy
 import networkx as nx
 import json
 import tomllib
@@ -158,6 +159,39 @@ def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
         dct = dict(dct)
     temp_df = pl.DataFrame(dct).melt().rename({"variable": by, "value": colname})
     return df.join(temp_df, on=by)
+
+
+def get_successors_nested(complete_GO: nx.MultiDiGraph, term) -> dict:
+    """
+    Return the complete child hierarchy of a GO term as a nested dictionary of dictionaries
+    :param: complete_GO the Networkx object holding the complete GO graph
+    :param: term the GO term whose succcessors we want to get
+    """
+    result = {}
+    termlist = nx.bfs_tree(complete_GO, term).nodes
+    d = nx.to_dict_of_dicts(complete_GO, nodelist=termlist)
+    for adj_term in d.keys():
+        if not d[adj_term]:
+            d[adj_term] = {}
+            continue
+        for node in d[adj_term].keys():
+            d[adj_term][node] = {}
+
+    result[term] = d[term]
+
+    def rec_helper(cur_dct, root):
+        """Recursively reconstruct the nested structure in `result`"""
+        current_members: dict = d[root]
+        if not current_members:
+            return
+        for node in list(current_members.keys()):
+            if node in d:
+                cur_dct[node] = copy.copy(d[node])
+                rec_helper(cur_dct[node], node)  # Descends into next dictionary
+
+    for node, dct in result.items():
+        rec_helper(dct, node)
+    return result
 
 
 def get_successors(
@@ -400,14 +434,19 @@ def find_go_parents_auto(
 
 class CompleteGO(SubsetGO):
     def __init__(
-        self, go_path: str, metadata_path: str, get_metadata: bool = False
+        self,
+        go_path: str,
+        metadata_path: str,
+        get_metadata: bool = False,
+        saved: str = None,
     ) -> None:
         metadata = pl.read_csv(metadata_path, separator="\t")
         self.roots = {"BP": "GO:0008150", "CC": "GO:0005575", "MF": "GO:0003674"}
         GO: nx.MultiDiGraph = obonet.read_obo(go_path)
         self.G: nx.MultiDiGraph = nx.MultiDiGraph()
         root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
-        term_map: dict = dict(zip(metadata["GO_IDs"], metadata["term"]))
+        self.term_map: dict = dict(zip(metadata["GO_IDs"], metadata["term"]))
+        self.definition_map = dict(zip(metadata["GO_IDs"], metadata["definition"]))
         self.G.add_nodes_from(self.roots.values())
         for go in metadata["GO_IDs"]:
             if go in GO:
@@ -418,9 +457,10 @@ class CompleteGO(SubsetGO):
                 if is_a:
                     for i in is_a:
                         self.G.add_edges_from(i)
-        nx.set_node_attributes(self.G, term_map, name="term")
+        nx.set_node_attributes(self.G, self.term_map, name="term")
         self.metadata = metadata
         self.successors = None
+        self.GL, self.name_map = self.w_term_label()
         if get_metadata:
             self.get_metadata()
 
@@ -429,6 +469,17 @@ class CompleteGO(SubsetGO):
             self.metadata.select("GO_IDs", "term", "definition", "ontology"),
             on="GO_IDs",
         )
+
+    def w_term_label(self) -> tuple[nx.MultiDiGraph, dict]:
+        label_map = {}
+        for t in self.term_map:
+            label_map[t] = f"{t} {self.term_map[t]}"
+        return nx.relabel_nodes(self.G, label_map), label_map
+
+    def nested_successors(self, term: str, with_label=True):
+        if with_label:
+            return get_successors_nested(self.GL, self.name_map[term])
+        return get_successors_nested(self.G, term)
 
     def get_node_data(self):
         self.successors: dict = {}
