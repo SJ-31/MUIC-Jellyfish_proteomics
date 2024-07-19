@@ -41,6 +41,9 @@ class SubsetGO:
             metadata.select("GO_IDs", "term", "definition", "ontology"), on="GO_IDs"
         )
 
+    def save(self, path: str) -> None:
+        nx.write_gml(self.G, path)
+
     def get_node_data(self):
         self.successors: dict = {}  # Map of GO_IDs to list of child terms
         level_map: dict = {}
@@ -56,7 +59,7 @@ class SubsetGO:
         for root in self.roots.values():
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
-            self.successors = ChainMap(self.successors, map_to_successors(current))
+            self.successors = ChainMap(self.successors, get_successors(current))
             level_map = ChainMap(level_map, get_level_map(current))
 
         return (
@@ -157,14 +160,20 @@ def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
     return df.join(temp_df, on=by)
 
 
-def map_to_successors(
-    G: nx.DiGraph, ignore: list = None, with_term: bool = False, from_node: str = ""
-) -> dict:
+def get_successors(
+    G: nx.DiGraph,
+    ignore: list = None,
+    with_term: bool = False,
+    from_node: str = "",
+    flatten=False,
+) -> dict | set:
     """Return a dictionary mapping the nodes of G to ALL of their
     children/successors (unlike an adjacency list, which
     only returns the immediate) children
     :param: from_node indicates that G is the main GO graph, and the function should
     start finding succesors from the GO term specified by `from_node`.
+    :param: flatten Flatten the output entirely to return a set of all the successors
+    of G rather than a map
     """
     successors = {}
     if from_node:
@@ -173,7 +182,22 @@ def map_to_successors(
         if with_term:
             term_dict = dict(G_old.nodes(data="term", default="NA"))
             nx.set_node_attributes(G, term_dict, name="term")
+    to_ignore = set()
+    if ignore:
+        for ignored_node in ignore:
+            try:
+                ignored_subtree = nx.bfs_tree(G, ignored_node)
+                to_ignore |= set(ignored_subtree.nodes)
+            except nx.NetworkXError:
+                continue
+    if flatten:
+        nodes = set(G.nodes) - to_ignore
+        if with_term:
+            nodes = {f"{c} {G.nodes[c].get('term', 'NA')}" for c in nodes}
+        return nodes
     for node in G.nodes:
+        if ignore and node in to_ignore:
+            continue
         tree = nx.bfs_tree(G, node)  # Creating a bfs tree for each
         # node restricts the view of G to `node` and everything below it
         children = list(tree.nodes)
@@ -412,7 +436,7 @@ class CompleteGO(SubsetGO):
         for root in self.roots.values():
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
-            self.successors = ChainMap(self.successors, map_to_successors(current))
+            self.successors = ChainMap(self.successors, get_successors(current))
             level_map = ChainMap(level_map, get_level_map(current))
 
         return (
