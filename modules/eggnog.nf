@@ -66,11 +66,7 @@ process SORT_EGGNOG {
             --blast $unknown_tsv \
             --annotations $eggnog_annotations \
             --seeds $eggnog_seeds \
-            --output temp.tsv
-
-        eggnog_seq.py -e $params.eggnog_db_fasta \
-            -i temp.tsv \
-            -o ${params.pref}_eggnog_matched.tsv \
+            --output ${params.pref}_eggnog_matched.tsv
         """
     }
     //

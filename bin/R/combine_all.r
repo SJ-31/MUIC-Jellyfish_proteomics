@@ -378,7 +378,7 @@ main <- function(args) {
       .after = where(is.character)
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
-    relocate(any_of(c("peptideIds", "SO_seq", "seq")), .after = where(is.numeric)) %>%
+    relocate(any_of(c("peptideIds", "seq")), .after = where(is.numeric)) %>%
     relocate(contains("interpro")) %>%
     relocate(contains("KEGG")) %>%
     relocate(any_of(c(
