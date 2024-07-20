@@ -27,7 +27,11 @@ main <- function(args) {
 
   protein_tbs <- local({
     get_engine <- function(file) {
-      tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(engine = names(file))
+      tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(
+        engine = names(file),
+        modifiedPeptideIds = peptideIds,
+        peptideIds = map_chr(peptideIds, clean_peptide)
+      )
       filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
         mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
       return(tb)
@@ -36,7 +40,7 @@ main <- function(args) {
   })
 
   seq_map <- get_seq_map(
-    args$seq_map_path, args$unmatched_path, all_found_protein_ids,
+    args$seq_map_path, all_found_protein_ids,
     kept_seqs
   )
 
@@ -65,17 +69,11 @@ clean_peptide <- function(str) {
     str_remove_all("\\[[a-z \\:A-Z]+\\]")
 }
 
-get_seq_map <- function(seq_map_path, unmatched_path, kept_ids, kept_seqs) {
+get_seq_map <- function(seq_map_path, kept_ids, kept_seqs) {
   seq_map <- read_tsv(seq_map_path) |>
     filter(!grepl("rev_", id)) |>
     filter(id %in% kept_ids | seq %in% kept_seqs)
-  unmatched <- read_tsv(unmatched_path) |>
-    filter(ProteinId %in% kept_ids) |>
-    rename(id = ProteinId, seq = peptideIds) |>
-    mutate(seq = map_chr(seq, clean_peptide)) |>
-    select(id, seq, engine) |>
-    separate_longer_delim(engine, ";")
-  bind_rows(seq_map, unmatched)
+  seq_map
 }
 
 
@@ -92,7 +90,6 @@ if (sys.nframe() == 0) {
     type = "numeric",
     action = "store", default = 0.05
   )
-  parser <- add_option(parser, c("-u", "--unmatched_path"), type = "character", action = "store")
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
   results <- main(args)
