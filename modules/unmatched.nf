@@ -1,25 +1,25 @@
-process UNMATCHED_PSMS {
-    publishDir "$outdir", mode: "copy"
+// process UNMATCHED_PSMS {
+//     publishDir "$outdir", mode: "copy"
 
-    input:
-    path(percolator)
-    val(outdir)
-    //
+//     input:
+//     path(percolator)
+//     val(outdir)
+//     //
 
-    output:
-    path("unmatched_peptides.tsv"), emit: tsv
-    // Obtain the tsv for sorting between high- and low-confidence unmatched
-    // peptides
+//     output:
+//     path("unmatched_peptides.tsv"), emit: tsv
+//     // Obtain the tsv for sorting between high- and low-confidence unmatched
+//     // peptides
 
-    script:
-    """
-    unmatched_peptides.py -i "." \
-        -t unmatched_peptides.tsv \
-        -p 1 \
-        -q 0.05
-    """
-    //
-}
+//     script:
+//     """
+//     unmatched_peptides.py -i "." \
+//         -t unmatched_peptides.tsv \
+//         -p 1 \
+//         -q 0.05
+//     """
+//     //
+// }
 
 
 process UNMATCHED_MSMS {
