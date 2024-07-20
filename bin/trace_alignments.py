@@ -220,6 +220,30 @@ class AlignmentTracer:
                 self.temp_data[k].append(metrics[k])
         return metrics
 
+    def get_peptides_helper(
+        self, protein_id: str, df: pl.DataFrame, data_dict: dict
+    ) -> None:
+        data_dict["ProteinId"].append(protein_id)
+        for val in [*self.engines]:
+            # Remove alignments identified ONLY by `e`
+            filtered = df.filter(
+                ~(
+                    (pl.col("engine_matches").list.set_union([val]) == [val])
+                    & (pl.col("engine_matches").list.len() != 0)
+                )
+            )
+            data_dict[val].append(list(filtered["original"]))
+        return
+
+    def get_engine_peptides(self) -> pl.DataFrame:
+        peptide_dict: dict = {"ProteinId": []}
+        for e in self.engines:
+            peptide_dict[e] = []
+        for id in self.alignments["ProteinId"].unique():
+            df = self.filter_protein_id(id)
+            self.get_peptides_helper(id, df, peptide_dict)
+        return pl.DataFrame(peptide_dict)
+
     def run(self, mode="contributions") -> pl.DataFrame:
         for id in self.alignments["ProteinId"].unique():
             df = self.filter_protein_id(id)
