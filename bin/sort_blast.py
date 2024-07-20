@@ -22,10 +22,9 @@ def removeX(peptide):
     # return "".join(re.findall("[A-Z]+", peptide))
 
 
-def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
+def prepare_unknown(unknown_tsv_path, blast_query_path):
     """
-    Combine the unknown tsv (containing de novo and transcriptome) psms, and
-    peptides that weren't matched to any proteins
+    Combine the unknown tsv (containing de novo and transcriptome) psms
     Necessary because CD-hit removed redundant sequences prior to blast
     searching
     """
@@ -33,13 +32,7 @@ def prepare_unknown(unknown_tsv_path, peptide_tsv_path, blast_query_path):
         text = q.readlines()
     queries = pd.Series(text).apply(lambda x: x.strip())
     unknown_df = pd.read_csv(unknown_tsv_path, sep="\t")
-    peptide_df: pd.DataFrame = pd.read_csv(peptide_tsv_path, sep="\t")
-    print(f'n entries with no peptides: {np.sum(peptide_df["peptideIds"].isna())}')
-    peptide_df = peptide_df[~peptide_df["peptideIds"].isna()]
-    peptide_df["seq"] = peptide_df["peptideIds"].apply(removeX)
-    peptide_df["ID_method"] = "standard"
-    combined = pd.concat([unknown_df, peptide_df])
-    return combined[combined["ProteinId"].isin(queries)]
+    return unknown_df[unknown_df["ProteinId"].isin(queries)]
 
 
 def write_unmatched(queries_df, failed_filter, prot_df, tsv_name):
@@ -145,7 +138,7 @@ def known_from_database(blast_df, db_df):
         blast_df.filter(
             [
                 "subjectID",
-                "seq",
+                "peptideIds",
                 "is_blast_one_hit",
                 "is_blast_best",
                 "queryID",
@@ -154,12 +147,12 @@ def known_from_database(blast_df, db_df):
         left_on="ProteinId",
         right_on="subjectID",
     )
-    already_found["peptideIds"] = already_found["peptideIds"].str.cat(
-        already_found["seq_y"].to_list(), sep=";"
+    already_found["peptideIds"] = already_found["peptideIds_x"].str.cat(
+        already_found["peptideIds_y"].to_list(), sep=";"
     )
-    already_found = already_found.drop(["seq_y", "subjectID"], axis="columns").rename(
-        {"seq_x": "seq"}, axis="columns"
-    )
+    already_found = already_found.drop(
+        ["peptideIds_x", "subjectID"], axis="columns"
+    ).rename(columns={"peptideIds_y": "blastPeptides"})
     return already_found
 
 
@@ -175,12 +168,14 @@ def blast_id_only(blast_df, db_df, mapping_df):
     blast_only["mass"] = blast_only["mass_y"]
     blast_only["length"] = blast_only["length_y"]
     blast_only["header"] = blast_only["header_y"]
+    blast_only["blastPeptides"] = blast_only["peptideIds"]
     blast_only["inferred_by"] = "blast"
     blast_only = blast_only.loc[
         :, ~blast_only.columns.str.contains("_[xy]", regex=True)
     ].loc[
         :,
-        list(db_df.columns) + ["is_blast_best", "is_blast_one_hit", "queryID"],
+        list(db_df.columns)
+        + ["is_blast_best", "is_blast_one_hit", "queryID", "blastPeptides"],
     ]
     return blast_only
 
@@ -192,7 +187,6 @@ def parse_args():
     parser.add_argument("-b", "--blast_results")
     parser.add_argument("-u", "--unknown_hits")
     parser.add_argument("-a", "--adjust", action="store_true", default=False)
-    parser.add_argument("--unmatched_peptides")
     parser.add_argument("-q", "--blast_query")
     parser.add_argument("-d", "--database_hits")
     parser.add_argument("-m", "--mapping")
@@ -231,9 +225,7 @@ def main(args: dict):
     blast_df = pd.read_csv(args["blast_results"]).dropna(axis="columns")
     mapping = pd.read_csv(args["mapping"], sep="\t")
     group_df = pd.read_csv(args["database_hits"], sep="\t")
-    query_df = prepare_unknown(
-        args["unknown_hits"], args["unmatched_peptides"], args["blast_query"]
-    )
+    query_df = prepare_unknown(args["unknown_hits"], args["blast_query"])
     joined = mergeBlast(
         blast_df,
         query_df,
@@ -267,7 +259,7 @@ def main(args: dict):
         """
         )
     final = pd.concat([filtered, in_db, from_blast]).rename(
-        {"queryID": "matchedPeptideIds"}, axis="columns"
+        {"queryID": "MatchedPeptideIds"}, axis="columns"
     )
     return final
 

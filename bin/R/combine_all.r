@@ -91,12 +91,12 @@ meanTop3 <- function(tb, quant_name) {
       top_three <- slice_max(x[["data"]], across(contains(quant_name)), n = 3)
       means <- top_three %>%
         summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
-      joined_ids <- paste0(x[["data"]]$matchedPeptideIds, collapse = ";")
+      joined_ids <- paste0(x[["data"]]$MatchedPeptideIds, collapse = ";")
       id <- x[["ProteinId"]]
       return(top_three[1, ] %>%
         select(-contains(quant_name)) %>%
         mutate(.,
-          matchedPeptideIds = joined_ids,
+          MatchedPeptideIds = joined_ids,
           ProteinId = id
         ) %>%
         bind_cols(means))
@@ -112,14 +112,14 @@ meanTop3 <- function(tb, quant_name) {
 # extracted and handled differently: the values are averaged
 # Compute average and median values across samples
 merge_with_quant <- function(main_tb, quant_tb, quant_name) {
-  has_multiple <- main_tb %>% filter(!is.na(matchedPeptideIds))
+  has_multiple <- main_tb %>% filter(!is.na(MatchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
     split_up <- separate_longer_delim(has_multiple, "matchedPeptideIds", ";")
-    joined <- left_join(split_up, quant_tb, by = join_by(x$matchedPeptideIds == y$ProteinId))
+    joined <- left_join(split_up, quant_tb, by = join_by(x$MatchedPeptideIds == y$ProteinId))
     has_multiple <- meanTop3(joined, quant_name = quant_name)
   }
-  full_proteins <- main_tb %>% filter(is.na(matchedPeptideIds))
+  full_proteins <- main_tb %>% filter(is.na(MatchedPeptideIds))
   full_proteins <- left_join(full_proteins, quant_tb,
     by = join_by(x$ProteinId == y$ProteinId)
   )
@@ -156,7 +156,7 @@ unify_groups <- function(tb) {
 
 KEEP_AS_CHAR <- c(
   "ProteinId", "header", "NCBI_ID", "UniProtKB_ID", "organism", "ProteinGroupId",
-  "lineage", "GO", "GO_evidence", "KEGG_Genes", "PANTHER", "matchedPeptideIds",
+  "lineage", "GO", "GO_evidence", "KEGG_Genes", "PANTHER", "MatchedPeptideIds",
   "peptideIds", "ID_method", "inferred_by", "seq",
   "seed_ortholog", "eggNOG_OGs", "COG_category", "Description",
   "Preferred_name", "EC", "KEGG_ko", "PFAMs", "KEGG_Pathway",
@@ -203,7 +203,7 @@ getEvidence <- function(row) {
 }
 
 checkMatchedPeps <- function(tb) {
-  return(tb$matchedPeptideIds %>%
+  return(tb$MatchedPeptideIds %>%
     map_lgl(\(x) grepl("P", x)) %>%
     any())
 }
@@ -369,7 +369,6 @@ main <- function(args) {
   rename_lookup <- c(
     eggNOG_preferred_name = "Preferred_name",
     eggNOG_description = "Description",
-    MatchedPeptideIds = "matchedPeptideIds"
   )
   combined <- get_organism(combined, denovo_org = str_replace_all(args$denovo_org, "_", " "))
   combined <- combined %>%

@@ -23,7 +23,7 @@ process SORT_BLAST {
     check = file("${outdir}/${params.pref}_blast_matched.tsv")
     if (check.exists()) {
         '''
-        cp !{outdir}/*blast* .
+        cp !{outdir}/*_blast_* .
         '''
     } else {
         '''
