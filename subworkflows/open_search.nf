@@ -56,7 +56,6 @@ workflow 'open_search' {
         .set { prot }
 
     MAP_SCANS(psm.join(prot),
-              Channel.fromPath("$params.config_dir/NO_FILE").first(),
               MS_MAPPING.out,
               "$outdir/Mapped_scans")
 
