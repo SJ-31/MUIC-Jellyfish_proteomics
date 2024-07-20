@@ -44,6 +44,8 @@ main <- function(args) {
     kept_seqs
   )
 
+  mass <- reticulate::import("pyteomics.mass")
+
   percolator_tb <- dplyr::bind_rows(protein_tbs)
   peptide_tb <- percolator_tb |>
     mutate(peptideIds = map_chr(peptideIds, clean_peptide)) |>
@@ -54,7 +56,10 @@ main <- function(args) {
     select(ProteinId, peptideIds) |>
     filter(!peptideIds %in% peptide_tb$peptideIds) |>
     separate_longer_delim(ProteinId, ";")
-  peptide_tb <- bind_rows(peptide_tb, dlfq)
+  peptide_tb <- bind_rows(peptide_tb, dlfq) |> mutate(
+    length = nchar(peptideIds),
+    mass = map_dbl(peptideIds, mass$fast_mass)
+  )
   result <- list(
     percolator_all = percolator_tb,
     seq_map = seq_map,
