@@ -26,7 +26,6 @@ workflow 'combine_searches' {
     flashlfq
     maxlfq
     directlfq
-    unmatched_pep_tsv
     outdir
     seq_header_mappings
     open_results
@@ -40,16 +39,15 @@ workflow 'combine_searches' {
     COMBINE_PEP(psm2combinedPEP, true,
                     "$outdir/Combined")
     MERGE_OPEN(SEARCH_INTERSECT.out.unsorted, open_results,
-                unmatched_pep_tsv,
                // 1. Merge combined database hits with results from open search
-               // 2. Extract unmatched|denovo|transcriptome peptides as fasta file
+               // 2. Extract denovo|transcriptome peptides as fasta file
         "$outdir/Combined")
 
     ranges = Channel.from(tuple(0, 35), tuple(35, 50),
                             tuple(50, 85), tuple(85, 100000))
     BLASTP(MERGE_OPEN.out.unknown_fasta.first(), blast_db,
         ranges, "$outdir/Unmatched/BLAST")
-        // 1. Match de novo, transcriptome and unmatched peptides against proteins
+        // 1. Match de novo and transcriptome against proteins
         //     in database
         // * To optimize the searches, queries will be partitioned into four ranges,
         //  following the recommendations on the blast user guide
@@ -57,7 +55,6 @@ workflow 'combine_searches' {
         .set { combined_blast }
 
     SORT_BLAST(MERGE_OPEN.out.unknown_tsv,
-                MERGE_OPEN.out.unmatched_pep,
                 MERGE_OPEN.out.database_tsv,
                 combined_blast, seq_header_mappings,
                 MERGE_OPEN.out.unknown_fasta,
@@ -69,13 +66,11 @@ workflow 'combine_searches' {
 
     EGGNOG(SORT_BLAST.out.unmatched,
             "$outdir/Unmatched/eggNOG")
-    SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched
-                MERGE_OPEN.out.unmatched_pep, // by eggnog
+    SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched by eggnog
                 "$outdir/Unmatched/eggNOG")
     INTERPROSCAN(SORT_EGGNOG.out.fasta,
                     "$outdir/Unmatched/InterPro")
     SORT_INTERPRO(INTERPROSCAN.out, SORT_EGGNOG.out.unmatched,
-                    unmatched_pep_tsv,
                     "$outdir/Unmatched/InterPro",
                     "$outdir/Unmatched/Remaining_unmatched")
 
@@ -93,7 +88,7 @@ workflow 'combine_searches' {
     COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
                         COMBINE_ALL.out.all,
                         directlfq_input,
-                        seq_header_mappings, unmatched_pep_tsv,
+                        seq_header_mappings,
                         "$outdir", "$outdir/Logs")
     unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
     // Key for "ProteinId" column:

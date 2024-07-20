@@ -8,7 +8,6 @@ process COMBINE_PERCOLATOR {
     path(combined_results)
     path(directlfq_input) // For mapping more peptide sequences
     path(seq_header_map)
-    path(unmatched_peptides)
     val(outdir)
     val(logdir)
     //
@@ -28,7 +27,6 @@ process COMBINE_PERCOLATOR {
         -i $combined_results \
         -d $directlfq_input \
         -s $seq_header_map \
-        -u $unmatched_peptides \
         -r $params.bin/R
 
     cp .command.out get_percolator.log

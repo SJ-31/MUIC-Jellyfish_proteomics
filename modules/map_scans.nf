@@ -3,7 +3,6 @@ process MAP_SCANS {
 
     input:
     tuple val(engine), path(psm_file), path(proteins)
-    path(unmatched_peptides)
     val(mapping)
     val(outdir)
     //
@@ -18,7 +17,6 @@ process MAP_SCANS {
     Rscript !{params.bin}/R/get_scan_num.r \
         -i !{psm_file} \
         -p !{proteins} \
-        -u !{unmatched_peptides} \
         -m !{mapping}   \
         -e $engine \
         -o ${engine}_scans.tsv

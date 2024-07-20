@@ -4,7 +4,6 @@ process SORT_BLAST {
     input:
     path(unknown_tsv) // Peptides known only from denovo peptides or from
     // transcriptome peptides
-    path(unmatched_peptides_tsv) // Peptides not matched during database search
     path(database_hits) // Combined database proteins to merge accepted blast
     // results into
     path(blast_results)
@@ -35,7 +34,6 @@ process SORT_BLAST {
 
         sort_blast.py -b blast_results.csv \
             --unknown_hits !{unknown_tsv} \
-            --unmatched_peptides !{unmatched_peptides_tsv} \
             -d !{database_hits} \
             -m !{mapping} \
             -q blast_query.txt \

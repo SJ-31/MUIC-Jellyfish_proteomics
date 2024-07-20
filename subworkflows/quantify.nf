@@ -1,5 +1,5 @@
 include { FLASHLFQ } from '../modules/flashlfq'
-include { UNMATCHED_PSMS; UNMATCHED_MSMS } from '../modules/unmatched'
+include { UNMATCHED_MSMS } from '../modules/unmatched'
 include { MAP_SCANS } from '../modules/map_scans'
 include { MAX_LFQ } from '../modules/maxlfq'
 include { DIRECTLFQ; DIRECTLFQ_FORMAT } from '../modules/directlfq'
@@ -26,9 +26,7 @@ workflow 'quantify'{
         .map { it = [ it.baseName.replaceFirst(/_.*/, ""), it ] }
         .set { prot }
 
-    UNMATCHED_PSMS(percolator_psms.collect(), "$outdir/Unmatched")
     MAP_SCANS(psm.join(prot),
-              UNMATCHED_PSMS.out.tsv,
               msms_mappings,
               "$outdir/Mapped_scans")
     FLASHLFQ(MAP_SCANS.out.collect(), mzmls.collect(), "$outdir", "$outdir/Logs")
@@ -44,7 +42,6 @@ workflow 'quantify'{
     flashlfq = WRITE_QUANT.out.flfq
     maxlfq = MAX_LFQ.out
     unmatched_msms = UNMATCHED_MSMS.out
-    unmatched_pep_tsv = UNMATCHED_PSMS.out.tsv
     directlfq_input = DIRECTLFQ_FORMAT.out
 
 }

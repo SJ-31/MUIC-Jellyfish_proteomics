@@ -42,7 +42,6 @@ process SORT_EGGNOG {
     input:
     tuple path(eggnog_annotations), path(eggnog_seeds),\
         path(unknown_tsv)
-    path(unmatched_peptides)
     val(outdir)
     //
 
