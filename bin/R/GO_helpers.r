@@ -569,16 +569,15 @@ ids_into_ontology <- function(id_vector, target = "Term", collapse = TRUE) {
 map_unique <- function(ids, map) {
   map_chr(ids, \(x) map[[x]]) %>%
     unique() %>%
-    discard(is.na) %>%
-    discard(\(x) x == "U")
+    discard(is.na)
 }
 
-get_organism <- function(tb) {
+get_organism <- function(tb, denovo_org) {
   organism_from_header <- function(organism, lineage, header) {
     # Parse the organism from an NCBI or uniprot ID
     if (is.na(organism) && !is.na(header)) {
       if (str_detect(header, "DENOVO")) {
-        return("Chironex indrasaksajiae")
+        return(denovo_org)
       } else if (str_detect(header, "TRANSCRIPTOME") && str_detect(header, "Cf_")) {
         return("Chironex fleckeri")
       } else if (str_detect(header, "TRANSCRIPTOME") && str_detect(header, "Cy_")) {

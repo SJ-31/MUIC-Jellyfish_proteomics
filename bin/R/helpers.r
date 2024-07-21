@@ -6,9 +6,21 @@ flatten_by <- function(vector, sep, na.rm = TRUE) {
 }
 
 modes <- function(x) {
+  x <- discard(x, is.na)
+  if (length(x) == 0) {
+    return(NA)
+  }
   ux <- unique(x)
   tab <- tabulate(match(x, ux))
   ux[tab == max(tab)]
+}
+
+modes_concat <- function(x, sep = ";") {
+  m <- modes(x)
+  if (length(m) > 1) {
+    return(paste0(m, collapse = sep))
+  }
+  m
 }
 
 
@@ -474,7 +486,10 @@ get_one_sided_conclusion <- function(alternative, pair, pair_sep, is_significant
 #' significant direction
 #' @value a tibble containing pairs that were significant, and a `conclusion` column
 #' indicating how to interpret the one-sided test result
-conclude_one_sided <- function(htest_tb, pair_sep = "x") {
+conclude_one_sided <- function(htest_tb, pair_sep = "x", sig_col = "significant") {
+  if (!sig_col %in% colnames(htest_tb)) {
+    stop("A binary column indicating significance (1 significant, 0 not) must be present! ")
+  }
   unique_pairs <- htest_tb$pair |> unique()
   two_sided_was_significant <- lapply(unique_pairs, \(x) {
     row <- htest_tb |> filter(pair == x & alternative == "two sided")
@@ -487,7 +502,7 @@ conclude_one_sided <- function(htest_tb, pair_sep = "x") {
     discard(is.na)
   tb <- htest_tb |> filter(pair %in% two_sided_was_significant)
   winning_vars <- pmap(
-    list(tb$alternative, tb$pair, rep(pair_sep, length(tb$pair)), tb$significant),
+    list(tb$alternative, tb$pair, rep(pair_sep, length(tb$pair)), tb[[sig_col]]),
     get_one_sided_conclusion
   ) |> unlist()
   tb |>
@@ -517,4 +532,46 @@ swap_w_map <- function(mapping) {
       }
     })
   }
+}
+
+COLORS <- grDevices::colors()[grep("gr(a|e)y", grDevices::colors(), invert = TRUE)]
+
+#' Properly format `tb` for use with hierachichal plotly figures
+#'
+#' @description
+#' Works for 'treemap' and 'sunburst' figures
+#'
+#' @value A tibble that you can use like below
+#' plot_ly(data = OUTPUT, type = "treemap", labels = ~name, parents = ~parents,
+#'   ids = ~ids, values = ~values)
+plotly_treemap_format <- function(tb, outer_col, inner_col, value_col) {
+  child_ids <- tb |>
+    mutate(ids = paste0(!!as.symbol(inner_col), "-", !!as.symbol(outer_col))) |>
+    rename(parents = !!as.symbol(outer_col), name = !!as.symbol(inner_col)) |>
+    rename(values = !!as.symbol(value_col)) |>
+    select(ids, everything())
+  parent_ids <- tb |>
+    group_by(!!as.symbol(outer_col)) |>
+    summarise(values = sum(!!as.symbol(value_col))) |>
+    mutate(ids = !!as.symbol(outer_col)) |>
+    rename(name = !!as.symbol(outer_col)) |>
+    mutate(parents = "")
+  to_sb <- bind_rows(parent_ids, child_ids)
+  to_sb |> select(name, ids, parents, values)
+}
+
+#' Extract a column from a named list of tbs, returning a list
+#' with the same names as `tb_list` whose elements are the columns as a vector
+#'
+col_from_tb_list <- function(tb_list, target) {
+  lapply(names(tb_list), \(x) tb_list[[x]][[target]]) |> `names<-`(names(tb_list))
+}
+
+get_adjusted_p <- function(
+    tb, p_value_col = "p_value", adjust_method = "holm",
+    alpha = 0.05) {
+  tb |> mutate(
+    p_adjust = p.adjust(!!as.symbol(p_value_col), method = "holm"),
+    significant = ifelse(p_adjust < alpha, 1, 0)
+  )
 }
