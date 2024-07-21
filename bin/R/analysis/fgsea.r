@@ -14,7 +14,7 @@ gene_sets <- list(
   unknown_to_db = d$sample_tb %>%
     filter(inferred_by == "interpro" |
       inferred_by == "eggNOG" |
-      grepl("[UDT]", ProteinId)) %>%
+      grepl("[DT]", ProteinId)) %>%
     pluck("ProteinId"),
   has_mods = d$sample_tb %>%
     filter(ID_method == "open" | !is.na(Mods)) %>%
@@ -22,6 +22,7 @@ gene_sets <- list(
   toxins = names(get_toxin_proteins(d$prot_go_map$sample))
 )
 pwy <- group_pathways(d$sample_tb)
+# TODO: Use new categories
 categories <- table(d$sample_tb$category) %>%
   discard(., \(x) x < 100) %>%
   names()

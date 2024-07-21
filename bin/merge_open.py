@@ -30,8 +30,6 @@ def parse_args():
     parser.add_argument("-d", "--database_output")
     parser.add_argument("--unknown_output")
     parser.add_argument("-k", "--unknown_output_fasta")
-    parser.add_argument("--unmatched_peptides_in")
-    parser.add_argument("--unmatched_peptides_out")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())  # convert to dict
     return args
@@ -83,7 +81,7 @@ def main(args: dict):
     final = pd.concat([shared, open_searches, proteins])
     final["inferred_by"] = "initial_database"
     db_hits = final.query("ProteinId.str.contains('P')")
-    unknown_hits = final.query("ProteinId.str.contains('O|T|D')")
+    unknown_hits = final.query("ProteinId.str.contains('T|D')")
     fasta_str = get_fasta_str(unknown_hits, "seq")
     return {
         "all": final,
@@ -91,24 +89,6 @@ def main(args: dict):
         "unknown_hits": unknown_hits,
         "fasta_str": fasta_str,
     }
-
-
-def check_unmatched(final_frame, peps):
-    """
-    Filter out the peptides in the dataframe "peps" to leave only peptides that
-    are truly unmatched
-    """
-    pep_df = pd.read_csv(peps, sep="\t")
-    all_peps = pd.Series(
-        [
-            pep
-            for pep_list in final_frame["peptideIds"].str.split(";")
-            for pep in pep_list
-        ]
-    )
-    actual_unmatched = pep_df.query("~(`peptideIds`.isin(@all_peps))")
-    fasta_str = get_fasta_str(actual_unmatched, "peptideIds")
-    return (actual_unmatched, fasta_str)
 
 
 if __name__ == "__main__":
@@ -120,7 +100,3 @@ if __name__ == "__main__":
     m["unknown_hits"].to_csv(args["unknown_output"], sep="\t", index=False, na_rep="NA")
     with open(args["unknown_output_fasta"], "w") as f:
         f.write(m["fasta_str"])
-    unmatched_peptides = check_unmatched(m["all"], args["unmatched_peptides_in"])
-    unmatched_peptides[0].to_csv(args["unmatched_peptides_out"], sep="\t", index=False)
-    with open("unmatched_peptides.fasta", "w") as u:
-        u.write(unmatched_peptides[1])

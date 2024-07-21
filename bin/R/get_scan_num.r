@@ -162,43 +162,6 @@ remove_termini <- function(peptide_col) {
   }))
 }
 
-merge_unmatched <- function(final_df, unmatched_peptides, proteins) {
-  #' Merge the final scan numbers with the ids of the unmatched peptides
-  #' so that they may be quantified
-  prot_df <- read_tsv(proteins) %>%
-    select(ProteinId, peptideIds) %>%
-    apply(., 1, expand_protein_rows) %>%
-    bind_rows()
-  u_df <- read_tsv(unmatched_peptides) |> select(-engine)
-  unwanted_cols <- colnames(u_df) %>% discard(., \(x) x %in% "peptideIds")
-  # Join with unmatched peptides
-  no_prot1 <- final_df %>%
-    filter(is.na(protein)) %>%
-    mutate(no_termini = remove_termini(peptide))
-  has_prot1 <- final_df %>% filter(!is.na(protein))
-  joined1 <- left_join(no_prot1, u_df,
-    by =
-      join_by(x$no_termini == y$peptideIds)
-  ) %>%
-    mutate(protein = ProteinId) %>%
-    select(-all_of(unwanted_cols))
-  # Join with other proteins matched by percolator
-  no_prot2 <- joined1 %>%
-    filter(is.na(protein))
-  has_prot2 <- joined1 %>% filter(!is.na(protein))
-  joined2 <- left_join(no_prot2, prot_df,
-    by =
-      join_by(x$no_termini == y$peptide)
-  ) %>%
-    mutate(protein = ProteinId) %>%
-    select(-ProteinId)
-  return(select(
-    bind_rows(joined1, has_prot1, joined2, has_prot2),
-    -no_termini
-  ))
-}
-
-
 if (sys.nframe() == 0) {
   parser <- OptionParser()
   parser <- add_option(parser, c("-o", "--output"),
@@ -217,20 +180,11 @@ if (sys.nframe() == 0) {
     type = "character",
     help = "Percolator protein file"
   )
-  parser <- add_option(parser, c("-u", "--unmatched_peptides"),
-    type = "character",
-    help = "TSV containing unmatched peptides"
-  )
   parser <- add_option(parser, c("-e", "--engine"),
     type = "character",
     help = "Engine psm file was obtained from"
   )
   args <- parse_args(parser)
   f <- read_engine_psms(args)
-  if (any(is.na(f$protein)) && file.size(args$unmatched_peptides) > 0) {
-    final <- merge_unmatched(f, args$unmatched_peptides, args$protein)
-    write_delim(final, args$output, delim = "\t")
-  } else {
-    write_delim(f, args$output, delim = "\t")
-  }
+  write_delim(f, args$output, delim = "\t")
 }

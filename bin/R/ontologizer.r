@@ -21,9 +21,8 @@ main <- function(args) {
   # Modified proteins or identified in open search
   groups[["unknown_to_db"]] <- dplyr::filter(combined, inferred_by == "interpro" |
     inferred_by == "eggNOG" |
-    grepl("[UDT]", ProteinId)) |> pluck("ProteinId")
+    grepl("[DT]", ProteinId)) |> pluck("ProteinId")
   # Proteins not known to database, inferred with eggNOG and interpro
-  groups[["unmatched_only"]] <- dplyr::filter(combined, grepl("U", ProteinId) | Group == "U") |> pluck("ProteinId")
   params <- list(`-m` = "Bonferroni-Holm")
   print(groups)
   # Proteins mapped ONLY by unmatched peptides or are themselves unmatched peptides
