@@ -3,7 +3,7 @@ library("gridBase")
 library("ComplexHeatmap")
 library("circlize")
 
-saveLegend <- function(
+save_legend <- function(
     color_map,
     filename, title, nrows) {
   lgd <- Legend(
@@ -22,7 +22,7 @@ saveLegend <- function(
   dev.off()
 }
 
-saveChord <- function(tc, filename, width = 10, height = 10) {
+save_chord <- function(tc, filename, width = 10, height = 10) {
   if (!"from" %in% colnames(tc) || !"to" %in% colnames(tc)) {
     stop("`from` and `to` columns must be specified in given dataframe")
   }
@@ -30,6 +30,7 @@ saveChord <- function(tc, filename, width = 10, height = 10) {
 
   # Use this setting to control colors based on intensity or smthng
   protein_colors <- setNames(tc$to, sample(COLORS, length(tc$to)))
+
   colors <- c(go_colors, protein_colors)
   if (str_detect(filename, ".svg$")) {
     ext <- "svg"
@@ -39,9 +40,9 @@ saveChord <- function(tc, filename, width = 10, height = 10) {
     saveFun <- \() png(filename, width = width + 0.5, height = height, units = "in")
   }
   saveFun()
-  plotChord(tc, go_colors)
+  plot_chord(tc, go_colors, TRUE, TRUE)
   dev.off()
-  saveLegend(
+  save_legend(
     go_colors,
     glue("{filename}-legend.{ext}"),
     "GO key",
@@ -49,25 +50,38 @@ saveChord <- function(tc, filename, width = 10, height = 10) {
   )
 }
 
-plotChord <- function(tc, colors) {
-  chordDiagramFromDataFrame(as.data.frame(tc),
-    directional = 1,
-    link.target.prop = TRUE,
-    big.gap = 20,
-    direction.type = "arrows",
-    link.arr.type = "big.arrow",
-    preAllocateTracks = list(track.hieght = 5),
-    annotationTrack = "grid",
-    grid.col = colors,
-    transparency = 0.8
-  )
+plot_chord <- function(tc, colors = NULL, show_to = TRUE, show_from = FALSE) {
+  if (is.null(colors)) {
+    chordDiagramFromDataFrame(as.data.frame(tc),
+      directional = 1,
+      link.target.prop = TRUE,
+      big.gap = 20,
+      direction.type = "arrows",
+      link.arr.type = "big.arrow",
+      preAllocateTracks = list(track.hieght = 5),
+      annotationTrack = "grid",
+      transparency = 0.8
+    )
+  } else {
+    chordDiagramFromDataFrame(as.data.frame(tc),
+      directional = 1,
+      link.target.prop = TRUE,
+      big.gap = 20,
+      direction.type = "arrows",
+      link.arr.type = "big.arrow",
+      preAllocateTracks = list(track.hieght = 5),
+      annotationTrack = "grid",
+      grid.col = colors,
+      transparency = 0.8
+    )
+  }
   circos.trackPlotRegion(
     track.index = 1,
     panel.fun = function(x, y) {
       xlim <- get.cell.meta.data("xlim")
       ylim <- get.cell.meta.data("ylim")
       sector.name <- get.cell.meta.data("sector.index")
-      if (sector.name %in% tc$to) {
+      if ((sector.name %in% tc$to && show_to) || (sector.name %in% tc$from && show_from)) {
         circos.text(xlim, ylim, NULL)
         circos.text(mean(xlim), ylim[1] + .1, sector.name, facing = "clockwise", niceFacing = TRUE, adj = c(0, 0.5))
         circos.axis(h = "top", labels.cex = 0.5, major.tick.length = 0.2, sector.index = sector.name, track.index = 2)
