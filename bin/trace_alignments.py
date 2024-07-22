@@ -1,4 +1,6 @@
 import sys
+import polars.selectors as cs
+import itertools
 from Bio.motifs.matrix import GenericPositionMatrix
 from Bio.SeqRecord import SeqRecord
 from Bio import Align
@@ -448,9 +450,7 @@ def denovo_mismatch_metrics(
     peptides = (
         pl.from_pandas(aligned_peptides).filter(pl.col("ProteinId").is_in(ids_to_keep))
     ).select(pl.col("*").exclude("UniProtKB_ID", "alignment"))
-    denovo_map = peptides.join(
-        id_map, left_on="sequence", right_on="original", how="inner"
-    )
+    denovo_map = peptides.join(id_map, left_on="original", right_on="seq", how="inner")
 
     metrics = (
         denovo_map.join(mismatches, on="ProteinId")
@@ -529,4 +529,60 @@ def get_engine_counts(percolator_path: str, data: pd.DataFrame) -> pl.DataFrame:
     return result
 
 
-# if __name__ == "__main__" and len(sys.argv) > 1 and "radian" not in sys.argv[0]:
+def overlap(x, y):
+    """Compute the overlap coefficient (O) between x and y
+    O is maximized when x is a subset of y or vice versa, or when x and y are identical
+    """
+    return len(x & y) / min(len(x), len(y))
+
+
+def get_peptide_overlap(pep_map_path: str):
+    pep_map = pl.read_csv(pep_map_path, separator="\t", null_values="NA")
+    pep_map = pep_map.filter(pl.col("engine").is_not_null())
+    peps_dct = {
+        e: set(pep_map.filter(pl.col("engine") == e)["peptideIds"])
+        for e in pep_map["engine"].unique()
+    }
+
+    perms = np.array(list(itertools.permutations(peps_dct.keys(), 2)))
+    any_subsets = perms[[peps_dct[x] < peps_dct[y] for x, y in perms]]
+
+    combos = itertools.permutations(peps_dct.keys(), 2)
+    overlap_dct = {"first": [], "second": [], "smaller": [], "overlap": []}
+    for x, y in combos:
+        x_set, y_set = peps_dct[x], peps_dct[y]
+        overlap_dct["overlap"].append(overlap(x_set, y_set))
+        overlap_dct["first"].append(x)
+        overlap_dct["second"].append(y)
+        smaller = x if len(x_set) < len(y_set) else y
+        overlap_dct["smaller"].append(smaller)
+    overlap_df = pl.DataFrame(overlap_dct).sort("overlap")
+    return overlap_df, list(any_subsets)
+
+
+def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.DataFrame:
+    intensity = pl.read_csv(aq_reformat_path, separator="\t")
+    intensity = intensity.drop("protein").with_columns(
+        mean_intensity=pl.mean_horizontal(cs.float())
+    )
+    pep_map = pl.read_csv(peptide_map_path, separator="\t", null_values="NA")
+    pep_map = pep_map.join(intensity, left_on="peptideIds", right_on="ion")
+    grouping_vars = ["mass", "length", "mean_intensity"]
+    id_aliases: dict = {
+        p: f"p{i}" for i, p in enumerate(pep_map["peptideIds"].unique())
+    }
+    pep_map = pep_map.with_columns(
+        PeptideId=pl.col("peptideIds").map_elements(lambda x: id_aliases[x])
+    )
+    engines: list = list(pep_map["engine"].unique())
+    engines.remove(None)
+    engine_bool_exprs = [pl.col("engine").list.contains(e).alias(e) for e in engines]
+    grouped = (
+        pep_map.select(["engine", "PeptideId"] + grouping_vars)
+        .filter(pl.col("engine").is_not_null())
+        .group_by("PeptideId")
+        .agg(pl.col("engine"), pl.col(grouping_vars).first())
+        .with_columns(engine_bool_exprs)
+        .drop("engine")
+    )
+    return grouped
