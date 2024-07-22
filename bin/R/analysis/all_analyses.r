@@ -11,14 +11,16 @@ library("glue")
 save <- function(to_save, outdir) {
   by_type <- function(name, object) {
     if ("gg" %in% class(object) || "grob" %in% class(object)) {
-      ggsave(glue("{outdir}/{name}.png"), object, width = 10, height = 10)
+      width <- ifelse(is.null(attr(object, "width")), 10, attr(object, "width"))
+      height <- ifelse(is.null(attr(object, "height")), 10, attr(object, "height"))
+      ggsave(glue("{outdir}/{name}.png"), object, width = width, height = height)
     } else if ("gt_tbl" %in% class(object)) {
       gtsave(object, glue("{outdir}/{name}.html"))
       gtsave(object, glue("{outdir}/{name}.tex"))
     } else if ("tbl_df" %in% class(object)) {
       write_tsv(object, glue("{outdir}/{name}.tsv"))
     } else if ("plotly" %in% class(object) && "htmlwidget" %in% class(object)) {
-      plotly::save_image(object, glue("{outdir}/{name}.png"))
+      plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
     }
   }
   if (!dir.exists(outdir)) {
@@ -40,6 +42,8 @@ if (str_detect(getwd(), "Bio_SDD")) {
   M$env <- "/home/shannc/anaconda3/envs/reticulate"
   M$tools <- "/home/shannc/workflow/tools"
 }
+
+
 M$chosen_pass <- "1-First_pass"
 M$path <- glue("{M$wd}/results/C_indra")
 M$fdr <- 0.05
@@ -64,11 +68,26 @@ M$orgdb_path <- glue("{M$wd}/tests/testthat/output/org.Cindrasaksajiae.eg.db")
 M$go_path <- glue("{M$wd}/data/reference/go.obo")
 M$go_slim_path <- glue("{M$wd}/data/reference/goslim_generic.obo")
 M$go_tm_dir <- glue("{M$wd}/data/reference/.go_texts")
+M$aq_reformat_path <- glue("{M$path}/{M$chosen_pass}/Quantify/directlfq.aq_reformat.tsv")
 M$eggnog_cols <- c(
   "EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module",
   "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC",
   "CAZy", "BiGG_Reaction", "PFAMs"
 )
+M$mapped_scan_path <- glue("{M$path}/{M$chosen_pass}/all_mapped_scans.tsv")
+if (!file.exists(M$mapped_scan_path)) {
+  tb <- lapply(c("Quantify", "Open_search"), \(x) {
+    list.files(glue("{M$path}/{M$chosen_pass}/{x}/Mapped_scans"),
+      pattern = "*.tsv",
+      full.names = TRUE
+    )
+  }) |>
+    unlist() |>
+    lapply(read_tsv) |>
+    bind_rows()
+  write_tsv(tb, M$mapped_scan_path)
+}
+
 args <- list(
   r_source = M$r_source, python_source = M$python_source,
   go_info = glue("{M$outdir}/all_go_info.tsv"),
@@ -90,9 +109,12 @@ if (!dir.exists(M$outdir)) {
 
 M$run <- get_run("C_indra", M$path)
 M$taxa_tb <- read_tsv(glue("{M$path}/{M$chosen_pass}/{M$sample_name}_taxonomy.tsv"))
-M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
+M$data <- M$run$first
+# BUG: Fix this when cateogry is done
+# M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
 M$repr <- read_tsv(glue("{M$outdir}/{M$sample_name}_all_representatives.tsv"))
 M$alignments <- get_alignment_data(M$path, M$chosen_pass)
+M$taxa_cols <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
 
 GET_GO <- FALSE
 if (GET_GO) {

@@ -519,12 +519,19 @@ get_avg_sd <- function(tb, cols, stat) {
 }
 
 
-htest2tb <- function(test) {
+htest2tb <- function(test, data.name = NULL, alternative = NULL, null = NULL) {
+  if (test$alternative == "two.sided") {
+    alt <- "two sided"
+  } else if (!is.null(alternative)) {
+    alt <- alternative
+  } else {
+    alt <- test$alternative
+  }
   row <- tibble(
-    null = test$`null.value`,
-    alternative = test$alternative,
+    null = ifelse(is.null(null), test$`null.value`, null),
+    alternative = alt,
     method = test$method,
-    data = test$`data.name`,
+    data = ifelse(is.null(data.name), test$`data.name`, data.name),
     statistic = test$statistic,
     p_value = test$`p.value`,
     estimate = test$estimate,

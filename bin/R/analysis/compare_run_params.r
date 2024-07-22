@@ -231,6 +231,21 @@ GRAPHS$default_no_denovo_coverage <- gg_numeric_dist(coverage_list, method = "fr
   ) + scale_color_paletteer_d(PALETTE2)
 
 
+GRAPHS$default_no_denovo_coverage_2 <- ggplot(
+  merged,
+  aes(x = pcoverage_align.def, y = pcoverage_align.nd, color = length.nd)
+) +
+  geom_point() +
+  paletteer::scale_colour_paletteer_c("grDevices::Cold") +
+  geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1),
+    linetype = 2,
+    colour = "black"
+  ) +
+  ylab("Coverage without de novo peptides") +
+  xlab("Coverage with de novo peptides") +
+  guides(color = guide_legend("Protein length"))
+
+
 GRAPHS$default_no_denovo_peptide_count <- gg_numeric_dist(peps_list, method = "boxplot") +
   xlab("Run parameter") +
   ylab("log Count") +

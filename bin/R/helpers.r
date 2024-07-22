@@ -349,7 +349,7 @@ chisqNME <- function(
     }) %>%
     bind_rows()
 
-  chi_f <- bind_cols(chi, odds_ratios)
+  chi_f <- bind_cols(chi, odds_ratios) |> arrange(desc(OR))
   tables$chi <- chi_f
   gt$chi <- chi_f %>%
     mutate(across(is.double, \(x) round(x, 4))) %>%
