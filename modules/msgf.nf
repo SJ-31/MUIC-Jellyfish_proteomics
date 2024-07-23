@@ -62,11 +62,18 @@ process MSGF_MERGE {
     //
 
     shell:
+    check = file("${outdir}/msgf_all_pins.temp")
+    if (check.exists()) {
+        '''
+        cp !{check} .
+        '''
+    } else {
     '''
     output=msgf_all_pins.temp
     pin_header="SpecId	Label	ScanNr	ExpMass	CalcMass	RawScore	DeNovoScore	ScoreRatio	Energy	lnEValue	IsotopeError	lnExplainedIonCurrentRatio	lnNTermIonCurrentRatio	lnCTermIonCurrentRatio	lnMS2IonCurrent	Mass	PepLen	dM	absdM	MeanErrorTop7	sqMeanErrorTop7	StdevErrorTop7	Charge1	Charge2	Charge3	Charge4	Charge5	enzN	enzC	enzInt	Peptide	Proteins"
     echo "$pin_header" > "$output"
     find . -maxdepth 1 -name "*pin" -exec sed -se 1,2d {} + >> "$output"
     '''
+    }
     //
 }

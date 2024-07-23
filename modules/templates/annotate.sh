@@ -31,13 +31,9 @@ Rscript !{params.bin}/R/sort_eggnog.r \
     --output_fasta needs_annotating2.fasta \
     --blast needs_annotating.tsv \
     --output_unmatched eggnog_unmatched.tsv \
-    --output temp.tsv \
+    --output eggnog_matched.tsv \
     --seeds temp.emapper.seed_orthologs \
     --annotations temp.emapper.annotations
-
-eggnog_seq.py -e !{params.eggnog_db_fasta} \
-    -i temp.tsv \
-    -o eggnog_matched.tsv
 
 mv needs_annotating2.fasta ..
 # No need to get the sequences from the eggnog db, because
