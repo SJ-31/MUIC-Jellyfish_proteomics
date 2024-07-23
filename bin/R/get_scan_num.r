@@ -112,7 +112,10 @@ clean_peptide <- function(pep) {
       unlist() %>%
       paste0(collapse = "")
   }
-  return(pep)
+  pep |>
+    str_remove_all("\\[[\\-0-9]+\\.[\\-0-9]+\\]") |>
+    str_remove_all("\\[[a-z _\\:A-Z]+\\]") |>
+    str_remove("^n")
 }
 
 read_engine_psms <- function(args) {

@@ -26,13 +26,10 @@ modes_concat <- function(x, sep = ";") {
 
 clean_peptide <- function(pep) {
   # Leave only residue characters in a peptide sequence
-  if (grepl("\\]|[a-z0-9.]|-", pep)) {
-    pep <- str_to_upper(pep) %>%
-      str_extract_all("[A-Z]") %>%
-      unlist() %>%
-      paste0(collapse = "")
-  }
-  return(pep)
+  pep |>
+    str_remove_all("\\[[\\-0-9]+\\.[\\-0-9]+\\]") |>
+    str_remove_all("\\[[a-z _\\:A-Z]+\\]") |>
+    str_remove("^n")
 }
 
 most_abund <- function(grouped_df) {
@@ -425,7 +422,7 @@ group_by_unique_peptides <- function(tb) {
     select(ProteinId, GroupUP)
   tb |>
     inner_join(group_map) |>
-    relocate(GroupUP, .after = Group)
+    relocate(GroupUP, .after = header)
 }
 
 #' Replace discrete labels in a ggplot

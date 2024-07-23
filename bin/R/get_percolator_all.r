@@ -58,7 +58,10 @@ main <- function(args) {
     separate_longer_delim(ProteinId, ";")
   peptide_tb <- bind_rows(peptide_tb, dlfq) |> mutate(
     length = nchar(peptideIds),
-    mass = map_dbl(peptideIds, mass$fast_mass)
+    mass = map_dbl(peptideIds, \(x) {
+      # print(x)
+      mass$fast_mass(x)
+    })
   )
   result <- list(
     percolator_all = percolator_tb,
@@ -70,8 +73,9 @@ main <- function(args) {
 
 clean_peptide <- function(str) {
   str |>
-    str_remove_all("\\[[0-9]+\\.[0-9]+\\]") |>
-    str_remove_all("\\[[a-z \\:A-Z]+\\]")
+    str_remove_all("\\[[-0-9]+\\.[-0-9]+\\]") |>
+    str_remove_all("\\[[a-z _\\:A-Z]+\\]") |>
+    str_remove("^n")
 }
 
 get_seq_map <- function(seq_map_path, kept_ids, kept_seqs) {
