@@ -33,19 +33,26 @@ process UNMATCHED_MSMS {
     //
 
     output:
-    path("filtered_*.mzML")
+    path("filtered_*.mzML"), emit: mzmls
     //
     // Use the psm2combinedPEP csv file for this
     script:
-    """
-    mkdir psms; mv $psm2combinedPEP psms
-    mkdir scans; mv $scan_mappings scans
-    Rscript ${params.bin}/R/unmatched_msms.r \
-        --psm_path psms  \
-        --pep_thresh 1 \
-        -r $params.bin/R \
-        --scan_path scans \
-        --mzML_path . > unmatched.txt
-    """
+    check = "${outdir}/filtered_${mzmls}"
+    if (file(check).exists()) {
+        """
+        cp "${check}" .
+        """
+    } else {
+        """
+        mkdir psms; mv $psm2combinedPEP psms
+        mkdir scans; mv $scan_mappings scans
+        Rscript ${params.bin}/R/unmatched_msms.r \
+            --psm_path psms  \
+            --pep_thresh 1 \
+            -r $params.bin/R \
+            --scan_path scans \
+            --mzML_path . > unmatched.txt
+        """
+    }
     // The pep_thresh argument allows you to filter out msms spectra that gave rise to psms falling that fell below the given PEP threshold
 }

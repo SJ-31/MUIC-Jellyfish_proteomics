@@ -42,6 +42,13 @@ process FORMAT_IDPY {
     //
 
     shell:
-    template 'format_identipy.sh'
+    output = "${outdir}/identipy_all_pins.temp"
+    if (file(output).exists()) {
+        '''
+        cp !{output} .
+        '''
+    } else {
+        template 'format_identipy.sh'
+    }
     //
 }

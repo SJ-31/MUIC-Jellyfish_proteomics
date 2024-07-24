@@ -10,7 +10,7 @@ process MERGE_OPEN {
 
     output:
     path("unknown_hits.tsv"), emit: unknown_tsv
-    path("unknown.fasta"), emit: unknown_fasta
+    path("unknown_*.fasta"), emit: unknown_fasta
     path("database_hits.tsv"), emit: database_tsv
     //
 
@@ -19,7 +19,7 @@ process MERGE_OPEN {
     if (check.exists()) {
         '''
         cp !{outdir}/unknown_hits.tsv .
-        cp !{outdir}/unknown.fasta .
+        cp !{outdir}/unknown_*.fasta .
         cp !{outdir}/database_hits.tsv .
         '''
     } else {
@@ -28,10 +28,13 @@ process MERGE_OPEN {
             -i !{search_intersections} \
             --database_output database_hits.tsv \
             --unknown_output unknown_hits.tsv \
-            --unknown_output_fasta temp1.fasta \
+            --unknown_output_fasta temp.fasta \
             -s !{open_searches}
 
-        cd-hit -i temp1.fasta -o unknown.fasta -c 1.0
+        for i in temp*.fasta; do
+            new_name=$(echo $i | sed s'/temp/unknown/')
+            cd-hit -i $i -o $new_name -c 1.0
+        done
         '''
     }
     // cd-hit at 1. identity will cluster sequences that are complete subsets

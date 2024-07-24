@@ -14,6 +14,12 @@ process MS_MAPPING {
     //
 
     shell:
+    output = "${outdir}/msms_scans.tsv"
+    if (file(output).exists()) {
+        '''
+        cp !{output} .
+        '''
+    } else {
     '''
    header="scanNum	msLevel	retentionTime	precursorCharge	precursorIntensity	precursorMZ	totIonCurrent	peaksCount	basePeakMZ"
 
@@ -26,5 +32,6 @@ process MS_MAPPING {
         -o  msms_scans.tsv \
         -p  temp
     '''
+    }
     //
 }

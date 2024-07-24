@@ -12,14 +12,21 @@ process MAP_SCANS {
     //
 
     shell:
-    '''
-    engine=$(echo !{psm_file.baseName} | sed 's/[-_].*//')
-    Rscript !{params.bin}/R/get_scan_num.r \
-        -i !{psm_file} \
-        -p !{proteins} \
-        -m !{mapping}   \
-        -e $engine \
-        -o ${engine}_scans.tsv
-    '''
+    check = "${outdir}/${engine}_scans.tsv"
+    if (file(check).exists()) {
+        '''
+        cp "!{check}" .
+        '''
+    } else {
+        '''
+        engine=$(echo !{psm_file.baseName} | sed 's/[-_].*//')
+        Rscript !{params.bin}/R/get_scan_num.r \
+            -i !{psm_file} \
+            -p !{proteins} \
+            -m !{mapping}   \
+            -e $engine \
+            -o ${engine}_scans.tsv
+        '''
+    }
     //
 }

@@ -48,13 +48,20 @@ process TIDE_COMBINED_PEP {
     //
 
     script:
-    """
-    Rscript $params.bin/R/2combinedPEP.r \
-        -r $params.bin/R \
-        -e tide \
-        -m tide_percolator_psms.tsv \
-        -d tide_percolator_decoy_psms.tsv \
-        -o tide_psm2combined_PEP.tsv
-    """
+    output = "${outdir}/tide_psm2combined_PEP.tsv"
+    if (file(output).exists()) {
+        """
+        cp ${output} .
+        """
+    } else {
+        """
+        Rscript $params.bin/R/2combinedPEP.r \
+            -r $params.bin/R \
+            -e tide \
+            -m tide_percolator_psms.tsv \
+            -d tide_percolator_decoy_psms.tsv \
+            -o tide_psm2combined_PEP.tsv
+        """
+    }
     //
 }

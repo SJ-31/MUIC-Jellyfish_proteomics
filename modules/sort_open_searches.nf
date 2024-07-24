@@ -12,12 +12,19 @@ process SORT_OPEN {
     //
 
     script:
-    """
-    Rscript $params.bin/R/sort_open_searches.r \
-        -p . \
-        -o open_searches.tsv \
-        -r $params.bin/R \
-        -m $seq_header_mappings
-    """
+    check = "${outdir}/open_searches.tsv"
+    if (file(check).exists()) {
+        """
+        cp ${check} .
+        """
+    } else {
+        """
+        Rscript $params.bin/R/sort_open_searches.r \
+            -p . \
+            -o open_searches.tsv \
+            -r $params.bin/R \
+            -m $seq_header_mappings
+        """
+    }
     //
 }
