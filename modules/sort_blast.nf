@@ -27,7 +27,7 @@ process SORT_BLAST {
         '''
     } else {
         '''
-        header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
+        header="queryID,subjectID,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore,"
 
         echo $header | cat - !{blast_results} > blast_results.csv
         grep ">" !{blast_query} | sed 's/>//' > blast_query.txt
@@ -48,3 +48,6 @@ process SORT_BLAST {
     // metadata (which engines matched them, PEP, evalue etc.) will not be lost
     }
 }
+
+        // OLD unused blast header
+        // header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"

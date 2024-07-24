@@ -1,12 +1,12 @@
 include { COMBINE_ALL } from '../modules/combine_all.nf'
 include { SEARCH_INTERSECT } from '../modules/search_intersect'
-include { COMBINE_PEP } from '../modules/combine_pep'
 include { BLASTP } from '../modules/blastp'
 include { SIGNALP } from '../modules/signalp'
 include { DEEPLOC } from '../modules/deeploc'
 include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { FINAL_METRICS } from '../modules/final_metrics'
+include { FASTS } from '../modules/fasts'
 include { MERGE_OPEN } from '../modules/merge_open'
 include { CLUSTER_UNMATCHED } from '../modules/cluster_unmatched'
 include { COMBINE_PERCOLATOR } from '../modules/combine_percolator'
@@ -36,28 +36,35 @@ workflow 'combine_searches' {
     main:
     SEARCH_INTERSECT(prot2intersect,
                      "$outdir/Combined", seq_header_mappings)
-    COMBINE_PEP(psm2combinedPEP, true,
-                    "$outdir/Combined")
     MERGE_OPEN(SEARCH_INTERSECT.out.unsorted, open_results,
                // 1. Merge combined database hits with results from open search
                // 2. Extract denovo|transcriptome peptides as fasta file
         "$outdir/Combined")
 
-    ranges = Channel.from(tuple(0, 35), tuple(35, 50),
-                            tuple(50, 85), tuple(85, 100000))
-    BLASTP(MERGE_OPEN.out.unknown_fasta.first(), blast_db,
-        ranges, "$outdir/Unmatched/BLAST")
+
+    // ranges = Channel.from(tuple(0, 35), tuple(35, 50),
+    //                         tuple(50, 85), tuple(85, 100000))
+    // BLASTP(MERGE_OPEN.out.unknown_fasta.first(), blast_db,
+    //     ranges, "$outdir/Unmatched/BLAST")
         // 1. Match de novo and transcriptome against proteins
         //     in database
         // * To optimize the searches, queries will be partitioned into four ranges,
         //  following the recommendations on the blast user guide
-    BLASTP.out.collectFile(name: "combined_blast.csv", newLine: true)
+    // BLASTP.out.collectFile(name: "combined_blast.csv", newLine: true)
+    //     .set { combined_blast }
+    queries = MERGE_OPEN.out.unknown_fasta.flatten()
+
+    FASTS(queries, params.fasts_db,
+        "$outdir/Unmatched/BLAST")
+    FASTS.out.collectFile(name: "combined_fasts.csv", newLine: true)
         .set { combined_blast }
+    MERGE_OPEN.out.unknown_fasta.collectFile(name: "all_queries.fasta", newLine: true)
+        .set { all_queries }
 
     SORT_BLAST(MERGE_OPEN.out.unknown_tsv,
                 MERGE_OPEN.out.database_tsv,
                 combined_blast, seq_header_mappings,
-                MERGE_OPEN.out.unknown_fasta,
+                all_queries,
                 "$outdir/Unmatched/BLAST")
     // 1. Merge blast results into identifications
     //      i.e. if a peptide A was matched to protein B, then A is added to the list of
