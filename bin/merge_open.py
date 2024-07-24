@@ -31,7 +31,7 @@ def get_fasta_str(df):
         .agg(pl.int_range(pl.len()).alias("id_index"), pl.col(other_cols))
         .explode(["id_index"] + other_cols)
         .with_columns(queryId=pl.concat_str(["ProteinId", "id_index"], separator="."))
-    ).select("queryId", "ProteinId", "cleaned")
+    ).select("queryId", "ProteinId", "cleaned", "peptideIds", "ProteinGroupId")
     fastas = []
     for i in np.array_split(query_map, 5):
         df_i = pl.DataFrame(i)

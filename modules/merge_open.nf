@@ -9,10 +9,9 @@ process MERGE_OPEN {
     //
 
     output:
-    path("unknown_hits.tsv"), emit: unknown_tsv
+    tuple path("unknown_hits.tsv"), path("query_map.tsv"), emit: unknown
     path("unknown_*.fasta"), emit: unknown_fasta
     path("database_hits.tsv"), emit: database_tsv
-    path("query_map.tsv"), emit: query_tsv
     //
 
     shell:

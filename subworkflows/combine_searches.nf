@@ -58,13 +58,10 @@ workflow 'combine_searches' {
         "$outdir/Unmatched/BLAST")
     FASTS.out.collectFile(name: "combined_fasts.csv", newLine: true)
         .set { combined_blast }
-    MERGE_OPEN.out.unknown_fasta.collectFile(name: "all_queries.fasta", newLine: true)
-        .set { all_queries }
 
-    SORT_BLAST(MERGE_OPEN.out.unknown_tsv,
+    SORT_BLAST(MERGE_OPEN.out.unknown,
                 MERGE_OPEN.out.database_tsv,
                 combined_blast, seq_header_mappings,
-                all_queries,
                 "$outdir/Unmatched/BLAST")
     // 1. Merge blast results into identifications
     //      i.e. if a peptide A was matched to protein B, then A is added to the list of
