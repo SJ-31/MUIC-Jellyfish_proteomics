@@ -5,13 +5,6 @@ library(glue)
 #' of the same protein together
 #'
 
-joinMods <- function(peptides) {
-  pattern <- "([A-Z\\]]) ([A-Z\\[])"
-  splits <- str_replace_all(peptides, pattern, "\\1;\\2") %>%
-    unlist(use.names = FALSE)
-  return(paste0(splits, collapse = ";"))
-}
-
 dropNA <- function(vector) {
   return(vector[!is.na(vector)])
 }
@@ -33,9 +26,14 @@ cleanUp <- function(path) {
   engine <- gsub(".*/", "", path) %>% gsub("_.*", "", .)
   df <- read_tsv(path) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
-  df <- mutate(df, peptideIds = unlist(lapply(df$peptideIds, joinMods),
-    use.names = FALSE
-  ))
+
+  df <- df |>
+    mutate(peptideIds = map_chr(peptideIds, \(x) {
+      peps <- x |> str_replace_all("\\[[a-z \\:A-Z]+\\]", \(x) {
+        str_replace_all(x, " ", "_")
+      })
+      peps |> str_replace_all(" ", ";")
+    }))
   df <- separate_longer_delim(df, "ProteinId", ",") # Percolator uses comma to delimit protein ids
   return(df)
 }

@@ -65,7 +65,7 @@ main <- function(seq_header_file, path) {
   mapped <- matched$map_list
   merged_tables <- reduce(matched_tables, full_join, by = TARGET)
 
-  merged_tables <- lapply(headers, merge_column2, tb = merged_tables) |>
+  merged_tables <- lapply(headers, merge_column, tb = merged_tables) |>
     bind_cols()
   colnames(merged_tables) <- headers
   merged_tables |>
@@ -74,7 +74,8 @@ main <- function(seq_header_file, path) {
         str_replace_all(x, " ", "_")
       })
       peps |> str_replace_all(" ", ";")
-    }))
+    })) |>
+    inner_join(mapped, by = join_by(x$ProteinId == y$id))
 }
 
 if (sys.nframe() == 0) { # Won't run if the script is being sourced
