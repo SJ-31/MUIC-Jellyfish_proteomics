@@ -5,18 +5,26 @@ process FLASHLFQ {
     input:
     path(scan_prot_mappings)
     path(mzmls)
-    val(logdir)
     val(outdir)
+    val(logdir)
     //
 
     output:
     path("Quantified*")
     path("QuantifiedProteins.tsv"), emit: prot
-    path("*.{txt,toml}")
+    path("*.{txt,toml}"), optional: true
     path("flashlfq.tsv")
     //
 
     script:
+    check = "QuantifiedProteins.tsv"
+    if (file("${outdir}/${check}").exists()) {
+        """
+        cp ${outdir}/Quantified* .
+        cp ${outdir}/flashlfq.tsv .
+        """
+
+    } else {
     """
     mkdir scan_path; mv $scan_prot_mappings scan_path
     mkdir mzML; mv *.mzML mzML
@@ -32,6 +40,5 @@ process FLASHLFQ {
         --rep mzML \
         --ppm 5
     """
-    // TODO: Put the "ExperimentalDesign.tsv" file into 'scan_path' after creating it
-    // with the Rscript
+    }
 }

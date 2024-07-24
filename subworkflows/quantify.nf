@@ -41,7 +41,7 @@ workflow 'quantify'{
     directlfq = WRITE_QUANT.out.dlfq
     flashlfq = WRITE_QUANT.out.flfq
     maxlfq = MAX_LFQ.out
-    unmatched_msms = UNMATCHED_MSMS.out
+    unmatched_msms = UNMATCHED_MSMS.out.mzmls
     directlfq_input = DIRECTLFQ_FORMAT.out
 
 }

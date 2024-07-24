@@ -24,7 +24,7 @@ process SORT_BLAST {
     if (check.exists()) {
         '''
         cp !{outdir}/*_blast_* .
-        cp !{outdir}/accepted_queries.tsv
+        cp !{outdir}/accepted_queries.tsv .
         '''
     } else {
         '''

@@ -13,6 +13,13 @@ process WRITE_QUANT {
     //
 
     script:
+    check = "sorted_directlfq.tsv"
+    if (file("${outdir}/${check}").exists()) {
+        """
+        cp ${outdir}/sorted_directlfq.tsv .
+        cp ${outdir}/sorted_flashlfq.tsv .
+        """
+    } else {
     """
     write_quant.py \
         --dlfq $directlfq \
@@ -20,5 +27,6 @@ process WRITE_QUANT {
         --dlfq_sorted sorted_directlfq.tsv \
         --flfq_sorted sorted_flashlfq.tsv
     """
+    }
     //
 }
