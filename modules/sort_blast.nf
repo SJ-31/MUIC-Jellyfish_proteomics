@@ -2,14 +2,13 @@ process SORT_BLAST {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(unknown_tsv) // Peptides known only from denovo peptides or from
+    tuple path(unknown_tsv), path(query_tsv) // Peptides known only from denovo peptides or from
     // transcriptome peptides
     path(database_hits) // Combined database proteins to merge accepted blast
     // results into
     path(blast_results)
     path(mapping) // Mapping file of ProteinId->Sequence, for retrieving metadata about
     // proteins newly inferred with blast
-    path(blast_query)
     val(outdir)
     //
 
@@ -17,6 +16,7 @@ process SORT_BLAST {
     tuple path("${params.pref}_blast_unmatched.fasta"), \
         path("${params.pref}_blast_unmatched.tsv"), emit: unmatched
     path("${params.pref}_blast_matched.tsv"), emit: matched
+    path("accepted_queries.tsv")
     //
 
     shell:
@@ -24,25 +24,26 @@ process SORT_BLAST {
     if (check.exists()) {
         '''
         cp !{outdir}/*_blast_* .
+        cp !{outdir}/accepted_queries.tsv
         '''
     } else {
         '''
-        header="queryID,subjectID,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore,"
+        header="queryId,subjectId,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore"
 
         echo $header | cat - !{blast_results} > blast_results.csv
-        grep ">" !{blast_query} | sed 's/>//' > blast_query.txt
 
         sort_blast.py -b blast_results.csv \
             --unknown_hits !{unknown_tsv} \
+            --blast_query_map !{query_tsv} \
             -d !{database_hits} \
             -m !{mapping} \
-            -q blast_query.txt \
-            -f !{params.pref}_blast_unmatched.fasta  \
-            --unmatched_tsv !{params.pref}_blast_unmatched.tsv \
             -i 80 \
             -e 0.00001 \
             -p 0.05 \
-            -o !{params.pref}_blast_matched.tsv
+            -o !{params.pref}_blast_matched.tsv \
+            -f !{params.pref}_blast_unmatched.fasta  \
+            --unmatched_output !{params.pref}_blast_unmatched.tsv \
+            --accepted_output accepted_queries.tsv
         '''
     // We want the tsv file for the unmatched peptides so that they their
     // metadata (which engines matched them, PEP, evalue etc.) will not be lost
@@ -50,4 +51,4 @@ process SORT_BLAST {
 }
 
         // OLD unused blast header
-        // header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps,"
+        // header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps"
