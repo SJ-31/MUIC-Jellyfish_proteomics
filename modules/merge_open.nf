@@ -12,6 +12,7 @@ process MERGE_OPEN {
     path("unknown_hits.tsv"), emit: unknown_tsv
     path("unknown_*.fasta"), emit: unknown_fasta
     path("database_hits.tsv"), emit: database_tsv
+    path("query_map.tsv"), emit: query_tsv
     //
 
     shell:
@@ -21,6 +22,7 @@ process MERGE_OPEN {
         cp !{outdir}/unknown_hits.tsv .
         cp !{outdir}/unknown_*.fasta .
         cp !{outdir}/database_hits.tsv .
+        cp !{outdir}/query_map.tsv .
         '''
     } else {
         '''
@@ -29,6 +31,7 @@ process MERGE_OPEN {
             --database_output database_hits.tsv \
             --unknown_output unknown_hits.tsv \
             --unknown_output_fasta temp.fasta \
+            -q query_map.tsv \
             -s !{open_searches}
 
         for i in temp*.fasta; do
