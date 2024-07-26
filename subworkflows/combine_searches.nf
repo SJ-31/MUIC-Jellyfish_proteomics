@@ -86,8 +86,11 @@ workflow 'combine_searches' {
 
     ANNOTATE(SORT_BLAST.out.matched,
                 "$outdir/Unmatched/Database-annotated")
+
+    lfq = directlfq.concat(directlfq_input, maxlfq).collect()
+
     COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
-                interpro_matched, directlfq, flashlfq, maxlfq,
+                interpro_matched, lfq,
                 "$outdir", "$outdir/Logs")
     COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
                         COMBINE_ALL.out.all,

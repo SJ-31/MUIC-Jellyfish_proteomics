@@ -1,6 +1,6 @@
 MAP_PFAMS <- TRUE
 MAP_KEGG <- TRUE
-UNIFY <- TRUE
+UNIFY <- FALSE
 MERGE_QUANT <- TRUE
 TEST <- FALSE
 library(seqinr)
@@ -16,7 +16,7 @@ OTHER_EGGNOG_COLS <- c(
 
 FIRST_COLS <- c(
   "ProteinId", "ProteinGroupId", "header",
-  "Group", "MatchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
+  "GroupUP", "MatchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
   "organism", "lineage", "ID_method", "inferred_by"
 )
 
@@ -30,6 +30,7 @@ HEADER_QUERIES <- list(
   cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
   other = ""
 )
+
 
 #' Count of number unique GO terms assigned to each protein, and
 #' determine the maximum semantic value of the GO terms of that protein
@@ -78,7 +79,7 @@ clean_go_str <- function(go_vector) {
 }
 
 
-##' When there are multiple quantified peptides for a protein, take
+#' When there are multiple quantified peptides for a protein, take
 #' the top 3 peptides and average their values, reporting that as the
 #' abundance of the protein
 #' @param quant_name the name of the program used to generate the
@@ -115,7 +116,7 @@ merge_with_quant <- function(main_tb, quant_tb, quant_name) {
   has_multiple <- main_tb %>% filter(!is.na(MatchedPeptideIds))
   if (nrow(has_multiple) != 0) {
     # Attempt to find quantification for every peptide that was matched to a given protein
-    split_up <- separate_longer_delim(has_multiple, "matchedPeptideIds", ";")
+    split_up <- separate_longer_delim(has_multiple, "MatchedPeptideIds", ";")
     joined <- left_join(split_up, quant_tb, by = join_by(x$MatchedPeptideIds == y$ProteinId))
     has_multiple <- meanTop3(joined, quant_name = quant_name)
   }
@@ -267,7 +268,8 @@ main <- function(args) {
     dplyr::mutate(
       q_adjust = map_dbl(`q.value`, sort_vals),
       pep_adjust = map_dbl(posterior_error_prob, sort_vals)
-    ) %>%
+    )
+  combined <- combined |>
     filter(q_adjust <= args$fdr) %>%
     filter(pep_adjust <= args$pep_thresh)
 
@@ -343,18 +345,13 @@ main <- function(args) {
     cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
   }
 
-  ## Record modifications
-  source(glue("{args$r_source}/sort_mods.r"))
-  combined <- sortModsMain(combined, FALSE)
-
   ## Merge with quantification data
   if (MERGE_QUANT) {
     cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
     combined <- merge_with_quant(combined, read_tsv(args$directlfq), "directlfq") %>%
       mutate(across(contains("directlfq"), base::log2))
-    combined <- merge_with_quant(combined, read_tsv(args$flashlfq), "flashlfq") %>%
-      mutate(across(contains("flashlfq"), base::log2))
     combined <- merge_with_quant(combined, read_tsv(args$maxlfq), "maxlfq")
+    combined <- get_top3(args$directlfq_aqreformat, combined)
     cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
   }
 
@@ -368,7 +365,7 @@ main <- function(args) {
   ## Arrange columns
   rename_lookup <- c(
     eggNOG_preferred_name = "Preferred_name",
-    eggNOG_description = "Description",
+    eggNOG_description = "Description"
   )
   combined <- get_organism(combined, denovo_org = str_replace_all(args$denovo_org, "_", " "))
   combined <- combined %>%
@@ -405,7 +402,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--fdr", type = "double")
   parser <- add_option(parser, "--pep_thresh", type = "double")
   parser <- add_option(parser, "--directlfq", type = "character")
-  parser <- add_option(parser, "--flashlfq", type = "character")
+  parser <- add_option(parser, "--directlfq_aqreformat", type = "character")
   parser <- add_option(parser, "--maxlfq", type = "character")
   parser <- add_option(parser, "--interpro2go", type = "character")
   parser <- add_option(parser, "--kegg2go", type = "character")
@@ -419,6 +416,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/GO_helpers.r"))
+  reticulate::source_python(glue("{args$python_source}/helpers.py"))
   results <- main(args)
   results <- distinct(results)
   write_tsv(results, args$output)

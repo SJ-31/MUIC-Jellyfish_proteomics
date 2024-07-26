@@ -6,9 +6,7 @@ process COMBINE_ALL {
     path(downloads)
     path(eggnog)
     path(interpro)
-    path(directlfq)
-    path(flashlfq)
-    path(maxlfq)
+    tuple path(directlfq), path(directlfq_input), path(maxlfq)
     val(outdir)
     val(logdir)
     //
@@ -45,11 +43,10 @@ process COMBINE_ALL {
         --denovo_org $params.species_spec \
         --pep_thresh $params.pep_thresh \
         --output "${params.pref}_all.tsv" \
-        --directlfq $directlfq \
         --go_path $params.go \
         --go_slim_path $params.go_slims \
+        --directlfq_aqreformat $directlfq_input \
         --maxlfq $maxlfq \
-        --flashlfq $flashlfq \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
 

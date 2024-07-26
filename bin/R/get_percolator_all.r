@@ -1,4 +1,5 @@
 library("tidyverse")
+library("reticulate")
 library("glue")
 
 
@@ -29,6 +30,7 @@ main <- function(args) {
     get_engine <- function(file) {
       tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(
         engine = names(file),
+        mods = map_chr(peptideIds, get_mods),
         modifiedPeptideIds = peptideIds,
         peptideIds = map_chr(peptideIds, clean_peptide)
       )
@@ -92,6 +94,7 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-p", "--percolator_dir"), type = "character", action = "store")
   parser <- add_option(parser, c("-o", "--outdir"), type = "character", action = "store")
   parser <- add_option(parser, c("-r", "--r_source"), type = "character", action = "store")
+  parser <- add_option(parser, c("-y", "--python_source"), type = "character", action = "store")
   parser <- add_option(parser, c("-i", "--input"), type = "character", action = "store")
   parser <- add_option(parser, c("-s", "--seq_map_path"), type = "character", action = "store")
   parser <- add_option(parser, c("-d", "--dlfq_path"), type = "character", action = "store")
@@ -101,6 +104,7 @@ if (sys.nframe() == 0) {
   )
   args <- parse_args(parser)
   source(glue("{args$r_source}/helpers.r"))
+  reticulate::source_python(glue("{args$python_source}/helpers.py"))
   results <- main(args)
   write_tsv(results$percolator_all, glue("{args$outdir}/percolator_all.tsv"))
   write_tsv(results$seq_map, glue("{args$outdir}/seq-header_map_found.tsv"))
