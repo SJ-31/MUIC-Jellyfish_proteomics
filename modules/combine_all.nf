@@ -46,6 +46,7 @@ process COMBINE_ALL {
         --go_path $params.go \
         --go_slim_path $params.go_slims \
         --directlfq_aqreformat $directlfq_input \
+        --directlfq $directlfq \
         --maxlfq $maxlfq \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}

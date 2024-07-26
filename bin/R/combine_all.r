@@ -1,6 +1,5 @@
 MAP_PFAMS <- TRUE
 MAP_KEGG <- TRUE
-UNIFY <- FALSE
 MERGE_QUANT <- TRUE
 TEST <- FALSE
 library(seqinr)
@@ -132,27 +131,6 @@ merge_with_quant <- function(main_tb, quant_tb, quant_name) {
       "{quant_name}_median" := median(c_across(contains(quant_name)), na.rm = TRUE)
     )
   return(bind_cols(bound, calcs))
-}
-
-unify_groups <- function(tb) {
-  source_python(glue("{args$python_source}/unify_groups.py"))
-  tryCatch(
-    expr = {
-      unmatched_only <- tb %>%
-        filter(nchar(ProteinGroupId) == 1) %>%
-        mutate(Group = "U")
-      has_others <- tb %>%
-        filter(nchar(ProteinGroupId) > 1) %>%
-        as.data.frame() %>%
-        py$findNewGroups() %>%
-        as_tibble()
-      bind_rows(has_others, unmatched_only)
-    },
-    error = \(cnd) {
-      print(reticulate::py_last_error())
-      stop("Caught reticulate error")
-    }
-  )
 }
 
 KEEP_AS_CHAR <- c(
@@ -351,15 +329,8 @@ main <- function(args) {
     combined <- merge_with_quant(combined, read_tsv(args$directlfq), "directlfq") %>%
       mutate(across(contains("directlfq"), base::log2))
     combined <- merge_with_quant(combined, read_tsv(args$maxlfq), "maxlfq")
-    combined <- get_top3(args$directlfq_aqreformat, combined)
+    combined <- get_top3(args$directlfq_aqreformat, combined) |> as_tibble()
     cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
-  }
-
-  ## Find new groups
-  if (UNIFY) {
-    cat("BEGIN: unifying groups\n", file = LOGFILE, append = TRUE)
-    combined <- unify_groups(combined)
-    cat("COMPLETE: unifying groups\n", file = LOGFILE, append = TRUE)
   }
 
   ## Arrange columns
