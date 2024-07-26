@@ -43,7 +43,7 @@ def get_mods(peptide, sep="|"):
     mass_changes: dict = Counter(re.findall(r"(.)\[([0-9\.]+)\]", peptide))
     mods = [f"{AA_LOOKUP[k[0]]}{sep}{k[1]}{sep}{v}" for k, v in mass_changes.items()]
     if "_" in peptide:
-        named_mods = Counter(re.findall(r"\[([A-Za-z:_]+)\]", peptide))
+        named_mods = Counter(re.findall(r"\[([\[\]A-Za-z:_]+)\]", peptide))
         mods.extend([parse_named(k, v, sep) for k, v in named_mods.items()])
     return ";".join(mods)
 
@@ -121,4 +121,7 @@ def get_top3(dlfq_path: str, df: pd.DataFrame):
         top3_mean=cols_only.mean_horizontal(ignore_nulls=True),
         top3_median=np.nanmedian(cols_only, axis=1),
     )
-    return df.join(top3, how="left", left_on="ProteinId", right_on="protein")
+    result: pl.DataFrame = df.join(
+        top3, how="left", left_on="ProteinId", right_on="protein"
+    )
+    return result.to_pandas()

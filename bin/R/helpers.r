@@ -580,6 +580,10 @@ fill_peptide_gaps <- function(peptides) {
     peps <- x |> str_replace_all("\\[[a-z \\[\\]\\:A-Z]+\\]", \(x) {
       str_replace_all(x, " ", "_")
     })
-    peps |> str_replace_all(" ", ";")
+    peps |>
+      str_replace_all(" ", ";") |>
+      str_replace_all("\\]_([A-Z\\[])", "\\];\\1") |>
+      str_replace_all("([A-Z\\]])_\\[", "\\1;\\[") |>
+      str_replace_all("\\]_\\[", "\\];\\[")
   })
 }
