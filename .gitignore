@@ -53,3 +53,5 @@ null
 .vscode
 logs/py4cytoscape.log
 .dir-locals.el
+.session.py
+.session.r

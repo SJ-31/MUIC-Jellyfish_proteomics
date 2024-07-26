@@ -27,7 +27,8 @@ process COMBINE_PERCOLATOR {
         -i $combined_results \
         -d $directlfq_input \
         -s $seq_header_map \
-        -r $params.bin/R
+        -r $params.bin/R \
+        -y $params.bin
 
     cp .command.out get_percolator.log
     """

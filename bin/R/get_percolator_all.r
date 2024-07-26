@@ -1,6 +1,12 @@
 library("tidyverse")
 library("reticulate")
 library("glue")
+options(
+  browser = "firefox",
+  rlang_backtrace_on_error = "full",
+  error = rlang::entrace
+)
+rlang::global_entrace()
 
 
 main <- function(args) {
@@ -29,13 +35,10 @@ main <- function(args) {
   protein_tbs <- local({
     get_engine <- function(file) {
       tb <- separate_longer_delim(read_tsv(file[[1]]), "ProteinId", ",") %>% mutate(
+        peptideIds = fill_peptide_gaps(peptideIds),
         engine = names(file),
         mods = map_chr(peptideIds, get_mods),
-        modifiedPeptideIds = peptideIds,
-        peptideIds = map_chr(peptideIds, clean_peptide)
       )
-      filtered <- dplyr::filter(tb, ProteinId %in% all_found_protein_ids) %>%
-        mutate(num_peps = map_dbl(peptideIds, \(x) length(str_split_1(x, " "))))
       return(tb)
     }
     lmap(percolator_files, get_engine) %>% `names<-`(ENGINES)
@@ -50,9 +53,12 @@ main <- function(args) {
 
   percolator_tb <- dplyr::bind_rows(protein_tbs)
   peptide_tb <- percolator_tb |>
-    mutate(peptideIds = map_chr(peptideIds, clean_peptide)) |>
-    separate_longer_delim(peptideIds, " ") |>
-    distinct(engine, peptideIds, .keep_all = TRUE)
+    separate_longer_delim(peptideIds, ";") |>
+    distinct(engine, peptideIds, .keep_all = TRUE) |>
+    mutate(
+      modifiedPeptideIds = peptideIds,
+      peptideIds = map_chr(peptideIds, clean_peptide)
+    )
   dlfq <- read_tsv(args$dlfq_path) |>
     rename(ProteinId = protein, peptideIds = ion) |>
     select(ProteinId, peptideIds) |>
@@ -61,7 +67,6 @@ main <- function(args) {
   peptide_tb <- bind_rows(peptide_tb, dlfq) |> mutate(
     length = nchar(peptideIds),
     mass = map_dbl(peptideIds, \(x) {
-      # print(x)
       mass$fast_mass(x)
     })
   )
@@ -76,7 +81,7 @@ main <- function(args) {
 clean_peptide <- function(str) {
   str |>
     str_remove_all("\\[[-0-9]+\\.[-0-9]+\\]") |>
-    str_remove_all("\\[[a-z _\\:A-Z]+\\]") |>
+    str_remove_all("\\[[a-z_\\:A-Z]+\\]") |>
     str_remove("^n")
 }
 
