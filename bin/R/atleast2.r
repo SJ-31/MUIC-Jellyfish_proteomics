@@ -69,12 +69,7 @@ main <- function(seq_header_file, path) {
     bind_cols()
   colnames(merged_tables) <- headers
   merged_tables |>
-    mutate(peptideIds = map_chr(peptideIds, \(x) {
-      peps <- x |> str_replace_all("\\[[a-z \\:A-Z]+\\]", \(x) {
-        str_replace_all(x, " ", "_")
-      })
-      peps |> str_replace_all(" ", ";")
-    })) |>
+    mutate(peptideIds = fill_peptide_gaps(peptideIds)) |>
     inner_join(mapped, by = join_by(x$ProteinId == y$id))
 }
 

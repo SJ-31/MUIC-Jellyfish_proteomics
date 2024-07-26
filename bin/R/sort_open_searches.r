@@ -27,13 +27,7 @@ cleanUp <- function(path) {
   df <- read_tsv(path) %>%
     mutate(ProteinGroupId = paste0(ProteinGroupId, engine))
 
-  df <- df |>
-    mutate(peptideIds = map_chr(peptideIds, \(x) {
-      peps <- x |> str_replace_all("\\[[a-z \\:A-Z]+\\]", \(x) {
-        str_replace_all(x, " ", "_")
-      })
-      peps |> str_replace_all(" ", ";")
-    }))
+  df <- df |> mutate(peptideIds = fill_peptide_gaps(peptideIds))
   df <- separate_longer_delim(df, "ProteinId", ",") # Percolator uses comma to delimit protein ids
   return(df)
 }

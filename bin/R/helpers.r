@@ -28,7 +28,7 @@ clean_peptide <- function(pep) {
   # Leave only residue characters in a peptide sequence
   pep |>
     str_remove_all("\\[[\\-0-9]+\\.[\\-0-9]+\\]") |>
-    str_remove_all("\\[[a-z _\\:A-Z]+\\]") |>
+    str_remove_all("\\[[a-z_\\[\\]\\:A-Z]+\\]") |>
     str_remove("^n")
 }
 
@@ -571,4 +571,15 @@ get_adjusted_p <- function(
     p_adjust = p.adjust(!!as.symbol(p_value_col), method = "holm"),
     significant = ifelse(p_adjust < alpha, 1, 0)
   )
+}
+
+#' Replace the spaces in a percolator peptide string
+#' with ";", properly accounting for weird modifications
+fill_peptide_gaps <- function(peptides) {
+  map_chr(peptides, \(x) {
+    peps <- x |> str_replace_all("\\[[a-z \\[\\]\\:A-Z]+\\]", \(x) {
+      str_replace_all(x, " ", "_")
+    })
+    peps |> str_replace_all(" ", ";")
+  })
 }
