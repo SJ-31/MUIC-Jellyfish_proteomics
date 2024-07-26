@@ -1,11 +1,22 @@
 #!/usr/bin/env bash
 
-annotate.py -i !{combined_tsv} \
-    --output !{params.pref}_downloads_anno-1.tsv
+if [[ ! -d !{outdir} ]]; then
+    mkdir !{outdir}
+fi
+
+if [ -e !{outdir}/!{params.pref}_downloads_anno-1.tsv ]; then
+    mv !{outdir}/!{params.pref}_downloads_anno-1.tsv .
+else
+    annotate.py -i !{combined_tsv} \
+        --output !{params.pref}_downloads_anno-1.tsv
+fi
+
 
 if [ -e annotation_complete.fasta ]; then
     mv !{params.pref}_downloads_anno-1.tsv !{params.pref}_downloads_anno-complete.tsv
     exit 0
+else
+    cp !{params.pref}_downloads_anno-1.tsv !{outdir}
 fi
 
 eggdir="annotate_eggnog_unmatched"
@@ -39,6 +50,7 @@ mv needs_annotating2.fasta ..
 # No need to get the sequences from the eggnog db, because
 # this is dealing with full-length proteins, not peptides
 cd ..
+cp -r ${eggdir} ${outdir}
 
 annotate.py --merge_eggnog \
     --more_anno !{params.pref}_downloads_anno-1.tsv \
@@ -63,6 +75,7 @@ if [ ! -d "${previous_interpro}" ]; then
     cat header.txt temp.tsv > annotated.tsv
     rm temp.tsv
     cd ..
+    cp -r ${ipdir} ${outdir}
 else
     cp -r "${previous_interpro}" .
     touch ${ipdir}/interpro_copied.txt
