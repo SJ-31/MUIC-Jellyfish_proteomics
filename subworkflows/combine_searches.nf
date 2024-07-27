@@ -5,6 +5,10 @@ include { SIGNALP } from '../modules/signalp'
 include { DEEPLOC } from '../modules/deeploc'
 include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
+include { WRITE_QUANT; LFQ_MERGE } from '../modules/write_quant'
+include { TOP3 } from '../modules/top3'
+include { DIRECTLFQ } from '../modules/directlfq'
+include { MAX_LFQ } from '../modules/maxlfq'
 include { FINAL_METRICS } from '../modules/final_metrics'
 include { FASTS } from '../modules/fasts'
 include { MERGE_OPEN } from '../modules/merge_open'
@@ -23,9 +27,6 @@ workflow 'combine_searches' {
     take:
     prot2intersect
     psm2combinedPEP
-    flashlfq
-    maxlfq
-    directlfq
     outdir
     seq_header_mappings
     open_results
@@ -87,10 +88,9 @@ workflow 'combine_searches' {
     ANNOTATE(SORT_BLAST.out.matched,
                 "$outdir/Unmatched/Database-annotated")
 
-    lfq = directlfq.concat(directlfq_input, maxlfq).collect()
 
     COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
-                interpro_matched, lfq,
+                interpro_matched, directlfq_input,
                 "$outdir", "$outdir/Logs")
     COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
                         COMBINE_ALL.out.all,
@@ -98,11 +98,14 @@ workflow 'combine_searches' {
                         seq_header_mappings,
                         "$outdir", "$outdir/Logs")
     unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
-    // Key for "ProteinId" column:
-    // P = protein from downloaded database
-    // D = de novo peptide
-    // T = transcriptome protein
-    // U = peptide that was not matched to a protein
+
+    WRITE_QUANT(COMBINE_ALL.out.all, directlfq_input, "$outdir/Quantify")
+    TOP3(COMBINE_ALL.out.all, directlfq_input, "$outdir/Quantify")
+    DIRECTLFQ(WRITE_QUANT.out, "$outdir/Quantify", "$outdir/Logs")
+    MAX_LFQ(WRITE_QUANT.out, "$outdir/Quantify")
+
+    lfq = DIRECTLFQ.out.quant.concat(TOP3.out, MAX_LFQ.out).collect()
+    LFQ_MERGE(lfq, "$outdir")
 
     COVERAGE_SPLIT(COMBINE_ALL.out.all)
     COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(),
@@ -110,6 +113,7 @@ workflow 'combine_searches' {
         COMBINE_PERCOLATOR.out.peptide_map.first(),
         "$outdir/.coverage")
     COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
+
 
     // Will not run if all proteins were matched
     CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
