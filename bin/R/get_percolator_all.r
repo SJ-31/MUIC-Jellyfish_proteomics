@@ -59,12 +59,7 @@ main <- function(args) {
       modifiedPeptideIds = peptideIds,
       peptideIds = map_chr(peptideIds, clean_peptide)
     )
-  dlfq <- read_tsv(args$dlfq_path) |>
-    rename(ProteinId = protein, peptideIds = ion) |>
-    select(ProteinId, peptideIds) |>
-    filter(!peptideIds %in% peptide_tb$peptideIds) |>
-    separate_longer_delim(ProteinId, ";")
-  peptide_tb <- bind_rows(peptide_tb, dlfq) |> mutate(
+  peptide_tb <- peptide_tb |> mutate(
     length = nchar(peptideIds),
     mass = map_dbl(peptideIds, \(x) {
       mass$fast_mass(x)
@@ -102,7 +97,6 @@ if (sys.nframe() == 0) {
   parser <- add_option(parser, c("-y", "--python_source"), type = "character", action = "store")
   parser <- add_option(parser, c("-i", "--input"), type = "character", action = "store")
   parser <- add_option(parser, c("-s", "--seq_map_path"), type = "character", action = "store")
-  parser <- add_option(parser, c("-d", "--dlfq_path"), type = "character", action = "store")
   parser <- add_option(parser, c("-f", "--fdr"),
     type = "numeric",
     action = "store", default = 0.05

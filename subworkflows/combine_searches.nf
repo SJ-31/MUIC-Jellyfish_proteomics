@@ -90,11 +90,9 @@ workflow 'combine_searches' {
 
 
     COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
-                interpro_matched, directlfq_input,
-                "$outdir", "$outdir/Logs")
+                interpro_matched, "$outdir", "$outdir/Logs")
     COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
                         COMBINE_ALL.out.all,
-                        directlfq_input,
                         seq_header_mappings,
                         "$outdir", "$outdir/Logs")
     unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)

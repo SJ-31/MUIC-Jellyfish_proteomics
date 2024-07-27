@@ -6,7 +6,6 @@ process COMBINE_PERCOLATOR {
     path(percolator_protein)
     path(percolator_protein_open_search)
     path(combined_results)
-    path(directlfq_input) // For mapping more peptide sequences
     path(seq_header_map)
     val(outdir)
     val(logdir)
@@ -33,7 +32,6 @@ process COMBINE_PERCOLATOR {
         -p . \
         -o . \
         -i $combined_results \
-        -d $directlfq_input \
         -s $seq_header_map \
         -r $params.bin/R \
         -y $params.bin
