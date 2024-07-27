@@ -6,7 +6,6 @@ process COMBINE_ALL {
     path(downloads)
     path(eggnog)
     path(interpro)
-    path(directlfq_input)
     val(outdir)
     val(logdir)
     //
@@ -45,7 +44,6 @@ process COMBINE_ALL {
         --output "${params.pref}_all.tsv" \
         --go_path $params.go \
         --go_slim_path $params.go_slims \
-        --directlfq_aqreformat $directlfq_input \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
 
