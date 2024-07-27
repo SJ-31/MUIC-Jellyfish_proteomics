@@ -48,6 +48,7 @@ process DIRECTLFQ {
 
     script:
     def check = file("${outdir}/directlfq_prot.tsv")
+    prefix = aqreformat.baseName.replace(".aq_reformat", "")
     if (check.exists()) {
         """
         cp ${outdir}/directlfq_prot.tsv .
@@ -57,8 +58,8 @@ process DIRECTLFQ {
     } else {
         """
         directlfq lfq -i $aqreformat
-        mv directlfq.aq_reformat.tsv.protein_intensities.tsv directlfq_prot.tsv
-        mv directlfq.aq_reformat.tsv.ion_intensities.tsv directlfq_ions.tsv
+        mv "${prefix}.aq_reformat.tsv.protein_intensities.tsv" directlfq_prot.tsv
+        mv "${prefix}.aq_reformat.tsv.ion_intensities.tsv" directlfq_ions.tsv
         cp .command.out directlfq.log
         """
     }
