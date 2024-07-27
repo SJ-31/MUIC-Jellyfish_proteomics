@@ -53,9 +53,12 @@ def group_peptide_origin(id_series: pl.Series) -> pl.DataFrame:
 
 
 def clean_peptide(peptide):
-    if len(set(peptide) & {"]"}) > 0:
-        return "".join(re.findall("[A-Z]+", peptide))
-    return peptide
+    if re.search("[a-z]", peptide):
+        mod_regex = re.compile(r"\[[A-Za-z_]+\:[_A-Za-z]+\]")
+        peptide = re.subn(mod_regex, "", peptide)[0]
+    peptide = peptide.replace("X", "")
+    peptide = re.sub("^n", "", peptide)
+    return "".join(re.findall("[A-Z]+", peptide))
 
 
 def parent_dir(file_str, parent_level=-1):

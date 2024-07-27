@@ -577,9 +577,11 @@ get_adjusted_p <- function(
 #' with ";", properly accounting for weird modifications
 fill_peptide_gaps <- function(peptides) {
   map_chr(peptides, \(x) {
-    peps <- x |> str_replace_all("\\[[a-z \\[\\]\\:A-Z]+\\]", \(x) {
-      str_replace_all(x, " ", "_")
-    })
+    peps <- x |>
+      str_replace_all("\\[I+\\]", \(y) str_extract(y, "\\[(I+)\\]", group = 1)) |>
+      str_replace_all("\\[[a-z \\:A-Z]+\\]", \(x) {
+        str_replace_all(x, " ", "_")
+      })
     peps |>
       str_replace_all(" ", ";") |>
       str_replace_all("\\]_([A-Z\\[])", "\\];\\1") |>
