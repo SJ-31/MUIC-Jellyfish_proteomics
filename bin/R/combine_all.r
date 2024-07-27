@@ -1,6 +1,5 @@
 MAP_PFAMS <- TRUE
 MAP_KEGG <- TRUE
-MERGE_QUANT <- TRUE
 TEST <- FALSE
 library(seqinr)
 library(reticulate)
@@ -207,16 +206,14 @@ main <- function(args) {
   combined[combined == ""] <- NA
   combined <- correct_ids(combined)
   combined <- combined %>% mutate(
-    num_peps = sapply(peptideIds, function(x) {
-      return(str_count(x, ";") + 1)
-    }, USE.NAMES = FALSE),
-    mass = sapply(mass, function(x) {
+    num_peps = str_count(peptideIds, ";") + 1,
+    mass = map_dbl(mass, function(x) {
       if (x == "-" | is.na(x)) {
         return(NA)
       } else {
         return(as.double(x))
       }
-    }, USE.NAMES = FALSE)
+    })
   )
 
   combined <- combined %>%
@@ -225,15 +222,11 @@ main <- function(args) {
     mutate(
       GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
-      unique_peptides = lapply(peptideIds, \(x) {
-        x <- str_split_1(x, ";") %>%
-          lapply(., clean_peptide) %>%
-          unlist()
+      unique_peptides = purrr::map_chr(peptideIds, \(x) {
+        x <- str_split_1(x, ";") %>% map_chr(clean_peptide)
         return(paste0(unique(x), collapse = ";"))
-      }) %>% unlist(),
-      num_unique_peps = sapply(unique_peptides, \(x) {
-        return(str_count(x, ";") + 1)
-      }, USE.NAMES = FALSE),
+      }),
+      num_unique_peps = str_count(unique_peptides, ";") + 1,
       ID_method = purrr::map_chr(
         ID_method,
         \(x) ifelse(grepl(";", x), "both", x)
@@ -321,16 +314,6 @@ main <- function(args) {
       }
     )
     cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
-  }
-
-  ## Merge with quantification data
-  if (MERGE_QUANT) {
-    cat("BEGIN: merging quantification\n", file = LOGFILE, append = TRUE)
-    combined <- merge_with_quant(combined, read_tsv(args$directlfq), "directlfq") %>%
-      mutate(across(contains("directlfq"), base::log2))
-    combined <- merge_with_quant(combined, read_tsv(args$maxlfq), "maxlfq")
-    combined <- get_top3(args$directlfq_aqreformat, combined) |> as_tibble()
-    cat("COMPLETE: merging quantification\n", file = LOGFILE, append = TRUE)
   }
 
   ## Arrange columns

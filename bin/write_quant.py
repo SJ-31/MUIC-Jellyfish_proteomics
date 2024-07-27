@@ -63,9 +63,7 @@ def readFlashlfq(file):
     )
     name_mapper = {old: new for new, old in zip(new_cols, intensity_cols)}
     protdf.rename(name_mapper, axis="columns", inplace=True)
-    protdf.rename(
-        {"Protein Groups": "ProteinId"}, axis="columns", inplace=True
-    )
+    protdf.rename({"Protein Groups": "ProteinId"}, axis="columns", inplace=True)
     return protdf
 
 
@@ -75,8 +73,8 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-d", "--dlfq")
     parser.add_argument("--dlfq_sorted")
-    parser.add_argument("--flfq_sorted")
-    parser.add_argument("-f", "--flfq")
+    # parser.add_argument("--flfq_sorted")
+    # parser.add_argument("-f", "--flfq")
     args = vars(parser.parse_args())  # convert to dict
     return args
 
@@ -85,5 +83,5 @@ if __name__ == "__main__":
     args = parse_args()
     dlfq = readDirectlfq(args["dlfq"])
     dlfq.to_csv(args["dlfq_sorted"], sep="\t", na_rep="NA", index=False)
-    flfq = readFlashlfq(args["flfq"])
-    flfq.to_csv(args["flfq_sorted"], sep="\t", na_rep="NA", index=False)
+    # flfq = readFlashlfq(args["flfq"])
+    # flfq.to_csv(args["flfq_sorted"], sep="\t", na_rep="NA", index=False)

@@ -2,30 +2,57 @@ process WRITE_QUANT {
     publishDir "$outdir", mode: "copy"
 
     input:
-    path(directlfq)
-    path(flashlfq)
+    path(combined_results)
+    path(aqreformat)
     val(outdir)
     //
 
     output:
-    path("sorted_directlfq.tsv"), emit: dlfq
-    path("sorted_flashlfq.tsv"), emit: flfq
+    path("to_quantify.aq_reformat.tsv")
     //
 
     script:
-    check = "sorted_directlfq.tsv"
+    check = "to_quantify.aq_reformat.tsv"
     if (file("${outdir}/${check}").exists()) {
         """
-        cp ${outdir}/sorted_directlfq.tsv .
-        cp ${outdir}/sorted_flashlfq.tsv .
+        cp ${outdir}/to_quantify.aq_reformat.tsv .
         """
     } else {
     """
-    write_quant.py \
-        --dlfq $directlfq \
-        --flfq $flashlfq \
-        --dlfq_sorted sorted_directlfq.tsv \
-        --flfq_sorted sorted_flashlfq.tsv
+    helpers.py -t write_dlfq \
+        -i $combined_results \
+        -d $aqreformat \
+        -o to_quantify.aq_reformat.tsv
+    """
+    }
+    //
+}
+
+process LFQ_MERGE  {
+    publishDir "$outdir", mode: "copy"
+
+    input:
+    tuple path(directlfq), path(top3), path(maxlfq)
+    val(outdir)
+    //
+
+    output:
+    path("lfq_all.tsv")
+    //
+
+    script:
+    check = "lfq_all.tsv"
+    if (file("${outdir}/${check}").exists()) {
+        """
+        cp ${outdir}/lfq_all.tsv .
+        """
+    } else {
+    """
+    helpers.py -t merge \
+        -d $directlfq \
+        -p $top3 \
+        -m $maxlfq \
+        -o lfq_all.tsv
     """
     }
     //

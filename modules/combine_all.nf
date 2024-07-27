@@ -6,7 +6,7 @@ process COMBINE_ALL {
     path(downloads)
     path(eggnog)
     path(interpro)
-    tuple path(directlfq), path(directlfq_input), path(maxlfq)
+    path(directlfq_input)
     val(outdir)
     val(logdir)
     //
@@ -46,8 +46,6 @@ process COMBINE_ALL {
         --go_path $params.go \
         --go_slim_path $params.go_slims \
         --directlfq_aqreformat $directlfq_input \
-        --directlfq $directlfq \
-        --maxlfq $maxlfq \
         --r_source ${params.bin}/R \
         --python_source ${params.bin}
 

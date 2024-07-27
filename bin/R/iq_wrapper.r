@@ -19,7 +19,7 @@ main <- function(dlfq_input) {
     primary_id = "protein", secondary_id = "ion",
     sample_id = "sample",
     intensity_col = "intensity"
-  )
+  ) # Uses log2 intensities
 
   result <- iq::fast_MaxLFQ(preprocessed)$estimate %>%
     as.data.frame() %>%
@@ -32,7 +32,9 @@ main <- function(dlfq_input) {
 if (sys.nframe() == 0) {
   library("optparse")
   parser <- OptionParser()
-  parser <- add_option(parser, c("-i", "--input"), type = "character", help = "input file in form of directlfq generic input")
+  parser <- add_option(parser, c("-i", "--input"),
+    type = "character", help = "input file in form of directlfq generic input"
+  )
   parser <- add_option(parser, c("-r", "--r_source"), type = "character", help = "path to r source directory")
   parser <- add_option(parser, c("-o", "--output"),
     type = "character",
