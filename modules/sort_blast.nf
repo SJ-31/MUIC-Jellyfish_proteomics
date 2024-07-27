@@ -51,4 +51,4 @@ process SORT_BLAST {
 }
 
         // OLD unused blast header
-        // header="queryID,subjectID,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps"
+        // header="queryId,subjectId,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps"

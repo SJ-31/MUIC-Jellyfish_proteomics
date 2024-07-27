@@ -11,10 +11,9 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
   ) %>%
     mutate(
       inferred_by = "deeploc",
-      localization = Localizations,
-      category = Signals,
+      localization = Localizations
     ) %>%
-    select(all_of(c(colnames(um), "inferred_by", "localization", "category")))
+    select(all_of(c(colnames(um), "inferred_by", "localization")))
   return(merged)
 }
 

@@ -16,10 +16,18 @@ process COMBINE_PERCOLATOR {
     path("percolator_all.tsv")
     path("seq-header_map_found.tsv"), emit: seq_map
     path("percolator_peptide_map.tsv"), emit: peptide_map
-    path("*.log")
+    path("*.log"), optional: true
     //
 
     script:
+    def check = file("${outdir}/percolator_all.tsv")
+    if (check.exists()) {
+        """
+        cp $check .
+        cp ${outdir}/seq-header_map_found.tsv .
+        cp ${outdir}/percolator_peptide_map.tsv .
+        """
+    } else {
     """
     Rscript $params.bin/R/get_percolator_all.r \
         -p . \
@@ -32,5 +40,6 @@ process COMBINE_PERCOLATOR {
 
     cp .command.out get_percolator.log
     """
+    }
     //
 }
