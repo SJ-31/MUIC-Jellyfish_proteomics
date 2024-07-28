@@ -7,6 +7,7 @@ process SORT_BLAST {
     path(database_hits) // Combined database proteins to merge accepted blast
     // results into
     path(blast_results)
+    path(fasts_results)
     path(mapping) // Mapping file of ProteinId->Sequence, for retrieving metadata about
     // proteins newly inferred with blast
     val(outdir)
@@ -28,16 +29,18 @@ process SORT_BLAST {
         '''
     } else {
         '''
-        header="queryId,subjectId,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore"
+        b_header="queryId,subjectId,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps"
+        f_header="queryId,subjectId,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore"
 
-        echo $header | cat - !{blast_results} > blast_results.csv
+        echo $b_header | cat - !{blast_results} > blast_results.csv
+        echo $f_header | cat - !{fasts_results} > fasts_results.csv
 
-        sort_blast.py -b blast_results.csv \
+        sort_blast.py -b blast_results.csv fasts_results.csv \
             --unknown_hits !{unknown_tsv} \
             --blast_query_map !{query_tsv} \
             -d !{database_hits} \
             -m !{mapping} \
-            -i 80 \
+            -i 85 \
             -e 0.00001 \
             -p 0.05 \
             -o !{params.pref}_blast_matched.tsv \
@@ -50,5 +53,9 @@ process SORT_BLAST {
     }
 }
 
-        // OLD unused blast header
+        // blastp header
         // header="queryId,subjectId,sAlignStart,sAlignEnd,alignLen,bitscore,evalue,pident,nident,nmismatch,ngaps"
+
+
+        // fasts header
+        // header="queryId,subjectId,pident,alignLen,nmismatch,ngaps,qAlignStart,qAlignEnd,sAlignStart,aAlignEnd,evalue,bitscore"

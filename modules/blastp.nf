@@ -40,6 +40,7 @@ process BLASTP {
         blastp -query filtered.fasta \
             !{flags} \
             -db !{db} \
+            -evalue 0.001 \
             -outfmt "10 delim=, qseqid sseqid sstart send length bitscore evalue pident nident mismatch gaps" | \
             sed "s;sp|\\(.*\\)|;\\1;" > !{blast_results}
         '''

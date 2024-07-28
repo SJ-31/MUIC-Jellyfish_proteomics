@@ -14,7 +14,7 @@ def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-b", "--blast_results")
+    parser.add_argument("-b", "--blast_results", nargs="+", action="extend")
     parser.add_argument("-u", "--unknown_hits")
     parser.add_argument("-q", "--blast_query_map")
     parser.add_argument("-d", "--database_hits")
@@ -31,32 +31,28 @@ def parse_args():
 
 
 def main(args: dict):
-    blast_df = pl.read_csv(args["blast_results"])
-
+    dfs = [pl.read_csv(d) for d in args["blast_results"]]
+    blast_df = pl.concat(dfs, how="diagonal")
     qmap = pl.read_csv(args["blast_query_map"], separator="\t")
     group_df = pl.read_csv(args["database_hits"], separator="\t", null_values="NA")
     unknown_df = pl.read_csv(args["unknown_hits"], separator="\t", null_values="NA")
 
     # Join with the query map to obtain cleaned sequences
-    filtered = (
-        (
-            blast_df.filter(
-                (pl.col("pident") >= args["identity_threshold"])
-                & (pl.col("evalue") <= args["evalue_threshold"])
-            )
-        )
-        .join(qmap, on="queryId")
-        .join(
-            unknown_df.select(
-                "ProteinId",
-                "q.value",
-                "posterior_error_prob",
-                "ID_method",
-                "inferred_by",
-                "ProteinGroupId",
-            ),
-            on="ProteinId",
-        )
+    filtered = blast_df.filter(
+        (pl.col("pident") >= args["identity_threshold"])
+        & (pl.col("evalue") <= args["evalue_threshold"])
+    ).unique(["subjectId", "queryId"])
+
+    filtered = filtered.join(qmap, on="queryId").join(
+        unknown_df.select(
+            "ProteinId",
+            "q.value",
+            "posterior_error_prob",
+            "ID_method",
+            "inferred_by",
+            "ProteinGroupId",
+        ),
+        on="ProteinId",
     )
 
     # Write out the query sequences that were not matched successfully by BLAST

@@ -20,7 +20,8 @@ process FASTS {
         '''
     } else {
         '''
-        fasts36 -m 8 !{query} !{db} | sed 's/\t/,/g' > !{fasts_results}
+        fasts36 -m 8 !{query} !{db} \
+            -E 0.001 | sed 's/\t/,/g' > !{fasts_results}
         '''
     }
     //
