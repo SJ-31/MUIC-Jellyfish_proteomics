@@ -34,8 +34,12 @@ def main(args: dict):
     dfs = [pl.read_csv(d) for d in args["blast_results"]]
     blast_df = pl.concat(dfs, how="diagonal")
     qmap = pl.read_csv(args["blast_query_map"], separator="\t")
-    group_df = pl.read_csv(args["database_hits"], separator="\t", null_values="NA")
-    unknown_df = pl.read_csv(args["unknown_hits"], separator="\t", null_values="NA")
+    group_df = pl.read_csv(
+        args["database_hits"], separator="\t", null_values="NA"
+    )
+    unknown_df = pl.read_csv(
+        args["unknown_hits"], separator="\t", null_values="NA"
+    )
 
     # Join with the query map to obtain cleaned sequences
     filtered = blast_df.filter(
@@ -88,13 +92,17 @@ def main(args: dict):
     ]
     join_exprs = [pl.col(c).list.join(";") for c in to_keep]
     split_unique = ["inferred_by", "ID_method", "ProteinGroupId"]
-    split_unique_exprs = [pl.col(c).list.join(separator=";") for c in split_unique]
+    split_unique_exprs = [
+        pl.col(c).list.join(separator=";") for c in split_unique
+    ]
     found_best = (
         (
             found_best.group_by("subjectId")
             .agg(pl.col(to_keep), pl.col(split_unique).unique())
             .with_columns(join_exprs)
-            .rename({"ProteinId": "MatchedPeptideIds", "subjectId": "ProteinId"})
+            .rename(
+                {"ProteinId": "MatchedPeptideIds", "subjectId": "ProteinId"}
+            )
         )
         .join(
             pl.read_csv(args["seq_mapping"], separator="\t"),
@@ -112,7 +120,8 @@ def main(args: dict):
     # Join up blast identifications with the search engine results
     to_concat = ["peptideIds", "q.value", "posterior_error_prob"]
     concat_exprs = [
-        pl.concat_str([c, f"{c}_right"], separator=";").alias(c) for c in to_concat
+        pl.concat_str([c, f"{c}_right"], separator=";").alias(c)
+        for c in to_concat
     ]
     was_in_previous: pl.DataFrame = (
         group_df.join(found_best, on="ProteinId")
@@ -128,7 +137,9 @@ def main(args: dict):
         for n in set(was_in_previous.columns) - set(group_df.columns)
     ]
     others = (
-        group_df.filter(~pl.col("ProteinId").is_in(was_in_previous["ProteinId"]))
+        group_df.filter(
+            ~pl.col("ProteinId").is_in(was_in_previous["ProteinId"])
+        )
         .with_columns(null_cols)
         .select(was_in_previous.columns)
     )

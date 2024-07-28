@@ -35,12 +35,10 @@ HEADER_QUERIES <- list(
 #'
 count_go <- function(go_vector) {
   return(lapply(go_vector, \(x) {
-    row <- tibble(GO_count = 0, GO_max_sv = 0)
+    row <- tibble(GO_count = 0)
     if (!is.na(x)) {
       split <- unique(str_split_1(x, ";"))
       row$GO_count <- length(split)
-      svs <- purrr::map_dbl(split, getSV)
-      row$GO_max_sv <- max(svs)
     }
     return(row)
   }) %>% bind_rows())
@@ -273,7 +271,6 @@ main <- function(args) {
           dplyr::mutate(GO_IDs = clean_go_str(GO))
         gc <- count_go(combined$GO_IDs)
         combined$GO_counts <- gc$GO_count
-        combined$GO_max_sv <- gc$GO_max_sv
       },
       error = \(cnd) {
         print(reticulate::py_last_error())

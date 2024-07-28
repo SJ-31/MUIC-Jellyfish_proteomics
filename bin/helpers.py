@@ -2,7 +2,9 @@
 
 from collections import Counter
 import sys
+from Bio import SeqIO
 import pandas as pd
+import pathlib
 import numpy as np
 import polars.selectors as cs
 import polars as pl
@@ -68,7 +70,9 @@ def resolve_matches(dlfq: pl.DataFrame, df: pl.DataFrame):
     up_matches = dlfq.filter(pl.col("protein").is_in(has_matched[mp]))
     return (
         up_matches.join(
-            has_matched.select(["ProteinId", mp]), left_on="protein", right_on=mp
+            has_matched.select(["ProteinId", mp]),
+            left_on="protein",
+            right_on=mp,
         )
         .drop("protein")
         .rename({"ProteinId": "protein"})
@@ -114,7 +118,8 @@ def get_top3(dlfq_path: str, df: pd.DataFrame):
 
     top3: pl.DataFrame = (
         functools.reduce(
-            lambda x, y: x.join(y, on="protein", how="full", coalesce=True), all_top3
+            lambda x, y: x.join(y, on="protein", how="full", coalesce=True),
+            all_top3,
         )
         .with_columns(cs.numeric().log(base=2))
         .with_columns(cs.numeric().replace(-np.inf, 0))
@@ -140,6 +145,12 @@ def write_new_dlfq(dlfq_path: str, db_file: str, output: str):
         .select(matches.columns)
     )
     new_dlfq.write_csv(output, separator="\t")
+
+
+def write_fasta(headers: list[str], seqs: list[str], filename: str) -> None:
+    text = "\n".join([f">{h}\n{s}" for h, s in zip(headers, seqs)])
+    with open(filename, "w") as w:
+        w.write(text)
 
 
 def add_mean_median(df: pl.DataFrame, prefix: str):
@@ -177,14 +188,93 @@ def read_dlfq_prot(dlfq_path: str) -> pl.DataFrame:
     return exploded
 
 
+def fasta2df(fasta: str) -> pl.DataFrame:
+    tmp = {"header": [], "seq": []}
+    for entry in SeqIO.parse(fasta, format="fasta"):
+        tmp["header"].append(entry.id)
+        tmp["seq"].append(entry.seq)
+    return pl.DataFrame(tmp)
+
+
+def get_queries(query_path: str, header_mapping: str) -> tuple[pl.DataFrame, dict]:
+    queries = fasta2df(query_path)
+    header_map = pl.read_csv(header_mapping, separator="\t")
+    queries = (
+        queries.join(header_map, left_on="header", right_on="id")
+        .rename({"header_right": "H"})
+        .drop("mass", "seq_right", "length")
+    )
+    header2id: dict = dict(zip(queries["H"], queries["header"]))
+    return queries, header2id
+
+
+def retrieve_saved_eggnog(
+    query_path: str,
+    saved_path: str,
+    header_mapping: str,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    queries, header2id = get_queries(query_path, header_mapping)
+    filenames = ["annotations", "orthologs", "seed_orthologs"]
+    qcols = ["#query", "#query", "#qseqid"]
+    dfs = [
+        pl.read_csv(
+            f"{saved_path}/eggnog_{t}.tsv",
+            separator="\t",
+            comment_prefix="##",
+            null_values="NA",
+        )
+        for t in filenames
+    ]
+    # Retrieve annotations that were already found for "queries"
+    filtered = [
+        df.filter(pl.col("header").is_in(queries["H"]))
+        .with_columns(
+            pl.col("header")
+            .map_elements(lambda x: header2id[x], return_dtype=pl.String)
+            .alias(qcol)
+        )
+        .select([qcol] + df.columns)
+        .drop("header")
+        for df, qcol in zip(dfs, qcols)
+    ]
+    results = {m: df for m, df in zip(filenames, filtered)}
+    queries = queries.filter(~pl.col("H").is_in(dfs[0]["header"]))  # Remove all
+    # queries that were previously found
+    return results, queries
+
+
+def retrieve_saved_interpro(
+    query_path: str,
+    saved_path: str,
+    header_mapping: str | None = None,
+) -> tuple[pl.DataFrame, pl.DataFrame]:
+    queries, header2id = get_queries(query_path, header_mapping)
+    interpro = pl.read_csv(saved_path, separator="\t")
+    filtered = (
+        interpro.filter(pl.col("header").is_in(queries["H"]))
+        .with_columns(
+            pl.col("header")
+            .map_elements(lambda x: header2id[x], return_dtype=pl.String)
+            .alias("query")
+        )
+        .select(["query"] + interpro.columns)
+        .drop("header")
+    )
+    queries = queries.filter(~pl.col("H").is_in(interpro["header"]))
+    return filtered, queries
+
+
 def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-t", "--task")
     parser.add_argument("-i", "--input")
+    parser.add_argument("--save_type")
     parser.add_argument("-m", "--maxlfq")
     parser.add_argument("-p", "--top3")
+    parser.add_argument("-s", "--saved")
+    parser.add_argument("--seq_header_mapping")
     parser.add_argument("-d", "--dlfq_input")
     parser.add_argument("-o", "--output")
     args = vars(parser.parse_args())
@@ -211,3 +301,20 @@ if __name__ == "__main__" and len(sys.argv) > 1:
             [dlfq, maxlfq, top3],
         ).rename({"protein": "ProteinId"})
         all.write_csv(args["output"], separator="\t", null_value="NA")
+    elif args["task"] == "get_saved" and args["save_type"] == "eggnog":
+        eggnog, queries = retrieve_saved_eggnog(
+            query_path=args["input"],
+            saved_path=args["saved"],
+            header_mapping=args["seq_header_mapping"],
+        )
+        write_fasta(queries["header"], queries["seq"], filename="new_query.fasta")
+        for t, df in eggnog.items():
+            df.write_csv(f"saved_{t}.tsv", separator="\t", include_header=False)
+    elif args["task"] == "get_saved" and args["save_type"] == "interpro":
+        interpro, queries = retrieve_saved_interpro(
+            query_path=args["input"],
+            saved_path=args["saved"],
+            header_mapping=args["seq_header_mapping"],
+        )
+        interpro.write_csv("saved_interpro.tsv", separator="\t", include_header=False)
+        write_fasta(queries["header"], queries["seq"], filename="new_query.fasta")

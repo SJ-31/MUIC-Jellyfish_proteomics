@@ -232,19 +232,18 @@ applied_coverage <- function(
 
 calculate_coverage <- function(prot_df) {
   # Coverage calculation will only be performed on full-length proteins
-  considered <- dplyr::filter(prot_df, !grepl("U|D", ProteinId))
   cov_info <- pmap(
     list(
-      considered$ProteinId,
-      considered$MatchedPeptideIds,
-      considered$unique_peptides,
-      considered$seq,
-      considered$UniProtKB_ID
+      prot_df$ProteinId,
+      prot_df$MatchedPeptideIds,
+      prot_df$unique_peptides,
+      prot_df$seq,
+      prot_df$UniProtKB_ID
     ),
     applied_coverage
   ) %>%
     dplyr::bind_rows() %>%
-    dplyr::mutate(ProteinId = considered$ProteinId)
+    dplyr::mutate(ProteinId = prot_df$ProteinId)
   return(cov_info)
 }
 

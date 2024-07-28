@@ -3,7 +3,11 @@ library(tidyverse)
 library(glue)
 
 
-REPLACE_COMMA <- c("EC", "KEGG_ko", "KEGG_Pathway", "KEGG_Module", "KEGG_Reaction", "KEGG_rclass", "BRITE", "KEGG_TC", "CAZy", "BiGG_Reaction", "PFAMs", "GO")
+REPLACE_COMMA <- c(
+  "KEGG_ko", "KEGG_Pathway", "KEGG_Module",
+  "KEGG_Reaction", "BRITE",
+  "PFAMs", "GO"
+)
 
 
 # 1. Determine which proteins weren't matched by eggnog, then extract to a fasta file for further annotation by interpro
@@ -70,7 +74,7 @@ main <- function(args) {
   ) %>% select(-all_of(c(
     "GOs", "bitscore", "pident", "qcov", "scov",
     "score", "evalue", "bitscore", "max_annot_lvl",
-    "KEGG_rclass", "KEGG_TC", "CAZy", "BiGG_Reaction", "EC",
+    "KEGG_rclass", "KEGG_TC", "CAZy", "BiGG_Reaction", "EC"
   )))
   for (to_replace in REPLACE_COMMA) {
     replaced <- purrr::map_chr(
