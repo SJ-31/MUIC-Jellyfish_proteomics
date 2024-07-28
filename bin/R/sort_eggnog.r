@@ -67,10 +67,11 @@ main <- function(args) {
       pattern = "ko:",
       replacement = "",
     ))
-  ) %>% select(-c(
+  ) %>% select(-all_of(c(
     "GOs", "bitscore", "pident", "qcov", "scov",
-    "score", "evalue", "bitscore", "max_annot_lvl"
-  ))
+    "score", "evalue", "bitscore", "max_annot_lvl",
+    "KEGG_rclass", "KEGG_TC", "CAZy", "BiGG_Reaction", "EC",
+  )))
   for (to_replace in REPLACE_COMMA) {
     replaced <- purrr::map_chr(
       final[[to_replace]],

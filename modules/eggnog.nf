@@ -18,21 +18,37 @@ process EGGNOG {
         path(unknown_tsv), emit: unmatched
     //
 
-    script:
+    shell:
     check = file("${outdir}/${params.pref}.emapper.seed_orthologs")
     if (check.exists()) {
-        """
-        cp ${outdir}/${params.pref}.emapper* .
-        """
+        '''
+        cp !{outdir}/!{params.pref}.emapper* .
+        '''
     } else {
-        """
-        clean_fasta.py -i $unknown_fasta -o query.fasta
-        export EGGNOG_DATA_DIR="$params.eggnog_data_dir"
+        '''
+        clean_fasta.py -i !unknown_fasta -o query.fasta
+        if [[ -e !{params.saved}/eggnog_annotations.tsv ]]; then
+            helpers.py -t get_saved \
+                --save_type eggnog \
+                -i query.fasta \
+                --saved !{params.saved} \
+                --seq_header_mapping !{results}/Databases/seq-header_mappings.tsv
+            rm query.fasta; mv new_query.fasta query.fasta
+        fi
+
+        export EGGNOG_DATA_DIR="!params.eggnog_data_dir"
         emapper.py -i query.fasta \
-            --output ${params.pref} \
+            --output !{params.pref} \
             -m mmseqs \
-            --report_orthologs
-        """
+            --report_orthologs \
+            --no_file_comments
+
+        if [[ -e saved_annotations.tsv ]]; then
+            for i in "annotations" "orthologs" "seed_orthologs"; do
+                cat saved_${i}.tsv >> !{params.pref}.emapper.${i} saved_${i}.tsv
+            done
+        fi
+        '''
     }
 }
 

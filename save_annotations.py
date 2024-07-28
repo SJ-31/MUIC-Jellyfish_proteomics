@@ -74,7 +74,7 @@ def save_seen_anno(
     return uniques
 
 
-def save_seen_eggnog(rpath: str, header_mapping: str, write_to: str = ""):
+def save_seen_eggnog(rpath: str, header_mapping: str, write_dir: str = ""):
     header_map = pl.read_csv(header_mapping, separator="\t")
     to_read = [
         f"{rpath}/{p}/Unmatched/eggNOG" for p in ["1-First_pass", "2-Second_pass"]
@@ -104,11 +104,32 @@ def save_seen_eggnog(rpath: str, header_mapping: str, write_to: str = ""):
         df = pl.concat([first[i], second[i]]).unique("header")
         results.append(df)
 
-    if write_to:
+    if write_dir:
         for df, output in zip(results, ["annotations", "orthologs", "seed_orthologs"]):
-            file = f"{write_to}/eggnog_{output}.tsv"
+            file = f"{write_dir}/eggnog_{output}.tsv"
             df.write_csv(file, separator="\t", null_value="NA")
     return results
+
+
+def save_seen_interpro(rpath: str, header_mapping: str, write_dir: str = ""):
+    header_map = pl.read_csv(header_mapping, separator="\t")
+    id2header = dict(zip(header_map["id"], header_map["header"]))
+    to_read = [
+        next(pathlib.Path(f"{rpath}/{p}/Unmatched/InterPro").glob("*_interpro.tsv"))
+        for p in ["1-First_pass", "2-Second_pass"]
+    ]
+    df: pl.DataFrame = (
+        pl.concat([pl.read_csv(p, separator="\t") for p in to_read])
+        .unique(["query", "member_db", "start", "stop"])
+        .with_columns(
+            header=pl.col("query").map_elements(
+                lambda x: id2header[x], return_dtype=pl.String
+            )
+        )
+    ).drop("query")
+    if write_dir:
+        df.write_csv(f"{write_dir}/interpro.tsv", separator="\t", null_value="NA")
+    return df
 
 
 c_indra_a = "./results/C_indra_A"
@@ -125,10 +146,4 @@ interpro_path = f"{saved}/interpro.tsv"
 
 # anno: pl.DataFrame = save_seen_anno(c_indra_a, "C_indra", annotations, write=True)
 # eggnog = save_seen_eggnog(results, header_mapping, "./results/C_indra_A/.saved")
-
-hh.retrieve_saved(
-    "./query.fasta",
-    "./results/C_indra_A/.saved",
-    "./results/C_indra_A/Databases/seq-header_mappings.tsv",
-    "eggnog",
-)
+# interpro = save_seen_interpro(results, header_mapping, "./results/C_indra_A/.saved")
