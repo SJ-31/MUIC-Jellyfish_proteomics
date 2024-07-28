@@ -5,10 +5,11 @@ if [[ ! -d !{outdir} ]]; then
 fi
 
 if [ -e !{outdir}/!{params.pref}_downloads_anno-1.tsv ]; then
-    mv !{outdir}/!{params.pref}_downloads_anno-1.tsv .
+    cp !{outdir}/!{params.pref}_downloads_anno-1.tsv .
 else
     annotate.py -i !{combined_tsv} \
-        --output !{params.pref}_downloads_anno-1.tsv
+        --output !{params.pref}_downloads_anno-1.tsv \
+        --previous_saved !{params.saved_annotations}
 fi
 
 

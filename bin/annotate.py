@@ -319,6 +319,15 @@ def anno(args: dict):
     2. Obtain annotation information for UniProt proteins
     """
     to_map = pd.read_csv(args["input"], sep="\t")
+    if args["previous_saved"]:
+        saved_ref = pd.read_csv(args["previous_saved"], sep="\t")
+        saved: pd.DataFrame = to_map.merge(
+            saved_ref, on="header", suffixes=[None, "_y"]
+        ).drop("inferred_by_y", axis="columns")
+        to_map = to_map[~to_map["header"].isin(saved_ref["header"])]
+    else:
+        saved = pd.DataFrame()
+
     dbIds_ids = to_map.apply(id_from_header, axis=1).dropna()
     all_ids_mapping = pd.DataFrame(
         {
@@ -328,9 +337,7 @@ def anno(args: dict):
     )
     ids = all_ids_mapping["dbId"]
 
-    # 1.
-    ncbi_ids = ids.where(ids.str.contains("\\."))
-    ncbi_ids = set(ncbi_ids.dropna())
+    ncbi_ids = set(ids.where(ids.str.contains("\\.")).dropna())
     uniprot_ids = ids[~(ids.isin(ncbi_ids))]
     ncbi_mapped = pd.DataFrame()
     databases = [
@@ -402,6 +409,8 @@ def anno(args: dict):
         final[final["ProteinId"].isin(needs_annotating_ids)].drop(
             "PFAMs", axis="columns"
         ).to_csv("needs_annotating.tsv", sep="\t", index=False, na_rep="NA")
+    if not saved.empty:
+        final = pd.concat([final, saved])
     return final
 
 
@@ -486,6 +495,7 @@ def parse_args():
     parser.add_argument("-a", "--annotate_extra", action="store_true")
     parser.add_argument("-e", "--merge_eggnog", action="store_true")
     parser.add_argument("-o", "--output")
+    parser.add_argument("-p", "--previous_saved", default="")
     parser.add_argument("-q", "--interpro_query")
     parser.add_argument("-r", "--r_source")
     parser.add_argument("-i", "--input")
