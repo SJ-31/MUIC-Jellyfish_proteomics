@@ -21,13 +21,15 @@ process INTERPROSCAN {
         '''
         clean_fasta.py -i !{unknown_fasta} -o query.fasta
         header="query\tsequence_md5\tlength\tmember_db\tdb_accession\tdescription\tstart\tstop\tevalue\tstatus\tdate\tinterpro_accession\tinterpro_description\tGO\tpathways"
-        if [[ -e !{params.saved}/interpro.tsv ]]; then
+        if [[ -e !{params.saved_dir}/interpro.tsv ]]; then
+            echo "USING SAVED"
             helpers.py -t get_saved \
                 --save_type interpro \
                 -i query.fasta \
-                --saved !{params.saved}/interpro.tsv \
-                --seq_header_mapping !{results}/Databases/seq-header_mappings.tsv
+                --saved !{params.saved_dir}/interpro.tsv \
+                --seq_header_mapping !{params.results}/Databases/seq-header_mappings.tsv
             rm query.fasta; mv new_query.fasta query.fasta
+        fi
 
         interproscan.sh -i query.fasta \
             -f tsv \
@@ -36,6 +38,7 @@ process INTERPROSCAN {
             -b temp
 
         if [[ -e saved_interpro.tsv ]]; then
+            echo "CONCATENATING SAVED"
             cat saved_interpro.tsv >> temp.tsv
         fi
 
