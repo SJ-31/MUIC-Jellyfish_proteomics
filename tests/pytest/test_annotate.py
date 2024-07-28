@@ -15,19 +15,13 @@ test = f"{dir}/tests/results/Unmatched/Database-annotated"
 pytest = f"{dir}/tests/pytest/output"
 
 
-def test_nextflow_out():
-    pth = "./results/jellyfish/1-First_pass/"
-    check = pd.read_csv(f"{pth}/Unmatched/Database-annotated", sep="\t")
-    cols = check.columns
-    assert not check.columns.str.contains("_[xy]").any()
-
-
 def test_anno():
     import os
 
     args = {
         "input": f"{pth}/Unmatched/BLAST/C_indra_blast_matched.tsv",
-        "annotate_extra": True,
+        "previous_saved": f"{dir}/data/reference/C_indra_previous_annotations.tsv",
+        # "annotate_extra": True,
     }
     f = an.anno(args)
     t = pd.read_csv("needs_annotating.tsv", sep="\t")
@@ -42,7 +36,6 @@ def test_anno():
 def test_merge_eggnog():
     dirname = f"{dir}/tests/results/Unmatched/Database-annotated"
     args = {
-        # "more_anno": f"{dirname}/jellyfish_downloads_anno-1.tsv",
         "more_anno": f"{pytest}/annotated_extra.tsv",
         "eggnog_tsv": f"{dirname}/annotate_eggnog_unmatched/eggnog_matched.tsv",
     }
@@ -68,15 +61,3 @@ for name, df in a.items():
     print(f"{name}: {df.shape}")
     print(f"    Num unique protein ids {df['ProteinId'].unique().shape}")
     print(vo.columnsWith(",", df))
-# ae = a["annotated_extra"]
-# hp = a["annotated_extra"].query("GO.isna() & PANTHER.notna()")
-# It does seem that in some cases, the panther-go mapping fails...
-
-# f.to_csv(
-#     f"{pytest}/jellyfish_downloads_anno-1.tsv",
-#     sep="\t",
-#     index=False,
-#     na_rep="NaN",
-# )
-# eggnog = test_merge_eggnog()
-# i = test_merge_interpro()

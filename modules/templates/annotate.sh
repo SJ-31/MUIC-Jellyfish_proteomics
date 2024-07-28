@@ -9,7 +9,7 @@ if [ -e !{outdir}/!{params.pref}_downloads_anno-1.tsv ]; then
 else
     annotate.py -i !{combined_tsv} \
         --output !{params.pref}_downloads_anno-1.tsv \
-        --previous_saved !{params.saved_annotations}
+        --previous_saved !{params.saved_dir}/annotations.tsv
 fi
 
 
