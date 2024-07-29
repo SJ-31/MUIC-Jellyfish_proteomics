@@ -1,6 +1,3 @@
-MAP_PFAMS <- TRUE
-MAP_KEGG <- TRUE
-TEST <- FALSE
 library(seqinr)
 library(reticulate)
 library(tidyverse)
@@ -17,18 +14,6 @@ FIRST_COLS <- c(
   "GroupUP", "MatchedPeptideIds", "NCBI_ID", "UniProtKB_ID",
   "organism", "lineage", "ID_method", "inferred_by"
 )
-
-HEADER_QUERIES <- list(
-  unknown = "unknown|uncharacterized|predicted|unnamed|hypothetical",
-  venom_component = "toxin|porin",
-  transport = "pump|transport|channel",
-  membrane = "membrane",
-  translation = "ribosome|elongation|initiation|translation",
-  catalytic_activity = "ase",
-  cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
-  other = ""
-)
-
 
 #' Count of number unique GO terms assigned to each protein, and
 #' determine the maximum semantic value of the GO terms of that protein
@@ -75,61 +60,6 @@ clean_go_str <- function(go_vector) {
 }
 
 
-#' When there are multiple quantified peptides for a protein, take
-#' the top 3 peptides and average their values, reporting that as the
-#' abundance of the protein
-#' @param quant_name the name of the program used to generate the
-#' quantification data e.g. "directlfq"
-meanTop3 <- function(tb, quant_name) {
-  tb <- tb %>%
-    group_by(ProteinId) %>%
-    nest() %>%
-    apply(., 1, \(x) {
-      top_three <- slice_max(x[["data"]], across(contains(quant_name)), n = 3)
-      means <- top_three %>%
-        summarise(across(contains(quant_name), \(x) mean(x, na.rm = TRUE)))
-      joined_ids <- paste0(x[["data"]]$MatchedPeptideIds, collapse = ";")
-      id <- x[["ProteinId"]]
-      return(top_three[1, ] %>%
-        select(-contains(quant_name)) %>%
-        mutate(.,
-          MatchedPeptideIds = joined_ids,
-          ProteinId = id
-        ) %>%
-        bind_cols(means))
-    }) %>%
-    bind_rows()
-  return(tb)
-}
-
-
-# Merge annotation tibble with quantification tibble
-# Entries that have been matched by multiple peptides
-# peptides (de novo, transcriptome etc.) in blast and interpro are
-# extracted and handled differently: the values are averaged
-# Compute average and median values across samples
-merge_with_quant <- function(main_tb, quant_tb, quant_name) {
-  has_multiple <- main_tb %>% filter(!is.na(MatchedPeptideIds))
-  if (nrow(has_multiple) != 0) {
-    # Attempt to find quantification for every peptide that was matched to a given protein
-    split_up <- separate_longer_delim(has_multiple, "MatchedPeptideIds", ";")
-    joined <- left_join(split_up, quant_tb, by = join_by(x$MatchedPeptideIds == y$ProteinId))
-    has_multiple <- meanTop3(joined, quant_name = quant_name)
-  }
-  full_proteins <- main_tb %>% filter(is.na(MatchedPeptideIds))
-  full_proteins <- left_join(full_proteins, quant_tb,
-    by = join_by(x$ProteinId == y$ProteinId)
-  )
-  bound <- bind_rows(full_proteins, has_multiple)
-  calcs <- bound %>%
-    dplyr::rowwise() %>%
-    dplyr::reframe(
-      "{quant_name}_mean" := mean(c_across(contains(quant_name)), na.rm = TRUE),
-      "{quant_name}_median" := median(c_across(contains(quant_name)), na.rm = TRUE)
-    )
-  return(bind_cols(bound, calcs))
-}
-
 KEEP_AS_CHAR <- c(
   "ProteinId", "header", "NCBI_ID", "UniProtKB_ID", "organism", "ProteinGroupId",
   "lineage", "GO", "GO_evidence", "KEGG_Genes", "PANTHER", "MatchedPeptideIds",
@@ -146,6 +76,9 @@ ANNO_COLS <- KEEP_AS_CHAR %>% discard(., \(x) {
 })
 
 sort_vals <- function(values) {
+  if (is.na(values)) {
+    return(1)
+  }
   v <- str_split_1(values, ";|,") %>% as.double()
   if (length(v) > 1) {
     v <- sort(v)[2]
@@ -197,12 +130,11 @@ main <- function(args) {
   } else {
     combined <- downloads
   }
-  if (TEST) {
-    combined <- combined %>% slice(., 1:2000)
-  }
 
   combined[combined == ""] <- NA
-  combined <- correct_ids(combined)
+  if ("NCBI_ID" %in% colnames(combined) && "UniProtKB_ID" %in% colnames(combined)) {
+    combined <- correct_ids(combined)
+  }
   combined <- combined %>% mutate(
     num_peps = str_count(peptideIds, ";") + 1,
     mass = map_dbl(mass, function(x) {
@@ -218,9 +150,11 @@ main <- function(args) {
     mutate_all(~ replace(., . == "-", NA)) %>%
     mutate_all(~ replace(., . == NaN, NA)) %>%
     mutate(
-      GO_evidence = apply(., 1, getEvidence),
       length = as.double(gsub("unknown", NA, length)),
       unique_peptides = purrr::map_chr(peptideIds, \(x) {
+        if (is.na(x)) {
+          return(NA)
+        }
         x <- str_split_1(x, ";") %>% map_chr(clean_peptide)
         return(paste0(unique(x), collapse = ";"))
       }),
@@ -253,7 +187,8 @@ main <- function(args) {
   combined <- select(combined, -all_of(redundant))
 
   ## Map pfam domains to GO and get GO IDs
-  if (MAP_PFAMS && "GO" %in% colnames(combined)) {
+  if ("GO" %in% colnames(combined)) {
+    combined <- combined |> mutate(GO_evidence = apply(., 1, getEvidence))
     cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
     tryCatch(
       expr = {
@@ -294,7 +229,7 @@ main <- function(args) {
   }
 
   ## Map KEGG Genes to KEGG pathways
-  if (MAP_KEGG && any(grepl("KEGG", colnames(combined)))) {
+  if (any(grepl("KEGG", colnames(combined)))) {
     cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
     kegg_env <- new.env()
     source_python(glue("{args$python_source}/map2kegg.py"), envir = kegg_env)
@@ -318,6 +253,9 @@ main <- function(args) {
     eggNOG_preferred_name = "Preferred_name",
     eggNOG_description = "Description"
   )
+  if (!"organism" %in% colnames(combined)) {
+    combined$organism <- NA
+  }
   combined <- get_organism(combined, denovo_org = str_replace_all(args$denovo_org, "_", " "))
   combined <- combined %>%
     dplyr::rename(any_of(rename_lookup)) %>%
@@ -326,8 +264,8 @@ main <- function(args) {
     ) %>%
     relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
     relocate(any_of(c("peptideIds", "seq")), .after = where(is.numeric)) %>%
-    relocate(contains("interpro")) %>%
-    relocate(contains("KEGG")) %>%
+    relocate(any_of(contains("interpro"))) %>%
+    relocate(any_of(contains("KEGG"))) %>%
     relocate(any_of(c(
       contains("eggNOG"),
       "seed_ortholog", "COG_category"
@@ -336,8 +274,6 @@ main <- function(args) {
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(any_of(FIRST_COLS))
   combined <- group_by_unique_peptides(combined)
-
-
   return(combined)
 }
 

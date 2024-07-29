@@ -3,9 +3,7 @@ process COMBINE_ALL {
     publishDir "$logdir", mode: "copy", pattern: "*.log"
 
     input:
-    path(downloads)
-    path(eggnog)
-    path(interpro)
+    tuple path(downloads), path(eggnog), path(interpro)
     val(outdir)
     val(logdir)
     //

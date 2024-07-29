@@ -105,6 +105,11 @@ resolve_alignment <- function(seq1, seq2) {
   return(str_flatten(resolved))
 }
 
+resolve_alignment2 <- function(seq1, seq2) {
+
+
+}
+
 append_all_list <- function(lst, to_append) {
   if (length(to_append) > 1) {
     new <- lapply(seq_along(lst), \(x) {
@@ -322,6 +327,9 @@ if (sys.nframe() == 0) {
   args <- parse_args(parser)
   input <- read_tsv(args$input)
   if (args$split) {
+    if (!"UniProtKB_ID" %in% colnames(input)) {
+      input$UniProtKB_ID <- "NONE"
+    }
     split_for_coverage(input, args$output_path)
   } else if (args$calculate) {
     SEQ_MAP <- read_tsv(args$seq_header_map)

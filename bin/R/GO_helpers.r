@@ -573,7 +573,7 @@ map_unique <- function(ids, map) {
 }
 
 get_organism <- function(tb, denovo_org) {
-  organism_from_header <- function(organism, lineage, header) {
+  organism_from_header <- function(organism, header) {
     # Parse the organism from an NCBI or uniprot ID
     if (is.na(organism) && !is.na(header)) {
       if (str_detect(header, "DENOVO")) {
@@ -590,6 +590,6 @@ get_organism <- function(tb, denovo_org) {
     }
     return(organism)
   }
-  organisms <- pmap(list(tb$organism, tb$lineage, tb$header), organism_from_header) |> unlist()
+  organisms <- pmap(list(tb$organism, tb$header), organism_from_header) |> unlist()
   tb |> mutate(organism = organisms)
 }

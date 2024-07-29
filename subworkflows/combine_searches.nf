@@ -7,9 +7,9 @@ include { SORT_BLAST } from '../modules/sort_blast'
 include { ANNOTATE } from '../modules/annotate'
 include { WRITE_QUANT; LFQ_MERGE } from '../modules/write_quant'
 include { TOP3 } from '../modules/top3'
+include { CONCAT_TSV } from '../modules/utils'
 include { DIRECTLFQ } from '../modules/directlfq'
 include { MAX_LFQ } from '../modules/maxlfq'
-include { FINAL_METRICS } from '../modules/final_metrics'
 include { FASTS } from '../modules/fasts'
 include { MERGE_OPEN } from '../modules/merge_open'
 include { CLUSTER_UNMATCHED } from '../modules/cluster_unmatched'
@@ -70,33 +70,44 @@ workflow 'combine_searches' {
     //      B's peptides in the main database search results
     // 2. Extract queries that weren't matched by blast
 
-    EGGNOG(SORT_BLAST.out.unmatched,
-            "$outdir/Unmatched/eggNOG")
-    SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched by eggnog
+    // Optional annotation
+    if (params.annotate) {
+        EGGNOG(SORT_BLAST.out.unmatched,
                 "$outdir/Unmatched/eggNOG")
-    INTERPROSCAN(SORT_EGGNOG.out.fasta,
-                    "$outdir/Unmatched/InterPro")
-    SORT_INTERPRO(INTERPROSCAN.out, SORT_EGGNOG.out.unmatched,
-                    "$outdir/Unmatched/InterPro",
-                    "$outdir/Unmatched/Remaining_unmatched")
+        SORT_EGGNOG(EGGNOG.out.unmatched, // Extract peptides that weren't matched by eggnog
+                    "$outdir/Unmatched/eggNOG")
+        INTERPROSCAN(SORT_EGGNOG.out.fasta,
+                        "$outdir/Unmatched/InterPro")
+        SORT_INTERPRO(INTERPROSCAN.out, SORT_EGGNOG.out.unmatched,
+                        "$outdir/Unmatched/InterPro",
+                        "$outdir/Unmatched/Remaining_unmatched")
 
-    // BUG Temporary fix for eggnog failure
-    eggnog_matched = nullIfEmpty(SORT_EGGNOG.out.matched, "EGGNOG_EMPTY")
-    interpro_matched = nullIfEmpty(SORT_INTERPRO.out.matched, "INTERPRO_EMPTY")
-    interpro_unmatched_fasta = nullIfEmpty(SORT_INTERPRO.out.unmatched_fasta,
-        "INTERPRO_FASTA_EMPTY")
-
-    ANNOTATE(SORT_BLAST.out.matched,
-                "$outdir/Unmatched/Database-annotated")
+        // BUG Temporary fix for eggnog failure
+        eggnog_matched = nullIfEmpty(SORT_EGGNOG.out.matched, "EGGNOG_EMPTY")
+        interpro_matched = nullIfEmpty(SORT_INTERPRO.out.matched, "INTERPRO_EMPTY")
+        interpro_unmatched_fasta = nullIfEmpty(SORT_INTERPRO.out.unmatched_fasta,
+            "INTERPRO_FASTA_EMPTY")
 
 
-    COMBINE_ALL(ANNOTATE.out.annotations, eggnog_matched,
-                interpro_matched, "$outdir", "$outdir/Logs")
+        ANNOTATE(SORT_BLAST.out.matched,
+                    "$outdir/Unmatched/Database-annotated")
+
+        ANNOTATE.out.annotations
+            .concat(eggnog_matched, interpro_matched).collect()
+            .set { combined_ch }
+    } else {
+       CONCAT_TSV(SORT_BLAST.out.matched, SORT_BLAST.out.unmatched, "blast_all.tsv", "$outdir/Unmatched")
+            .concat(
+                nullIfEmpty(Channel.empty(), "EGGNOG_EMPTY"),
+                nullIfEmpty(Channel.empty(), "INTERPRO_EMPTY")
+                ).collect().set { combined_ch }
+    }
+
+    COMBINE_ALL(combined_ch, "$outdir", "$outdir/Logs")
     COMBINE_PERCOLATOR(prot2intersect, prot2intersect_open_search,
                         COMBINE_ALL.out.all,
                         seq_header_mappings,
                         "$outdir", "$outdir/Logs")
-    unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
 
     WRITE_QUANT(COMBINE_ALL.out.all, directlfq_input, "$outdir/Quantify")
     TOP3(COMBINE_ALL.out.all, directlfq_input, "$outdir/Quantify")
@@ -115,10 +126,12 @@ workflow 'combine_searches' {
 
 
     // Will not run if all proteins were matched
-    CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
-    SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
-    DEEPLOC(SIGNALP.out.fasta, COVERAGE_MERGE.out.tsv,
-        SEARCH_INTERSECT.out.unsorted,
-        "$outdir/Deeploc", "$outdir")
-
+    if (params.annotate) {
+        unmatched_ch = ANNOTATE.out.unannotated.mix(interpro_unmatched_fasta)
+        CLUSTER_UNMATCHED(unmatched_ch.collect(), "$outdir")
+        SIGNALP(CLUSTER_UNMATCHED.out.fasta, "$outdir/SignalP")
+        DEEPLOC(SIGNALP.out.fasta, COVERAGE_MERGE.out.tsv,
+            SEARCH_INTERSECT.out.unsorted,
+            "$outdir/Deeploc", "$outdir")
+    }
 }
