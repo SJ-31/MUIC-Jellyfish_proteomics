@@ -188,6 +188,10 @@ def read_dlfq_prot(dlfq_path: str) -> pl.DataFrame:
     return exploded
 
 
+def flatten_by(lst, by=";"):
+    return [i for string in lst for i in string.split(by)]
+
+
 def fasta2df(fasta: str) -> pl.DataFrame:
     tmp = {"header": [], "seq": []}
     for entry in SeqIO.parse(fasta, format="fasta"):
@@ -264,6 +268,17 @@ def retrieve_saved_interpro(
     return filtered, queries
 
 
+def get_denovo_stats(denovo_file: str, identifications: str):
+    data: pl.DataFrame = pl.read_csv(identifications, separator="\t", null_values="NA")
+    matched: list = flatten_by(
+        data.filter(pl.col("MatchedPeptideIds").is_not_null())["MatchedPeptideIds"]
+    ) + list(data.filter(pl.col("ProteinId").str.contains("D"))["ProteinId"])
+    denovo: pl.DataFrame = fasta2df(denovo_file)
+    was_matched = denovo.filter(pl.col("header").is_in(matched))
+    percent_id = was_matched.shape[0] / denovo.shape[0]
+    print(f"Percent identified: {percent_id}")
+
+
 def parse_args():
     import argparse
 
@@ -318,3 +333,5 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         )
         interpro.write_csv("saved_interpro.tsv", separator="\t", include_header=False)
         write_fasta(queries["header"], queries["seq"], filename="new_query.fasta")
+    elif args["task"] == "denovo_stats":
+        get_denovo_stats(args["input"], args["saved"])

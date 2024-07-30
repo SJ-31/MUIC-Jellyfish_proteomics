@@ -28,9 +28,7 @@ AAs = {
 }
 
 
-def record_mismatch(
-    protein_id: str, old: str, new: str, index: int
-) -> pd.DataFrame:
+def record_mismatch(protein_id: str, old: str, new: str, index: int) -> pd.DataFrame:
     temp = {"ProteinId": [], "change": [], "type": [], "index": []}
     temp["ProteinId"].append(protein_id)
     temp["change"].append(f"{old}->{new}")
@@ -43,7 +41,7 @@ def record_mismatch(
 def record_alignment(header: str, seq, alignment) -> tuple:
     protein_id = header[: header.find(":")]
     header = header[header.find(":") + 1 :]
-    if "DENOVO" in header or "U" in protein_id:
+    if "DENOVO" in header or "U" in protein_id or alignment == "NA":
         return tuple()
     length = len(seq)
     matches: int = length
@@ -52,7 +50,12 @@ def record_alignment(header: str, seq, alignment) -> tuple:
     mismatches = pd.DataFrame()
     while i < length:
         old: str = seq[i]
-        new: str = alignment[i]
+        try:
+            new: str = alignment[i]
+        except IndexError:
+            print("Index out of range!")
+            print(alignment)
+            exit(1)
         if new == "[":
             indices = (i + 1, alignment[i:].find("]") + i)
             possible_mismatches = alignment[indices[0] : indices[1]]
@@ -65,9 +68,7 @@ def record_alignment(header: str, seq, alignment) -> tuple:
                             record_mismatch(protein_id, old, r, i),
                         ]
                     )
-            alignment = (
-                alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
-            )
+            alignment = alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
         elif new == "-":
             matches -= 1
         elif old != new:
