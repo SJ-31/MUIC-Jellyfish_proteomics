@@ -23,7 +23,6 @@ process COMPARISON_EMBEDDINGS {
         """
     } else if (embedding_type == "protein") {
         """
-        source activate $params.reticulate
         get_distances.py \
             -i $sample_embeddings \
             -o sample_with_comp_dist.hdf5 \
