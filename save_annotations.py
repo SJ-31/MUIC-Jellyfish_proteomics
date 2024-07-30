@@ -30,7 +30,6 @@ ID_COLS = [
     "lineage",
     "NCBI_ID",
     "UniProtKB_ID",
-    "inferred_by",
 ]
 
 
@@ -144,6 +143,6 @@ annotations_path = f"{saved}/annotations.tsv"
 eggnog_path = f"{saved}/eggnog.tsv"
 interpro_path = f"{saved}/interpro.tsv"
 
-# anno: pl.DataFrame = save_seen_anno(c_indra_a, "C_indra", annotations, write=True)
+# anno: pl.DataFrame = save_seen_anno(c_indra_a, "C_indra", annotations_path, write=True)
 # eggnog = save_seen_eggnog(results, header_mapping, "./results/C_indra_A/.saved")
 # interpro = save_seen_interpro(results, header_mapping, "./results/C_indra_A/.saved")

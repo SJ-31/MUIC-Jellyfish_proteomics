@@ -6,6 +6,7 @@ fi
 
 if [ -e !{outdir}/!{params.pref}_downloads_anno-1.tsv ]; then
     cp !{outdir}/!{params.pref}_downloads_anno-1.tsv .
+    cp !{outdir}/needs_annotating* .
 else
     annotate.py -i !{combined_tsv} \
         --output !{params.pref}_downloads_anno-1.tsv \
@@ -18,6 +19,7 @@ if [ -e annotation_complete.fasta ]; then
     exit 0
 else
     cp !{params.pref}_downloads_anno-1.tsv !{outdir}
+    cp needs_annotating* !{outdir}
 fi
 
 eggdir="annotate_eggnog_unmatched"
@@ -35,7 +37,7 @@ if [ ! -d "${previous_eggnog}" ]; then
         --report_orthologs
 else
     cp -r "${previous_eggnog}" .
-    cp needs_annotating* ${eggdir}; cd ${eggdir}
+    cd ${eggdir}
     touch eggnog_copied.txt
 fi
 
