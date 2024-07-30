@@ -345,12 +345,12 @@ pairwise_tests_tb <- function(
 #' @description
 #' @param target the metric to average, either "mean" or "median"
 merge_lfq <- function(tb, target) {
-  lfq_cols <- paste0(c("directlfq", "maxlfq", "flashlfq"), "_", target)
+  lfq_cols <- paste0(c("directlfq", "maxlfq", "top3"), "_", target)
   quant <- tb %>% dplyr::select(ProteinId, contains(lfq_cols))
   is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
   quant <- mutate(quant,
     log_intensity = pmap(
-      list(maxlfq_mean, directlfq_mean, flashlfq_mean),
+      list(maxlfq_mean, directlfq_mean, top3_mean),
       \(x, y, z) mean(c(x, y, z), na.rm = TRUE)
     ) %>% unlist()
   )
@@ -365,7 +365,7 @@ merge_lfq <- function(tb, target) {
 #' argument
 merge_lfq_custom <- function(tb, combineFun) {
   quant <- tb %>%
-    select(matches("directlfq|flashlfq|maxlfq")) %>%
+    select(matches("directlfq|top3|maxlfq")) %>%
     select(-matches("mean|median"))
   is.na(quant) <- do.call(cbind, lapply(quant, is.infinite))
   return(combineFun(quant))

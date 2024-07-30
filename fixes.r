@@ -175,6 +175,15 @@ fix <- function(filename, fix) {
         write_tsv(file = filename)
     }
   }
+  if (fix == "id_method") {
+    # 2024-07-11 Removed the category column before re-doing the category
+    # strategy
+    if ("ID_method_y" %in% colnames(tb)) {
+      tb |>
+        select(-ID_method_y) |>
+        write_tsv(file = filename)
+    }
+  }
 }
 
 get_to_fix <- function(pattern) {
@@ -193,7 +202,3 @@ get_to_fix <- function(pattern) {
 apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
-
-files <- get_to_fix("C_indra_all.*tsv")
-
-apply_fixes(files, "category")

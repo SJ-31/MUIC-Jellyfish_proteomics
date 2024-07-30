@@ -58,8 +58,15 @@ source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
 
-data <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_all_wcoverage.tsv")) |> group_by_unique_peptides()
-tax <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_taxonomy.tsv"))
+lfq <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/lfq_all.tsv"))
+
+data <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_all_wcoverage.tsv")) |>
+  filter(grepl("P", ProteinId)) |>
+  inner_join(lfq, by = join_by(ProteinId)) |>
+  group_by_unique_peptides()
+
+tax <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_taxonomy.tsv")) |> filter(ProteinId %in% data$ProteinId)
+
 
 ideal_ratio <- tibble(
   taxon = c("Human", "Yeast", "E. coli"),
@@ -122,6 +129,7 @@ lfq <- merge_lfq(data, "mean") |>
     Genus = nth(Genus, 1)
   )
 
+
 lfq_genus <- lfq |>
   group_by(Genus) |>
   summarise(
@@ -173,6 +181,7 @@ GRAPHS$prop_comparison <- compare_props |>
     limits = c("identifications", "spike-in ratio", "intensity")
   )
 
+GRAPHS$prop_comparison
 
 ggsave(
   filename = glue("{wd}/docs/benchmark_prop_comparison.png"),
