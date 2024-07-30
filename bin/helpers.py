@@ -268,15 +268,19 @@ def retrieve_saved_interpro(
     return filtered, queries
 
 
-def get_denovo_stats(denovo_file: str, identifications: str):
+def get_denovo_stats(denovo_file: str, identifications: str, header_map_path: str):
     data: pl.DataFrame = pl.read_csv(identifications, separator="\t", null_values="NA")
+    header_map = pl.read_csv(header_map_path, separator="\t")
     matched: list = flatten_by(
         data.filter(pl.col("MatchedPeptideIds").is_not_null())["MatchedPeptideIds"]
     ) + list(data.filter(pl.col("ProteinId").str.contains("D"))["ProteinId"])
-    denovo: pl.DataFrame = fasta2df(denovo_file)
-    was_matched = denovo.filter(pl.col("header").is_in(matched))
+    matched = list(set(filter(lambda x: "D" in x, matched)))
+    denovo: pl.DataFrame = fasta2df(denovo_file).join(header_map, on="header")
+    print(f"Number of denovo peptides given: {denovo.shape[0]}")
+    print(f"Number of denovo peptides matched: {len(matched)}")
+    was_matched = denovo.filter(pl.col("id").is_in(matched))
     percent_id = was_matched.shape[0] / denovo.shape[0]
-    print(f"Percent identified: {percent_id}")
+    print(f"Percent identified: {percent_id * 100}")
 
 
 def parse_args():
@@ -334,4 +338,4 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         interpro.write_csv("saved_interpro.tsv", separator="\t", include_header=False)
         write_fasta(queries["header"], queries["seq"], filename="new_query.fasta")
     elif args["task"] == "denovo_stats":
-        get_denovo_stats(args["input"], args["saved"])
+        get_denovo_stats(args["input"], args["saved"], args["seq_header_mapping"])
