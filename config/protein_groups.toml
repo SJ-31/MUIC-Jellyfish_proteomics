@@ -25,19 +25,55 @@ q = "Secondary metabolites biosynthesis, transport, and catabolism"
 r = "General function prediction only"
 s = "Function unknown"
 
+
 [cog]
-j = ["foo"]
-a = ["foo"]
-k = ["GO:0032774", "GO:0006350"]
-l = ["foo"]
-b = ["foo"]
-d = ["foo"]
-y = ["foo"]
-v = ["foo"]
-t = ["foo"]
-m = ["foo"]
-n = ["foo"]
-z = ["GO:0061640", "GO:0008092"]
+j = [
+    "GO:0006412", # BP: Translation
+    "GO:0045182", # MF: translation regulator activity
+    "GO:0033750", # BP: ribosome localization
+    "GO:0005840", # CC: ribosome
+    "GO:0042254", # ribosome biogenesis
+    "GO:0019843", # MF: rRNA binding"
+]
+a = [ # RNA processing and modification
+    "GO:0006396", # BP: RNA processing, note this is
+    # a child of RNA biosynthetic process
+    "GO:00160",   # BP: RNA metabolic process
+    "GO:0004540", # MF: RNA nuclease activity
+    "GO:0034518", # CC: RNA cap binding complex
+    "GO:0030555", # MF: RNA modification guide activity
+    "GO:0003723", # MF: RNA binding
+]
+# Must make sure that if something is defined here, it will be ignored, so that its children won't get mapped into another category
+k = [ # Transcription
+    "GO:0032774",                          # BP: RNA biosynthetic process
+    "GO:0070063",                          # MF: RNA polymerase binding
+    "GO:0097747",                          # MF: RNA polymerase activity
+    "GO:0005667",                          # CC: transcription regulator complex
+    "GO:0140110",                          # MF transcription regulator activity"
+    "GO:0030880",                          # CC: RNA polymerase complex
+    "GO:0008023",                          # CC: transcription elongation factor complex"
+    "GO:0000172",  # ribonuclease MRP complex
+    "GO:0090575", # CC: RNA polymerase II transcription regulator complex
+]
+l = [ # Replication, recombination, and repair
+"foo"]
+b = [ # Chromatin structure and dynamics
+"foo"]
+d = [ # Cell cycle control, cell division, chromosome partitioning
+"foo"]
+y = [ # Nuclear structure
+"foo"]
+v = [ # Defense mechanisms
+"foo"]
+t = [ # Signal transduction mechanisms
+"foo"]
+m = [ # Cell wall/membrane/envelope biogenesis
+"foo"]
+n = [ # Cell motility
+"foo"]
+z = [ # Cytoskeleton
+"GO:0061640", "GO:0008092"]
 w = ["foo"]
 u = ["foo"]
 o = ["foo"]
@@ -51,8 +87,20 @@ p = ["foo"]
 q = ["foo"]
 r = ["foo"]
 s = ["foo"]
+venom_component = [""]
 
 [header_names]
+# HEADER_QUERIES <- list(
+# unknown = "unknown|uncharacterized|predicted|unnamed|hypothetical",
+# venom_component = "toxin|porin",
+# transport = "pump|transport|channel",
+# membrane = "membrane",
+# translation = "ribosome|elongation|initiation|translation",
+# catalytic_activity = "ase",
+# cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
+
+# )
+other = ""
 
 [header_names.cog]
 s = ["uncharacterized", "hypothetical", "predicted", "putative", "unnamed"]
@@ -81,5 +129,69 @@ nerve_growth_factor = []
 amino_acid_oxidase = []
 nucleotidase = []
 
-
 [toxins]
+hemolysin = [
+    "GO:0044179",
+    "GO:0044468", # envenomation resulting in modulation of blood coagulation in another organism
+    "GO:0044483", # envenomation resulting in impairment of hemostasis in another organism:
+    "GO:0044358", # envenomation resulting in hemorrhagic damage in another organism
+]
+c_type_lectin = [
+    "GO:0001862",
+    "GO:0002772", # inhibitory C-type lectin receptor signaling pathway
+    "GO:0002223", # stimulatory C-type lectin receptor signaling pathway
+]
+serine_protease = [
+    "GO:0001648", # proteinase-activated receptor activity
+    "GO:0097180", # serine protease inhibitor complex
+]
+CRISP = []
+neurotoxin = [
+    "GO:0016524", # latrotoxin receptor activity
+]
+metalloprotease = [
+    "GO:0098769", # TIMP family protein binding
+    "GO:0071100", # alphaV-beta8 integrin-MMP14-TGFbeta-1 complex
+    "GO:1990773", # matrix metallopeptidase secretion
+    "GO:1905048", # regulation of metallopeptidase activity
+    "GO:1904464", # regulation of matrix metallopeptidase secretion
+    "GO:0008237", # metallopeptidase activity
+]
+jft = []
+pore_forming = [
+    "GO:0008282", # inward rectifying potassium channel
+    "GO:0140911", # pore-forming activity
+    "GO:0046931", # pore complex assembly
+    "GO:0046930", # pore complex
+    "GO:0044471", # envenomation resulting in pore formation in membrane of another organism
+    "GO:0072559", # NLRP3 inflammasome complex
+]
+cardiotoxin = [
+    "GO:0044556", # envenomation resulting in negative regulation of heart rate in another organism
+]
+myotoxin = [
+    "GO:0044482", # envenomation resulting in muscle damage in another organism
+]
+pesticidal_crystal = []
+phospholipase = [
+    "GO:0004620", # phospholipase activity (covers phospholipase A2)
+    "GO:0010517", # regulation of phospholipase activity
+]
+enterotoxin = []
+natriuretic = [
+    "GO:0016941", # natriuretic peptide receptor activity
+    "GO:0003050", # regulation of systemic arterial blood pressure by atrial natriuretic peptide
+]
+nerve_growth_factor = [
+    "GO:0005163",  # nerve growth factor receptor binding
+    "GO:0044487",  # envenomation resulting in modulation of transmission of nerve impulse in another
+    "GO:0032898",  # neurotrophin production
+    "GO:0032455",  # nerve growth factor processing
+    "GO:0005030",  # neurotrophin receptor activity
+    " GO:0032899", # regulation of neurotrophin production"
+    "GO:0051394",  # regulation of nerve growth factor receptor activity
+]
+amino_acid_oxidase = []
+nucleotidase = [
+    "GO:0032903", # nucleotidase activity
+]
