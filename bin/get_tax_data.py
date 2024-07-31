@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import ete4 as et
+import sqlite3
 import re
 import polars as pl
 
@@ -81,7 +82,7 @@ def get_tax_data(df: pl.DataFrame, ranks: list[str], ncbi: et.NCBITaxa):
     ).filter(pl.col("TaxID") != -1)
 
 
-def parseArgs():
+def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
@@ -94,8 +95,15 @@ def parseArgs():
 
 if __name__ == "__main__":
     RANKS: list = ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
-    args = parseArgs()
-    NCBI = et.NCBITaxa(taxdump_file=args["ncbi_taxdump"])
+    args = parse_args()
+    database_locked = True
+    while database_locked:
+        try:
+            NCBI = et.NCBITaxa(taxdump_file=args["ncbi_taxdump"])
+            database_locked = False
+        except Exception as e:
+            if not isinstance(e, sqlite3.OperationalError):
+                raise
     df = pl.read_csv(args["input"], separator="\t", null_values="NA").filter(
         pl.col("organism").is_not_null()
     )
