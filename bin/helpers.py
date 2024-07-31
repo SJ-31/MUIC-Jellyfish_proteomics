@@ -36,6 +36,111 @@ AA_LOOKUP = {
 }
 
 
+REGEXES = {
+    "pfam": re.compile("(PF.*?)_"),
+    "uniprot": re.compile("\\S*\\|\\S*\\|\\S* (.*) OS="),
+    "ncbi": re.compile("\\S* (.*) \\["),
+}
+
+
+# Split elements in these columns and keep only the unique ones
+COLS = {
+    "split_keep_unique": [
+        "ProteinGroupId",
+        "PANTHER",
+        "COG_category",
+        "KEGG_Genes",
+        "entry_name",
+        "KEGG_ko",
+        "KEGG_Pathway",
+        "KEGG_Module",
+        "KEGG_Reaction",
+        "interpro_accession",
+        "interpro_description",
+        "interpro_pathways",
+        "interpro_db",
+        "GO",
+        "GO_evidence",
+        "PFAMs",
+        "eggNOG_OGs",
+        "BRITE",
+        "Description",
+        "Preferred_name",
+        "MatchedPeptideIds",
+    ],
+    "drop_nulls_get_first": [
+        "header",
+        "NCBI_ID",
+        "UniProtKB_ID",
+        "organism",
+        "lineage",
+        "ID_method",
+        "inferred_by",
+        "seed_ortholog",
+    ],
+    "get_first":  # These columns will already be the same,
+    # (or the choice is arbitrary)
+    # so its fine to just get the first
+    ["ProteinId", "mass", "length"],
+    "concat": [
+        "is_blast_best",
+        "is_blast_one_hit",
+        "q.value",
+        "posterior_error_prob",
+        "q_adjust",
+        "pep_adjust",
+        "peptideIds",
+    ],
+}
+
+
+def resolve_duplicate_seq(data: pd.DataFrame, as_pandas=True):
+    data = pl.from_pandas(data).with_columns(
+        entry_name=pl.col("header").map_elements(
+            entry_name_from_header, return_dtype=pl.String
+        )
+    )
+
+    for c in COLS:
+        COLS[c] = list(filter(lambda x: x in data.columns, COLS[c]))
+
+    exprs = {
+        "split_keep_unique": (
+            pl.col(COLS["split_keep_unique"])
+            .list.join(";")
+            .str.split(";")
+            .list.unique()
+            .list.join(";")
+        ),
+        "drop_nulls_get_first": pl.col(COLS["drop_nulls_get_first"])
+        .list.drop_nulls()
+        .list.first(),
+        "get_first": pl.col(COLS["get_first"]).list.first(),
+        "concat": pl.col(COLS["concat"]).list.join(";"),
+    }
+
+    all_cols = [_ for col in COLS.values() for _ in col]
+    joined: pl.DataFrame = (
+        data.group_by("seq")
+        .agg(pl.col(all_cols))
+        .with_columns(*exprs.values())
+        .select(data.columns)
+    )
+    if as_pandas:
+        return joined.to_pandas()
+    return joined
+
+
+def entry_name_from_header(header: str) -> str:
+    if not header:
+        return header
+    if REGEXES["uniprot"].match(header):
+        return REGEXES["uniprot"].findall(header)[0]
+    elif REGEXES["ncbi"].match(header):
+        return REGEXES["ncbi"].findall(header)[0]
+    return header
+
+
 def parse_named(named_mod, count, sep="|"):
     s = named_mod.split(":")
     info = s[1].split("_")
@@ -87,7 +192,7 @@ def get_top3(dlfq_path: str, df: pd.DataFrame):
     """
     df = pl.from_pandas(df)
     dlfq = (
-        pl.read_csv(dlfq_path, separator="\t")
+        pl.read_csv(dlfq_path, separator="\t", infer_schema_length=None)
         .with_columns(pl.col("protein").str.split(";"))
         .explode("protein")
     )
@@ -131,7 +236,7 @@ def get_top3(dlfq_path: str, df: pd.DataFrame):
 def write_new_dlfq(dlfq_path: str, db_file: str, output: str):
     df = pl.from_pandas(pd.read_csv(db_file, sep="\t"))
     dlfq = (
-        pl.read_csv(dlfq_path, separator="\t")
+        pl.read_csv(dlfq_path, separator="\t", infer_schema_length=None)
         .with_columns(pl.col("protein").str.split(";"))
         .explode("protein")
     )
