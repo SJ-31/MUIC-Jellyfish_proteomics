@@ -97,7 +97,7 @@ load_file <- function(path) {
 
 #' Parse GO evidence codes for all entries that have them
 #' GOs added by eggNOG and interpro are automatically labelled IEA
-getEvidence <- function(row) {
+get_evidence <- function(row) {
   if (is.na(row[["GO"]])) {
     return(NA)
   }
@@ -109,12 +109,6 @@ getEvidence <- function(row) {
     return(evidence)
   }
   return("IEA")
-}
-
-checkMatchedPeps <- function(tb) {
-  return(tb$MatchedPeptideIds %>%
-    map_lgl(\(x) grepl("P", x)) %>%
-    any())
 }
 
 
@@ -135,6 +129,10 @@ main <- function(args) {
   if ("NCBI_ID" %in% colnames(combined) && "UniProtKB_ID" %in% colnames(combined)) {
     combined <- correct_ids(combined)
   }
+  if (length(combined$seq) != length(unique(combined$seq))) {
+    combined <- resolve_duplicate_seq(combined)
+  }
+
   combined <- combined %>% mutate(
     num_peps = str_count(peptideIds, ";") + 1,
     mass = map_dbl(mass, function(x) {
@@ -148,6 +146,7 @@ main <- function(args) {
 
   combined <- combined %>%
     mutate_all(~ replace(., . == "-", NA)) %>%
+    mutate_all(~ replace(., . == "", NA)) %>%
     mutate_all(~ replace(., . == NaN, NA)) %>%
     mutate(
       length = as.double(gsub("unknown", NA, length)),
@@ -188,7 +187,7 @@ main <- function(args) {
 
   ## Map pfam domains to GO and get GO IDs
   if ("GO" %in% colnames(combined)) {
-    combined <- combined |> mutate(GO_evidence = apply(., 1, getEvidence))
+    combined <- combined %>% mutate(GO_evidence = apply(., 1, get_evidence))
     cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
     tryCatch(
       expr = {

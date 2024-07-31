@@ -538,7 +538,8 @@ class CompleteGO(SubsetGO):
                 if with_label:
                     o = result[g].get("ontology")
                     del result[g]["term"]
-                    metadata["I"] = f'"{g}|{o} {self.term_map.get(g)}"'
+                    id_num = g.replace("GO:", "")
+                    metadata["I"] = f'"{id_num}|{o} {self.term_map.get(g)}"'
                 else:
                     metadata["id"] = f'"{g}"'
                 ordered.append(metadata)

@@ -4,13 +4,11 @@ import re
 
 REGEXES = {
     "pfam": re.compile("(PF.*?)_"),
-    "uniprot": re.compile("\\S*\\|\\S*\\|\\S* (.*) OS="),
-    "ncbi": re.compile("\\S* (.*) \\["),
 }
 
 ANNO_COLS = [
     "PFAMs",
-    "header",
+    "entry_name",
     "organism",
     "PANTHER",
     "eggNOG_description",
@@ -56,16 +54,6 @@ def get_pfam_acc(pfam, mapping):
     return mapping.get(pfam, pfam)
 
 
-def entry_name_from_header(header: str) -> str:
-    if not header:
-        return header
-    if REGEXES["uniprot"].match(header):
-        return REGEXES["uniprot"].findall(header)[0]
-    elif REGEXES["ncbi"].match(header):
-        return REGEXES["ncbi"].findall(header)[0]
-    return header
-
-
 ADDED = ["PFAM_IDs", "name"]
 
 
@@ -78,13 +66,8 @@ class Grouper:
         short_name2acc: dict = dict(zip(pfam_map["short_name"], pfam_map["accession"]))
 
         self.map: dict = dict(zip(map_df["Accession"], map_df["Group"]))
-        aggregated = (
-            data.with_columns(
-                name=pl.col("header").map_elements(
-                    entry_name_from_header, return_dtype=pl.String
-                )
-            )
-            .with_columns(pl.col(ANNO_COLS).str.split(by=";"))
+        aggregated = (  # Transforms df into long form
+            data.with_columns(pl.col(ANNO_COLS).str.split(by=";"))
             .with_columns(
                 PFAM_IDs=pl.col("PFAMs").map_elements(
                     lambda x: list(map(lambda y: get_pfam_acc(y, short_name2acc), x)),
@@ -94,6 +77,7 @@ class Grouper:
             .group_by("GroupUP")
             .agg(pl.col("ProteinId"), pl.col(ANNO_COLS + ADDED).explode())
         )
+
         self.cols_to_count_groups = ["PFAM_IDs", "interpro_accession", "PANTHER"]
         # columns containing accessions that will be counted to determine groups
         self.cols_to_sum = self.cols_to_count_groups.copy()
@@ -136,7 +120,7 @@ def find_max_struct(x):
 
 
 def mapping_from_definition(dct: dict[str, list]) -> dict:
-    """Maps the elements of the values of dct to their keys"""
+    """Maps the elements of the values of dct (which are lists) to their keys"""
     return {item: key for key, value in dct.items() for item in value}
 
 
@@ -205,11 +189,12 @@ def main(args):
             toxin_map, data, maps["header_names"]["toxins"], args["pfam_map_path"]
         )
         result = G.assign_groups()
-        result.write_csv(args["output"], separator="\t")
+        return result, G
     elif args["mode"] == "cog":
         G = Grouper()
 
 
 if __name__ == "__main__":
     args = parse_args()
-    main(args)
+    result, G = main(args)
+    result.write_csv(args["output"], separator="\t")

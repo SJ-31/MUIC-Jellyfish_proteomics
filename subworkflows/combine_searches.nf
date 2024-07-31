@@ -96,11 +96,10 @@ workflow 'combine_searches' {
             .concat(eggnog_matched, interpro_matched).collect()
             .set { combined_ch }
     } else {
-       CONCAT_TSV(SORT_BLAST.out.matched, SORT_BLAST.out.unmatched, "blast_all.tsv", "$outdir/Unmatched")
-            .concat(
-                nullIfEmpty(Channel.empty(), "EGGNOG_EMPTY"),
-                nullIfEmpty(Channel.empty(), "INTERPRO_EMPTY")
-                ).collect().set { combined_ch }
+        SORT_BLAST.out.matched.concat(
+            nullIfEmpty(Channel.empty(), "EGGNOG_EMPTY"),
+            nullIfEmpty(Channel.empty(), "INTERPRO_EMPTY")
+            ).collect().set { combined_ch }
     }
 
     COMBINE_ALL(combined_ch, "$outdir", "$outdir/Logs")
