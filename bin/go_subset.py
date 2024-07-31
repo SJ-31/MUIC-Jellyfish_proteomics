@@ -254,6 +254,23 @@ def get_level_map(G: nx.DiGraph, root=None) -> dict:
     return level_map
 
 
+def write_go_metadata(go_obo_path: str, output: str) -> None:
+    GO: nx.MultiDiGraph = obonet.read_obo(go_obo_path)
+    ontologies = {
+        "biological_process": "BP",
+        "cellular_component": "CC",
+        "molecular_function": "MF",
+    }
+    meta = {"GO_IDs": [], "term": [], "definition": [], "ontology": []}
+    for node, data in GO.nodes.items():
+        meta["GO_IDs"].append(node)
+        meta["term"].append(data.get("name"))
+        meta["definition"].append(data.get("def"))
+        meta["ontology"].append(ontologies.get(data.get("namespace")))
+    mdf = pl.DataFrame(meta)
+    mdf.write_csv(output, separator="\t", null_value="NA")
+
+
 def to_json(
     go_path: str,
     sample_path: str,
@@ -438,26 +455,28 @@ class CompleteGO(SubsetGO):
         go_path: str,
         metadata_path: str,
         get_metadata: bool = False,
-        saved: str = None,
     ) -> None:
         metadata = pl.read_csv(metadata_path, separator="\t")
         self.roots = {"BP": "GO:0008150", "CC": "GO:0005575", "MF": "GO:0003674"}
-        GO: nx.MultiDiGraph = obonet.read_obo(go_path)
-        self.G: nx.MultiDiGraph = nx.MultiDiGraph()
-        root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
+        self.root_map: dict = dict(zip(metadata["GO_IDs"], metadata["ontology"]))
         self.term_map: dict = dict(zip(metadata["GO_IDs"], metadata["term"]))
+        if ".obo" in go_path:
+            GO: nx.MultiDiGraph = obonet.read_obo(go_path)
+            self.G: nx.MultiDiGraph = nx.MultiDiGraph()
+            self.G.add_nodes_from(self.roots.values())
+            for go in metadata["GO_IDs"]:
+                if go in GO:
+                    paths: list = nx.all_simple_edge_paths(
+                        GO, source=go, target=self.roots[self.root_map[go]]
+                    )
+                    is_a = relation_only_paths(paths, "is_a")
+                    if is_a:
+                        for i in is_a:
+                            self.G.add_edges_from(i)
+            nx.set_node_attributes(self.G, self.term_map, name="term")
+        elif ".gml" in go_path:
+            self.G = nx.read_gml(go_path)
         self.definition_map = dict(zip(metadata["GO_IDs"], metadata["definition"]))
-        self.G.add_nodes_from(self.roots.values())
-        for go in metadata["GO_IDs"]:
-            if go in GO:
-                paths: list = nx.all_simple_edge_paths(
-                    GO, source=go, target=self.roots[root_map[go]]
-                )
-                is_a = relation_only_paths(paths, "is_a")
-                if is_a:
-                    for i in is_a:
-                        self.G.add_edges_from(i)
-        nx.set_node_attributes(self.G, self.term_map, name="term")
         self.metadata = metadata
         self.successors = None
         self.GL, self.name_map = self.w_term_label()
@@ -476,10 +495,82 @@ class CompleteGO(SubsetGO):
             label_map[t] = f"{t} {self.term_map[t]}"
         return nx.relabel_nodes(self.G, label_map), label_map
 
+    def browse(
+        self,
+        regex: str,
+        as_df: bool = False,
+        ontology: str = None,
+        sort: bool = True,
+        with_label: bool = True,
+    ) -> dict | pl.DataFrame:
+        filtered = self.metadata.filter(
+            pl.any_horizontal(pl.col(["term", "definition"]).str.contains(regex))
+        )
+        if ontology and ontology in {"BP", "MF", "CC"}:
+            filtered = filtered.filter(pl.col("ontology") == ontology)
+        if sort:
+            filtered = filtered.sort(
+                by=["n_children", "level"], descending=[True, False]
+            )
+        if as_df:
+            return filtered
+        result = {}
+        if "level" in filtered.columns and "n_children" in filtered.columns:
+            for row in filtered.iter_rows(named=True):
+                result[row["GO_IDs"]] = {
+                    "ontology": row["ontology"],
+                    "term": row["term"],
+                    "definition": row["definition"],
+                    "level": row["level"],
+                    "n_children": row["n_children"],
+                }
+        else:
+            for row in filtered.iter_rows():
+                result[row[0]] = {
+                    "ontology": row[3],
+                    "term": row[1],
+                    "definition": row[2],
+                }
+        if sort:
+            ordered = []
+            for g in filtered["GO_IDs"]:
+                metadata = {"M": result[g]}
+                if with_label:
+                    o = result[g].get("ontology")
+                    del result[g]["term"]
+                    metadata["I"] = f'"{g}|{o} {self.term_map.get(g)}"'
+                else:
+                    metadata["id"] = f'"{g}"'
+                ordered.append(metadata)
+            return ordered
+        else:
+            return result
+
     def nested_successors(self, term: str, with_label=True):
         if with_label:
             return get_successors_nested(self.GL, self.name_map[term])
         return get_successors_nested(self.G, term)
+
+    def get_parents(self, term: str, with_label: bool = True):
+        def parse_edge_list(edges: list):
+            result = []
+            for index, edge in enumerate(edges):
+                if with_label:
+                    t = f"{edge[0]} {self.term_map.get(edge[0])}"
+                else:
+                    t = edge[0]
+                t = f"{' ' * index} {t}"
+                result.append(t)
+            if with_label:
+                result.append(f"{' ' * len(edges)} {term} {self.term_map.get(term)}")
+            else:
+                result.append(f"{' ' * len(edges)} {term}")
+            return result
+
+        root = self.roots.get(self.root_map.get(term))
+        if root:
+            paths = nx.all_simple_edge_paths(self.G, source=root, target=term)
+            return [parse_edge_list(p) for p in paths]
 
     def get_node_data(self):
         self.successors: dict = {}
@@ -494,7 +585,8 @@ class CompleteGO(SubsetGO):
             (pl.DataFrame({"GO_IDs": list(self.G.nodes)}))
             .with_columns(
                 n_children=pl.col("GO_IDs").map_elements(
-                    lambda x: len(self.successors[x]), return_dtype=pl.Int16
+                    lambda x: len(get_successors(self.G, from_node=x)),
+                    return_dtype=pl.Int16,
                 ),
                 level=pl.col("GO_IDs").map_elements(
                     lambda x: level_map[x], return_dtype=pl.Int16
