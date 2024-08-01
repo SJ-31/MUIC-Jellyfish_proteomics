@@ -41,32 +41,26 @@ read_metamorpheus <- function(metamorpheus_file) {
 
 read_tide <- function(tide_file, mapping) {
   # Needs tide-search.target.txt
-  selection <- c("file", "scan", "charge", "sequence", "protein.id")
-  tide <- read.delim(tide_file, sep = "\t")
+  selection <- c("file", "scan", "charge", "sequence", "protein id")
+  tide <- read_tsv(tide_file)
   t <- tide %>%
     select(all_of(selection)) %>%
-    mutate(file = unlist(lapply(file,
-      gsub,
-      pattern = "\\..*",
-      replacement = ""
-    ))) %>%
-    mutate(scan = unlist(lapply(seq_along(scan), function(x) {
-      return(paste0(.[x, ]$file, ".", .[x, ]$scan))
-    }))) %>%
-    mutate(protein = unlist(lapply(
-      seq_along(scan),
-      function(x) {
-        grouped <- .[x, ]$`protein.id` %>%
-          str_split(",", simplify = TRUE) %>%
-          lapply(., gsub, pattern = "\\(.*\\)", replacement = "") %>%
+    mutate(
+      file = map_chr(file, \(x) {
+        str_remove(x, "\\..*") |>
+          str_remove("^id_")
+      }),
+      scan = paste0(file, ".", scan),
+      protein = map_chr(`protein id`, \(x) {
+        str_split_1(x, ",") |>
+          map_chr(\(x) str_remove(x, "\\(.*\\)")) |>
           paste0(collapse = ";")
-        return(grouped)
-      }
-    ))) %>%
-    rename(peptide = sequence) %>%
-    inner_join(., mapping, by = join_by(scan == scanNum)) %>%
+      })
+    )
+  t |>
+    rename(peptide = sequence) |>
+    inner_join(mapping, by = join_by(scan == scanNum)) %>%
     as_tibble()
-  return(t)
 }
 
 ##  Functions for formatting scan number
@@ -150,13 +144,6 @@ read_engine_psms <- function(args) {
     mutate(engine = engine) %>%
     mutate(protein = unlist(lapply(protein, gsub, pattern = '"', replacement = "")))
   return(psms)
-}
-
-expand_protein_rows <- function(row) {
-  ProteinId <- row[["ProteinId"]] %>% str_split_1(",")
-  peptide <- row[["peptideIds"]] %>% str_split_1(" ")
-  combos <- crossing(ProteinId, peptide)
-  return(combos)
 }
 
 remove_termini <- function(peptide_col) {
