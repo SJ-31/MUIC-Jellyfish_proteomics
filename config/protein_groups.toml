@@ -22,8 +22,8 @@ h = "Coenzyme transport and metabolism"
 i = "Lipid transport and metabolism"
 p = "Inorganic ion transport and metabolism"
 q = "Secondary metabolites biosynthesis, transport, and catabolism"
-r = "General function prediction only"
-s = "Function unknown"
+# r = "General function prediction only"
+# s = "Function unknown"
 
 
 [cog]
@@ -43,66 +43,246 @@ a = [ # RNA processing and modification
     "GO:0034518", # CC: RNA cap binding complex
     "GO:0030555", # MF: RNA modification guide activity
     "GO:0003723", # MF: RNA binding
+    "GO:0030532", # CC small nuclear ribonucleoprotein complex
 ]
 # Must make sure that if something is defined here, it will be ignored, so that its children won't get mapped into another category
 k = [ # Transcription
-    "GO:0032774",                          # BP: RNA biosynthetic process
-    "GO:0070063",                          # MF: RNA polymerase binding
-    "GO:0097747",                          # MF: RNA polymerase activity
-    "GO:0005667",                          # CC: transcription regulator complex
-    "GO:0140110",                          # MF transcription regulator activity"
-    "GO:0030880",                          # CC: RNA polymerase complex
-    "GO:0008023",                          # CC: transcription elongation factor complex"
-    "GO:0000172",  # ribonuclease MRP complex
-    "GO:0090575", # CC: RNA polymerase II transcription regulator complex
+    "GO:0032774", # BP: RNA biosynthetic process
+    "GO:0070063", # MF: RNA polymerase binding
+    "GO:0097747", # MF: RNA polymerase activity
+    "GO:0005667", # CC: transcription regulator complex
+    "GO:0140110", # MF transcription regulator activity"
+    "GO:0030880", # CC: RNA polymerase complex
+    "GO:0008023", # CC: transcription elongation factor complex"
+    "GO:0000172", # ribonuclease MRP complex
 ]
 l = [ # Replication, recombination, and repair
-"foo"]
+    "GO:0042575", # CC DNA polymerase complex
+    "GO:0030894", # CC replisome
+    "GO:0044796", # CC DNA polymerase processivity factor complex
+    "GO:0031261", # CC DNA replication preinitiation complex
+    "GO:0044777", # CC single-stranded DNA-binding protein complex
+    "GO:0097047", # CC DNA replication termination region
+    "GO:0003688", # MF DNA replication origin binding
+    "GO:0030337", # MF DNA polymerase processivity factor activity
+    "GO:0003887", # MF DNA-directed DNA polymerase activity
+    "GO:0003896", # MF DNA primase activity
+    "GO:0006275", # BP regulation of DNA replication
+    "GO:0006260", # BP DNA replication
+    "GO:0031570", # BP DNA integrity checkpoint signaling
+    "GO:0006261", # BP DNA-templated DNA replication
+    "GO:0006281", # BP DNA repair
+    "GO:0071897", # BP DNA biosynthetic process
+    "GO:0045005", # BP DNA-templated DNA replication maintenance of fidelity
+    "GO:0032404", # MF mismatch repair complex binding
+    "GO:0003906", # MF DNA-(apurinic or apyrimidinic site) endonuclease activity
+    "GO:0000109", # CC nucleotide-excision repair complex
+    "GO:1990391", # CC DNA repair complex
+    "GO:0032300", # CC mismatch repair complex
+    "GO:0006310", # BP DNA recombination
+    "GO:0000018", # BP regulation of DNA recombination
+]
 b = [ # Chromatin structure and dynamics
-"foo"]
+    "GO:0006325",    # BP chromatin organization
+    "GO:1902275",    # BP regulation of chromatin organization
+    "GO:0005876",    # CC spindle microtubule
+    "GO:GO:0004407", # MF histone deacetylase activity
+    "GO:GO:0003682", # MF chromatin binding
+    "GO:GO:0035561", # BP regulation of chromatin binding
+    "GO:GO:0000785", # CC chromatin
+    "GO:GO:0030874", # CC nucleolar chromatin
+    "GO:GO:0097346", # CC INO80-type complex
+    "GO:GO:0016581", # CC NuRD complex
+]
 d = [ # Cell cycle control, cell division, chromosome partitioning
-"foo"]
+    "GO:0051302", # BP regulation of cell division
+    "GO:0051726", # BP regulation of cell cycle
+    "GO:0022402", # BP cell cycle process
+    "GO:0010564", # BP regulation of cell cycle process
+    "GO:0000075", # BP cell cycle checkpoint signaling
+    "GO:0022403", # BP cell cycle phase
+    "GO:0005713", # CC recombination nodule
+    "GO:0007051", # BP spindle organization
+    "GO:0030332", # MF cyclin binding
+    "GO:0016538", # MF cyclin-dependent protein serine/threonine kinase regulator activity
+    "GO:0000940", # CC outer kinetochore
+    "GO:0008278", # CC cohesin complex
+    "GO:0005819", # CC spindle
+    "GO:0031518", # CC CBF3 complex
+    "GO:0000796", # CC condensin complex
+    "GO:0042729", # CC DASH complex
+    "GO:0000776", # CC kinetochore
+    "GO:1990941", # CC mitotic spindle kinetochore microtubule
+    "GO:0000280", # BP nuclear division
+]
 y = [ # Nuclear structure
-"foo"]
+    "foo",
+]
 v = [ # Defense mechanisms
-"foo"]
+    "foo",
+]
 t = [ # Signal transduction mechanisms
-"foo"]
+    "foo",
+]
 m = [ # Cell wall/membrane/envelope biogenesis
-"foo"]
+    "foo",
+]
 n = [ # Cell motility
-"foo"]
+    "foo",
+]
 z = [ # Cytoskeleton
-"GO:0061640", "GO:0008092"]
-w = ["foo"]
-u = ["foo"]
-o = ["foo"]
-c = ["foo"]
-g = ["foo"]
-e = ["foo"]
-f = ["foo"]
-h = ["foo"]
-i = ["foo"]
-p = ["foo"]
-q = ["foo"]
-r = ["foo"]
-s = ["foo"]
+    "GO:0061640",
+    "GO:0008092",
+]
+w = [ # Extracellular structures
+    "foo",
+]
+u = [ # Intracellular trafficking, secretion, and vesicular transport
+    "foo",
+]
+o = [ # Posttranslational modification, protein turnover, chaperones
+    "foo",
+]
+c = [ # Energy production and conversion
+    "foo",
+]
+g = [ # Carbohydrate transport and metabolism
+    "foo",
+]
+e = [ # Amino acid transport and metabolism
+    "foo",
+]
+f = [ # Nucleotide transport and metabolism
+    "foo",
+]
+h = [ # Coenzyme transport and metabolism
+    "foo",
+]
+i = [ # Lipid transport and metabolism
+    "foo",
+]
+p = [ # Inorganic ion transport and metabolism
+    "foo",
+]
+q = [ # Secondary metabolites biosynthesis, transport, and catabolism
+    "foo",
+]
 venom_component = [""]
+# Anything uncategorized goes to function "Other"
+# And no GO terms means "Unknown"
 
 [header_names]
-# HEADER_QUERIES <- list(
-# unknown = "unknown|uncharacterized|predicted|unnamed|hypothetical",
-# venom_component = "toxin|porin",
-# transport = "pump|transport|channel",
-# membrane = "membrane",
-# translation = "ribosome|elongation|initiation|translation",
-# catalytic_activity = "ase",
-# cytoskeleton = "actin|tubulin|cytoskele|dynein|kinesin|catenin",
-
-# )
-other = ""
-
 [header_names.cog]
+j = [
+    "ribosomal",
+    "elongation factor tu",
+    "eukaryotic translation initiation factor",
+]
+a = ["rna helicase", "rnase", "cleavage and polyadenylation specificity factor"]
+m = ["cell envelope"]
+n = ["axoneme-associated", "cilia"]
+z = [
+    "microtubule",
+    "dynein",
+    "beta-actin",
+    "beta-centractin",
+    "myosin",
+    "tubulin",
+    "actin",
+    "gelsolin",
+    "laminin",
+    "gelsolin-like",
+    "centractin",
+]
+w = ["fibrillin", "outer membrane protein", "collagen", "cadherin"]
+u = ["dynamin", "coatomer", "clathrin"]
+l = [
+    "dna polymerase",
+    "dna ligase",
+    "dna double-strand break repair",
+    "dna primase",
+    "helicase",
+]
+t = [
+    "receptor protein-tyrosine kinase",
+    "fibroblast growth factor receptor",
+    "calmodulin",
+    "calcium/calmodulin",
+    "ras-like",
+    "contactin",
+    "ras-related",
+    "wnt",
+    "g-protein coupled receptor",
+]
+k = ["rna polymerase"]
+d = [
+    "cell cycle",
+    "cell division control",
+    "spindle",
+    "cyclin-dependent kinase",
+]
+v = ["thioredoxin", "complement c3", "cytochrome p450"]
+y = ["histone", "nuclear pore complex"]
+o = [
+    "e3 ubiquitin",
+    "chaperone",
+    "autophagy",
+    "proteasome",
+    "protease",
+    "endoprotease",
+    "heat shock",
+    "hsp",
+    "chaperonin",
+    "calnexin",
+]
+c = [
+    "malate",
+    "dehydrogenase",
+    "fumarate",
+    "hydratase",
+    "glycogen",
+    "phosphorylase",
+    "atp",
+    "synthase",
+    "hexokinase",
+    "phosphofructokinase",
+    "isocitrate",
+    "dehydrogenase",
+    "cytochrome c oxidase",
+    "aconitate hydratase",
+    "citrate synthase",
+]
+g = ["lectin"]
+e = [
+    "amino",
+    "acid",
+    "transporter",
+    "glutamate",
+    "dehydrogenase",
+    "argininosuccinate lyase",
+    "asparagine synthetase",
+    "aspartate aminotransferase",
+    "glutamine synthetase",
+    "peptidase",
+]
+f = ["rna-binding", "exonuclease"]
+h = [
+    "acetyl-coenzyme a synthetase",
+    "glutathione synthase",
+    "glutathione synthetase",
+    "acyl-coenzyme a",
+    "aldehyde dehydrogenase",
+]
+i = ["scramblase"]
+venom_component = [
+    "toxin",
+    "venom",
+    "porin",
+    "phospholipase a2",
+    "pesticidal crystal protein",
+    "disintegrin",
+    "metalloproteinase",
+]
 s = ["uncharacterized", "hypothetical", "predicted", "putative", "unnamed"]
 
 [header_names.toxins]
