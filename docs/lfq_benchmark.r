@@ -53,7 +53,8 @@ args <- list(
   go_slim_path = glue("{wd}/data/reference/goslim_generic.obo"),
   go_tm_dir = glue("{wd}/data/reference/.go_texts")
 )
-CHOSEN_PASS <- "1-First_pass"
+# CHOSEN_PASS <- "1-First_pass"
+CHOSEN_PASS <- "2-Second_pass"
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
@@ -87,6 +88,7 @@ has_tax <- data |>
     Genus = nth(Genus, 1),
     check_genera = paste0(unique(Genus), collapse = ";")
   )
+
 genus_mismatch <- has_tax |> filter(grepl(";", check_genera))
 
 id_proportion <- local({
