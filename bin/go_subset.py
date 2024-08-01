@@ -161,13 +161,18 @@ def join_dict(df: pl.DataFrame, dct: dict, by: str, colname: str):
     return df.join(temp_df, on=by)
 
 
-def get_successors_nested(complete_GO: nx.MultiDiGraph, term) -> dict:
+def get_successors_nested(
+    complete_GO: nx.MultiDiGraph, term, mapping: dict = None
+) -> dict:
     """
     Return the complete child hierarchy of a GO term as a nested dictionary of dictionaries
     :param: complete_GO the Networkx object holding the complete GO graph
     :param: term the GO term whose succcessors we want to get
     """
     result = {}
+    if mapping:
+        complete_GO = nx.relabel_nodes(complete_GO, mapping)
+        term = mapping[term]
     termlist = nx.bfs_tree(complete_GO, term).nodes
     d = nx.to_dict_of_dicts(complete_GO, nodelist=termlist)
     for adj_term in d.keys():
@@ -479,7 +484,11 @@ class CompleteGO(SubsetGO):
         self.definition_map = dict(zip(metadata["GO_IDs"], metadata["definition"]))
         self.metadata = metadata
         self.successors = None
-        self.GL, self.name_map = self.w_term_label()
+        self.pprint_map = {}
+        for i in self.G.nodes:
+            id_num = i.replace("GO:", "")
+            o = self.root_map.get(i)
+            self.pprint_map[i] = f"{id_num}|{o} {self.term_map.get(i)}"
         if get_metadata:
             self.get_metadata()
 
@@ -488,12 +497,6 @@ class CompleteGO(SubsetGO):
             self.metadata.select("GO_IDs", "term", "definition", "ontology"),
             on="GO_IDs",
         )
-
-    def w_term_label(self) -> tuple[nx.MultiDiGraph, dict]:
-        label_map = {}
-        for t in self.term_map:
-            label_map[t] = f"{t} {self.term_map[t]}"
-        return nx.relabel_nodes(self.G, label_map), label_map
 
     def browse(
         self,
@@ -538,8 +541,9 @@ class CompleteGO(SubsetGO):
                 if with_label:
                     o = result[g].get("ontology")
                     del result[g]["term"]
+                    del result[g]["ontology"]
                     id_num = g.replace("GO:", "")
-                    metadata["I"] = f'"{id_num}|{o} {self.term_map.get(g)}"'
+                    metadata["I"] = f"{id_num}|{o} {self.term_map.get(g)}"
                 else:
                     metadata["id"] = f'"{g}"'
                 ordered.append(metadata)
@@ -549,7 +553,7 @@ class CompleteGO(SubsetGO):
 
     def nested_successors(self, term: str, with_label=True):
         if with_label:
-            return get_successors_nested(self.GL, self.name_map[term])
+            return get_successors_nested(self.G, term, self.pprint_map)
         return get_successors_nested(self.G, term)
 
     def get_parents(self, term: str, with_label: bool = True):
@@ -557,7 +561,9 @@ class CompleteGO(SubsetGO):
             result = []
             for index, edge in enumerate(edges):
                 if with_label:
-                    t = f"{edge[0]} {self.term_map.get(edge[0])}"
+                    id_num = edge[0].replace("GO:", "")
+                    o = self.root_map.get(edge[0])
+                    t = f"{id_num}|{o} {self.term_map.get(edge[0])}"
                 else:
                     t = edge[0]
                 t = f"{' ' * index} {t}"

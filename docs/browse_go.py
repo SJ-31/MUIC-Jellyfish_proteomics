@@ -1,6 +1,5 @@
 #!/usr/bin/env python
 import sys
-import re
 
 
 def see(data, **kwargs):
@@ -82,16 +81,18 @@ if __name__ == "__main__":
     readline.parse_and_bind("set editing-mode emacs")
 
     def show_help() -> str:
-        print("Start your command with 'b' to perform a keyword search on the GO")
-        print("Optionally specify ontology with 'o=BP|CC|MF'")
+        print("\tType the phrase and press enter to search for it")
         print(
-            "Whitespace on sides is automatically stripped, use '_' if you want to prepend/append spaces"
+            "\tOptionally specify ontology by prefixing the search with bp|mf|cc and a space"
         )
         print(
-            "Start your command with 's' to list the successors (children) of the specified GO term"
+            "\tWhitespace on sides is automatically stripped, use '_' if you want to prepend/append spaces"
         )
         print(
-            "Start your command with 'p' to list the parents of the specified GO term"
+            "\tStart your command with 's' to list the successors (children) of the specified GO term"
+        )
+        print(
+            "\tStart your command with 'p' to list the parents of the specified GO term"
         )
 
     GO = gs.CompleteGO(metadata_path=args["metadata_path"], go_path=args["go_obo"])
@@ -100,28 +101,28 @@ if __name__ == "__main__":
         response = input("GO CLI browser (? for help, Q to quit) \n  ")
         if response == "?":
             show_help()
-        elif response.startswith("b"):
-            response = response[1:]
-            ontology = re.findall("o=([A-Za-z]+)", response)
-            if ontology:
-                response = (
-                    re.sub("o=([A-Za-z]+)", "", response).strip().replace("_", " ")
-                )
-                o: str = ontology[0].upper()
-                print(f'Searching for "{response}"...')
+        elif response.startswith("Q"):
+            print("Browsing session ended")
+            browsing = False
+        elif response[0:2] in {"s ", "p "}:
+            if response.startswith("s"):
+                fn = lambda x: see(GO.nested_successors(x), yaml=True)
+            elif response.startswith("p"):
+                fn = lambda x: see(GO.get_parents(x), yaml=True)
+            response = response[1:].strip()
+            if "GO:" in response:
+                response = response.replace("GO:", "")
+            fn(f"GO:{response}")
+        elif response:
+            if response[0:3].upper() in {"MF ", "BP ", "CC "}:
+                o = response[:2].upper()
+                response = response[3:].strip().replace("_", " ")
                 result = GO.browse(response, sort=True, ontology=o)
             else:
+                response = response.strip().replace("_", " ")
                 result = GO.browse(response, sort=True)
+            print(f'Searching for "{response}"...')
             if args["format"] == "yaml":
                 see(result, yaml=True)
             elif args["format"] == "md":
                 see(md_format(result), md=True)
-        elif response.startswith("s"):
-            response = response[1:].strip()
-            see(GO.nested_successors(response), yaml=True)
-        elif response.startswith("p"):
-            response = response[1:].strip()
-            see(GO.get_parents(response), yaml=True)
-        elif response.startswith("Q"):
-            print("Browsing session ended")
-            browsing = False
