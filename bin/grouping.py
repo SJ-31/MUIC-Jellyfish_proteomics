@@ -54,7 +54,7 @@ def get_pfam_acc(pfam, mapping):
     return mapping.get(pfam, pfam)
 
 
-ADDED = ["PFAM_IDs", "name"]
+ADDED = ["PFAM_IDs"]
 
 
 class Grouper:
@@ -78,12 +78,18 @@ class Grouper:
             .agg(pl.col("ProteinId"), pl.col(ANNO_COLS + ADDED).explode())
         )
 
-        self.cols_to_count_groups = ["PFAM_IDs", "interpro_accession", "PANTHER"]
+        self.cols_to_count_groups = [
+            "PFAM_IDs",
+            "interpro_accession",
+            "PANTHER",
+            "GO_IDs",
+        ]
         # columns containing accessions that will be counted to determine groups
         self.cols_to_sum = self.cols_to_count_groups.copy()
         # names of columns containing the groups that will be considered when summarizing the group for an entry in  the `assign_groups` function
         self.data = aggregated
 
+    # Make sure that negative hits don't count towards anything
     def group_count_row(self, to_count: list) -> tuple:
         group_tracker = {}
         for element in to_count:
@@ -155,7 +161,7 @@ class ToxinGrouper(Grouper):
 
     def assign_groups(self) -> pl.DataFrame:
         self.data = self.data.with_columns(
-            group_from_header=pl.col("name").map_elements(
+            group_from_header=pl.col("entry_name").map_elements(
                 lambda x: find_in_headers(x, self.toxin_header_map),
                 return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
             )
@@ -175,6 +181,9 @@ def parse_args():
     parser.add_argument("-m", "--mode")
     args = vars(parser.parse_args())
     return args
+
+
+# Grouping file is expected to have the columns "Accession", "Name", "Source" and "Group"
 
 
 def main(args):
