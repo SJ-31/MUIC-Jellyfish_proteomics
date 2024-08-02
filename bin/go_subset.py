@@ -230,7 +230,8 @@ def get_successors(
         to_ignore = set()
     if flatten:
         nodes = set(G_current.nodes) - to_ignore
-        nodes.remove(node)
+        if node in nodes:
+            nodes.remove(node)
         if with_term:
             nodes = {f"{c} {G.nodes[c].get('term', 'NA')}" for c in nodes}
         return nodes
@@ -604,8 +605,7 @@ class CompleteGO(SubsetGO):
         )
 
 
-# TODO: Check that this works
-def create_group_mapping(
+def go_group_mapping(
     go_path: str,
     metadata_path: str,
     group_mapping_file: str,
@@ -619,7 +619,7 @@ def create_group_mapping(
     :param: metadata_path path to go metadata
     :return: None
     """
-    C = CompleteGO(go_path=go_path, metadata_path=metadata_path, get_metadata=True)
+    C = CompleteGO(go_path=go_path, metadata_path=metadata_path)
     data_dict = {
         "Accession": [],
         "Name": [],
