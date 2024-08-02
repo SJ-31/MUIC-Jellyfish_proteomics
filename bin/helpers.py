@@ -69,7 +69,6 @@ COLS = {
         "MatchedPeptideIds",
     ],
     "drop_nulls_get_first": [
-        "header",
         "NCBI_ID",
         "UniProtKB_ID",
         "organism",
@@ -83,6 +82,7 @@ COLS = {
     # so its fine to just get the first
     ["ProteinId", "mass", "length"],
     "concat": [
+        "header",
         "is_blast_best",
         "is_blast_one_hit",
         "q.value",
@@ -420,11 +420,15 @@ if __name__ == "__main__" and len(sys.argv) > 1:
         )
         maxlfq = add_mean_median(maxlfq, "maxlfq")
         top3 = pl.read_csv(args["top3"], separator="\t")
-        all: pl.DataFrame = functools.reduce(
+        merged: pl.DataFrame = functools.reduce(
             lambda x, y: x.join(y, on="protein", how="full", coalesce=True),
             [dlfq, maxlfq, top3],
         ).rename({"protein": "ProteinId"})
-        all.write_csv(args["output"], separator="\t", null_value="NA")
+        sm = pl.read_csv(args["seq_header_mapping"], separator="\t").select(
+            "id", "header"
+        )
+        merged = merged.join(sm, left_on="ProteinId", right_on="id")
+        merged.write_csv(args["output"], separator="\t", null_value="NA")
     elif args["task"] == "get_saved" and args["save_type"] == "eggnog":
         eggnog, queries = retrieve_saved_eggnog(
             query_path=args["input"],

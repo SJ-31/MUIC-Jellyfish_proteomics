@@ -2,6 +2,7 @@
 import sys
 import copy
 import networkx as nx
+import pathlib
 import json
 import tomllib
 import polars as pl
@@ -643,4 +644,8 @@ def go_group_mapping(
                 data_dict["Name"].append(C.term_map.get(child))
                 data_dict["Group"].append(group)
     df = pl.DataFrame(data_dict).with_columns(Source=pl.lit("GO"))
+    if pathlib.Path(output).exists():
+        print(f"Previous groups found at `{output}`, appending...")
+        previous = pl.read_csv(output, separator="\t")
+        df = pl.concat([previous, df.select(previous.columns)])
     df.write_csv(output, separator="\t")
