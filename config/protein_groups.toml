@@ -114,60 +114,316 @@ d = [ # Cell cycle control, cell division, chromosome partitioning
     "GO:0000776", # CC kinetochore
     "GO:1990941", # CC mitotic spindle kinetochore microtubule
     "GO:0000280", # BP nuclear division
+    "GO:0051783", # BP regulation of nuclear division
+    "GO:0007049", # BP cell cycle
+    "GO:0051301", # BP cell division
 ]
 y = [ # Nuclear structure
-    "foo",
+    "GO:0030261", # BP chromosome condensation
+    "GO:0140513", # CC nuclear protein-containing complex
+    "GO:0003682", # MF chromatin binding
+    "GO:0004879", # MF nuclear receptor activity
+    "GO:0140142", # MF nucleocytoplasmic carrier activity
+    "GO:0006997", # BP nucleus organization
+    "GO:0005634", # CC nucleus
+    "GO:0044094", # CC host cell nuclear part
+    "GO:0031965", # CC nuclear membrane
+    "GO:0016604", # CC nuclear body
+    "GO:0106083", # CC nuclear membrane protein complex
+    "GO:0030874", # CC nucleolar chromatin
 ]
 v = [ # Defense mechanisms
-    "foo",
+    "GO:0031347", # BP regulation of defense response
+    "GO:0006952", # BP defense response
+    "GO:0061687", # BP detoxification of inorganic compound
+    "GO:0051341", # BP regulation of oxidoreductase activity
 ]
 t = [ # Signal transduction mechanisms
-    "foo",
+    "GO:0009966", # BP regulation of signal transduction
+    "GO:0007165", # BP signal transduction
+    "GO:0007154", # BP cell communication
+    "GO:0004888", # MF transmembrane signaling receptor activity
+    "GO:0008269", # MF JAK pathway signal transduction adaptor activity
+    "GO:0005102", # MF signaling receptor binding
+    "GO:0038023", # MF signaling receptor activity
+    "GO:0030545", # MF signaling receptor regulator activity
+    "GO:0010646", # BP regulation of cell communication
+    "GO:0023051", # BP regulation of signaling
+    "GO:0098802", # CC plasma membrane signaling receptor complex
+    "GO:0019815", # CC B cell receptor complex
 ]
 m = [ # Cell wall/membrane/envelope biogenesis
-    "foo",
+    "GO:0044091", # BP membrane biogenesis
+    "GO:0042546", # BP cell wall biogenesis
+    "GO:0071554", # BP cell wall organization or biogenesis
+    "GO:1903338", # BP regulation of cell wall organization or biogenesis
+    "GO:0061024", # BP membrane organization
+    "GO:0030030", # BP cell projection organization
+    "GO:0060491", # BP regulation of cell projection assembly
+    "GO:0031344", # BP regulation of cell projection organization
+    "GO:0098797", # CC plasma membrane protein complex
+    "GO:0120025", # CC plasma membrane bounded cell projection
+    "GO:0098590", # CC plasma membrane region
+    "GO:0005938", # CC cell cortex
+    "GO:0031253", # CC cell projection membrane
+    "GO:0006998", # BP nuclear envelope organization
+    "GO:0016020", # CC membrane
+    "GO:0005618", # CC cell wall
+    "GO:0030428", # CC cell septum
+    "GO:0042597", # CC periplasmic space
 ]
 n = [ # Cell motility
-    "foo",
+    "GO:0031514", # CC motile cilium
+    "GO:0036064", # CC ciliary basal body
+    "GO:0048870", # BP cell motility
+    "GO:2000145", # BP regulation of cell motility
+    "GO:0007018", # BP microtubule-based movement
+    "GO:0031252", # CC cell leading edge
+    "GO:0005930", # CC axoneme
+    "GO:0031254", # CC cell trailing edge
+    "GO:0031143", # CC pseudopodium
+    "GO:0160055", # CC glideosome
+    "GO:0055040", # CC periplasmic flagellum
 ]
 z = [ # Cytoskeleton
-    "GO:0061640",
-    "GO:0008092",
+    "GO:0030029", # BP actin filament-based process
+    "GO:0007017", # BP microtubule-based process
+    "GO:0007010", # BP cytoskeleton organization
+    "GO:0051493", # BP regulation of cytoskeleton organization
+    "GO:0032886", # BP regulation of microtubule-based process
+    "GO:0032970", # BP regulation of actin filament-based process
+    "GO:0008092", # MF cytoskeletal protein binding
+    "GO:0005200", # MF structural constituent of cytoskeleton
+    "GO:0005856", # CC cytoskeleton
 ]
 w = [ # Extracellular structures
-    "foo",
+    "GO:0030155", # BP regulation of cell adhesion
+    "GO:0007155", # BP cell adhesion
+    "GO:0034330", # BP cell junction organization
+    "GO:0030054", # CC cell junction
+    "GO:0043062", # BP extracellular structure organization
+    "GO:1903053", # BP regulation of extracellular matrix organization
+    "GO:0051216", # BP cartilage development
+    "GO:0061035", # BP regulation of cartilage development
+    "GO:0009989", # BP cell-matrix recognition
+    "GO:0042710", # BP biofilm formation
+    "GO:0030312", # CC external encapsulating structure
+    "GO:0043230", # CC extracellular organelle
 ]
 u = [ # Intracellular trafficking, secretion, and vesicular transport
-    "foo",
+    "GO:1900180", # BP regulation of protein localization to nucleus
+    "GO:0007097", # BP nuclear migration
+    "GO:0034504", # BP protein localization to nucleus
+    "GO:0006913", # BP nucleocytoplasmic transport
+    "GO:0046907", # BP intracellular transport
+    "GO:0140352", # BP export from cell
+    "GO:0060627", # BP regulation of vesicle-mediated transport
+    "GO:0016192", # BP vesicle-mediated transport
+    "GO:0016050", # BP vesicle organization
+    "GO:0051648", # BP vesicle localization
+    "GO:0038024", # MF cargo receptor activity
+    "GO:0030276", # MF clathrin binding
+    "GO:0032940", # BP secretion by cell
+    "GO:0003777", # MF microtubule motor activity
+    "GO:0051046", # BP regulation of secretion
+    "GO:0099503", # CC secretory vesicle
+    "GO:1990351", # CC transporter complex
+    "GO:1902495", # CC transmembrane transporter complex
+    "GO:0043190", # CC ATP-binding cassette (ABC) transporter complex
+    "GO:0030658", # CC transport vesicle membrane
+    "GO:0097708", # CC intracellular vesicle
 ]
 o = [ # Posttranslational modification, protein turnover, chaperones
-    "foo",
+    "GO:0036211", # BP protein modification process
+    "GO:1901873", # BP regulation of post-translational protein modification
+    "GO:0006508", # BP proteolysis
+    "GO:0030162", # BP regulation of proteolysis
+    "GO:0006914", # BP autophagy
+    "GO:0010506", # BP regulation of autophagy
+    "GO:0070678", # MF preprotein binding
+    "GO:0140030", # MF modification-dependent protein binding
+    "GO:0000421", # CC autophagosome membrane
+    "GO:0005776", # CC autophagosome
+    "GO:1990462", # CC omegasome
+    "GO:0006457", # BP protein folding
+    "GO:1903332", # BP regulation of protein folding
+    "GO:0009100", # BP glycoprotein metabolic process
+    "GO:1903018", # BP regulation of glycoprotein metabolic process
+    "GO:0101031", # CC protein folding chaperone complex
+    "GO:0016272", # CC prefoldin complex
+    "GO:1990062", # CC RPAP3/R2TP/prefoldin-like complex
+    "GO:1902695", # CC metallochaperone complex
+    "GO:0110078", # CC TTT Hsp90 cochaperone complex
+    "GO:0140597", # MF protein carrier chaperone
+    "GO:0016530", # MF metallochaperone activity
+    "GO:0044183", # MF protein folding chaperone
+    "GO:0004672", # MF protein kinase activity
+    "GO:0140993", # MF histone modifying activity
 ]
 c = [ # Energy production and conversion
-    "foo",
+    "GO:0006091", # BP generation of precursor metabolites and energy
+    "GO:0098803", # CC respiratory chain complex
+    "GO:0030061", # CC mitochondrial crista
+    "GO:0070469", # CC respirasome
+    "GO:0043467", # BP regulation of generation of precursor metabolites and energy
+    "GO:0140260", # MF mitochondrial proton-transporting ATP synthase complex binding
+    "GO:0046933", # MF proton-transporting ATP synthase activity, rotational mechanism
+    "GO:0030076", # CC light-harvesting complex
+    "GO:0045259", # CC proton-transporting ATP synthase complex
+    "GO:0045267", # CC proton-transporting ATP synthase, catalytic core
+    "GO:0045265", # CC proton-transporting ATP synthase, stator stalk
+    "GO:0045269", # CC proton-transporting ATP synthase, central stalk
+    "GO:0000275", # CC mitochondrial proton-transporting ATP synthase complex, catalytic
+    "GO:0045260", # CC plasma membrane proton-transporting ATP synthase complex
 ]
 g = [ # Carbohydrate transport and metabolism
-    "foo",
+    "GO:0005975", # BP carbohydrate metabolic process
+    "GO:1901135", # BP carbohydrate derivative metabolic process
+    "GO:0006109", # BP regulation of carbohydrate metabolic process
+    "GO:1901264", # BP carbohydrate derivative transport
+    "GO:0008643", # BP carbohydrate transport
+    "GO:0070085", # BP glycosylation
+    "GO:0015144", # MF carbohydrate transmembrane transporter activity
+    "GO:0046527", # MF glucosyltransferase activity
+    "GO:0097367", # MF carbohydrate derivative binding
+    "GO:1901505", # MF carbohydrate derivative transmembrane transporter activity
+    "GO:0030246", # MF carbohydrate binding
+    "GO:0019200", # MF carbohydrate kinase activity
 ]
 e = [ # Amino acid transport and metabolism
-    "foo",
+    "GO:0008104", # BP protein localization
+    "GO:0006520", # BP amino acid metabolic process
+    "GO:0006865", # BP amino acid transport
+    "GO:0051955", # BP regulation of amino acid transport
+    "GO:0090087", # BP regulation of peptide transport
+    "GO:0032880", # BP regulation of protein localization
+    "GO:0045184", # BP establishment of protein localization
+    "GO:0051223", # BP regulation of protein transport
+    "GO:0015031", # BP protein transport
+    "GO:0032880", # BP regulation of protein localization
+    "GO:0070201", # BP regulation of establishment of protein localization
+    "GO:0006521", # BP regulation of cellular amino acid metabolic process
+    "GO:0015833", # BP peptide transport
+    "GO:0005515", # MF protein binding
+    "GO:0008233", # MF peptidase activity
+    "GO:0015171", # MF amino acid transmembrane transporter activity
+    "GO:0030533", # MF triplet codon-amino acid adaptor activity
+    "GO:0034212", # MF peptide N-acetyltransferase activity
+    "GO:0016597", # MF amino acid binding
 ]
 f = [ # Nucleotide transport and metabolism
-    "foo",
+    "GO:0006405", # BP RNA export from nucleus
+    "GO:0006403", # BP RNA localization
+    "GO:1904580", # BP regulation of intracellular mRNA localization
+    "GO:0051236", # BP establishment of RNA localization
+    "GO:0006753", # BP nucleoside phosphate metabolic process
+    "GO:0006139", # BP nucleobase-containing compound metabolic process
+    "GO:0055086", # BP nucleobase-containing small molecule metabolic process
+    "GO:0019219", # BP regulation of nucleobase-containing compound metabolic process
+    "GO:0009116", # BP nucleoside metabolic process
+    "GO:0015931", # BP nucleobase-containing compound transport
+    "GO:0032239", # BP regulation of nucleobase-containing compound transport
+    "GO:0140640", # MF catalytic activity, acting on a nucleic acid
+    "GO:0003676", # MF nucleic acid binding
+    "GO:0004518", # MF nuclease activity
+    "GO:0015932", # MF nucleobase-containing compound transmembrane transporter activity
+    "GO:0019205", # MF nucleobase-containing compound kinase activity
+    "GO:0015205", # MF nucleobase transmembrane transporter activity
 ]
 h = [ # Coenzyme transport and metabolism
-    "foo",
+    "GO:0006766",  # BP vitamin metabolic process
+    "GO:0006637",  # BP acyl-CoA metabolic process
+    "GO:0046034",  # BP ATP metabolic process
+    "GO:0006734",  # BP NADH metabolic process
+    "GO:0006743",  # BP ubiquinone metabolic process
+    "GO:0006739",  # BP NADP metabolic process
+    "GO:0019674",  # BP NAD metabolic process
+    "GO:0072387",  # BP flavin adenine dinucleotide metabolic process
+    "GO:0006104",  # BP succinyl-CoA metabolic process
+    "GO:0006749",  # BP glutathione metabolic process
+    "GO:0015939",  # BP pantothenate metabolic process
+    "GO:0042357",  # BP thiamine diphosphate metabolic process
+    "GO:0046444",  # BP FMN metabolic process
+    "GO: 0006771", # BP riboflavin metabolic process
+    "GO: 2001293", # BP malonyl-CoA metabolic process
+    "GO: 0046146", # BP tetrahydrobiopterin metabolic process
+    "GO: 0052649", # BP coenzyme gamma-F420-2 metabolic process
+    "GO:0019297",  # BP coenzyme B metabolic process
+    "GO:0019296",  # BP coenzyme M metabolic process
+    "GO:0015011",  # BP nickel-tetrapyrrole coenzyme metabolic process
+    "GO:0015916",  # BP fatty-acyl-CoA transport
+    "GO:0015880",  # BP coenzyme A transport
+    "GO:0015883",  # BP FAD transport
+    "GO:0015887",  # BP pantothenate transmembrane transport
+    "GO:0035350",  # BP FAD transmembrane transport
+    "GO:0035349",  # BP coenzyme A transmembrane transport
+    "GO:0015876",  # BP acetyl-CoA transport
+    "GO:0015877",  # BP biopterin transport
+    "GO:0015752",  # BP D-ribose transmembrane transport
+    "GO:0016790",  # MF thiolester hydrolase activity
+    "GO:0008410",  # MF CoA-transferase activity
+    "GO:0120227",  # MF acyl-CoA binding
+    "GO:0050660",  # MF flavin adenine dinucleotide binding
+    "GO:0043773",  # MF coenzyme F420-0 gamma-glutamyl ligase activity
+    "GO:0051287",  # MF NAD binding
+    "GO:0050661",  # MF NADP binding
+    "GO:0008521",  # MF acetyl-CoA transmembrane transporter activity
+    "GO:0000062",  # MF fatty-acyl-CoA binding
+    "GO:0015228",  # MF coenzyme A transmembrane transporter activity
+    "GO:0070967",  # MF coenzyme F420 binding
+    "GO:0052771",  # MF coenzyme F390-G hydrolase activity
+    "GO:0052770",  # MF coenzyme F390-A hydrolase activity
+    "GO:0090409",  # MF malonyl-CoA synthetase activity
+    "GO:0070968",  # MF pyrroloquinoline quinone binding
+    "GO:0052808",  # MF reduced coenzyme F420:NADP+ oxidoreductase activity
+    "GO:0044673",  # CC 7,8-didemethyl-8-hydroxy-5-deazariboflavin synthase complex
+    "GO:0044677",  # CC methyl-tetrahydromethanopterin:coenzyme M methyltransferase complex
+    "GO:0044681",  # CC sulfopyruvate decarboxylase complex
+    "GO:1990143",  # CC CoA-synthesizing protein complex
+    "GO:0044674",  # CC methyl coenzyme M reductase complex
+    "GO:0030964",  # CC NADH dehydrogenase complex
+    "GO:0043020",  # CC NADPH oxidase complex
+    "GO:0110142",  # CC ubiquinone biosynthesis complex
 ]
 i = [ # Lipid transport and metabolism
-    "foo",
+    "GO:0006629", # BP lipid metabolic process
+    "GO:1905952", # BP regulation of lipid localization
+    "GO:0032368", # BP regulation of lipid transport
+    "GO:0019216", # BP regulation of lipid metabolic process
+    "GO:0008289", # MF lipid binding
+    "GO:0005319", # MF lipid transporter activity
+    "GO:0016298", # MF lipase activity
+    "GO:0005543", # MF phospholipid binding
+    "GO:0032994", # CC protein-lipid complex
+    "GO:1990777", # CC lipoprotein particle
 ]
 p = [ # Inorganic ion transport and metabolism
-    "foo",
+    "GO:0098660", # BP inorganic ion transmembrane transport
+    "GO:0098771", # BP inorganic ion homeostasis
+    "GO:0051189", # BP prosthetic group metabolic process
+    "GO:0031214", # BP biomineral tissue development
+    "GO:0070167", # BP regulation of biomineral tissue development
+    "GO:1903795", # BP regulation of inorganic anion transmembrane transport
+    "GO:0015318", # MF inorganic molecular entity transmembrane transporter activity
+    "GO:0022890", # MF inorganic cation transmembrane transporter activity
+    "GO:0015103", # MF inorganic anion transmembrane transporter activity
+    "GO:0034702", # CC monoatomic ion channel complex
 ]
 q = [ # Secondary metabolites biosynthesis, transport, and catabolism
-    "foo",
+    "GO:0019748", # BP secondary metabolic process
+    "GO:0043455", # BP regulation of secondary metabolic process
 ]
-venom_component = [""]
+venom_component = [
+    "GO:0000269", # MF toxin export channel activity
+    "GO:0015288", # MF porin activity
+    "GO:0062048", # CC lymphotoxin complex
+    "GO:0110001", # CC toxin-antitoxin complex
+    "GO:0042151", # CC nematocyst
+    "GO:0019534", # MF toxin transmembrane transporter activity
+    "GO:0090729", # MF toxin activity
+    "GO:0009404", # BP toxin metabolic process
+    "GO:0035738", # BP envenomation resulting in modulation of process in another organism
+]
 # Anything uncategorized goes to function "Other"
 # And no GO terms means "Unknown"
 
@@ -363,13 +619,13 @@ natriuretic = [
     "GO:0003050", # regulation of systemic arterial blood pressure by atrial natriuretic peptide
 ]
 nerve_growth_factor = [
-    "GO:0005163",  # nerve growth factor receptor binding
-    "GO:0044487",  # envenomation resulting in modulation of transmission of nerve impulse in another
-    "GO:0032898",  # neurotrophin production
-    "GO:0032455",  # nerve growth factor processing
-    "GO:0005030",  # neurotrophin receptor activity
-    " GO:0032899", # regulation of neurotrophin production"
-    "GO:0051394",  # regulation of nerve growth factor receptor activity
+    "GO:0005163", # nerve growth factor receptor binding
+    "GO:0044487", # envenomation resulting in modulation of transmission of nerve impulse in another
+    "GO:0032898", # neurotrophin production
+    "GO:0032455", # nerve growth factor processing
+    "GO:0005030", # neurotrophin receptor activity
+    "GO:0032899", # regulation of neurotrophin production"
+    "GO:0051394", # regulation of nerve growth factor receptor activity
 ]
 amino_acid_oxidase = []
 nucleotidase = [
