@@ -57,10 +57,12 @@ class SubsetGO:
             else:
                 from_sample[node] = False
         nx.set_node_attributes(self.G, {"from_sample": from_sample})
+        self.successors = {
+            n: get_successors(self.G, n, flatten=True) for n in self.G.nodes
+        }
         for root in self.roots.values():
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
-            self.successors = ChainMap(self.successors, get_successors(current))
             level_map = ChainMap(level_map, get_level_map(current))
 
         return (
@@ -201,50 +203,48 @@ def get_successors_nested(
 
 def get_successors(
     G: nx.DiGraph,
-    ignore: list = None,
+    node: str,
+    ignore: set = None,
     with_term: bool = False,
-    from_node: str = "",
     flatten=False,
+    ignore_recursively: bool = True,
 ) -> dict | set:
-    """Return a dictionary mapping the nodes of G to ALL of their
-    children/successors (unlike an adjacency list, which
-    only returns the immediate) children
-    :param: from_node indicates that G is the main GO graph, and the function should
-    start finding succesors from the GO term specified by `from_node`.
+    """Return ALL the successors of the node `node`, unlike an adjacency list, which
+    only returns the immediate children
     :param: flatten Flatten the output entirely to return a set of all the successors
-    of G rather than a map
+    of `node` rather than a map
     """
     successors = {}
-    if from_node:
-        G_old = G
-        G = nx.bfs_tree(G, from_node)
-        if with_term:
-            term_dict = dict(G_old.nodes(data="term", default="NA"))
-            nx.set_node_attributes(G, term_dict, name="term")
-    to_ignore = set()
-    if ignore:
+    G_current = nx.bfs_tree(G, node)
+    if ignore and ignore_recursively:
+        to_ignore = set()
         for ignored_node in ignore:
             try:
                 ignored_subtree = nx.bfs_tree(G, ignored_node)
                 to_ignore |= set(ignored_subtree.nodes)
             except nx.NetworkXError:
                 continue
+    elif ignore:
+        to_ignore = ignore
+    else:
+        to_ignore = set()
     if flatten:
-        nodes = set(G.nodes) - to_ignore
+        nodes = set(G_current.nodes) - to_ignore
+        nodes.remove(node)
         if with_term:
             nodes = {f"{c} {G.nodes[c].get('term', 'NA')}" for c in nodes}
         return nodes
-    for node in G.nodes:
+    for n in G_current.nodes:
         if ignore and node in to_ignore:
             continue
-        tree = nx.bfs_tree(G, node)  # Creating a bfs tree for each
-        # node restricts the view of G to `node` and everything below it
+        tree = nx.bfs_tree(G_current, n)  # Creating a bfs tree for each
+        # node restricts the view of G_current to `node` and everything below it
         children = list(tree.nodes)
         if with_term:
             children = [f"{c} {G.nodes[c].get('term', 'NA')}" for c in children]
-            node = f"{node} {G.nodes[node].get('term', 'NA')}"
-        children.remove(node)
-        successors[node] = children
+            n = f"{n} {G.nodes[n].get('term', 'NA')}"
+        children.remove(n)
+        successors[n] = children
     return successors
 
 
@@ -580,19 +580,20 @@ class CompleteGO(SubsetGO):
             return [parse_edge_list(p) for p in paths]
 
     def get_node_data(self):
-        self.successors: dict = {}
+        self.successors = {
+            n: get_successors(self.G, n, flatten=True) for n in self.G.nodes
+        }
         level_map: dict = {}
         for root in self.roots.values():
             current = nx.bfs_tree(self.G, root)
             current.graph["root"] = root
-            self.successors = ChainMap(self.successors, get_successors(current))
             level_map = ChainMap(level_map, get_level_map(current))
 
         return (
             (pl.DataFrame({"GO_IDs": list(self.G.nodes)}))
             .with_columns(
                 n_children=pl.col("GO_IDs").map_elements(
-                    lambda x: len(get_successors(self.G, from_node=x)),
+                    lambda x: len(get_successors(self.G, x, flatten=True)),
                     return_dtype=pl.Int16,
                 ),
                 level=pl.col("GO_IDs").map_elements(
@@ -614,19 +615,32 @@ def create_group_mapping(
     """Find all the relevant child GO terms to the terms specified in `group_mapping_file`
     :param: group_mapping_file path to a toml file that maps user-specified groups to a list of `seed` GO terms. For each term, all of its children will be added to the list, UNLESS that GO term has already been specified as a `seed` term in the original file
     :param: group_name the header of the toml table containing the desired group
+    :param: go_path go obo file path or networkx gml file saved previously
+    :param: metadata_path path to go metadata
     :return: None
     """
-    C = CompleteGO(go_path=go_path, metadata_path=metadata_path)
-    data_dict = {"GO_IDs": [], "Group": []}
+    C = CompleteGO(go_path=go_path, metadata_path=metadata_path, get_metadata=True)
+    data_dict = {
+        "Accession": [],
+        "Name": [],
+        "Group": [],
+    }
     with open(group_mapping_file, "rb") as f:
         mapping = tomllib.load(f)
     if group_name:
         mapping = mapping[group_name]
+    all_parents = {v for parents in mapping.values() for v in parents}
     for group, parents in mapping.items():
+        current_ignore: set = all_parents - set(parents)
         for parent in parents:
-            data_dict["GO_IDs"].append(parent)
+            data_dict["Accession"].append(parent)
+            data_dict["Name"].append(C.term_map.get(parent))
             data_dict["Group"].append(group)
-            for child in C.successors.get(parent, []):
-                data_dict["GO_IDs"].append(child)
-                data_dict["GO_IDs"].append(group)
-    pl.DataFrame(data_dict).write_csv(output, separator="\t")
+            for child in get_successors(
+                C.G, parent, flatten=True, ignore=current_ignore
+            ):
+                data_dict["Accession"].append(child)
+                data_dict["Name"].append(C.term_map.get(child))
+                data_dict["Group"].append(group)
+    df = pl.DataFrame(data_dict).with_columns(Source=pl.lit("GO"))
+    df.write_csv(output, separator="\t")
