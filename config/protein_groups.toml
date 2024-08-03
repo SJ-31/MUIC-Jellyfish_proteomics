@@ -38,7 +38,7 @@ j = [
 a = [ # RNA processing and modification
     "GO:0006396", # BP: RNA processing, note this is
     # a child of RNA biosynthetic process
-    "GO:00160",   # BP: RNA metabolic process
+    "GO:0016070", # BP: RNA metabolic process
     "GO:0004540", # MF: RNA nuclease activity
     "GO:0034518", # CC: RNA cap binding complex
     "GO:0030555", # MF: RNA modification guide activity
@@ -83,16 +83,16 @@ l = [ # Replication, recombination, and repair
     "GO:0000018", # BP regulation of DNA recombination
 ]
 b = [ # Chromatin structure and dynamics
-    "GO:0006325",    # BP chromatin organization
-    "GO:1902275",    # BP regulation of chromatin organization
-    "GO:0005876",    # CC spindle microtubule
-    "GO:GO:0004407", # MF histone deacetylase activity
-    "GO:GO:0003682", # MF chromatin binding
-    "GO:GO:0035561", # BP regulation of chromatin binding
-    "GO:GO:0000785", # CC chromatin
-    "GO:GO:0030874", # CC nucleolar chromatin
-    "GO:GO:0097346", # CC INO80-type complex
-    "GO:GO:0016581", # CC NuRD complex
+    "GO:0006325", # BP chromatin organization
+    "GO:1902275", # BP regulation of chromatin organization
+    "GO:0005876", # CC spindle microtubule
+    "GO:0004407", # MF histone deacetylase activity
+    "GO:0003682", # MF chromatin binding
+    "GO:0035561", # BP regulation of chromatin binding
+    "GO:0000785", # CC chromatin
+    "GO:0030874", # CC nucleolar chromatin
+    "GO:0097346", # CC INO80-type complex
+    "GO:0016581", # CC NuRD complex
 ]
 d = [ # Cell cycle control, cell division, chromosome partitioning
     "GO:0051302", # BP regulation of cell division
@@ -331,59 +331,59 @@ f = [ # Nucleotide transport and metabolism
     "GO:0015205", # MF nucleobase transmembrane transporter activity
 ]
 h = [ # Coenzyme transport and metabolism
-    "GO:0006766",  # BP vitamin metabolic process
-    "GO:0006637",  # BP acyl-CoA metabolic process
-    "GO:0046034",  # BP ATP metabolic process
-    "GO:0006734",  # BP NADH metabolic process
-    "GO:0006743",  # BP ubiquinone metabolic process
-    "GO:0006739",  # BP NADP metabolic process
-    "GO:0019674",  # BP NAD metabolic process
-    "GO:0072387",  # BP flavin adenine dinucleotide metabolic process
-    "GO:0006104",  # BP succinyl-CoA metabolic process
-    "GO:0006749",  # BP glutathione metabolic process
-    "GO:0015939",  # BP pantothenate metabolic process
-    "GO:0042357",  # BP thiamine diphosphate metabolic process
-    "GO:0046444",  # BP FMN metabolic process
-    "GO: 0006771", # BP riboflavin metabolic process
-    "GO: 2001293", # BP malonyl-CoA metabolic process
-    "GO: 0046146", # BP tetrahydrobiopterin metabolic process
-    "GO: 0052649", # BP coenzyme gamma-F420-2 metabolic process
-    "GO:0019297",  # BP coenzyme B metabolic process
-    "GO:0019296",  # BP coenzyme M metabolic process
-    "GO:0015011",  # BP nickel-tetrapyrrole coenzyme metabolic process
-    "GO:0015916",  # BP fatty-acyl-CoA transport
-    "GO:0015880",  # BP coenzyme A transport
-    "GO:0015883",  # BP FAD transport
-    "GO:0015887",  # BP pantothenate transmembrane transport
-    "GO:0035350",  # BP FAD transmembrane transport
-    "GO:0035349",  # BP coenzyme A transmembrane transport
-    "GO:0015876",  # BP acetyl-CoA transport
-    "GO:0015877",  # BP biopterin transport
-    "GO:0015752",  # BP D-ribose transmembrane transport
-    "GO:0016790",  # MF thiolester hydrolase activity
-    "GO:0008410",  # MF CoA-transferase activity
-    "GO:0120227",  # MF acyl-CoA binding
-    "GO:0050660",  # MF flavin adenine dinucleotide binding
-    "GO:0043773",  # MF coenzyme F420-0 gamma-glutamyl ligase activity
-    "GO:0051287",  # MF NAD binding
-    "GO:0050661",  # MF NADP binding
-    "GO:0008521",  # MF acetyl-CoA transmembrane transporter activity
-    "GO:0000062",  # MF fatty-acyl-CoA binding
-    "GO:0015228",  # MF coenzyme A transmembrane transporter activity
-    "GO:0070967",  # MF coenzyme F420 binding
-    "GO:0052771",  # MF coenzyme F390-G hydrolase activity
-    "GO:0052770",  # MF coenzyme F390-A hydrolase activity
-    "GO:0090409",  # MF malonyl-CoA synthetase activity
-    "GO:0070968",  # MF pyrroloquinoline quinone binding
-    "GO:0052808",  # MF reduced coenzyme F420:NADP+ oxidoreductase activity
-    "GO:0044673",  # CC 7,8-didemethyl-8-hydroxy-5-deazariboflavin synthase complex
-    "GO:0044677",  # CC methyl-tetrahydromethanopterin:coenzyme M methyltransferase complex
-    "GO:0044681",  # CC sulfopyruvate decarboxylase complex
-    "GO:1990143",  # CC CoA-synthesizing protein complex
-    "GO:0044674",  # CC methyl coenzyme M reductase complex
-    "GO:0030964",  # CC NADH dehydrogenase complex
-    "GO:0043020",  # CC NADPH oxidase complex
-    "GO:0110142",  # CC ubiquinone biosynthesis complex
+    "GO:0006766", # BP vitamin metabolic process
+    "GO:0006637", # BP acyl-CoA metabolic process
+    "GO:0046034", # BP ATP metabolic process
+    "GO:0006734", # BP NADH metabolic process
+    "GO:0006743", # BP ubiquinone metabolic process
+    "GO:0006739", # BP NADP metabolic process
+    "GO:0019674", # BP NAD metabolic process
+    "GO:0072387", # BP flavin adenine dinucleotide metabolic process
+    "GO:0006104", # BP succinyl-CoA metabolic process
+    "GO:0006749", # BP glutathione metabolic process
+    "GO:0015939", # BP pantothenate metabolic process
+    "GO:0042357", # BP thiamine diphosphate metabolic process
+    "GO:0046444", # BP FMN metabolic process
+    "GO:0006771", # BP riboflavin metabolic process
+    "GO:2001293", # BP malonyl-CoA metabolic process
+    "GO:0046146", # BP tetrahydrobiopterin metabolic process
+    "GO:0052649", # BP coenzyme gamma-F420-2 metabolic process
+    "GO:0019297", # BP coenzyme B metabolic process
+    "GO:0019296", # BP coenzyme M metabolic process
+    "GO:0015011", # BP nickel-tetrapyrrole coenzyme metabolic process
+    "GO:0015916", # BP fatty-acyl-CoA transport
+    "GO:0015880", # BP coenzyme A transport
+    "GO:0015883", # BP FAD transport
+    "GO:0015887", # BP pantothenate transmembrane transport
+    "GO:0035350", # BP FAD transmembrane transport
+    "GO:0035349", # BP coenzyme A transmembrane transport
+    "GO:0015876", # BP acetyl-CoA transport
+    "GO:0015877", # BP biopterin transport
+    "GO:0015752", # BP D-ribose transmembrane transport
+    "GO:0016790", # MF thiolester hydrolase activity
+    "GO:0008410", # MF CoA-transferase activity
+    "GO:0120227", # MF acyl-CoA binding
+    "GO:0050660", # MF flavin adenine dinucleotide binding
+    "GO:0043773", # MF coenzyme F420-0 gamma-glutamyl ligase activity
+    "GO:0051287", # MF NAD binding
+    "GO:0050661", # MF NADP binding
+    "GO:0008521", # MF acetyl-CoA transmembrane transporter activity
+    "GO:0000062", # MF fatty-acyl-CoA binding
+    "GO:0015228", # MF coenzyme A transmembrane transporter activity
+    "GO:0070967", # MF coenzyme F420 binding
+    "GO:0052771", # MF coenzyme F390-G hydrolase activity
+    "GO:0052770", # MF coenzyme F390-A hydrolase activity
+    "GO:0090409", # MF malonyl-CoA synthetase activity
+    "GO:0070968", # MF pyrroloquinoline quinone binding
+    "GO:0052808", # MF reduced coenzyme F420:NADP+ oxidoreductase activity
+    "GO:0044673", # CC 7,8-didemethyl-8-hydroxy-5-deazariboflavin synthase complex
+    "GO:0044677", # CC methyl-tetrahydromethanopterin:coenzyme M methyltransferase complex
+    "GO:0044681", # CC sulfopyruvate decarboxylase complex
+    "GO:1990143", # CC CoA-synthesizing protein complex
+    "GO:0044674", # CC methyl coenzyme M reductase complex
+    "GO:0030964", # CC NADH dehydrogenase complex
+    "GO:0043020", # CC NADPH oxidase complex
+    "GO:0110142", # CC ubiquinone biosynthesis complex
 ]
 i = [ # Lipid transport and metabolism
     "GO:0006629", # BP lipid metabolic process
