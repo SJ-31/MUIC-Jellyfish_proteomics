@@ -114,7 +114,7 @@ workflow 'combine_searches' {
     MAX_LFQ(WRITE_QUANT.out, "$outdir/Quantify")
 
     lfq = DIRECTLFQ.out.quant.concat(TOP3.out, MAX_LFQ.out).collect()
-    LFQ_MERGE(lfq, "$outdir")
+    LFQ_MERGE(lfq, seq_header_mappings, "$outdir")
 
     COVERAGE_SPLIT(COMBINE_ALL.out.all)
     COVERAGE_CALC(COVERAGE_SPLIT.out.flatten(),

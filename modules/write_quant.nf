@@ -33,6 +33,7 @@ process LFQ_MERGE  {
 
     input:
     tuple path(directlfq), path(top3), path(maxlfq)
+    path(seq_header_mappings)
     val(outdir)
     //
 
@@ -52,6 +53,7 @@ process LFQ_MERGE  {
         -d $directlfq \
         -p $top3 \
         -m $maxlfq \
+        --seq_header_mapping $seq_header_mappings \
         -o lfq_all.tsv
     """
     }
