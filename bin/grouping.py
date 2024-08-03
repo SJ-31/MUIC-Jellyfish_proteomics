@@ -1,4 +1,5 @@
 import polars as pl
+import copy
 import tomllib
 import re
 
@@ -60,10 +61,19 @@ ADDED = ["PFAM_IDs"]
 class Grouper:
 
     def __init__(
-        self, map_df: pl.DataFrame, data: pl.DataFrame, pfam_map_path: str
+        self,
+        map_df: pl.DataFrame,
+        data: pl.DataFrame,
+        pfam_map_path: str,
+        header_map: dict,
     ) -> None:
+        """
+        :param: header_map a dictionary that maps groups e.g. "cardiotoxin" to a list of elements supposed to be assigned to that group. This will be used to determine group based on header names
+        """
         pfam_map = pl.read_csv(pfam_map_path, separator="\t")
         short_name2acc: dict = dict(zip(pfam_map["short_name"], pfam_map["accession"]))
+        self.header_map: dict = mapping_from_definition(header_map)
+        # Restructure dict of str->list so that all the elements of list map to its str keys
 
         self.map: dict = dict(zip(map_df["Accession"], map_df["Group"]))
         aggregated = (  # Transforms df into long form
@@ -86,10 +96,10 @@ class Grouper:
         ]
         # columns containing accessions that will be counted to determine groups
         self.cols_to_sum = self.cols_to_count_groups.copy()
+        self.cols_to_sum.append("group_from_header")
         # names of columns containing the groups that will be considered when summarizing the group for an entry in  the `assign_groups` function
         self.data = aggregated
 
-    # Make sure that negative hits don't count towards anything
     def group_count_row(self, to_count: list) -> tuple:
         group_tracker = {}
         for element in to_count:
@@ -106,12 +116,19 @@ class Grouper:
         """From a polars row in dictionary form, conclude what Group the
         row's entry should be assigned to based on the Group mapping provided in `map_df`
         """
+        self.data = self.data.with_columns(
+            group_from_header=pl.col("entry_name").map_elements(
+                lambda x: find_in_headers(x, self.header_map),
+                return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
+            )
+        )
         concluded = self.data.with_columns(
             pl.col(self.cols_to_count_groups).map_elements(
                 self.group_count_row,
                 return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
             ),
         )
+        self.assigned = copy.copy(concluded)
         concluded = concluded.select(
             "GroupUP",
             pl.struct(self.cols_to_sum)
@@ -146,29 +163,6 @@ def find_in_headers(headers, mapping: dict) -> dict:
     return {"group": top[0], "count": top[1]}
 
 
-class ToxinGrouper(Grouper):
-
-    def __init__(
-        self,
-        map_df: pl.DataFrame,
-        data: pl.DataFrame,
-        toxin_header_map: dict,
-        pfam_map_path: str,
-    ) -> None:
-        super().__init__(map_df, data, pfam_map_path)
-        self.cols_to_sum.append("group_from_header")
-        self.toxin_header_map = mapping_from_definition(toxin_header_map)
-
-    def assign_groups(self) -> pl.DataFrame:
-        self.data = self.data.with_columns(
-            group_from_header=pl.col("entry_name").map_elements(
-                lambda x: find_in_headers(x, self.toxin_header_map),
-                return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
-            )
-        )
-        return super().assign_groups()
-
-
 def parse_args():
     import argparse
 
@@ -176,6 +170,7 @@ def parse_args():
     parser.add_argument("-i", "--input")
     parser.add_argument("-o", "--output")
     parser.add_argument("-p", "--pfam_map_path")
+    parser.add_argument("-c", "--cog_map_path")
     parser.add_argument("-t", "--toxin_map_path")
     parser.add_argument("-a", "--all_map_path")
     parser.add_argument("-m", "--mode")
@@ -194,16 +189,51 @@ def main(args):
     with open(args["all_map_path"], "rb") as t:
         maps = tomllib.load(t)
     if args["mode"] == "toxin":
-        G = ToxinGrouper(
-            toxin_map, data, maps["header_names"]["toxins"], args["pfam_map_path"]
+        G = Grouper(
+            toxin_map, data, args["pfam_map_path"], maps["header_names"]["toxins"]
         )
         result = G.assign_groups()
-        return result, G
+        return result, G, None
     elif args["mode"] == "cog":
-        G = Grouper()
+        data = pl.read_csv(args["input"], separator="\t", null_values="NA")
+        to_group = data.select(["ProteinId", "GroupUP"] + ANNO_COLS)
+        cog_map_df = pl.read_csv(args["cog_map_path"], separator="\t")
+        cc = "COG_category"
+        with open(args["all_map_path"], "rb") as f:
+            pg = tomllib.load(f)
+        cog_header_groups = pg["header_names"]["cog"]
+        header_toxins = [
+            t for lst in pg["header_names"]["toxins"].values() for t in lst
+        ]
+        cog_header_groups["venom_component"] = (
+            cog_header_groups["venom_component"] + header_toxins
+        )
+        has_cog: pl.DataFrame = (
+            data.with_columns(pl.col(cc).str.split(""))
+            .group_by("GroupUP")
+            .agg(pl.col(cc).flatten())
+            .with_columns(pl.col(cc).list.drop_nulls().list.unique())
+            .filter(pl.col(cc).list.len() >= 1)
+            .with_columns(pl.col(cc).list.first().str.to_lowercase())
+        )
+        G = Grouper(cog_map_df, to_group, args["pfam_map_path"], cog_header_groups)
+        group_assignments: pl.DataFrame = (
+            G.assign_groups()
+            .rename({"Group": "COG_category"})
+            .filter(~pl.col("GroupUP").is_in(has_cog["GroupUP"]))
+        )
+        all_cog = pl.concat([has_cog, group_assignments])
+        cog_map: dict = dict(zip(all_cog["GroupUP"], all_cog["COG_category"]))
+        result = data.with_columns(
+            assigned_COG=pl.col("GroupUP").map_elements(
+                lambda x: cog_map.get(x), pl.String
+            )
+        )
+        # Counter(cog_map.values())
+        return result, G, cog_map
 
 
 if __name__ == "__main__":
     args = parse_args()
-    result, G = main(args)
+    result, G, mapping = main(args)
     result.write_csv(args["output"], separator="\t")
