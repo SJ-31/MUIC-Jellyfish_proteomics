@@ -75,6 +75,13 @@ class Grouper:
         self.header_map: dict = mapping_from_definition(header_map)
         # Restructure dict of str->list so that all the elements of list map to its str keys
 
+        self.evidence_df: pl.DataFrame
+        self.evidence_map: dict = {
+            "GroupUP": [],
+            "Evidence": [],
+            "Group": [],
+            "Source": [],
+        }
         self.map: dict = dict(zip(map_df["Accession"], map_df["Group"]))
         aggregated = (  # Transforms df into long form
             data.with_columns(pl.col(ANNO_COLS).str.split(by=";"))
@@ -100,12 +107,16 @@ class Grouper:
         # names of columns containing the groups that will be considered when summarizing the group for an entry in  the `assign_groups` function
         self.data = aggregated
 
-    def group_count_row(self, to_count: list) -> tuple:
+    def group_count_row(self, up_group: str, to_count: list, source: str) -> tuple:
         group_tracker = {}
         for element in to_count:
             if element:
                 mapped_group = self.map.get(element)
                 if mapped_group:
+                    self.evidence_map["GroupUP"].append(up_group)
+                    self.evidence_map["Evidence"].append(element)
+                    self.evidence_map["Group"].append(mapped_group)
+                    self.evidence_map["Source"].append(source)
                     group_tracker[mapped_group] = group_tracker.get(mapped_group, 0) + 1
         if group_tracker:
             top = sorted(group_tracker.items(), key=lambda x: x[1])[-1]
@@ -116,26 +127,43 @@ class Grouper:
         """From a polars row in dictionary form, conclude what Group the
         row's entry should be assigned to based on the Group mapping provided in `map_df`
         """
+        header_with_group_up = pl.struct(["GroupUP", "entry_name"])
         self.data = self.data.with_columns(
-            group_from_header=pl.col("entry_name").map_elements(
-                lambda x: find_in_headers(x, self.header_map),
+            group_from_header=header_with_group_up.map_elements(
+                lambda x: find_in_headers(
+                    x.get("GroupUP"),
+                    x.get("entry_name", []),
+                    self.header_map,
+                    self.evidence_map,
+                ),
                 return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
             )
         )
-        concluded = self.data.with_columns(
-            pl.col(self.cols_to_count_groups).map_elements(
-                self.group_count_row,
+        with_group_up = [
+            pl.struct(["GroupUP", c])
+            .map_elements(
+                lambda x: self.group_count_row(
+                    up_group=x.get("GroupUP"), to_count=x.get(c, []), source=c
+                ),
                 return_dtype=pl.Struct({"group": pl.String, "count": pl.Int64}),
-            ),
-        )
+            )
+            .alias(c)
+            for c in self.cols_to_count_groups
+        ]
+        concluded = self.data.with_columns(with_group_up)
         self.assigned = copy.copy(concluded)
         concluded = concluded.select(
             "GroupUP",
             pl.struct(self.cols_to_sum)
             .map_elements(find_max_struct, return_dtype=pl.String)
             .alias("Group"),
+        ).filter(pl.col("Group") != "")
+        self.evidence_df = (
+            pl.DataFrame(self.evidence_map)
+            .join(concluded, on="GroupUP")
+            .rename({"Group_right": "Final_group"})
         )
-        return concluded.filter(pl.col("Group") != "")
+        return concluded
 
 
 def find_max_struct(x):
@@ -147,12 +175,19 @@ def mapping_from_definition(dct: dict[str, list]) -> dict:
     return {item: key for key, value in dct.items() for item in value}
 
 
-def find_in_headers(headers, mapping: dict) -> dict:
+def find_in_headers(
+    up_group, headers, mapping: dict, evidence_map: dict = None
+) -> dict:
     tracker = {}
 
     def find_one(header: str):
         for k, v in mapping.items():
             if re.match(k.lower(), header.lower()):
+                if evidence_map:
+                    evidence_map["GroupUP"].append(up_group)
+                    evidence_map["Evidence"].append(header)
+                    evidence_map["Group"].append(v)
+                    evidence_map["Source"].append("header")
                 tracker[v] = tracker.get(v, 0) + 1
 
     [find_one(q) for q in headers]
@@ -169,6 +204,7 @@ def parse_args():
     parser = argparse.ArgumentParser()
     parser.add_argument("-i", "--input")
     parser.add_argument("-o", "--output")
+    parser.add_argument("-e", "--evidence_file_output")
     parser.add_argument("-p", "--pfam_map_path")
     parser.add_argument("-c", "--cog_map_path")
     parser.add_argument("-t", "--toxin_map_path")
@@ -229,7 +265,6 @@ def main(args):
                 lambda x: cog_map.get(x), pl.String
             )
         )
-        # Counter(cog_map.values())
         return result, G, cog_map
 
 
@@ -237,3 +272,4 @@ if __name__ == "__main__":
     args = parse_args()
     result, G, mapping = main(args)
     result.write_csv(args["output"], separator="\t")
+    G.evidence_df.write_csv(args["evidence_file_output"], separator="\t")
