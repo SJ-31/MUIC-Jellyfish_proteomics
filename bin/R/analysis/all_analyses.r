@@ -8,6 +8,7 @@ library("paletteer")
 library("Peptides")
 library("glue")
 
+
 save <- function(to_save, outdir) {
   by_type <- function(name, object) {
     if ("gg" %in% class(object) || "grob" %in% class(object)) {
@@ -21,6 +22,8 @@ save <- function(to_save, outdir) {
       write_tsv(object, glue("{outdir}/{name}.tsv"))
     } else if ("plotly" %in% class(object) && "htmlwidget" %in% class(object)) {
       plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
+    } else if (object == 0) {
+      cat("", file = glue("{outdir}/{name}.txt"))
     }
   }
   if (!dir.exists(outdir)) {
@@ -46,8 +49,11 @@ if (str_detect(getwd(), "Bio_SDD")) {
 
 M$chosen_pass <- "1-First_pass"
 M$path <- glue("{M$wd}/results/C_indra")
+M$cpath <- glue("{M$wd}/results/C_indra.calibrated")
+M$mpath <- glue("{M$wd}/results/C_indra.msconvert")
+M$ndpath <- glue("{M$wd}/results/ND_C_indra")
 M$fdr <- 0.05
-M$outdir <- glue("{M$path}/Analysis")
+M$outdir <- glue("{M$wd}/docs/figures")
 M$prottrans_embd <- glue("{M$outdir}/Embeddings_prottrans/embeddings.hdf5")
 M$prottrans_dist <- glue("{M$outdir}/Embeddings_prottrans/distances.hdf5")
 M$percolator_all_path <- glue("{M$path}/{M$chosen_pass}/percolator_all.tsv")
@@ -61,7 +67,7 @@ M$embd_type <- "protein"
 M$uniprot_data_dir <- glue("{M$wd}/data/protein_databases/comparison_taxa")
 M$combined_results <- glue("{M$path}/{M$chosen_pass}/{M$sample_name}_all_wcoverage.tsv")
 M$peptide_map_path <- glue("{M$path}/{M$chosen_pass}/percolator_peptide_map.tsv")
-M$ontologizer_path <- glue("{M$outdir}/Ontologizer")
+M$ontologizer_path <- glue("{M$path}/Analysis/Ontologizer")
 M$embedding_path <- glue("{M$wd}/data/reference/go_embedded.npz")
 M$ontologizer_exec <- glue("{M$tools}/Ontologizer.jar")
 M$orgdb_path <- glue("{M$wd}/tests/testthat/output/org.Cindrasaksajiae.eg.db")
@@ -103,16 +109,15 @@ source(glue("{M$r_source}/analysis/metric_functions.r"))
 
 if (!dir.exists(M$outdir)) {
   dir.create(M$outdir)
-} else if (!dir.exists(glue("{M$outdir}/Figures"))) {
-  dir.create(glue("{M$outdir}/Figures"))
 }
 
+# Note that you must match on headers
 M$run <- get_run("C_indra", M$path)
 M$taxa_tb <- read_tsv(glue("{M$path}/{M$chosen_pass}/{M$sample_name}_taxonomy.tsv"))
 M$data <- M$run$first
 # BUG: Fix this when cateogry is done
 # M$data <- read_tsv(glue("{M$outdir}/Aggregated/{M$sample_name}_all_wcategory.tsv"))
-M$repr <- read_tsv(glue("{M$outdir}/{M$sample_name}_all_representatives.tsv"))
+# M$repr <- read_tsv(glue("{M$outdir}/{M$sample_name}_all_representatives.tsv"))
 M$alignments <- get_alignment_data(M$path, M$chosen_pass)
 M$taxa_cols <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
 
@@ -133,10 +138,10 @@ if (GET_GO) {
   }
 }
 
-sem_matrix_file <- glue("{M$outdir}/sem_matrices.hdf5")
-if (!file.exists(sem_matrix_file)) {
-  source(glue("{M$r_source}/analysis/save_sim.r"))
-}
+# sem_matrix_file <- glue("{M$outdir}/sem_matrices.hdf5")
+# if (!file.exists(sem_matrix_file)) {
+#   source(glue("{M$r_source}/analysis/save_sim.r"))
+# }
 
 PLOT_GO <- FALSE
 if (PLOT_GO) {

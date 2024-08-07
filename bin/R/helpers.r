@@ -398,18 +398,19 @@ chisqNME <- function(
 #' Alternative method of grouping protein identifications by their shared unique peptides
 group_by_unique_peptides <- function(tb) {
   if ("GroupUP" %in% colnames(tb)) {
-    print("Has Group already, ignoring")
-    return(tb)
+    tb <- tb |> select(-GroupUP)
   }
+
   split_with_na <- function(str) {
     if (is.na(str)) {
       return("NA")
     }
-    str_split_1(str, ";")
+    str_split_1(str, ";") |>
+      sort() |>
+      paste0(collapse = ";")
   }
   split_tb <- tb |> mutate(
-    unique_peptides =
-      lapply(unique_peptides, split_with_na)
+    unique_peptides = map_chr(unique_peptides, split_with_na)
   )
   new_groups <- split_tb %>%
     group_by(unique_peptides) |>
@@ -588,4 +589,12 @@ fill_peptide_gaps <- function(peptides) {
       str_replace_all("([A-Z\\]])_\\[", "\\1;\\[") |>
       str_replace_all("\\]_\\[", "\\];\\[")
   })
+}
+
+fasta2tb <- function(fasta) {
+  f <- read.fasta(fasta, seqtype = "AA", whole.header = TRUE)
+  tibble(
+    header = seqinr::getName(f),
+    sequence = map_chr(seqinr::getSequence(f, as.string = TRUE), \(x) x[[1]])
+  )
 }
