@@ -1,0 +1,80 @@
+digraph boxes_and_circles {
+    ranksep = 1;
+    graph [style = invis; fontname = "Helvetica";];
+    edge [penwidth = 3; color = "#4c4f69";];
+    compound = true;
+    node [fontname = "Helvetica"; fontsize = 30; style = filled; penwidth = 3;];
+    
+    node [fillcolor = "#f5c2e7"; color = "#ea76cb"; shape = octagon;];
+    conf [label = <Protein groups>;];
+    quant [label = <Estimations of protein abundance>;];
+    final [label = <Venome characterization>;];
+    func [label = <Annotated proteins>;];
+    
+    node [shape = folder; color = "#40a02b"; fillcolor = "#a6e3a1";];
+    ncbi [label = <<b>NCBI</b><br/>Cnidarian proteins>;];
+    unip [label = <<b>UniProt</b><br/>Cnidarian proteins>;];
+    
+    node [shape = component; color = "#dc8a78"; fillcolor = "#f5e0dc";];
+    maxLFQ [label = <<b>maxLFQ</b>>;];
+    dlfq [label = <<b>DirectLFQ</b>>;];
+    top3 [label = <<b>Top3</b>>;];
+    onto [label = <<b>Ontologizer</b><br/>GO enrichment analysis>;];
+    fgsea [label = <<b>FGSEA</b><br/>Pathway enrichment analysis>;];
+    api [label = <<b>UniProt Mapping API</b><br/>Get GO, Panther, PFAMs>;];
+    eggnog [label = <<b>eggNOG-mapper</b><br/>Ortholog-based functional annotation>;];
+    deeploc [label = <<b>SignalP + DeepLoc</b><br/>Localization prediction>;];
+    blast [label = <<b>BLAST, FASTS</b><br/>Match UPs against<br/> downloaded database>;];
+    interpro [label = <<b>InterproScan</b><br/>Homology-based<br/> functional prediction>;];
+    cov [label = <<b>Global-local alignment</b><br/>Calculate protein coverage by peptides>;];
+    
+    node [shape = tab; color = "#04a5e5"; fillcolor = "#89dceb";];
+    unmatched_eggnog [label = <Remaining unmatched>;];
+    unmatched_ip [label = <Remaining unmatched>;];
+    dbp [label = <<b>DBPs</b><br/>Peptides matching database proteins>;];
+    other [label = <<b>UPs</b><br/>Denovo &amp; transcriptome peptides>;];
+    u_other [label = <Unmatched UPs>;];
+    u_matched [label = <Matched UPs>;];
+    
+    conf -> {dbp other};
+    other -> blast;
+    dbp -> api;
+    
+    subgraph cluster_combine {
+        fontsize = "35";
+        margin = 30;
+        style = filled;
+        fillcolor = transparent;
+        label = <<b>Annotation</b>>;
+        {unip ncbi} -> blast;
+        blast -> u_other;
+        blast -> u_matched -> api;
+        
+        
+        u_other -> eggnog -> unmatched_eggnog;
+        unmatched_eggnog -> interpro;
+        interpro -> unmatched_ip;
+        interpro -> cov;
+        unmatched_ip -> deeploc;
+        {deeploc api} -> cov;
+        eggnog -> cov;
+        cov -> func;
+    }
+    
+    subgraph cluster_quant {
+        fontsize = "35";
+        style = filled;
+        fillcolor = transparent;
+        label = <<b>Label-free quantification</b>>;
+        labeljust = "l";
+        margin = 50;
+        func -> {maxLFQ dlfq top3};
+        {maxLFQ dlfq top3} -> quant;
+    }
+    subgraph final {
+        style = invis;
+        func -> {onto fgsea} -> final;
+        func -> final;
+        quant -> final;
+    }
+}
