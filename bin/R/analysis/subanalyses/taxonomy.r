@@ -91,4 +91,4 @@ TABLES$class_tests_contingency <- class_tests$gt$class_tests_contingency
 
 
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/taxonomy"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/taxonomy"))

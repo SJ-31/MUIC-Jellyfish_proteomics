@@ -34,7 +34,7 @@ to_keep_denovo <- data %>%
 it <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = it)
 
-replacement_metrics <- map2(
+mismatch_metrics <- map2(
   list(alignments, nd_alignments),
   list(data, nd_data),
   \(x, y) {
@@ -46,29 +46,43 @@ replacement_metrics <- map2(
 ) %>%
   `names<-`(c("default", "no_denovo"))
 
-merged_default <- inner_join(replacement_metrics$default, data)
+merged_default <- inner_join(mismatch_metrics$default, data)
 merged <- bind_rows(
   merged_default |> mutate(mode = "default"),
-  inner_join(replacement_metrics$no_denovo, nd_data) %>% mutate(mode = "no_denovo"),
+  inner_join(mismatch_metrics$no_denovo, nd_data) %>% mutate(mode = "no_denovo"),
 )
 
+merged_prot_compare <- inner_join(mismatch_metrics$default,
+  mismatch_metrics$no_denovo,
+  by = join_by(ProteinId),
+  suffix = c("_default", "_no_denovo")
+) |>
+  filter(ProteinId %in% filter(data, !is.na(MatchedPeptideIds))$ProteinId) |>
+  inner_join(select(data, ProteinId, length), by = join_by(ProteinId)) |>
+  inner_join(select(nd_data, ProteinId, num_unique_peps), by = join_by(ProteinId)) |>
+  rename(num_unique_peps_nd = num_unique_peps) |>
+  inner_join(select(data, ProteinId, num_unique_peps), by = join_by(ProteinId)) |>
+  rename(num_unique_peps_d = num_unique_peps) |>
+  mutate(
+    mismatch_pr_default = n_mismatches_default / num_unique_peps_d,
+    mismatch_pr_no_denovo = n_mismatches_no_denovo / num_unique_peps_nd
+  )
 
-# TODO: This is kinda weird and misleading, maybe something better...
-# GRAPHS$peptides_vs_mismatches <- ggplot(merged, aes(
-#   x = num_unique_peps, y = n_mismatches,
-#   color = mode, alpha = n_disagreements / n_mismatches
-# )) +
-#   geom_point() +
-#   xlab("Number of unique peptides") +
-#   ylab("n mismatches") +
-#   labs(alpha = "n disagreements / n mismatches") +
-#   scale_color_paletteer_d(PALETTE)
+# TODO: Because there are so many denovo peptides matched, this doesn't show what you want
+GRAPHS$mismatch_comparison <- ggplot(
+  merged_prot_compare,
+  aes(x = log(mismatch_pr_default), y = log(mismatch_pr_no_denovo), color = length)
+) +
+  geom_point() +
+  paletteer::scale_colour_paletteer_c("viridis::inferno") +
+  ylab("Mismatch frequency without de novo peptides") +
+  xlab("Mismatch frequency with de novo peptides") +
+  geom_segment(aes(x = 0, y = 0, xend = 4, yend = 4))
 
-test <- cor.test(merged$n_mismatches, merged$num_unique_peps) |>
-  to("data.name", "number of mismatches vs number of unique peptides") |>
-  htest2tb()
 
-TABLES$replacement_metrics <- gt(replacement_metrics$default)
+
+
+TABLES$mismatch_metrics <- gt(mismatch_metrics$default)
 
 
 GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
@@ -111,10 +125,9 @@ TABLES$denovo_metrics <- gt(denovo_metrics$metrics)
 
 test <- wilcox.test(denovo_metrics$metrics$n_mismatches, y = NULL) |>
   to("data.name", "replacement counts") |>
-  htest2tb() |>
-  bind_rows(test)
+  htest2tb()
 
 TABLES$replacement_htests <- gt(test)
 
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/amino_acid_mismatches"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/amino_acid_mismatches"))

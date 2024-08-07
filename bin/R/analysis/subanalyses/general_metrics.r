@@ -54,13 +54,13 @@ GRAPHS$intensity_categories <- gg_numeric_dist(intensity_list, "boxplot") +
     axis.text.x = element_blank(),
     axis.title.x = element_blank()
   ) +
-  guides(color = guide_legend("GO category (MF)")) + scale_color_paletteer_d(PALETTE)
+  guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE)
 GRAPHS$coverage_categories <- gg_numeric_dist(cov_list, "boxplot") +
   labs(y = "coverage (%)", x = grouping_metric) + theme(
     axis.text.x = element_blank(),
     axis.title.x = element_blank()
   ) +
-  guides(color = guide_legend("GO category (MF)")) + scale_color_paletteer_d(PALETTE)
+  guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE)
 
 with_category <- inner_join(tb, lfq) %>%
   select(ProteinId, log_intensity, !!grouping_metric) %>%
@@ -85,13 +85,13 @@ counts <- list()
 counts$first <- get_counts(M$run$first)
 counts$sec <- get_counts(M$run$sec)
 
-wanted_cols <- c("GO_counts", "GO_max_sv", "num_peps", "pcoverage_align")
+wanted_cols <- c("GO_counts", "num_peps", "pcoverage_align")
 # Run Wilcox tests between on the metrics defined above, pairing up proteins that
 # were identified in both runs
-compare_tb <- inner_join(M$run$first, M$run$second, by = join_by(ProteinId), suffix = c(".first", ".sec"))
+compare_tb <- inner_join(M$run$first, M$run$second, by = join_by(header), suffix = c(".first", ".sec"))
 
 wilcox <- pairwise_tests_tb(
-  compare_tb, wanted_cols, c("less", "less", "less", "less"),
+  compare_tb, wanted_cols, c("less", "less", "less"),
   \(x, y, ...) wilcox.test(x, y, paired = TRUE, na.rm = TRUE, ...)
 )
 sub <- substitute_all(
@@ -169,4 +169,4 @@ GRAPHS$peptide_lengths <- ggplot(peptides, aes(x = length)) +
   geom_histogram(binwidth = 10)
 
 
-save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/general_metrics"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/general_metrics"))

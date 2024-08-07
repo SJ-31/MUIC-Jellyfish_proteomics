@@ -96,4 +96,4 @@ new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 # TODO: Get the identity of the previous proteins so you
 # can
-save(c(GRAPHS, TABLES), glue("{M$outdir}/Figures/comparison_with_previous"))
+save(c(GRAPHS, TABLES), glue("{M$outdir}/comparison_with_previous"))

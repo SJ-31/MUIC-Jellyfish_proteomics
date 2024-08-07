@@ -7,27 +7,27 @@ SECOND_PASS_ENGINES <- c("identipy", "msgf", "msfragger", "comet")
 TABLES <- list()
 
 db <- glue("{M$path}/Databases/decoysWnormal.fasta")
-dbSize <- function(fasta_file) {
+db_size <- function(fasta_file) {
   seqkit_stat(fasta_file)$num_seqs[[1]] %>% as.numeric()
 }
 
-complete_db_size <- dbSize(db)
+complete_db_size <- db_size(db)
 sizes <- lapply(SECOND_PASS_ENGINES, \(x) {
-  dbSize(glue("{M$path}/2-Second_pass/BK_databases/{x}_bk_database.fasta"))
+  db_size(glue("{M$path}/2-Second_pass/BK_databases/{x}_bk_database.fasta"))
 }) %>% `names<-`(SECOND_PASS_ENGINES)
 
-getPercolator <- function(pass) {
+get_percolator <- function(pass) {
   dir <- glue("{M$path}/{pass}/Percolator")
   lapply(SECOND_PASS_ENGINES, \(x) {
     read_tsv(glue("{dir}/{x}_percolator_proteins.tsv"))
   }) %>% `names<-`(SECOND_PASS_ENGINES)
 }
 
-first_pass <- getPercolator("1-First_pass")
-sec_pass <- getPercolator("2-Second_pass")
+first_pass <- get_percolator("1-First_pass")
+sec_pass <- get_percolator("2-Second_pass")
 
-getStats <- function(engine_list, pass) {
-  getRow <- function(lst_subset) {
+get_stats <- function(engine_list, pass) {
+  get_row <- function(lst_subset) {
     tb <- lst_subset[[1]]
     tibble(
       engine = names(lst_subset),
@@ -36,12 +36,12 @@ getStats <- function(engine_list, pass) {
       num_passed_pep = tb %>% filter(`posterior_error_prob` < M$fdr) %>% nrow()
     )
   }
-  lmap(engine_list, getRow) %>%
+  lmap(engine_list, get_row) %>%
     bind_rows() %>%
     mutate(pass = pass)
 }
 
-stats <- bind_rows(getStats(first_pass, "first"), getStats(sec_pass, "sec"))
+stats <- bind_rows(get_stats(first_pass, "first"), get_stats(sec_pass, "sec"))
 SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 
 
@@ -59,7 +59,7 @@ ALL_RESULTS <- local({
   distinct(ProteinId, .keep_all = TRUE)
 
 # Per-engine analysis function
-perEngine <- function(engine) {
+per_engine <- function(engine) {
   engine_results <- list()
   data <- dplyr::bind_rows(
     separate_longer_delim(first_pass[[engine]], "ProteinId", ",") %>%
@@ -164,19 +164,19 @@ perEngine <- function(engine) {
 }
 
 TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
-  mutateBind <- function(col) {
+  mutate_bind <- function(col) {
     acc[[col]] <- bind_rows(
       acc[[col]],
       mutate(results[[col]], engine = x)
     )
   }
-  results <- perEngine(x)
-  acc$pairwise_tests <- mutateBind("pairwise_tests")
-  acc$htests <- mutateBind("htests")
-  acc$OR <- mutateBind("OR")
+  results <- per_engine(x)
+  acc$pairwise_tests <- mutate_bind("pairwise_tests")
+  acc$htests <- mutate_bind("htests")
+  acc$OR <- mutate_bind("OR")
   return(acc)
 }, .init = list(pairwise_tests = tibble(), htests = tibble(), OR = tibble()))
 
 TABLES$stats <- stats
 
-save(TABLES, glue("{M$outdir}/Figures/pass_differences"))
+save(TABLES, glue("{M$outdir}/pass_differences"))

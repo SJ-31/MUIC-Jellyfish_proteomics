@@ -117,21 +117,21 @@ to_chord <- toxin_w_tax |>
   select(from, to)
 # https://yjunechoe.github.io/posts/2020-06-30-treemap-with-ggplot/
 # save_chord(to_chord,
-#   filename = glue("{M$outdir}/Figures/taxonomy/toxin_chord.svg"), width = 15, height = 15
+#   filename = glue("{M$outdir}/taxonomy/toxin_chord.svg"), width = 15, height = 15
 # )
 
 py_plots$plotly_sunburst(
   to_sb, list(
-    file = glue("{M$outdir}/Figures/taxonomy/toxin_sb_plotly.html"),
+    file = glue("{M$outdir}/taxonomy/toxin_sb_plotly.html"),
     width = 1500, height = 1200
   ),
   list(title = list(text = "Toxin intensities"))
 )
 py_plots$plotly_treemap(to_sb,
   list(
-    file = glue("{M$outdir}/Figures/taxonomy/toxin_tm_plotly.html"),
+    file = glue("{M$outdir}/taxonomy/toxin_tm_plotly.html"),
     width = 1500, height = 1200
   ),
   layout_params = list(title = list(text = "Toxin intensities"))
 )
-save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/taxonomy"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/taxonomy"))

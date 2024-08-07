@@ -138,4 +138,4 @@ intense <- chisqNME(
 TABLES$engine_intensity_chi <- intense$gt$chi
 TABLES$engine_intensity_contingency <- intense$gt$contingency
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/engine_category_bias"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/engine_category_bias"))

@@ -70,4 +70,4 @@ not_chironex$Genus |> table()
 
 
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/subgroup_comparisons"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/subgroup_comparisons"))

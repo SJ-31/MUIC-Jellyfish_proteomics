@@ -91,7 +91,7 @@ if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
   plot <- ggplot(by_intensity, aes(x = log_intensity)) +
     geom_histogram(fill = "#69d2e7") +
     xlab("log 10 intensity")
-  ggsave(glue("{M$outdir}/Figures/intensity_histogram.svg"), plot)
+  ggsave(glue("{M$outdir}/intensity_histogram.svg"), plot)
 } else {
   intensity <- lapply(c("low", "medium", "high"), \(x) read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")))
 }
@@ -180,4 +180,4 @@ group_original_summarized <- summarize_tax_data(data, "Group")
 
 
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/Figures/misc"))
+save(c(TABLES, GRAPHS), glue("{M$outdir}/misc"))
