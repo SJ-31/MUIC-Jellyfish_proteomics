@@ -1,0 +1,90 @@
+digraph boxes_and_circles {
+    ranksep = 2;
+    compound = true;
+    graph [style = invis; fontname = "Helvetica";];
+    edge [penwidth = 3; color = "#4c4f69";];
+    newrank = true;
+    node [fontname = "Helvetica"; fontsize = 30; style = filled; penwidth = 3;];
+    
+    node [shape = folder; color = "#40a02b"; fillcolor = "#a6e3a1";];
+    ncbi [label = <<b>NCBI</b><br/>Cnidarian proteins>;];
+    unip [label = <<b>UniProt</b><br/>Cnidarian proteins>;];
+    mzML;
+    
+    node [shape = component; color = "#dc8a78"; fillcolor = "#f5e0dc";];
+    intersect [label = <<b>Combine identifications</b><br/>"two engine" rule>;];
+    glyco [label = <<b>MSfragger</b><br/>N-,O-linked glycan search>;];
+    ptm [label = <<b>MSfragger, Metamorpheus</b><br/>Global PTM search>;];
+    comet [label = <<b>Comet</b>>;];
+    idpy [label = <<b>Identipy</b>>;];
+    meta [label = <<b>Metamorpheus</b>>;];
+    msgf [label = <<b>MSGF+</b>>;];
+    tide [label = <<b>Tide</b>>;];
+    msfrag [label = <<b>MSFragger</b>>;];
+    bk_decoy [label = <<b>Second-pass search</b>>;];
+    
+    node [shape = tab; color = "#04a5e5"; fillcolor = "#89dceb";];
+    denovo [label = <Denovo peptides>;];
+    decoy_db [label = <Concatenated target-decoy database>;];
+    unmsms [label = <Unmatched MS/MS spectra>;];
+    conf [label = <Protein groups>;fillcolor = "#f5c2e7";color = "#ea76cb";shape = octagon;];
+    
+    
+    node [shape = oval; fillcolor = "#cdd6f4"; color = "#6c6f85";];
+    search [label = "Search with 6 engines";];
+    
+    perc [shape = cylinder;fillcolor = "#89b4fa";label = <<b>Percolator</b><br/>post-processing, protein inference>;color = "#1e66f5";];
+    
+    {unip ncbi} -> decoy_db;
+    mzML -> search;
+    denovo -> decoy_db;
+    decoy_db -> search [minlen = 5;];
+    
+    subgraph cluster_open {
+        label = <<b>Open searches</b>>;
+        labelloc = "b";
+        fontsize = "35";
+        margin = 20;
+        penwidth = 2;
+        style = filled;
+        fillcolor = transparent;
+        unmsms -> {glyco ptm} [color = "#04a5e5";];
+    }
+    
+    subgraph cluster_search {
+        penwidth = 2;
+        fontsize = "35";
+        label = <<b>Standard database searches</b>>;
+        labelloc = "b";
+        labeljust = "l";
+        margin = 50;
+        style = filled;
+        fillcolor = transparent;
+        node [shape = component;];
+        search -> {comet msgf msfrag idpy meta tide};
+        subgraph {
+            rank = same;
+            decoy_db;
+            search;
+        }
+        subgraph {
+            rank = same;
+            idpy;
+            msfrag;
+            msgf;
+            comet;
+            meta;
+            tide;
+        }
+        {comet idpy msgf msfrag meta tide} -> perc;
+        {idpy msfrag msgf comet} -> bk_decoy [color = "#dc8a78";];
+        perc -> bk_decoy;
+        {glyco ptm} -> perc [color = "#dc8a78";];
+        perc -> unmsms [minlen = 2;];
+    }
+    
+    subgraph cluster_final {
+        perc -> intersect [color = "#1e66f5"; minlen = 3;];
+        intersect -> conf [color = "#1e66f5";];
+    }
+}
