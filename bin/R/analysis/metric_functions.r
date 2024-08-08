@@ -569,3 +569,34 @@ get_peptide_data <- function(peptides) {
       modified = ifelse(str_detect(peptide, "\\["), TRUE, FALSE)
     )
 }
+
+get_run_stats <- function(tb) {
+  vars <- list()
+  peps <- flatten_by(tb$unique_peptides, ";") |> unique()
+  pep_lengths <- map_dbl(peps, nchar)
+  vars[["Number of protein groups"]] <- tb$GroupUP |>
+    unique() |>
+    length()
+  vars[["Number of proteins matched by UPs"]] <- tb |>
+    filter(!is.na(MatchedPeptideIds)) |>
+    nrow()
+  vars[["Median GO terms per protein"]] <- median(tb$GO_counts, na.rm = TRUE)
+  vars[["Median % coverage"]] <- median(tb$pcoverage_align, na.rm = TRUE)
+  vars[["Median peptide length"]] <- median(pep_lengths, na.rm = TRUE)
+  vars[["Max peptide length"]] <- max(pep_lengths, na.rm = TRUE)
+  vars[["Min peptide length"]] <- min(pep_lengths, na.rm = TRUE)
+  vars[["Number of unique peptides"]] <- flatten_by(tb$peptideIds, ";") |>
+    unique() |>
+    length()
+  n_without_anno <- tb |>
+    filter(!if_any(c(
+      contains("GO"),
+      contains("KEGG"), "PFAMs", contains("interpro")
+    ), is.na)) |>
+    nrow()
+  vars[["Percentage of proteins with annotations"]] <- (nrow(tb) - n_without_anno) / nrow(tb)
+  vars |>
+    as_tibble() |>
+    pivot_longer(everything()) |>
+    rename(Metric = name)
+}

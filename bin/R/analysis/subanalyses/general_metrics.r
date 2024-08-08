@@ -15,6 +15,8 @@ cov_align <- compare_first_sec_L(
 )
 GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent coverage")
 
+TABLES$run_stats <- get_run_stats(read_tsv(M$data_path))
+
 # Unique proteins to each run
 run_uniques <- get_pass_uniques(M$run)
 percent_found <- dplyr::bind_cols(
