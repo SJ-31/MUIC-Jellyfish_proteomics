@@ -202,3 +202,8 @@ get_to_fix <- function(pattern) {
 apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
+
+
+files <- get_to_fix("*_all.tsv|*_all_wcoverage.tsv") |> discard(\(x) str_detect(x, "blast|lfq|percolator"))
+
+# file.remove(files)

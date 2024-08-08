@@ -55,3 +55,7 @@ logs/py4cytoscape.log
 .dir-locals.el
 .session.py
 .session.r
+docs/figures
+docs/flow/id_inference.png
+docs/flow/id_inference.svg
+docs/flow/annotation.png
