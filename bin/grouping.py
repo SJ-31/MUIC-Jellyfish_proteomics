@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import polars as pl
 import copy
 import tomllib

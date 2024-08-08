@@ -12,9 +12,7 @@ cog_map = f"{ref}/cog_go_mapping.tsv"
 nx_graph = f"{ref}/go_networkx.gml"
 go_data = f"{ref}/with_levels.tsv"
 sys.path.append("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
-import helpers as hh
 import go_subset as gs
-import grouping as gg
 
 
 def accession2db(acc) -> str:
