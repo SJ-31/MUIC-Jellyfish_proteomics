@@ -22,8 +22,9 @@ h = "Coenzyme transport and metabolism"
 i = "Lipid transport and metabolism"
 p = "Inorganic ion transport and metabolism"
 q = "Secondary metabolites biosynthesis, transport, and catabolism"
-# r = "General function prediction only"
-# s = "Function unknown"
+r = "General function prediction only"
+s = "Function unknown"
+venom_component = "venom component"
 
 
 [cog]

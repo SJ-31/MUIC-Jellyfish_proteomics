@@ -27,11 +27,10 @@ process COMPARISON_EMBEDDINGS {
             -i $sample_embeddings \
             -o sample_with_comp_dist.hdf5 \
             --sample_tsv $sample_tsv \
-            --filter_criteria "category == 'venom_component'" \
+            --filter_criteria "assigned_COG == 'venom component'" \
             --comparison_embd $comparison_embeddings \
             --comparison_tsv $comparison_tsv \
             --write_embd_file sample_with_comp_embd.hdf5
-        conda deactivate
         """
     } else if (embedding_type == "GO") {
         """

@@ -81,7 +81,7 @@ embeddingData <- function(
       filter(ProteinId %in% rownames(py_embd$embeddings))
     color <- "Taxon"
   } else {
-    color <- c("inferred_by", "ID_method", "GO_category_CC", "GO_category_MF")
+    color <- c("assigned_COG")
   }
   return(list(
     embd = py_embd$embeddings,
@@ -140,7 +140,7 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
     # Retrieve embeddings
 
     # Apply filtering criteria
-    sample_meta <- d$sample_tb %>% filter(category == "venom_component")
+    sample_meta <- d$sample_tb %>% filter(category == "venom component")
     min <- min(sample_meta$length)
     comparison_meta <- d$protein$compare %>%
       filter(Length >= min) %>%

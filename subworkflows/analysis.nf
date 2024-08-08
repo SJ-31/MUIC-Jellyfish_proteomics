@@ -22,13 +22,13 @@ workflow 'analyze' {
     main:
     MAKE_ORGDB(combined_tsv, outdir)
     GET_COG(combined_tsv, outdir)
-    VIEW_ALIGNMENTS(combined_tsv, alignments, peptide_map, "$outdir/Alignments")
+    // VIEW_ALIGNMENTS(combined_tsv, alignments, peptide_map, "$outdir/Alignments")
     ONTOLOGIZER(combined_tsv, "$outdir/Ontologizer") // Overrepresentation analysis
     GO_EMBEDDINGS(combined_tsv, "$outdir/GO_term_embeddings", "a2v_go")
     model = "prottrans" // esm | prottrans | a2v (for GO embeddings)
     EMBEDDINGS(combined_tsv, "$outdir/Embeddings_${model}", model)
     COMPARISON_EMBEDDINGS(EMBEDDINGS.out.embd,
-                          combined_tsv,
+                          GET_COG.out.tsv,
                           params.comparison_prottrans,
                           params.uniprot_reviewed,
                           "protein",
@@ -38,7 +38,7 @@ workflow 'analyze' {
        "tsne", "", "$outdir/TSNE")
     DR_COMPARE(COMPARISON_EMBEDDINGS.out.embd,
                COMPARISON_EMBEDDINGS.out.dist,
-               combined_tsv, params.uniprot_reviewed,
+               GET_COG.out.tsv, params.uniprot_reviewed,
                "tsne", "C", "$outdir/TSNE_comparison")
     // GET_REPRESENTATIVES(GO_PARENTS.out.categorized,
     //                     EMBEDDINGS.out.embd,
