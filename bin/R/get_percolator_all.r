@@ -59,12 +59,13 @@ main <- function(args) {
       modifiedPeptideIds = peptideIds,
       peptideIds = map_chr(peptideIds, clean_peptide)
     )
-  peptide_tb <- peptide_tb |> mutate(
-    length = nchar(peptideIds),
-    mass = map_dbl(peptideIds, \(x) {
-      mass$fast_mass(x)
-    })
-  )
+  peptide_tb <- peptide_tb |>
+    mutate(
+      length = nchar(peptideIds),
+      mass = map_dbl(peptideIds, \(x) {
+        mass$fast_mass(x)
+      })
+    )
   result <- list(
     percolator_all = percolator_tb,
     seq_map = seq_map,

@@ -44,7 +44,7 @@ main <- function(args) {
       technique = args$technique,
       labels = label,
       twod = TRUE,
-      unwanted = c("unknown", "other")
+      unwanted = c("unknown", "other", "Function unknown")
     )
   }
 }

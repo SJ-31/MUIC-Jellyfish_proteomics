@@ -90,6 +90,7 @@ COLS = {
         "q_adjust",
         "pep_adjust",
         "peptideIds",
+        "IdsFromDupes",
     ],
 }
 
@@ -122,7 +123,7 @@ def resolve_duplicate_seq(data: pd.DataFrame, as_pandas=True):
     all_cols = [_ for col in COLS.values() for _ in col]
     joined: pl.DataFrame = (
         data.group_by("seq")
-        .agg(pl.col(all_cols))
+        .agg(pl.col(all_cols), pl.col("ProteinId").alias("IdsFromDupes"))
         .with_columns(*exprs.values())
         .select(data.columns)
     )

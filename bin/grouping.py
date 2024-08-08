@@ -254,6 +254,7 @@ def main(args):
             .filter(pl.col(cc).list.len() >= 1)
             .with_columns(pl.col(cc).list.first().str.to_lowercase())
         )
+        cog_letter2name = pg["cog_categories"]
         G = Grouper(cog_map_df, to_group, args["pfam_map_path"], cog_header_groups)
         group_assignments: pl.DataFrame = (
             G.assign_groups()
@@ -264,7 +265,7 @@ def main(args):
         cog_map: dict = dict(zip(all_cog["GroupUP"], all_cog["COG_category"]))
         result = data.with_columns(
             assigned_COG=pl.col("GroupUP").map_elements(
-                lambda x: cog_map.get(x), pl.String
+                lambda x: cog_letter2name.get(cog_map.get(x)), pl.String
             )
         )
         return result, G, cog_map
@@ -273,5 +274,5 @@ def main(args):
 if __name__ == "__main__":
     args = parse_args()
     result, G, mapping = main(args)
-    result.write_csv(args["output"], separator="\t")
+    result.write_csv(args["output"], separator="\t", null_value="NA")
     G.evidence_df.write_csv(args["evidence_file_output"], separator="\t")
