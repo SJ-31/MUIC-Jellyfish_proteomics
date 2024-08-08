@@ -21,17 +21,12 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
 #' Helper function for collecting all the data from a single run for
 #' comparison
 #'
-get_run <- function(prefix, path, remove_dupes = TRUE, which = "both") {
+get_run <- function(prefix, path, which = "both") {
   get_pass <- function(pass) {
-    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>% filter(q_adjust < M$fdr)
-    deeploc <- get_deeploc(
-      glue("{path}/{pass}/Deeploc/deeploc_results.csv"),
-      glue("{path}/{pass}/Combined/intersected_searches.tsv")
-    )
-    tb <- bind_rows(tb, deeploc)
-    if (remove_dupes) {
-      tb <- tb %>% distinct(ProteinId, .keep_all = TRUE)
-    }
+    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>%
+      filter(q_adjust < M$fdr) |>
+      separate_longer_delim(header, ";") |>
+      distinct()
     return(tb)
   }
   if (which == "both") {
@@ -520,15 +515,18 @@ get_avg_sd <- function(tb, cols, stat) {
 
 
 htest2tb <- function(test, data.name = NULL, alternative = NULL, null = NULL) {
-  if (test$alternative == "two.sided") {
+  if (!is.null(test$alternative) && test$alternative == "two.sided") {
     alt <- "two sided"
   } else if (!is.null(alternative)) {
     alt <- alternative
-  } else {
+  } else if (!is.null(test$alternative)) {
     alt <- test$alternative
+  } else {
+    alt <- NA
   }
+  test_null <- ifelse(is.null(test$`null.value`), NA, test$`null.value`)
   row <- tibble(
-    null = ifelse(is.null(null), test$`null.value`, null),
+    null = ifelse(is.null(null), test_null, null),
     alternative = alt,
     method = test$method,
     data = ifelse(is.null(data.name), test$`data.name`, data.name),
