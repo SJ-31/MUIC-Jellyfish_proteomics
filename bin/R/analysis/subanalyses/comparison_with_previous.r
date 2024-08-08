@@ -19,6 +19,7 @@ p_toxins <- read_tsv(glue("{M$wd}/data/reference/previous_toxins.tsv")) %>%
   rename(., all_of(p_rename)) %>%
   select(-contains(" "))
 
+
 has_id <- M$data |>
   filter(!is.na(NCBI_ID)) |>
   mutate(
@@ -57,9 +58,6 @@ GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value)) +
   ggtitle("Increase in shared protein sequence coverage from previous analysis")
 
 
-# For space purposes, drop entries where
-# ALL had less than 30% sequence coverage, as well as any entries both second and first passes cannot be compared
-
 compare_long <- compare_all |>
   select(ID, pcoverage_align.prev, pcoverage_align) |>
   rename(previous = pcoverage_align.prev, first = pcoverage_align)
@@ -90,9 +88,9 @@ p_test <- wilcox.test(compare_all$pcoverage_align.prev,
 TABLES$test <- p_test
 
 # Filter out new proteins
-compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
-new_proteins <- M$run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
-new_toxins <- new_proteins %>% filter(category == "venom_component")
+# compare_toxin <- compare_all %>% filter(NCBI_ID %in% p_toxins$NCBI_ID)
+# new_proteins <- M$run$first %>% filter(!NCBI_ID %in% compare_all$NCBI_ID)
+# new_toxins <- new_proteins %>% filter(category == "venom_component")
 
 # TODO: Get the identity of the previous proteins so you
 # can

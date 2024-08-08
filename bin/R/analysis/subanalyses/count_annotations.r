@@ -100,4 +100,4 @@ slim_tb <- process_go(M$data, "GO_slims")
 TABLES$go_slims <- slim_tb
 TABLES$go <- go_tb
 
-save(c(TABLES), glue("{M$outdir}/Annotation_counts"))
+save(c(TABLES), glue("{M$outdir}/annotation_counts"))

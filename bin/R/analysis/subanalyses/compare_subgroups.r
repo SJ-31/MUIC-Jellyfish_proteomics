@@ -2,7 +2,6 @@ TABLES <- list()
 GRAPHS <- list()
 #' Are there any meaningful differences between the sub-groups of proteins
 #' identified in the data?
-#'
 
 
 #' Try to predict what an unannotated protein does based on what the members

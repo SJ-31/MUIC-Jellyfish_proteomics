@@ -61,7 +61,6 @@ GRAPHS$engine_peptide_coverage <- engine_alignment_metrics %>%
   ) |>
   ggplot(aes(y = value, x = name, fill = name, color = type)) +
   geom_boxplot() +
-  labs(title = "Density of per-engine peptide coverage") +
   ylab("log coverage (%)") +
   xlab("Engine name") +
   guides(fill = "none") +
@@ -108,10 +107,14 @@ test_tb <- test_tb %>%
   ) %>%
   rename(pair = data)
 TABLES$engine_coverage_pairwise <- gt(test_tb)
-TABLES$engine_coverage_pairwise_sig <- gt(conclude_one_sided(test_tb))
+TABLES$engine_coverage_pairwise_sig <- conclude_one_sided(test_tb) |> pairwise_conclusion2gt()
 
-num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |> as_tibble()
+num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |>
+  as_tibble() |>
+  distinct()
+
 # #' Group engines that identify the same peptide groups using Jaccard distance
+
 enginesXProtein <- num_peptides_matched %>%
   tb_transpose()
 
@@ -148,6 +151,7 @@ GRAPHS$engine_venn <- venn
 
 # ----------------------------------------
 # Evaluate the contribution of each engine onto the protein
+
 engine_tb <- per_protein_alignment_differences |>
   select(ProteinId, contains(ENGINES)) |>
   select(-unmatched_peptide)
@@ -159,6 +163,7 @@ cov_list <- engine_tb |>
   as.list()
 cov_list$total <- per_protein_alignment_differences$total_coverage
 
+
 cov_tests <- test_all_pairs(cov_list, wilcox.test, two_sided = TRUE) |>
   bind_rows(
     test_all_pairs(cov_list, \(x, y) wilcox.test(x, y, alternative = "less"), alternative_suffix = "less")
@@ -166,9 +171,13 @@ cov_tests <- test_all_pairs(cov_list, wilcox.test, two_sided = TRUE) |>
   mutate(p_adjust = p.adjust(p_value), significant = ifelse(p_adjust < 0.05, 1, 0))
 
 # "x less than y" means that removing engine x's peptides has a greater impact on coverage compared to y
-cov_test_conclusion <- conclude_one_sided(cov_tests) |> filter(!is.na(conclusion))
-
-TABLES$coverage_impact_conclusion <- gt(cov_test_conclusion)
+cov_test_conclusion <- conclude_one_sided(cov_tests)
+if (nrow(cov_test_conclusion) > 0) {
+  cov_test_conclusion <- filter(!is.na(conclusion))
+  TABLES$coverage_impact_conclusion <- gt(cov_test_conclusion)
+} else {
+  TABLES$no_significant_difference_when_removing_engine_peptides <- 0
+}
 
 
 GRAPHS$engines_removed <- engine_longer |> ggplot(aes(y = value, fill = name)) +
@@ -179,24 +188,12 @@ GRAPHS$engines_removed <- engine_longer |> ggplot(aes(y = value, fill = name)) +
 
 # ----------------------------------------
 # Comparison of engine peptide characteristics
-# TODO: UNFINISHED
 pepmap <- read_tsv(M$peptide_map_path)
-mass <- reticulate::import("pyteomics.mass")
-pepmap <- pepmap |>
-  filter(!grepl("COMMON", peptideIds)) |> # TODO Don't need this rerunning
-  mutate(
-    length = nchar(peptideIds),
-    mass = map_dbl(peptideIds, mass$fast_mass)
-  )
-
 all_mapped_scans <- read_tsv(M$mapped_scan_path)
 
-# TODO: uncomment the below after you get the run of mapped scans without
-# unmatched peptides
-joined <- pepmap
-# joined <- inner_join(pepmap, all_mapped_scans,
-#   by = join_by(x$peptideIds == y$base_peptide, engine)
-# )
+joined <- inner_join(pepmap, all_mapped_scans,
+  by = join_by(x$peptideIds == y$base_peptide, engine)
+)
 
 # Sets of peptides per engine
 peptide_sets <- lapply(unique(joined$engine), \(x) {
@@ -236,8 +233,8 @@ length_plot <- gg_numeric_dist(lapply(lengths, \(x) log(x)), method = "boxplot")
   guides(color = "none")
 
 
-TABLES$mass_test_result <- test_wrapper("mass")
-TABLES$length_test_result <- test_wrapper("length")
+TABLES$mass_test_result <- test_wrapper("mass") |> pairwise_conclusion2gt()
+TABLES$length_test_result <- test_wrapper("length") |> pairwise_conclusion2gt()
 
 
 # ----------------------------------------
@@ -323,11 +320,15 @@ overlap_results <- ta$get_peptide_overlap(M$peptide_map_path) |> `names<-`(c("ov
 overlap_tb <- overlap_results$overlap_df |> as_tibble()
 GRAPHS$engine_sim_overlap <- overlap_tb |> ggplot(aes(x = first, y = second, fill = overlap)) +
   geom_tile() +
+  geom_text(aes(label = round(overlap, 2))) +
   ylab("Engine") +
   xlab("Engine") +
   scale_fill_paletteer_c("ggthemes::Classic Area Green", name = "Overlap coefficient") +
   theme(axis.text.x = element_text(angle = 90))
 
+if (!dir.exists(glue("{M$outdir}/engine_characteristics"))) {
+  dir.create(glue("{M$outdir}/engine_characteristics"))
+}
 if (length(overlap_results$subsets) == 0) {
   cat("no subsets",
     file = glue("{M$outdir}/engine_characteristics/peptide_subsets.txt")

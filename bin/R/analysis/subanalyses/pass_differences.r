@@ -1,3 +1,4 @@
+# BUG Don't really need this one tbh
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
   SOURCED <- TRUE
@@ -41,6 +42,7 @@ get_stats <- function(engine_list, pass) {
     mutate(pass = pass)
 }
 
+
 stats <- bind_rows(get_stats(first_pass, "first"), get_stats(sec_pass, "sec"))
 SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 
@@ -48,15 +50,24 @@ SEQ_MAP <- read_tsv(glue("{M$path}/Databases/seq-header_mappings.tsv"))
 ALL_RESULTS <- bind_rows(
   mutate(M$run$first, pass = "first"),
   mutate(M$run$second, pass = "sec")
-) %>% separate_longer_delim(., "MatchedPeptideIds", ";")
-KEPT_PROTEINS <- c(ALL_RESULTS$ProteinId, ALL_RESULTS$MatchedPeptideIds)
+) %>%
+  separate_longer_delim(., "MatchedPeptideIds", ";") |>
+  inner_join(SEQ_MAP,
+    by = join_by(x$MatchedPeptideIds == y$id),
+    suffix = c("", ".y")
+  ) |>
+  rename(MatchedPeptideIdsHeader = header.y) |>
+  select(-contains(".y"))
+
+
+KEPT_PROTEINS <- c(ALL_RESULTS$header, ALL_RESULTS$MatchedPeptideIdsHeader) |> unique()
 ALL_RESULTS <- local({
   expanded <- ALL_RESULTS %>%
-    mutate(ProteinId = MatchedPeptideIds) %>%
-    filter(!is.na(ProteinId))
+    mutate(header = MatchedPeptideIdsHeader) %>%
+    filter(!is.na(header))
   bind_rows(ALL_RESULTS, expanded)
 }) %>%
-  distinct(ProteinId, .keep_all = TRUE)
+  distinct(header, .keep_all = TRUE)
 
 # Per-engine analysis function
 per_engine <- function(engine) {
@@ -80,12 +91,13 @@ per_engine <- function(engine) {
 
   first <- data %>% filter(pass == "first")
   sec <- data %>% filter(pass == "sec")
-  data <- mutate(data, lost_in_sec = !ProteinId %in% sec$ProteinId)
+  data <- mutate(data, lost_in_sec = !header %in% sec$header)
 
-  new_in_sec <- sec %>% filter(!ProteinId %in% first$ProteinId) # Should be empty
+
+  new_in_sec <- sec %>% filter(!header %in% first$header) # Should be empty
 
   found_in_both <- inner_join(first, sec,
-    by = join_by(x$ProteinId == y$ProteinId),
+    by = join_by(x$header == y$header),
     suffix = c(".first", ".sec")
   ) %>%
     select(-contains("pass")) %>%
@@ -105,23 +117,25 @@ per_engine <- function(engine) {
     found_in_both, to_test, c("less", "greater", "greater"),
     \(x, y, ...) wilcox.test(x, y, paired = TRUE, ...)
   )
+
   tab <- table(data$from, data$pass) %>% table2df()
   chi <- chisq.test(tab)
   # Check if the distribution of protein types identified differs between
   # runs. It shouldn't, because the second should only identify proteins in the
   # first
   chi$data.name <- "Frequency of proteins from different sources"
+
   chi <- htest2tb(chi)
 
-  kept_data <- data %>% filter(ProteinId %in% KEPT_PROTEINS)
-  merged <- inner_join(kept_data, ALL_RESULTS, by = join_by(ProteinId)) %>%
+  kept_data <- data %>% filter(header %in% KEPT_PROTEINS)
+  merged <- inner_join(kept_data, ALL_RESULTS, by = join_by(header)) %>%
     select(-contains(".x|.y"))
-
 
   sources <- c("transcriptome", "denovo", "database")
   engine_results$OR <- lapply(
     sources,
     \(x) {
+      data$lost_in_sec
       table <- table(data$from != x, data$lost_in_sec)
       or <- table %>% get_odds_ratio()
       upper <- table %>% get_odds_ratio(CI = TRUE)
@@ -163,6 +177,8 @@ per_engine <- function(engine) {
   return(engine_results)
 }
 
+
+
 TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
   mutate_bind <- function(col) {
     acc[[col]] <- bind_rows(
@@ -176,6 +192,55 @@ TABLES <- purrr::reduce(SECOND_PASS_ENGINES, \(acc, x) {
   acc$OR <- mutate_bind("OR")
   return(acc)
 }, .init = list(pairwise_tests = tibble(), htests = tibble(), OR = tibble()))
+
+pw <- TABLES$pairwise_tests
+pw$conclusion <- pmap(
+  list(pw$alternative, pw$two_sided_significant, pw$alternative_significant),
+  \(alt, two_sided_significant, alternative_significant) {
+    alt <- ifelse(str_detect(alt, "less"), "less", "greater")
+    if (two_sided_significant != "Y") {
+      NA
+    } else if (alternative_significant == "Y") {
+      glue("first {alt}")
+    } else {
+      glue("second {alt}")
+    }
+  }
+) |> unlist()
+
+TABLES$pairwise_tests_raw <- pw
+
+TABLES$pairwise_tests <- pw %>%
+  filter(two_sided_significant == "Y") |>
+  filter(metric == "num_peps") |>
+  mutate(alternative = map_chr(alternative, \(x) str_remove(x, ".first"))) |>
+  rename(significant = alternative_significant) |>
+  select(-c(mean_diff, two_sided_p_value, two_sided_significant)) |>
+  rename_with(
+    \(vec) {
+      rename_helper <- function(x) {
+        if (str_detect(x, "sided")) {
+          x <- str_replace(x, ".sided", "-sided")
+        }
+        if (str_detect(x, "p_value")) {
+          x <- str_replace(x, "p_value", "p-value")
+        }
+        str_replace_all(x, "_", " ")
+      }
+      map_chr(vec, rename_helper)
+    },
+    everything()
+  ) |>
+  gt(rowname_col = "metric") %>%
+  fmt(., columns = "metric", fns = \(x) map_chr(x, sub)) %>%
+  text_case_match(
+    "two.sided" ~ "two-sided",
+    ".first" ~ "first",
+    "_" ~ " pass ",
+    .replace = "partial"
+  ) %>%
+  fmt_number(., columns = contains("p-value"), decimals = 5) %>%
+  tab_stubhead(label = "Metric")
 
 TABLES$stats <- stats
 
