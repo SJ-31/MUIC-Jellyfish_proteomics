@@ -316,7 +316,7 @@ chisqNME <- function(
   }
   chi <- chi %>% mutate(
     p_adjust = p.adjust(p_value, "holm"),
-    is_significant = ifelse(p_value < 0.05, TRUE, FALSE)
+    is_significant = ifelse(p_adjust < 0.05, TRUE, FALSE)
   )
 
   # Compute effect size for significant hits, using the odds ratio
@@ -356,11 +356,7 @@ chisqNME <- function(
     ) %>%
     select(-matches("OR_")) %>%
     rename("Odds ratio, 95% CI [lower, upper]" = OR) %>%
-    gt() %>%
-    tab_header(
-      title = glue("Association between {var_a} and {var_b}"),
-      subtitle = "Tested using chi-square"
-    )
+    gt()
   # Record all results
   var_a_table_tb <- tibble(!!var_b := var_b_levels)
   remove_cat <- FALSE
@@ -455,8 +451,8 @@ get_one_sided_conclusion <- function(alternative, pair, pair_sep, is_significant
     return(NA)
   }
   splits <- str_split_1(pair, pair_sep) |> map_chr(str_trim)
-  first <- splits[1]
-  second <- splits[2]
+  first <- str_split_1(splits[1], " ")[1]
+  second <- str_split_1(splits[2], " ")[1]
   direction <- case_when(
     str_detect(alternative, "greater") ~ "greater",
     str_detect(alternative, "less") ~ "less",
@@ -469,11 +465,12 @@ get_one_sided_conclusion <- function(alternative, pair, pair_sep, is_significant
   if (!alternative_var %in% splits) {
     stop("No recognizable variable for the alternative specified! It must be one of the pair")
   }
+  dm <- list(greater = ">", less = "<")
   case_when(
-    is_significant == 1 && alternative_var == first ~ glue("{alternative_var} {direction} than {second}"),
-    is_significant == 1 && alternative_var == second ~ glue("{alternative_var} {direction} than {first}"),
-    is_significant == 0 && alternative_var == first ~ glue("{second} {direction} than {first}"),
-    is_significant == 0 && alternative_var == second ~ glue("{first} {direction} than {first}"),
+    is_significant == 1 && alternative_var == first ~ glue("{alternative_var} {dm[[direction]]} {second}"),
+    is_significant == 1 && alternative_var == second ~ glue("{alternative_var} {dm[[direction]]} {first}"),
+    is_significant == 0 && alternative_var == first ~ glue("{second} {dm[[direction]]} {first}"),
+    is_significant == 0 && alternative_var == second ~ glue("{first} {dm[[direction]]} {first}"),
   )
 }
 
@@ -597,4 +594,13 @@ fasta2tb <- function(fasta) {
     header = seqinr::getName(f),
     sequence = map_chr(seqinr::getSequence(f, as.string = TRUE), \(x) x[[1]])
   )
+}
+
+
+pairwise_conclusion2gt <- function(pw) {
+  filter(pw, alternative != "two sided") |>
+    select(-any_of(c("null", "method", "p_value", "significant", "alternative"))) |>
+    relocate(where(is.character), .before = where(is.numeric)) |>
+    gt() |>
+    gt::fmt_scientific()
 }
