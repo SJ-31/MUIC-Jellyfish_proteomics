@@ -66,6 +66,9 @@ wordClouds <- function(args) {
       inner_join(., info_tb, by = join_by(x$ID == y$GO_IDs))
     tb
   }
+  GO_ABBREV_FILE <- args$go_abbrevs
+  M <<- list()
+  M$wd <<- args$working_directory
   source(glue("{args$r_source}/GO_helpers.r"))
   source(glue("{args$r_source}/GO_text_mining_helpers.r"))
   source(glue("{args$r_source}/helpers.r"))
@@ -97,6 +100,7 @@ if (sys.nframe() == 0 && length(commandArgs(TRUE))) {
   parser <- add_option(parser, c("--results_path"))
   parser <- add_option(parser, c("--executable"))
   parser <- add_option(parser, c("-s", "--go_slim_path"))
+  parser <- add_option(parser, c("-w", "--working_directory"))
   parser <- add_option(parser, c("-g", "--go_path"))
   parser <- add_option(parser, c("-m", "--mode"))
   parser <- add_option(parser, c("-d", "--go_tm_dir"))

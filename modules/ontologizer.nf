@@ -1,6 +1,6 @@
 process ONTOLOGIZER {
     // For overrepresentation analysis
-    publishDir "$outdir", mode: "copy", pattern: "*.txt"
+    publishDir "$outdir", mode: "copy", pattern: "{*.txt,*.png,*.tsv}"
     publishDir "$params.logdir", mode: "copy", pattern: "*.log"
 
     input:
@@ -22,6 +22,7 @@ process ONTOLOGIZER {
         -i $combined_tsv \
         --r_source $params.bin/R \
         --go_path $params.go \
+        -w $projectDir \
         --python_source $params.bin \
         --executable $params.ontologizer_jar
 
@@ -30,6 +31,7 @@ process ONTOLOGIZER {
     Rscript $params.bin/R/ontologizer.r \
         -m get_slims \
         --results_path . \
+        -w $projectDir \
         --r_source $params.bin/R \
         --go_slim_path $params.go_slims \
         --go_path $params.go
@@ -37,6 +39,7 @@ process ONTOLOGIZER {
     Rscript $params.bin/R/ontologizer.r \
         -m word_cloud \
         --results_path . \
+        -w $projectDir \
         --r_source $params.bin/R \
         --go_slim_path $params.go_slims \
         --go_path $params.go \

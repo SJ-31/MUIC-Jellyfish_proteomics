@@ -7,22 +7,21 @@ process MAKE_ORGDB {
     //
 
     output:
-    path("${name}_org.db")
+    path("${params.pref}_org.db")
     //
 
     script:
     splits = params.species_spec.split("_")
-    name = annotations.baseName.replaceFirst(/_meta/, "")
     """
     Rscript $params.bin/R/make_orgdb.r \
         -c $annotations \
-        -m "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
-        -a "Shann Chongwattananukul <shann.cho@student.mahidol.edu>" \
+        -m "$params.author" \
+        -a "$params.author" \
         -t $params.tax_id \
         -s ${splits[0]} \
         -g ${splits[1]}
 
-    mv org* ${name}_org.db
+    mv org* ${params.pref}_org.db
     """
     //
 }

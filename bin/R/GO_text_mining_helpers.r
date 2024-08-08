@@ -56,9 +56,21 @@ compound_all <- function(str) {
 }
 
 
-# TODO Complete the abbreviation functions
-# Only abbreviations present in the data should be added
-ABBREVS <- unlist(jsonlite::read(M$go_abbrev_file))
+ABBREVS <- c(
+  localization = "loc.",
+  organization = "org.",
+  establishment = "est.",
+  processing = "prcs.",
+  biological = "biol.", intracellular = "intr.",
+  activity = "act.", extracellular = "extr.",
+  "developmental|development" = "dev.",
+  "metabolic process" = "m.p.",
+  proliferation = "prol.",
+  response = "resp.",
+  migration = "mig.",
+  maintenance = "main.", signaling = "sign.",
+  regulation = "reg.", homeostasis = "hom.", differentiation = "diff."
+)
 F_ABBREVS <- local({
   lst <- ABBREVS
   names(lst) <- names(ABBREVS) %>% map_chr(., \(x) glue("\\b{x}\\b"))
@@ -152,7 +164,7 @@ wordcloud_custom <- function(tb, params, abbrev_legend = NULL) {
 }
 
 
-LEVEL_MAP <- glue("{M$wd}/data/reference/go_level_map.tsv")
+LEVEL_MAP <- glue("{M$wd}/data/reference/with_levels.tsv")
 MIN_MAX_LEVEL <- c(3, 7) # Closed interval for GO levels
 MAP_REF_FILE <- glue("{M$wd}/data/reference/go_map_generic.tsv")
 #' Higher-level interface for getting GO word clouds from results tbs
