@@ -18,7 +18,7 @@ TABLES <- list()
 
 
 num_peps <- compare_first_sec_W(M$run, "num_peps", "ProteinId", TRUE)
-tb <- M$data
+tb <- inner_join(M$data, M$lfq, by = join_by(ProteinId))
 num_ids <- tb %>%
   filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_align, ProteinId, num_peps, num_unique_peps)) %>%
@@ -50,7 +50,6 @@ levels_by_quartile <- function(vec) {
     .default = "medium"
   )
 }
-summary(hits$length)[["1st Qu."]]
 
 compare_col <- "length_category"
 engine_hits <- ta$get_peptide_match_df(
@@ -61,12 +60,6 @@ ENGINES <- names(engine_counts)
 
 engine_hits <- engine_hits |> mutate(length_category = levels_by_quartile(engine_hits$length))
 hits <- engine_hits
-
-# Logistic regression
-# Given a peptide is present, do these variables affect whether or not they will
-# be hit?
-tide_logit <- glm(tide ~ mass + length, data = hits, family = "binomial")
-summary(tide_logit)
 
 # Collapse the contingency table
 engine_hits
@@ -82,7 +75,8 @@ engine_hits <- engine_hits %>%
 # peptides from a protein of the given category
 # Confidence interval is 95%
 length_tests <- chisqNME(engine_hits, ENGINES, compare_col, "engine", "peptide length")
-
+TABLES$engine_length_chi <- length_tests$gt$chi
+TABLES$engine_length_contingency <- length_tests$gt$contingency
 
 # An example of what the contingency table for the tests would look like,
 # and what the expected values would be under the chi-square test of independence
@@ -92,14 +86,13 @@ tl <- table(engine_hits[[compare_col]], engine_hits[[current]])
 ct <- "low"
 show_contigency <- table(engine_hits[[compare_col]] == ct, engine_hits[[current]])
 expected <- format_engine_contingency(show_contigency, ct, TRUE)
-expected %>%
+
+TABLES$sample_expected <- expected %>%
   gt() %>%
   tab_header(
     title = glue("Engine: {current}, Category: {ct}"),
     subtitle = "Expected values under chi-square in parentheses"
   )
-TABLES$sample_expected <- expected
-
 
 
 # Correlation between no. identifications by engines and coverage
@@ -112,25 +105,20 @@ engine_cor$data.name <- "Correlation between number of identified peptides and c
 TABLES$correlation <- gt(bind_rows(htest2tb(engine_cor), htest2tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
 
-
-
-intensity <- merge_lfq(tb, "mean") %>%
-  filter(!is.na(log_intensity)) |>
-  select(ProteinId, log_intensity)
-intensity$intensity_class <- map_chr(intensity$log_intensity, \(x) {
-  if (x <= quantile(intensity$log_intensity, 0.25)) {
-    "first"
-  } else if (quantile(intensity$log_intensity, 0.75) <= x) {
-    "third"
+leq_intensity1st <- hits$mean_intensity <= quantile(hits$mean_intensity, 0.25)
+geq_intensity3nd <- quantile(hits$mean_intensity, 0.75) <= hits$mean_intensity
+hits$intensity_class <- map2_chr(leq_intensity1st, geq_intensity3nd, \(x, y) {
+  if (x) {
+    "low"
+  } else if (y) {
+    "high"
   } else {
-    "second"
+    "medium"
   }
 })
 
-hits <- hits |> inner_join(intensity, by = join_by(ProteinId))
-
 intense <- chisqNME(
-  tb = hits, var_a_levels = engines,
+  tb = hits, var_a_levels = ENGINES,
   var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class",
   binary = TRUE
 )
