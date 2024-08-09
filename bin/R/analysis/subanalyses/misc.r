@@ -8,8 +8,8 @@ TABLES <- list()
 GRAPHS <- list()
 # --------------------------------------------------------
 # Investigating trends in missing quantification
-current <- M$data
-cq <- c("directlfq", "maxlfq", "flashlfq")
+current <- M$data |> inner_join(M$lfq, by = join_by(ProteinId))
+cq <- c("directlfq", "maxlfq")
 missing_quant_tests <- list()
 for (q in cq) {
   noq <- current %>% filter(is.na(!!as.symbol(glue("{cq}_mean"))))
@@ -25,36 +25,23 @@ rm(hasq)
 
 # Show that property of every protein in a Percolator group being matched
 # by the exact same peptides gets lost when creating new groups via union-find
-data <- M$data %>% inner_join(M$taxa_tb, by = join_by(ProteinId))
-nested <- data |>
-  group_by(Group) |>
-  nest() |>
-  mutate(
-    unique_peptides = map_dbl(data, \(x) {
-      x$peptideIds |>
-        unique() |>
-        length()
-    }),
-    size = map_dbl(data, \(x) nrow(x))
-  ) |>
-  arrange(desc(size))
-
-# -------------------------------------------------------------
-
-# Confirm that cases where the peptides are longer than the proteins they were
-# matched to are the situation where proteins are fragmentary
-isFragment <- Logical() ? function(header = ? Character()) {
-  str_detect(header, "([fF]ragment)|(partial)")
-}
-has_longer <- data |> filter(max_peptide_length(peptideIds) > length)
-others <- data |> filter(!ProteinId %in% has_longer)
-percent <- sum(map_lgl(has_longer$header, isFragment)) / sum(map_lgl(others$header, isFragment)) * 100
-fragments <- data |> filter(map_lgl(header, isFragment))
-
+# data <- M$data %>% inner_join(M$taxa_tb, by = join_by(ProteinId))
+# nested <- data |>
+#   group_by(Group) |>
+#   nest() |>
+#   mutate(
+#     unique_peptides = map_dbl(data, \(x) {
+#       x$peptideIds |>
+#         unique() |>
+#         length()
+#     }),
+#     size = map_dbl(data, \(x) nrow(x))
+#   ) |>
+#   arrange(desc(size))
 
 # ----------------------------------------
 # Identify enriched terms by intensity
-filterIntensity <- function(tb, quantile = ? Character()) {
+filter_intensity <- function(tb, quantile = ? Character()) {
   if (quantile == "first") {
     filterFun <- \(x) filter(x, x$log_intensity <= quantile(x$log_intensity, 0.25))
   } else if (quantile == "second") {
@@ -70,6 +57,9 @@ filterIntensity <- function(tb, quantile = ? Character()) {
     purrr::pluck("ProteinId")
 }
 
+data <- M$data |>
+  inner_join(M$lfq, by = join_by(ProteinId)) |>
+  distinct(ProteinId, .keep_all = TRUE)
 if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
   ont <- new.env()
   reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
@@ -78,13 +68,13 @@ if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
     filter(!is.na(log_intensity))
   O <- ont$Ontologizer(by_intensity, M$ontologizer_exec, M$go_path)
   groups <- list(
-    low_intensity = filterIntensity(by_intensity, "first"),
-    medium_intensity = filterIntensity(by_intensity, "second"),
-    high_intensity = filterIntensity(by_intensity, "third")
+    low_intensity = filter_intensity(by_intensity, "first"),
+    medium_intensity = filter_intensity(by_intensity, "second"),
+    high_intensity = filter_intensity(by_intensity, "third")
   )
   params <- list(`-m` = "Bonferroni-Holm")
   enriched_intensity <- O$runAll(groups, params)
-  enriched_intensity |> names()
+
   lmap(enriched_intensity, \(x) {
     write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
   })
@@ -97,12 +87,53 @@ if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
 }
 
 # ----------------------------------------
+# Enrich terms based on modifications
+mod_names <- c("Met_ox", "Nterm_acetyl", "Lys_acetyl")
+if (!file.exists(glue("{M$ontologizer_path}/met_ox.tsv"))) {
+  has_mods <- read_tsv(M$percolator_all_path) |>
+    filter(ProteinId %in% data$ProteinId) |>
+    filter(!is.na(mods)) |>
+    fix_all_mods()
+
+  all_mods <- flatten_by(has_mods$mods, ";")
+  mod_table <- all_mods |>
+    map_chr(\(x) str_extract(x, "(.*\\|.*)\\|[1-9]+", group = 1)) |>
+    discard(\(x) str_detect(x, "229.16")) |> # This shouldn't be here...
+    table()
+
+  has_mods_ids <- lapply(c("Met\\|15.99", "Nterm\\|42.0", "Lys\\|42.01"), \(x) {
+    filter(has_mods, grepl(x, mods)) |> pluck("ProteinId")
+  }) |>
+    `names<-`(mod_names)
+  ont <- new.env()
+
+  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
+  O <- ont$Ontologizer(data, M$ontologizer_exec, M$go_path)
+  params <- list(`-m` = "Bonferroni-Holm")
+
+  enriched_mods <- O$runAll(has_mods_ids, params)
+  lmap(enriched_mods, \(x) {
+    write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
+  })
+  enriched_mods <- lapply(enriched_mods, as_tibble)
+} else {
+  enriched_mods <- lapply(mod_names, \(x) {
+    read_tsv(glue("{M$ontologizer_path}/{x}.tsv")) |>
+      mutate(subset = str_replace(x, "_", " "))
+  })
+}
+
+# ----------------------------------------
 # Analyses for intensity-enriched terms
 intensities <- c("high", "medium", "low")
 intensity_tbs <- lapply(
   intensities,
-  \(x) read_tsv(glue("{M$outdir}/Ontologizer/{x}_intensity.tsv"))
-) |> `names<-`(intensities)
+  \(x) {
+    read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")) |>
+      mutate(subset = glue("{x} intensity"))
+  }
+) |>
+  `names<-`(intensities)
 
 intensity_vecs <- intensity_tbs |>
   lapply(\(x) {
@@ -112,13 +143,25 @@ intensity_vecs <- intensity_tbs |>
   })
 
 
-high_intensity_vecs <- ids_into_ontology(high_intensity_vec,
-  target = "GOID",
-  collapse = FALSE
-)
+go_data <- read_tsv(M$go_reference)
+ontologizer <- get_ontologizer(M$ontologizer_path)
+all_ontologizer <- bind_rows(
+  mutate(ontologizer$id_with_open, subset = "id with open"),
+  mutate(ontologizer$unknown_to_db, subset = "not DBP")
+) |>
+  bind_rows(
+    bind_rows(intensity_tbs),
+    bind_rows(enriched_mods)
+  ) |>
+  inner_join(go_data, by = join_by(x$ID == y$GO_IDs)) |>
+  filter(p.adjusted < 0.05)
+
+intensity_vecs_ontology <- lapply(intensity_vecs, \(x) {
+  ids_into_ontology(x, target = "GOID", collapse = FALSE)
+})
+TABLES$all_ontologizer_sig <- all_ontologizer
 
 GRAPHS$intensity_overlap <- ggVennDiagram(intensity_vecs) + scale_fill_paletteer_c("ggthemes::Classic Red")
-
 
 # ----------------------------------------
 # Verification for new grouping strategy
@@ -141,43 +184,5 @@ for (g in grouping_cols) {
 
 # stderr was lower when grouping by unmatched peptides, indicating this is a better way
 # to form protein groups between different engines
-
-# ----------------------------------------
-# Verification for clustering by mmseqs
-# Ideally the group representative is the largest protein within the group
-
-repr_summarized <- data |>
-  group_by(Group_representative) |>
-  summarise(
-    n_members = n(),
-    n_groups = length(unique(GroupUP)),
-    GroupUP = paste0(unique(GroupUP), collapse = ";"),
-    Genus = paste0(unique(Genus), collapse = ";"),
-    Family = paste0(unique(Family), collapse = ";")
-  )
-
-summarize_tax_data <- function(data, grouping_col) {
-  data |>
-    group_by(!!as.symbol(grouping_col)) |>
-    summarise(
-      n_Genera = length(unique(Genus)),
-      n_Family = length(unique(Family)),
-      rep_Family = modes(Family),
-      rep_Genus = modes(Genus),
-      Genus = paste0(unique(Genus), collapse = ";"),
-      Family = paste0(unique(Family), collapse = ";"),
-    ) |>
-    ungroup()
-}
-
-group_up_summarized <- summarize_tax_data(data, "GroupUP")
-group_original_summarized <- summarize_tax_data(data, "Group")
-
-# summary(group_original_summarized$n_Family)
-# summary(group_up_summarized$n_Family)
-# summary(group_original_summarized$n_Genera)
-# summary(group_up_summarized$n_Genera)
-
-
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/misc"))
