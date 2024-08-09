@@ -121,8 +121,9 @@ workflow 'combine_searches' {
         COMBINE_PERCOLATOR.out.seq_map.first(),
         COMBINE_PERCOLATOR.out.peptide_map.first(),
         "$outdir/.coverage")
-    COVERAGE_MERGE(COVERAGE_CALC.out.collect(), COMBINE_ALL.out.all, "$outdir")
-
+    COVERAGE_MERGE(COVERAGE_CALC.out.collect(),
+        seq_header_mappings,
+        COMBINE_ALL.out.all, "$outdir")
 
     // Will not run if all proteins were matched
     if (params.annotate) {

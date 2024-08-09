@@ -55,6 +55,7 @@ process COVERAGE_MERGE {
 
     input:
     path(calculated_coverage)
+    path(seq_header_map)
     path(combined_file)
     val(outdir)
     //
@@ -78,7 +79,8 @@ process COVERAGE_MERGE {
         --alignment_tsv aligned_peptides.tsv
 
     parse_alignment.py \
-        -i aligned_peptides.fasta \
+        -a aligned_peptides.tsv \
+        -s seq_header_map \
         -m alignment_metrics.tsv \
         -r all_mismatches.tsv
     """

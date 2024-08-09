@@ -1,6 +1,5 @@
 #!/usr/bin/env python
-import pandas as pd
-from Bio import SeqIO
+import polars as pl
 
 AAs = {
     "A": "NP",
@@ -28,85 +27,58 @@ AAs = {
 }
 
 
-def record_mismatch(protein_id: str, old: str, new: str, index: int) -> pd.DataFrame:
-    temp = {"ProteinId": [], "change": [], "type": [], "index": []}
-    temp["ProteinId"].append(protein_id)
-    temp["change"].append(f"{old}->{new}")
-    temp["type"].append(f"{AAs[old]}->{AAs[new]}")
-    temp["index"].append(index)
-    row = pd.DataFrame(temp)
-    return row
+def count_mismatch(
+    alignment, id, protein_id, seq_mapping, result_dict, start, end
+) -> None:
+    cur_seq = seq_mapping[protein_id][start - 1 : end]
+    cur_align = alignment[start - 1 : end]
+    for index, chars in enumerate(zip(cur_seq, cur_align)):
+        old, new = chars
+        if old != new and new != "-":
+            result_dict["ProteinId"].append(protein_id)
+            result_dict["change"].append(f"{old}->{new}")
+            result_dict["type"].append(f"{AAs[old]}->{AAs[new]}")
+            result_dict["id"].append(id)
+            result_dict["index"].append(index + (start - 1))
 
 
-def record_alignment(header: str, seq, alignment) -> tuple:
-    protein_id = header[: header.find(":")]
-    header = header[header.find(":") + 1 :]
-    if "DENOVO" in header or "U" in protein_id or alignment == "NA":
-        return tuple()
-    length = len(seq)
-    matches: int = length
-    n_mismatches = 0
-    i: int = 0
-    mismatches = pd.DataFrame()
-    while i < length:
-        old: str = seq[i]
-        try:
-            new: str = alignment[i]
-        except IndexError:
-            print("Index out of range!")
-            print(alignment)
-            exit(1)
-        if new == "[":
-            indices = (i + 1, alignment[i:].find("]") + i)
-            possible_mismatches = alignment[indices[0] : indices[1]]
-            n_mismatches += 1
-            for r in possible_mismatches:
-                if old != r:
-                    mismatches = pd.concat(
-                        [
-                            mismatches,
-                            record_mismatch(protein_id, old, r, i),
-                        ]
-                    )
-            alignment = alignment[: indices[0] - 1] + "_" + alignment[indices[1] + 1 :]
-        elif new == "-":
-            matches -= 1
-        elif old != new:
-            mismatches = pd.concat(
-                [mismatches, record_mismatch(protein_id, old, new, i)]
-            )
-            n_mismatches += 1
-        i += 1
-    metrics = {
-        "ProteinId": protein_id,
-        "header": header,
-        "n_mismatches": n_mismatches,
-        "pcoverage_nmatch": matches / length,
-    }
-    return mismatches, pd.DataFrame(metrics, index=[0])
+def main(args):
+    alignment = pl.read_csv(args["alignment_path"], separator="\t")
+    seq_map = pl.read_csv(args["seq_header_map"], separator="\t").filter(
+        pl.col("id").is_in(alignment["ProteinId"])
+    )
+    id2seq = dict(zip(seq_map["id"], seq_map["seq"]))
+    results = {"ProteinId": [], "change": [], "type": [], "id": [], "index": []}
+    for x in alignment.iter_rows(named=True):
+        count_mismatch(
+            x["alignment"],
+            x["id"],
+            x["ProteinId"],
+            id2seq,
+            results,
+            x["start"],
+            x["end"],
+        )
 
-
-def parse_alignment_file(file) -> tuple:
-    lines = SeqIO.parse(file, "fasta")
-    metric_df = pd.DataFrame()
-    mismatch_df = pd.DataFrame()
-    for l in lines:
-        header, seq = l.id, l.seq
-        if "ALIGNED" not in header:
-            alignment = next(lines)
-            result = record_alignment(header, seq, alignment.seq)
-            if not result:
-                continue
-            mismatch_df = pd.concat([mismatch_df, result[0]])
-            metric_df = pd.concat([metric_df, result[1]])
-    return metric_df, mismatch_df
+    all_mismatches = pl.DataFrame(results)
+    all_metrics = (
+        (
+            all_mismatches.group_by("ProteinId")
+            .agg(pl.len())
+            .rename({"len": "n_mismatch"})
+        )
+        .join(seq_map, left_on="ProteinId", right_on="id")
+        .select(["ProteinId", "n_mismatch", "header"])
+    )
+    return all_mismatches, all_metrics
 
 
 def parse_args():
     import argparse
 
     parser = argparse.ArgumentParser()
-    parser.add_argument("-i", "--input")
+    parser.add_argument("-a", "--alignment_path")
+    parser.add_argument("-s", "--seq_header_map")
     parser.add_argument("-r", "--mismatch_tsv")
     parser.add_argument("-m", "--metric_tsv")
     args = vars(parser.parse_args())  # convert to dict
@@ -115,6 +87,6 @@ def parse_args():
 
 if __name__ == "__main__":
     args = parse_args()
-    m, r = parse_alignment_file(args["input"])
-    r.to_csv(args["mismatch_tsv"], index=False, sep="\t")
-    m.to_csv(args["metric_tsv"], index=False, sep="\t")
+    mismatches, metrics = main(args)
+    mismatches.write_csv(args["mismatch_tsv"], separator="\t", null_value="NA")
+    metrics.write_csv(args["metric_tsv"], separator="\t", null_value="NA")
