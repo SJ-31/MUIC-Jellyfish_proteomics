@@ -15,7 +15,7 @@ cov_align <- compare_first_sec_L(
 )
 GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent coverage")
 
-TABLES$run_stats <- get_run_stats(read_tsv(M$data_path))
+TABLES$run_stats <- get_run_stats(read_tsv(M$data_path)) |> gt()
 
 # Unique proteins to each run
 run_uniques <- get_pass_uniques(M$run)
@@ -39,12 +39,18 @@ GRAPHS$percent_found <- percent_found %>%
   ylab("% not missing") +
   scale_fill_discrete("Pass")
 
+
 # Check if coverage and intensity differs significantly between protein groups
 # for confirmation only (we expect them to differ)
 tb <- M$data
 grouping_metric <- "assigned_COG"
-if (grouping_metric %in% colnames(tb)) {
-  lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>% inner_join(., merge_lfq(tb, "mean"))
+if (!is.null(M$data_w_cat)) {
+  tb <- M$data_w_cat %>%
+    inner_join(M$lfq, by = join_by(ProteinId)) |>
+    simplify_cog() |>
+    filter(!is.na(assigned_COG))
+  lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>%
+    inner_join(., merge_lfq(tb, "mean"))
   apply_over <- tb[[grouping_metric]] %>%
     table() %>%
     discard(., \(x) x < 100) %>%
@@ -63,9 +69,12 @@ if (grouping_metric %in% colnames(tb)) {
   GRAPHS$coverage_categories <- gg_numeric_dist(cov_list, "boxplot") +
     labs(y = "coverage (%)", x = grouping_metric) + theme(
       axis.text.x = element_blank(),
-      axis.title.x = element_blank()
+      axis.title.x = element_blank(),
+      legend.title = element_text(face = "bold")
     ) +
-    guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE)
+    guides(color = guide_legend(grouping_metric)) +
+    scale_color_paletteer_d(PALETTE)
+  attr(GRAPHS$coverage_categories, "width") <- 15
 
   with_category <- inner_join(tb, lfq) %>%
     select(ProteinId, log_intensity, !!grouping_metric) %>%
@@ -287,6 +296,5 @@ GRAPHS$per_protein_change <- per_protein %>%
   ggplot(aes(y = percent_change, x = metric, fill = metric)) +
   geom_bar(stat = "identity") +
   theme(axis.ticks.x = element_blank(), axis.title.x = element_blank(), axis.text.x = element_blank())
-
 
 save(c(GRAPHS, TABLES), glue("{M$outdir}/general_metrics"))
