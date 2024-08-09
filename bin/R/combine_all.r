@@ -166,22 +166,24 @@ main <- function(args) {
 
   ## Filter by FDR and PEP
   ## If a (standard) protein has at least two peptides are lower than the fdr threshold, it is kept
-  combined <- combined %>%
-    dplyr::mutate(
-      q_adjust = map_dbl(`q.value`, sort_vals),
-      pep_adjust = map_dbl(posterior_error_prob, sort_vals)
-    )
-  combined <- combined |>
-    filter(q_adjust <= args$fdr) %>%
-    filter(pep_adjust <= args$pep_thresh)
+  if (args$filter_fdr) {
+    combined <- combined %>%
+      dplyr::mutate(
+        q_adjust = map_dbl(`q.value`, sort_vals),
+        pep_adjust = map_dbl(posterior_error_prob, sort_vals)
+      )
+    combined <- combined |>
+      filter(q_adjust <= args$fdr) %>%
+      filter(pep_adjust <= args$pep_thresh)
 
-  redundant <- local({
-    cols <- sapply(
-      colnames(combined),
-      function(x) all(is.na(combined[[x]]))
-    )
-    names(cols[cols])
-  })
+    redundant <- local({
+      cols <- sapply(
+        colnames(combined),
+        function(x) all(is.na(combined[[x]]))
+      )
+      names(cols[cols])
+    })
+  }
 
   combined <- select(combined, -all_of(redundant))
 
@@ -286,6 +288,7 @@ if (sys.nframe() == 0) { # Won't run if the script is being sourced
   parser <- add_option(parser, "--downloads", type = "character")
   parser <- add_option(parser, "--denovo_org", type = "character")
   parser <- add_option(parser, "--fdr", type = "double")
+  parser <- add_option(parser, "--filter_fdr", type = "logical", default = TRUE)
   parser <- add_option(parser, "--pep_thresh", type = "double")
   parser <- add_option(parser, "--interpro2go", type = "character")
   parser <- add_option(parser, "--kegg2go", type = "character")
