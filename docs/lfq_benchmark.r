@@ -1,4 +1,3 @@
-PALETTE <- "PNWColors::Shuksan2"
 library("glue")
 library("gridExtra")
 library("paletteer")
@@ -46,146 +45,154 @@ CATPUCCIN_LATTE <- list(
 GRAPHS <- list()
 
 args <- list(
-  benchmark = glue("{wd}/results/benchmark"),
+  prefix = "benchmark",
   r_source = glue("{wd}/bin/R"),
   python_source = glue("{wd}/bin"),
-  go_path = glue("{wd}/data/reference/go.obo"),
-  go_slim_path = glue("{wd}/data/reference/goslim_generic.obo"),
-  go_tm_dir = glue("{wd}/data/reference/.go_texts")
+  chosen_pass = "2-Second_pass"
 )
-# CHOSEN_PASS <- "1-First_pass"
-CHOSEN_PASS <- "2-Second_pass"
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
+cov_tests <- tibble()
+main <- function(args, palette) {
+  benchmark_dir <- glue("{wd}/results/{args$prefix}")
+  run <- get_run(args$prefix, benchmark_dir)
+  merged <- inner_join(run$first, run$second, by = join_by(header))
+  test <- wilcox.test(merged$pcoverage_align.y, merged$pcoverage_align.x, alternative = "greater", paired = TRUE) |>
+    htest2tb(data.name = glue("second greater, {args$prefix}"))
+  cov_tests <<- bind_rows(cov_tests, test)
 
-lfq <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/lfq_all.tsv"))
+  lfq <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/lfq_all.tsv"))
+  data <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_all_wcoverage.tsv")) |>
+    filter(grepl("P", ProteinId)) |>
+    group_by_unique_peptides() |>
+    inner_join(lfq, by = join_by(ProteinId))
 
-data <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_all_wcoverage.tsv")) |>
-  filter(grepl("P", ProteinId)) |>
-  inner_join(lfq, by = join_by(ProteinId)) |>
-  group_by_unique_peptides()
-
-tax <- read_tsv(glue("{args$benchmark}/{CHOSEN_PASS}/benchmark_taxonomy.tsv")) |> filter(ProteinId %in% data$ProteinId)
+  tax <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_taxonomy.tsv")) |>
+    filter(ProteinId %in% data$ProteinId)
 
 
-ideal_ratio <- tibble(
-  taxon = c("Human", "Yeast", "E. coli"),
-  proportion = c(65, 22.5, 12.5),
-  source = "spike-in ratio"
-)
-# Given sample distribution
-# 65% w/w  Human
-# 22.5% w/w Yeast
-# 12.5% w/w E.coli
+  ideal_ratio <- tibble(
+    taxon = c("Human", "Yeast", "E. coli"),
+    proportion = c(65, 22.5, 12.5),
+    source = "spike-in ratio"
+  )
+  # Given sample distribution
+  # 65% w/w  Human
+  # 22.5% w/w Yeast
+  # 12.5% w/w E.coli
 
-## Check quantification
-# has_tax <- inner_join(data_rep, tax, by = join_by(ProteinId))
-has_tax <- data |>
-  inner_join(tax, by = join_by(ProteinId)) |>
-  group_by(GroupUP) |>
-  summarise(
-    Genus = nth(Genus, 1),
-    check_genera = paste0(unique(Genus), collapse = ";")
+  ## Check quantification
+  has_tax <- data |>
+    inner_join(tax, by = join_by(ProteinId)) |>
+    group_by(GroupUP) |>
+    summarise(
+      Genus = nth(Genus, 1),
+      check_genera = paste0(unique(Genus), collapse = ";")
+    )
+
+  genus_mismatch <- has_tax |> filter(grepl(";", check_genera))
+  id_proportion <- local({
+    t <- has_tax$Genus |> table()
+    t / sum(t)
+  })
+
+  correct_taxa_names <- function(x) {
+    case_match(
+      x,
+      "Homo" ~ "Human",
+      "Escherichia" ~ "E. coli",
+      "Saccharomyces" ~ "Yeast"
+    )
+  }
+
+  compare_props <- id_proportion |>
+    table2tb(id_col = "taxon") |>
+    mutate(
+      proportion = n * 100, source = "identifications",
+      taxon = correct_taxa_names(taxon)
+    ) |>
+    select(-n) |>
+    bind_rows(ideal_ratio)
+
+  # Will need to consult about the best way to group_by and discard proteins that could be
+  # in the same group
+  # Multiple options
+  # 1. Consider only unique groups,
+  # 2. Consider only unique combinations of percolator groups CONFIRMED
+  # 3. Consider proteins with unique peptide ids
+  # tb <- tb |> distinct(ProteinGroupId, .keep_all = TRUE)
+  lfq <- merge_lfq(data, "mean") |>
+    inner_join(select(tax, ProteinId, Genus), by = join_by(ProteinId)) |>
+    inner_join(select(data, ProteinId, GroupUP)) |>
+    group_by(GroupUP) |>
+    summarise(
+      log_intensity = mean(log_intensity, na.rm = TRUE),
+      Genus = nth(Genus, 1)
+    )
+
+  lfq_genus <- lfq |>
+    group_by(Genus) |>
+    summarise(
+      log_intensity = sum(log_intensity, na.rm = TRUE)
+    ) |>
+    mutate(taxon = correct_taxa_names(Genus))
+
+  lfq_genus$log_intensity_ratio <- lfq_genus$log_intensity / sum(lfq_genus$log_intensity)
+
+  compare_props <- compare_props %>% bind_rows(
+    select(lfq_genus, log_intensity_ratio, taxon) |>
+      rename(proportion = log_intensity_ratio) |>
+      mutate(
+        source = "intensity",
+        proportion = proportion * 100
+      )
   )
 
-genus_mismatch <- has_tax |> filter(grepl(";", check_genera))
-
-id_proportion <- local({
-  t <- has_tax$Genus |> table()
-  t / sum(t)
-}) # Pretty close, NICE
-# Another win for grouping by unique shared peptides
-
-correct_taxa_names <- function(x) {
-  case_match(
-    x,
-    "Homo" ~ "Human",
-    "Escherichia" ~ "E. coli",
-    "Saccharomyces" ~ "Yeast"
+  new_labels <- c(
+    "Identification ratio" = "identifications",
+    "Intensity ratio" = "intensity",
+    "Spike-in ratio (true ratio)" = "spike-in ratio"
   )
+
+  GRAPHS$prop_comparison <- compare_props |>
+    mutate(proportion = round(proportion, 2)) |>
+    ggplot(
+      aes(source, proportion, color = source, fill = taxon)
+    ) +
+    geom_col(
+      linewidth = 3, show.legend = c(fill = TRUE, color = FALSE),
+    ) +
+    scale_fill_paletteer_d(palette) +
+    scale_color_manual(values = c(
+      "identifications" = CATPUCCIN_LATTE$mauve,
+      "intensity" = CATPUCCIN_LATTE$mauve,
+      "spike-in ratio" = CATPUCCIN_LATTE$text
+    )) +
+    geom_text(aes(label = proportion),
+      position = position_stack(vjust = 0.5),
+      size = 5, color = "black"
+    ) +
+    ylab("Ratio (%)") +
+    xlab("Source") +
+    guides(fill = guide_legend(title = "Taxon")) +
+    scale_x_discrete(
+      labels = get_label_replacement(new_labels),
+      limits = c("identifications", "spike-in ratio", "intensity")
+    ) +
+    theme(axis.text.x = element_text(size = 10), axis.title.x = element_text(size = 15))
+
+  ggsave(
+    filename = glue("{wd}/docs/{args$prefix}_prop_comparison.png"),
+    plot = GRAPHS$prop_comparison
+  )
+  GRAPHS$prop_comparison
 }
 
-compare_props <- id_proportion |>
-  table2tb(id_col = "taxon") |>
-  mutate(
-    proportion = n * 100, source = "identifications",
-    taxon = correct_taxa_names(taxon)
-  ) |>
-  select(-n) |>
-  bind_rows(ideal_ratio)
+default <- main(args, "PNWColors::Shuksan2")
+default <- default + guides(fill = "none")
+args$prefix <- "benchmark.calibrated"
+calib <- main(args, "khroma::pale") + theme(axis.title.y = element_blank())
 
-# Will need to consult about the best way to group_by and discard proteins that could be
-# in the same group
-# Multiple options
-# 1. Consider only unique groups,
-# 2. Consider only unique combinations of percolator groups CONFIRMED
-# 3. Consider proteins with unique peptide ids
-# tb <- tb |> distinct(ProteinGroupId, .keep_all = TRUE)
-lfq <- merge_lfq(data, "mean") |>
-  inner_join(select(tax, ProteinId, Genus), by = join_by(ProteinId)) |>
-  inner_join(select(data, ProteinId, GroupUP)) |>
-  group_by(GroupUP) |>
-  summarise(
-    log_intensity = mean(log_intensity, na.rm = TRUE),
-    Genus = nth(Genus, 1)
-  )
-
-
-lfq_genus <- lfq |>
-  group_by(Genus) |>
-  summarise(
-    log_intensity = sum(log_intensity, na.rm = TRUE)
-  ) |>
-  mutate(taxon = correct_taxa_names(Genus))
-
-lfq_genus$log_intensity_ratio <- lfq_genus$log_intensity / sum(lfq_genus$log_intensity)
-
-compare_props <- compare_props %>% bind_rows(
-  select(lfq_genus, log_intensity_ratio, taxon) |>
-    rename(proportion = log_intensity_ratio) |>
-    mutate(
-      source = "intensity",
-      proportion = proportion * 100
-    )
-)
-
-
-new_labels <- c(
-  "Identification ratio" = "identifications",
-  "Intensity ratio" = "intensity",
-  "Spike-in ratio (true ratio)" = "spike-in ratio"
-)
-
-GRAPHS$prop_comparison <- compare_props |>
-  mutate(proportion = round(proportion, 2)) |>
-  ggplot(
-    aes(source, proportion, color = source, fill = taxon)
-  ) +
-  geom_col(
-    linewidth = 3, show.legend = c(fill = TRUE, color = FALSE),
-  ) +
-  scale_fill_paletteer_d(PALETTE) +
-  scale_color_manual(values = c(
-    "identifications" = CATPUCCIN_LATTE$mauve,
-    "intensity" = CATPUCCIN_LATTE$mauve,
-    "spike-in ratio" = CATPUCCIN_LATTE$text
-  )) +
-  geom_text(aes(label = proportion),
-    position = position_stack(vjust = 0.5),
-    size = 5, color = "black"
-  ) +
-  ylab("Ratio (%)") +
-  xlab("Source") +
-  guides(fill = guide_legend(title = "Taxon")) +
-  scale_x_discrete(
-    labels = get_label_replacement(new_labels),
-    limits = c("identifications", "spike-in ratio", "intensity")
-  )
-
-GRAPHS$prop_comparison
-
-ggsave(
-  filename = glue("{wd}/docs/benchmark_prop_comparison.png"),
-  plot = GRAPHS$prop_comparison
-)
+print(cov_tests)
+all_lfq <- cowplot::plot_grid(default, calib, labels = c("default", "Calibrated"))
