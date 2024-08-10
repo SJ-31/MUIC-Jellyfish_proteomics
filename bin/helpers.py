@@ -4,7 +4,7 @@ from collections import Counter
 import sys
 from Bio import SeqIO
 import pandas as pd
-import pathlib
+from scipy.cluster.hierarchy import DisjointSet
 import numpy as np
 import polars.selectors as cs
 import polars as pl
@@ -389,6 +389,70 @@ def get_denovo_stats(denovo_file: str, identifications: str, header_map_path: st
     print(f"Percent identified: {percent_id * 100}")
 
 
+def merge_subsets(items: dict) -> DisjointSet:
+    """
+    Given a bunch of sets that may or may not be subsets of one another,
+    resolve the sets such that no sets left are subsets of one another (i.e. finding the largest sets that contain the others)
+
+    If a set A is a subset of B AND C, and B and C are disjoint, whichever comes first
+    will take on A
+    """
+    DS: DisjointSet = DisjointSet(items.keys())
+    candidates = set(items.keys())
+    while candidates:
+        were_subsets: set = set()
+        for x in candidates:
+            for y in candidates:
+                if x == y:
+                    continue
+                x_vals, y_vals = items.get(x), items.get(y)
+                if x_vals <= y_vals and x not in were_subsets:
+                    DS.merge(x, y)
+                    were_subsets.add(x)
+                elif y_vals <= x_vals and y not in were_subsets:
+                    DS.merge(x, y)
+                    were_subsets.add(y)
+        if not were_subsets:
+            break
+        candidates -= were_subsets
+    return DS
+
+
+def subsets2df(DS: DisjointSet, items: dict) -> pl.DataFrame:
+    """The representative in this case is the set that contains
+    all others in the subset
+    """
+    size_key: dict = {k: len(v) for k, v in items.items()}
+    results: dict = {"item": [], "set": [], "representative": []}
+    for i, subset in enumerate(DS.subsets()):
+        ordering: dict = {}
+        for e in subset:
+            ordering[e] = size_key.get(e)
+            results["item"].append(e)
+            results["set"].append(i)
+        ordered: list = sorted(ordering.items(), key=lambda x: x[1], reverse=True)
+        largest = ordered[0][0]
+        results["representative"].extend([largest] * len(subset))
+    return pl.DataFrame(results)
+
+
+def group_by_subsets(data: pd.DataFrame) -> pd.DataFrame:
+    df: pl.DataFrame = pl.from_pandas(data).with_columns(
+        pl.col("unique_peptides").str.split(";").alias("split_peps_temp")
+    )
+    pep_dict = {k: set(v) for k, v in zip(df["ProteinId"], df["split_peps_temp"])}
+    merged = merge_subsets(pep_dict)
+    result = subsets2df(merged, pep_dict).rename(
+        {"set": "GroupSB", "representative": "sb_rep"}
+    )
+    print(result)
+    return (
+        df.join(result, left_on="ProteinId", right_on="item")
+        .drop("split_peps_temp")
+        .to_pandas()
+    )
+
+
 def parse_args():
     import argparse
 
@@ -406,7 +470,7 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__" and len(sys.argv) > 1:
+if __name__ == "__main__" and len(sys.argv) > 1 and not "radian" in sys.argv[0]:
     args = parse_args()
     if args["task"] == "write_dlfq":
         write_new_dlfq(args["dlfq_input"], args["input"], args["output"])

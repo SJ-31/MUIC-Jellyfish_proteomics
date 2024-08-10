@@ -275,6 +275,7 @@ main <- function(args) {
     relocate(contains("is_blast"), .before = where(is.numeric)) %>%
     relocate(any_of(FIRST_COLS))
   combined <- group_by_unique_peptides(combined)
+  combined <- group_by_subsets(combined) |> relocate(GroupSB, sb_rep, .after = GroupUP)
   return(combined)
 }
 
