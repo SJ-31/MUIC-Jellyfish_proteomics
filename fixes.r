@@ -161,7 +161,7 @@ fix <- function(filename, fix) {
     # 2024-06-23 Added a new, simpler method of grouping proteins
     # Just by their unique peptides
     source("./bin/R/helpers.r")
-    groupByUniquePeptides(tb) |> write_tsv(file = filename)
+    group_by_unique_peptides(tb) |> write_tsv(file = filename)
   }
   if (fix == "mismatch") {
     rename(tb, n_mismatches = n_replacements) |> write_tsv(file = filename)
@@ -184,6 +184,14 @@ fix <- function(filename, fix) {
         write_tsv(file = filename)
     }
   }
+  if (fix == "group_subsets") {
+    # 2024-08-10 Add new grouping strategy that considers proper subsets of peptides
+    # as well
+    reticulate::source_python(glue("{args$python_source}/helpers.py"))
+    group_by_subsets(tb) |>
+      relocate(GroupSB, sb_rep, .after = GroupUP) |>
+      write_tsv(file = filename)
+  }
 }
 
 get_to_fix <- function(pattern) {
@@ -203,7 +211,6 @@ apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
 
-
 files <- get_to_fix("*_all.tsv|*_all_wcoverage.tsv") |> discard(\(x) str_detect(x, "blast|lfq|percolator"))
 
-# file.remove(files)
+apply_fixes(files, "group_subsets")

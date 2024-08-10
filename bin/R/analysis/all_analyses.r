@@ -24,6 +24,8 @@ save <- function(to_save, outdir) {
       plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
     } else if (object == 0) {
       cat("", file = glue("{outdir}/{name}.txt"))
+    } else if (is.character(object) && is.atomic(object)) {
+      cat(object, file = glue("{outdir}/{name}.txt"))
     }
   }
   if (!dir.exists(outdir)) {
@@ -49,9 +51,10 @@ if (str_detect(getwd(), "Bio_SDD")) {
 # ----------------------------------------
 #' Main entry point to choose paths
 M$prefixes <- list("C_indra", "C_indra.msconvert", "C_indra.calibrated", "ND_C_indra")
-M$chosen_prefix <- prefixes[[1]]
+M$chosen_prefix <- M$prefixes[[1]]
 M$chosen_pass <- "2-Second_pass"
 M$chosen_path <- glue("{M$wd}/results/C_indra")
+# ----------------------------------------
 
 
 M$path <- glue("{M$wd}/results/C_indra")
@@ -69,6 +72,7 @@ M$aligned_peptides_path <- glue("{M$chosen_path}/{M$chosen_pass}/aligned_peptide
 M$r_source <- glue("{M$wd}/bin/R")
 M$python_source <- glue("{M$wd}/bin")
 M$embd_type <- "protein"
+M$go_reference <- glue("{M$wd}/data/reference/with_levels.tsv")
 M$uniprot_data_dir <- glue("{M$wd}/data/protein_databases/comparison_taxa")
 M$data_path <- glue("{M$chosen_path}/{M$chosen_pass}/{M$chosen_prefix}_all_wcoverage.tsv")
 M$peptide_map_path <- glue("{M$chosen_path}/{M$chosen_pass}/percolator_peptide_map.tsv")

@@ -118,23 +118,18 @@ venn_helper <- function(lst, palette, caption) {
 }
 
 cov_compare_helper <- function(tb, palette, caption) {
-  ggplot(tb, aes(
-    x = pcoverage_align.first,
-    y = pcoverage_align.sec, color = length.first
-  )) +
-    geom_point() +
-    paletteer::scale_colour_paletteer_c(palette) +
-    geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1),
-      linetype = 2,
-      colour = "black"
-    ) +
-    ylab("Second pass coverage") +
-    xlab("First pass coverage") +
-    guides(color = guide_legend("Protein length")) +
-    labs(caption = caption) +
+  compare_vals_x_y("First pass coverage",
+    "Second pass coverage",
+    "pcoverage_align.first",
+    "pcoverage_align.sec",
+    tb,
+    color = "length.first",
+    palette = palette,
+  ) + labs(caption = caption) +
     theme(
       plot.caption = element_text(face = "bold", size = 15)
-    )
+    ) +
+    guides(color = guide_legend("Protein length"))
 }
 
 

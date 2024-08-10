@@ -100,7 +100,6 @@ if (!is.null(cc$pairwise)) {
   TABLES$coverage_pairwise_kruskal_not_significant <- 0
 }
 
-
 coverage_comparison_g <- cc$graph + ylab("log Percent coverage") +
   scale_color_paletteer_d(PALETTE) +
   guides(color = guide_legend("Run parameter")) +
@@ -254,22 +253,6 @@ GRAPHS$default_no_denovo_coverage <- gg_numeric_dist(coverage_list, method = "fr
     color = "Parameter"
   ) + scale_color_paletteer_d(PALETTE2)
 
-
-GRAPHS$default_no_denovo_coverage_2 <- ggplot(
-  merged,
-  aes(x = pcoverage_align.def, y = pcoverage_align.nd, color = length.nd)
-) +
-  geom_point() +
-  paletteer::scale_colour_paletteer_c("grDevices::Cold") +
-  geom_segment(aes(x = 0, y = 0, xend = 1, yend = 1),
-    linetype = 2,
-    colour = "black"
-  ) +
-  ylab("Coverage default") +
-  xlab("Coverage ND") +
-  guides(color = guide_legend("Protein length"))
-
-
 GRAPHS$default_no_denovo_peptide_count <- gg_numeric_dist(peps_list, method = "boxplot") +
   xlab("Run parameter") +
   ylab("log Count") +
@@ -282,7 +265,9 @@ TABLES$denovo_test <- tests |>
   mutate(alternative = map_chr(alternative, \(x) str_replace(x, "\\.def", "default"))) |>
   gt()
 
+
 # ----------------------------------------
+PAIRWISE_GRAPHS <- list()
 # Perform pairwise coverage for all different parameters (previously was not pairwise)
 pairs <- combn(names(data), 2)
 for (c in compare_cols) {
@@ -291,8 +276,18 @@ for (c in compare_cols) {
     right <- pairs[2, i]
     p_string <- glue("{left} x {right}")
     temp_merged <- inner_join(data[[left]], data[[right]], by = join_by(header))
-    x <- temp_merged[[glue("{c}.x")]]
-    y <- temp_merged[[glue("{c}.y")]]
+    var_x <- glue("{c}.x")
+    var_y <- glue("{c}.y")
+
+    plot <- compare_vals_x_y(left, right,
+      var_x, var_y, temp_merged,
+      color = "length.x"
+    ) +
+      guides(color = guide_legend("Protein length"))
+    PAIRWISE_GRAPHS[[glue("{left}-{right}_{c}_compare")]] <<- plot
+
+    x <- temp_merged[[var_x]]
+    y <- temp_merged[[var_y]]
     greater <- wilcox.test(x, y, alternative = "greater", paired = TRUE) |>
       htest2tb(data.name = p_string, alternative = glue("{left} greater"))
     two_sided <- wilcox.test(x, y, paired = TRUE) |>
@@ -313,4 +308,6 @@ for (c in compare_cols) {
 }
 
 
+
 save(c(GRAPHS, TABLES), glue("{M$outdir}/run_parameters"))
+save(PAIRWISE_GRAPHS, glue("{M$outdir}/run_parameters/pairwise"))

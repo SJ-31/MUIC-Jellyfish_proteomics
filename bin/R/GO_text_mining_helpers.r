@@ -156,7 +156,10 @@ wordcloud_custom <- function(tb, params, abbrev_legend = NULL) {
     theme(panel.background = element_rect(fill = "#eff1f5")) +
     scale_size_area(max_size = max_size) +
     guides(size = FALSE, alpha = FALSE) +
-    theme(text = element_text(family = "Ubuntu"))
+    theme(
+      text = element_text(family = "Ubuntu"), legend.title = element_text(face = "bold"),
+      legend.text = element_text(family = "Ubuntu")
+    )
   if (!is.null(abbrev_legend)) {
     plot <- plot + guides(custom = ggplot2::guide_custom(abbrev_legend, title = "Abbreviations"))
   }
