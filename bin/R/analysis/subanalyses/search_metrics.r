@@ -183,7 +183,16 @@ rename_passes <- function(tb) {
     mutate(Pass = pass_lab(Pass))
 }
 
-plot_grouped_bar <- function(tb, show_col, palette) {
+plot_grouped_bar <- function(tb, show_col, palette, with_change = TRUE) {
+  if (with_change) {
+    change <- tb |>
+      pivot_wider(names_from = Pass, id_cols = c(Engine, param), values_from = !!as.symbol(show_col)) |>
+      mutate(change = Second - First, change = round(change, 2))
+    tb <- inner_join(tb, change, by = join_by(Engine, param)) |>
+      group_by(Engine, param) |>
+      mutate(change = replace(change, duplicated(change), NA)) |>
+      ungroup()
+  }
   ggplot(tb, aes(x = Engine, pattern = Pass, y = !!as.symbol(show_col), fill = Engine)) +
     geom_bar_pattern(
       position = "dodge", stat = "identity",
@@ -196,6 +205,7 @@ plot_grouped_bar <- function(tb, show_col, palette) {
       axis.title.y = element_text(size = 15), legend.text = element_text(size = 13),
       strip.text.x = element_text(size = 16), legend.title = element_text(size = 14)
     ) +
+    geom_label(aes(label = change), vjust = 0) +
     facet_wrap(~param) +
     scale_fill_paletteer_d(palette)
 }
@@ -282,10 +292,34 @@ for (i in seq_along(os)) {
       rename_passes()
   }) |>
     bind_rows() |>
-    mutate(n_groups = log2(n_groups))
+    mutate(log_n_groups = log2(n_groups))
 
 
-  show_col <- "n_groups"
+  show_col <- "log_n_groups"
+  # show_col <- "n_groups"
+  get_search_table <- function(table_col) {
+    get_subtable <- function(p) {
+      search_metrics |>
+        select(Engine, param, Pass, !!as.symbol(table_col)) |>
+        filter(param == p) |>
+        select(-param) |>
+        pivot_wider(names_from = Pass, id_cols = Engine, values_from = !!as.symbol(table_col)) |>
+        filter(!is.na(Second)) |>
+        mutate(change = Second - First) |>
+        gt() |>
+        as_raw_html()
+    }
+    search_metrics |>
+      select(param) |>
+      distinct() |>
+      mutate(n = lapply(param, get_subtable)) |>
+      gt() |>
+      tab_header("Number of inferred protein groups")
+  }
+  TABLES[[glue("n_groups_{os[i]}_table")]] <- get_search_table("n_groups")
+  TABLES[[glue("n_psms_{os[i]}_table")]] <- get_search_table("n_psms")
+
+
   GRAPHS[[glue("n_groups_{os[i]}")]] <- plot_grouped_bar(
     search_metrics, show_col,
     palettes[i]
@@ -346,6 +380,5 @@ GRAPHS$open_spectra_stats <- open_spectra |> ggplot(aes(x = file, y = n_ms2_spec
   facet_wrap(~param) +
   scale_fill_paletteer_d("lisa::BridgetRiley")
 attr(GRAPHS$open_spectra_stats, "height") <- 6
-
 
 save(c(TABLES, GRAPHS), glue("{M$wd}/docs/figures/search_metrics"))
