@@ -537,9 +537,14 @@ class PeptideViz(pv.MsaViz):
 
 
 def main(args):
+    with open(args["header_query"], "r") as h:
+        header_queries: list = [q.strip() for q in h.readlines()]
     seq_df: pl.DataFrame = (
         pl.read_csv(args["results_file"], separator="\t", null_values="NA")
-        .filter(pl.col("pcoverage_align") > args["coverage_threshold"])
+        .filter(
+            (pl.col("pcoverage_align") > args["coverage_threshold"])
+            | (pl.col("entry_name").str.to_lowercase().str.contains_any(header_queries))
+        )
         .select(cs.by_name(["ProteinId", "seq"]))
     )
     align_df = pl.read_csv(args["alignment_file"], separator="\t", null_values="NA")
@@ -554,7 +559,10 @@ def main(args):
     elif args["mode"] == "with_uniprot":
         for id in ids:
             fig, ax = generate_visual(id, alignment_df=align_df, sequence_df=seq_df)
-            fig.savefig(f"{args['outdir']}/{id}_alignment.svg", bbox_inches="tight")
+            try:
+                fig.savefig(f"{args['outdir']}/{id}_alignment.png", bbox_inches="tight")
+            except ValueError as ve:
+                print(f"Ignoring value error: {repr(ve)}")
 
 
 def parse_args():
@@ -565,6 +573,10 @@ def parse_args():
     parser.add_argument("-c", "--coverage_threshold", type=float)
     parser.add_argument("-a", "--alignment_file")  # "aligned_peptides.tsv" file
     parser.add_argument("-p", "--peptide_map_file")
+    parser.add_argument(
+        "-q", "--header_query"
+    )  # A file containing regexes on each line used to determine what proteins
+    # to view alignments for
     parser.add_argument("-m", "--mode")
     parser.add_argument("-o", "--outdir")
     args = vars(parser.parse_args())

@@ -7,17 +7,13 @@ PALETTE <- "ggthemes::hc_darkunica"
 GRAPHS <- list()
 TABLES <- list()
 
-coverage_threshold <- 0.8
-data <- M$data %>% filter(pcoverage_align >= coverage_threshold)
+# coverage_threshold <- 0.8
+data <- M$data |> distinct(ProteinId, .keep_all = TRUE)
 nd_data <- get_run("ND_C_indra", glue("{M$wd}/results/ND_C_indra"),
   which = M$chosen_pass
 ) %>% filter(ProteinId %in% data$ProteinId)
 nd_alignments <- get_alignment_data(glue("{M$wd}/results/ND_C_indra"), which = M$chosen_pass)
 alignments <- M$alignments
-
-unmatched_peptides <- read_tsv(M$unmatched_path) %>%
-  mutate(peptideIds = map_chr(peptideIds, \(x) clean_peptide(x))) %>%
-  select(ProteinId, peptideIds)
 
 to_keep <- data %>%
   filter(!is.na(MatchedPeptideIds)) %>%
@@ -28,11 +24,18 @@ to_keep_denovo <- data %>%
   purrr::pluck("MatchedPeptideIds") %>%
   lapply(., str_split_1, pattern = ";") %>%
   unique() %>%
-  unlist() %>%
-  c(., unmatched_peptides$ProteinId)
+  unlist()
 
 it <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = it)
+
+# Filter out mismatches in the `default` run that arise from engine peptides, in order
+# to compare only UPs to the engine peptides of `ND`
+alignments$mismatches <- it$only_denovo(alignments$peptides, alignments$mismatches) |> as_tibble()
+
+# Want to find the de novo peptides that match to engine peptides in the same region
+alignments$peptides |> group_by()
+# Gets 57,544
 
 mismatch_metrics <- map2(
   list(alignments, nd_alignments),
@@ -46,11 +49,18 @@ mismatch_metrics <- map2(
 ) %>%
   `names<-`(c("default", "no_denovo"))
 
+
 merged_default <- inner_join(mismatch_metrics$default, data)
 merged <- bind_rows(
   merged_default |> mutate(mode = "default"),
   inner_join(mismatch_metrics$no_denovo, nd_data) %>% mutate(mode = "no_denovo"),
 )
+
+
+default_pep_num <- alignments$peptides |>
+  filter(id != ProteinId) |>
+  group_by(ProteinId) |>
+  summarise(num_unique_peps_d = n())
 
 merged_prot_compare <- inner_join(mismatch_metrics$default,
   mismatch_metrics$no_denovo,
@@ -61,26 +71,26 @@ merged_prot_compare <- inner_join(mismatch_metrics$default,
   inner_join(select(data, ProteinId, length), by = join_by(ProteinId)) |>
   inner_join(select(nd_data, ProteinId, num_unique_peps), by = join_by(ProteinId)) |>
   rename(num_unique_peps_nd = num_unique_peps) |>
-  inner_join(select(data, ProteinId, num_unique_peps), by = join_by(ProteinId)) |>
-  rename(num_unique_peps_d = num_unique_peps) |>
+  inner_join(default_pep_num, by = join_by(ProteinId)) |>
   mutate(
-    mismatch_pr_default = n_mismatches_default / num_unique_peps_d,
-    mismatch_pr_no_denovo = n_mismatches_no_denovo / num_unique_peps_nd
+    mean_mismatch_d = n_mismatches_default / num_unique_peps_d,
+    mean_mismatch_nd = n_mismatches_no_denovo / num_unique_peps_nd
   )
 
-# TODO: Because there are so many denovo peptides matched, this doesn't show what you want
-GRAPHS$mismatch_comparison <- ggplot(
+TABLES$n_mismatches_test <- with(
   merged_prot_compare,
-  aes(x = log(mismatch_pr_default), y = log(mismatch_pr_no_denovo), color = length)
-) +
-  geom_point() +
-  paletteer::scale_colour_paletteer_c("viridis::inferno") +
-  ylab("Mismatch frequency without de novo peptides") +
-  xlab("Mismatch frequency with de novo peptides") +
-  geom_segment(aes(x = 0, y = 0, xend = 4, yend = 4))
+  wilcox.test(n_mismatches_default, n_mismatches_no_denovo, "greater", paired = TRUE)
+) |>
+  htest2tb()
 
-
-
+GRAPHS$mismatch_comparison <- compare_vals_x_y(
+  "Average mismatches with denovo peptides",
+  "Average mismatches without de novo peptides",
+  "mean_mismatch_d", "mean_mismatch_nd",
+  merged_prot_compare,
+  color = "length",
+  palette = "viridis::inferno"
+)
 
 TABLES$mismatch_metrics <- gt(mismatch_metrics$default)
 
@@ -90,13 +100,12 @@ GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
   xlab("Ratio of non-conservative to conservative mismatches") +
   scale_fill_paletteer_d(PALETTE)
 
+
 mapped_by <- list()
 mapped_by$denovo <- data %>%
   filter(grepl("D", MatchedPeptideIds) | grepl("D", ProteinId))
 mapped_by$transcriptome <- data %>%
   filter(grepl("T", MatchedPeptideIds) | grepl("T", ProteinId))
-mapped_by$unknown <- data %>%
-  filter(grepl("U", MatchedPeptideIds) | grepl("T", ProteinId) | Group == "U")
 
 #' How to get metrics for substitutions on de novo peptides directly?
 #' Map peptides from the "alignments" file onto the original sequences of the denovo peptides

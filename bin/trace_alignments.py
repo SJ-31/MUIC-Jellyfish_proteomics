@@ -109,7 +109,7 @@ class AlignmentTracer:
         self.alignments = alignments.with_columns(
             length=pl.col("end") - pl.col("start"),
             interval=pl.Series(zip(alignments["start"], alignments["end"])),
-        )
+        ).filter(pl.col("length") != 0)
         self.peptide_map: pl.DataFrame = pl.read_csv(
             peptide_map_path, separator="\t", null_values="NA"
         )
@@ -288,15 +288,22 @@ class AlignmentTracer:
         engine_order = [f"{e}, n = {contributions[f'{e}_count']}" for e in engine_order]
         seqs = into_msa(dict(zip(engine_order, seq_list)))
         cur_seq: SeqRecord = SeqRecord(seq=seq, id=header)
-        msa = PeptideViz(
-            seqs,
-            wrap_length=90,
-            show_consensus=True,
-            aligned_to=cur_seq,
-        )
+        try:
+            msa = PeptideViz(
+                seqs,
+                wrap_length=90,
+                show_consensus=True,
+                aligned_to=cur_seq,
+            )
+        except ZeroDivisionError:
+            print(f"Ignoring ZeroDivisionError for {cur_seq}")
+            return
         msa.set_custom_color_scheme(COLOR_SCHEME)
         outfile = f"{outdir}/{protein_id}.{filetype}"
-        msa.savefig(outfile)
+        try:
+            msa.savefig(outfile)
+        except ValueError as ve:
+            print(f"Ignoring value error: {repr(ve)}")
 
 
 def get_engine_consensus(df, engine) -> Seq | None:
@@ -578,7 +585,8 @@ def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.Dat
         PeptideId=pl.col("peptideIds").map_elements(lambda x: id_aliases[x])
     )
     engines: list = list(pep_map["engine"].unique())
-    engines.remove(None)
+    if None in engines:
+        engines.remove(None)
     engine_bool_exprs = [pl.col("engine").list.contains(e).alias(e) for e in engines]
     grouped = (
         pep_map.select(["engine", "PeptideId"] + grouping_vars)
@@ -589,3 +597,25 @@ def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.Dat
         .drop("engine")
     )
     return grouped
+
+
+def only_denovo(peptide_alignments: pd.DataFrame, mismatches: pd.DataFrame):
+    pep_df = pl.from_pandas(peptide_alignments)
+    m_df = pl.from_pandas(mismatches)
+
+    wanted_alignments = pep_df.filter(pl.col("id") != pl.col("ProteinId"))
+
+    def filter_helper(protein_id, index):
+        tmp = wanted_alignments.filter(
+            (pl.col("ProteinId") == protein_id)
+            & (pl.col("start") <= index)
+            & (index <= pl.col("end"))
+        )
+        if tmp.shape[0] > 0:
+            return True
+        return False
+
+    filter_mask = [
+        filter_helper(p, i) for p, i in zip(m_df["ProteinId"], m_df["index"])
+    ]
+    return m_df.filter(filter_mask).to_pandas()
