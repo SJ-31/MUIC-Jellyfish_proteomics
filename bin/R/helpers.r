@@ -422,6 +422,7 @@ group_by_unique_peptides <- function(tb) {
     relocate(GroupUP, .after = header)
 }
 
+
 #' Replace discrete labels in a ggplot
 #'
 #' @description
@@ -603,4 +604,93 @@ pairwise_conclusion2gt <- function(pw) {
     relocate(where(is.character), .before = where(is.numeric)) |>
     gt() |>
     gt::fmt_scientific()
+}
+
+
+# Modify the mass of the mod string to be two decimal places only
+fix_mod_string <- function(mod) {
+  if (str_detect(mod, ".*\\|[0-9\\.]+\\|.*")) {
+    splits <- str_split_1(mod, "\\|")
+    mass <- as.double(splits[2]) |> round(2)
+    mod <- glue("{splits[1]}|{mass}|{splits[3]}")
+  }
+  mod
+}
+
+fix_all_mods <- function(tb) {
+  tb |> mutate(mods = map_chr(mods, \(x) {
+    if (!is.na(x)) {
+      str_split_1(x, ";") |>
+        map_chr(fix_mod_string) |>
+        paste0(collapse = ";")
+    } else {
+      x
+    }
+  }))
+}
+
+
+#' Replace any elements of `vals` in `col` with `new`
+#'
+replace_in_col <- function(tb, col, vals, new) {
+  tb |> mutate(!!as.symbol(col) := case_match(tb[[col]],
+    vals ~ new,
+    .default = tb[[col]]
+  ))
+}
+
+
+#' Create a scatter plot that orients points in the influence of two variables,
+#' `left` on the x-axis, `right` on the y-axis, optionally labeling the percentage
+#' of points where `right` > `left` and vice versa
+#'
+compare_vals_x_y <- function(
+    left, right, left_col,
+    right_col, tb, segment_color = "green",
+    palette = "grDevices::Blue-Red", label = TRUE, color = NULL) {
+  left_vals <- tb[[left_col]]
+  right_vals <- tb[[right_col]]
+  x_max <- max(left_vals)
+  y_max <- max(right_vals)
+  max <- max(x_max, y_max)
+  if (!is.null(color)) {
+    plot <- ggplot(tb, aes(
+      x = !!as.symbol(left_col), y = !!as.symbol(right_col),
+      color = !!as.symbol(color)
+    ))
+  } else {
+    plot <- ggplot(tb, aes(x = !!as.symbol(left_col), y = !!as.symbol(right_col)))
+  }
+  plot <- plot + geom_point() +
+    xlab(left) +
+    ylab(right) +
+    scale_color_paletteer_c(palette) +
+    annotate("segment",
+      x = 0, y = 0, xend = max, yend = max,
+      color = segment_color, size = 1
+    )
+  if (label) {
+    left_coord <- c(x_max * 0.75, y_max / 4)
+    right_coord <- c(x_max / 4, y_max * 0.75)
+    left_greater <- round(sum(left_vals > right_vals) / length(left_vals), 2)
+    equals <- round(sum(left_vals == right_vals) / length(left_vals), 2)
+    right_greater <- round(sum(right_vals > left_vals) / length(left_vals), 2)
+    plot <- plot +
+      annotate("text",
+        x = max * 0.9, y = max * 0.9,
+        label = glue('atop(bold("Equals: ")~{equals})'),
+        parse = TRUE
+      ) +
+      annotate("text",
+        x = left_coord[1], y = left_coord[2],
+        label = glue('atop(bold("{left} greater:")~{left_greater})'),
+        parse = TRUE
+      ) +
+      annotate("text",
+        x = right_coord[1], y = right_coord[2],
+        label = glue('atop(bold("{right} greater:")~{right_greater})'),
+        parse = TRUE
+      )
+  }
+  plot
 }
