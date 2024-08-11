@@ -41,70 +41,41 @@ CATPUCCIN_LATTE <- list(
   crust = "#DCE0E8"
 )
 
-
-GRAPHS <- list()
-
-args <- list(
-  prefix = "benchmark",
-  r_source = glue("{wd}/bin/R"),
-  python_source = glue("{wd}/bin"),
-  chosen_pass = "2-Second_pass"
-)
-source(glue("{args$r_source}/helpers.r"))
-source(glue("{args$r_source}/analysis/metric_functions.r"))
-
-cov_tests <- tibble()
-main <- function(args, palette) {
-  benchmark_dir <- glue("{wd}/results/{args$prefix}")
-  run <- get_run(args$prefix, benchmark_dir)
-  merged <- inner_join(run$first, run$second, by = join_by(header))
-  test <- wilcox.test(merged$pcoverage_align.y, merged$pcoverage_align.x, alternative = "greater", paired = TRUE) |>
-    htest2tb(data.name = glue("second greater, {args$prefix}"))
-  cov_tests <<- bind_rows(cov_tests, test)
-
-  lfq <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/lfq_all.tsv"))
-  data <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_all_wcoverage.tsv")) |>
-    filter(grepl("P", ProteinId)) |>
-    group_by_unique_peptides() |>
-    inner_join(lfq, by = join_by(ProteinId))
-
-  tax <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_taxonomy.tsv")) |>
-    filter(ProteinId %in% data$ProteinId)
-
-
-  ideal_ratio <- tibble(
-    taxon = c("Human", "Yeast", "E. coli"),
-    proportion = c(65, 22.5, 12.5),
-    source = "spike-in ratio"
+correct_taxa_names <- function(x) {
+  case_match(
+    x,
+    "Homo" ~ "Human",
+    "Escherichia" ~ "E. coli",
+    "Saccharomyces" ~ "Yeast",
   )
-  # Given sample distribution
-  # 65% w/w  Human
-  # 22.5% w/w Yeast
-  # 12.5% w/w E.coli
+}
 
-  ## Check quantification
-  has_tax <- data |>
-    inner_join(tax, by = join_by(ProteinId)) |>
-    group_by(GroupUP) |>
+# Given sample distribution
+# 65% w/w  Human
+# 22.5% w/w Yeast
+# 12.5% w/w E.coli
+IDEAL_RATIO <- tibble(
+  taxon = c("Human", "Yeast", "E. coli"),
+  proportion = c(65, 22.5, 12.5),
+  source = "spike-in ratio"
+)
+
+get_prop_compare <- function(tb, lfq, grouping_col = "GroupUP", tax = NULL) {
+  if (!is.null(tax)) {
+    tb <- tb |>
+      inner_join(tax, by = join_by(ProteinId))
+  }
+  has_tax <- tb |>
+    group_by(!!as.symbol(grouping_col)) |>
     summarise(
       Genus = nth(Genus, 1),
       check_genera = paste0(unique(Genus), collapse = ";")
     )
-
   genus_mismatch <- has_tax |> filter(grepl(";", check_genera))
   id_proportion <- local({
     t <- has_tax$Genus |> table()
     t / sum(t)
   })
-
-  correct_taxa_names <- function(x) {
-    case_match(
-      x,
-      "Homo" ~ "Human",
-      "Escherichia" ~ "E. coli",
-      "Saccharomyces" ~ "Yeast"
-    )
-  }
 
   compare_props <- id_proportion |>
     table2tb(id_col = "taxon") |>
@@ -113,19 +84,14 @@ main <- function(args, palette) {
       taxon = correct_taxa_names(taxon)
     ) |>
     select(-n) |>
-    bind_rows(ideal_ratio)
-
-  # Will need to consult about the best way to group_by and discard proteins that could be
-  # in the same group
-  # Multiple options
-  # 1. Consider only unique groups,
-  # 2. Consider only unique combinations of percolator groups CONFIRMED
-  # 3. Consider proteins with unique peptide ids
-  # tb <- tb |> distinct(ProteinGroupId, .keep_all = TRUE)
-  lfq <- merge_lfq(data, "mean") |>
-    inner_join(select(tax, ProteinId, Genus), by = join_by(ProteinId)) |>
-    inner_join(select(data, ProteinId, GroupUP)) |>
-    group_by(GroupUP) |>
+    bind_rows(IDEAL_RATIO)
+  lfq <- merge_lfq(tb, "mean")
+  if (!is.null(tax)) {
+    lfq <- inner_join(lfq, select(tax, ProteinId, Genus), by = join_by(ProteinId))
+  }
+  lfq <- lfq |>
+    inner_join(select(tb, ProteinId, !!as.symbol(grouping_col))) |>
+    group_by(!!as.symbol(grouping_col)) |>
     summarise(
       log_intensity = mean(log_intensity, na.rm = TRUE),
       Genus = nth(Genus, 1)
@@ -148,6 +114,106 @@ main <- function(args, palette) {
         proportion = proportion * 100
       )
   )
+  compare_props
+}
+
+
+GRAPHS <- list()
+outdir <- glue("{wd}/docs/figures/benchmark")
+args <- list(
+  prefix = "benchmark",
+  r_source = glue("{wd}/bin/R"),
+  python_source = glue("{wd}/bin"),
+  chosen_pass = "2-Second_pass"
+)
+source(glue("{args$r_source}/helpers.r"))
+source(glue("{args$r_source}/analysis/metric_functions.r"))
+
+seq_map_path <- glue("{outdir}/bm_seq_map.tsv")
+
+if (!file.exists(seq_map_path)) {
+  SEQ_MAP <- read_tsv(glue("{wd}/results/benchmark/Databases/seq-header_mappings.tsv")) |>
+    filter(!grepl("rev_", id)) |>
+    mutate(organism = NA) |>
+    get_organism("Unknown")
+  write_tsv(SEQ_MAP, seq_map_path)
+} else {
+  SEQ_MAP <- read_tsv(seq_map_path)
+}
+
+cov_tests <- tibble()
+main <- function(args, palette) {
+  benchmark_dir <- glue("{wd}/results/{args$prefix}")
+  run <- get_run(args$prefix, benchmark_dir)
+  merged <- inner_join(run$first, run$second, by = join_by(header))
+  test <- wilcox.test(merged$pcoverage_align.y, merged$pcoverage_align.x, alternative = "greater", paired = TRUE) |>
+    htest2tb(data.name = glue("second greater, {args$prefix}"))
+  cov_tests <<- bind_rows(cov_tests, test)
+
+  lfq <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/lfq_all.tsv"))
+  data <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_all_wcoverage.tsv")) |>
+    filter(grepl("P", ProteinId)) |>
+    group_by_unique_peptides() |>
+    inner_join(lfq, by = join_by(ProteinId))
+
+  tax <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_taxonomy.tsv")) |>
+    filter(ProteinId %in% data$ProteinId)
+
+  blast <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/Unmatched/BLAST/accepted_queries.tsv")) |>
+    select(ProteinId, MatchedPeptideIds)
+  blast <- blast %>% separate_longer_delim(MatchedPeptideIds, ";")
+  perc_file <- glue("{benchmark_dir}/{args$chosen_pass}/percolator_all.tsv")
+  perc <- read_tsv(perc_file) |>
+    mutate(join_key = paste0(ProteinId, engine, collapse = "-"))
+
+  browser()
+  # if (!"Genus" %in% colnames(perc)) {
+  #   perc <- inner_join(perc, SEQ_MAP, by = join_by(x$ProteinId == y$id)) |>
+  #     mutate(Genus = map_chr(organism, \(x) str_split_1(x, " ")[1]))
+  #   write_tsv(perc, perc_file)
+  # }
+
+  # if (!"unique_peptides" %in% colnames(perc)) {
+  #   perc <- perc |> mutate(
+  #     unique_peptides = purrr::map_chr(peptideIds, \(x) {
+  #       if (is.na(x)) {
+  #         return(NA)
+  #       }
+  #       x <- str_split_1(x, ";") %>% map_chr(clean_peptide)
+  #       return(paste0(unique(x), collapse = ";"))
+  #     })
+  #   )
+  #   write_tsv(perc, perc_file)
+  # }
+
+  # matching <- perc |>
+  #   inner_join(blast, by = join_by(x$ProteinId == y$MatchedPeptideIds)) |>
+  #   group_by(ProteinId.y, engine) |>
+  #   summarise(
+  #     peptideIds = paste0(peptideIds, collapse = ";"),
+  #     `q-value` = median(`q-value`)
+  #   ) |>
+  #   mutate(join_key = paste0(ProteinId.y, engine, collapse = "-")) |>
+  #   inner_join(SEQ_MAP, by = join_by(x$ProteinId.y == y$id))
+
+  # browser()
+  # perc <- bind_rows(
+  #   perc,
+  #   filter(matching, !ProteinId.y %in% perc$ProteinId)
+  # ) |> filter(!grepl("D", ProteinId))
+  # left_join(perc, matching, by = join_by(join_key))
+
+
+  ## Check quantification
+
+  # Will need to consult about the best way to group_by and discard proteins that could be
+  # in the same group
+  # Multiple options
+  # 1. Consider only unique groups,
+  # 2. Consider only unique combinations of percolator groups CONFIRMED
+  # 3. Consider proteins with unique peptide ids
+  compare_props <- get_prop_compare(data, lfq, tax = tax)
+
 
   new_labels <- c(
     "Identification ratio" = "identifications",
@@ -192,7 +258,11 @@ main <- function(args, palette) {
 default <- main(args, "PNWColors::Shuksan2")
 default <- default + guides(fill = "none")
 args$prefix <- "benchmark.calibrated"
-calib <- main(args, "khroma::pale") + theme(axis.title.y = element_blank())
+calib <- main(args, "khroma::pale") + theme(axis.title.y = element_blank()) + guides(fill = "none")
+args$prefix <- "benchmark.msconvert"
+msconvert <- main(args, "khroma::pale") + theme(axis.title.y = element_blank())
 
-print(cov_tests)
-all_lfq <- cowplot::plot_grid(default, calib, labels = c("default", "Calibrated"))
+all_lfq <- cowplot::plot_grid(default, calib, msconvert, labels = c("default", "Calibrated", "msConvert"), ncol = 3)
+
+all_lfq
+# DO this for individual engines
