@@ -97,15 +97,20 @@ if __name__ == "__main__":
     RANKS: list = ["Kingdom", "Phylum", "Class", "Order", "Family", "Genus"]
     args = parse_args()
     database_locked = True
-    while database_locked:
+    while database_locked:  # Happens due to nextflow parallelism
+        # this basically blocks it until the other thread is done
         try:
             NCBI = et.NCBITaxa(taxdump_file=args["ncbi_taxdump"])
+            df = pl.read_csv(args["input"], separator="\t", null_values="NA").filter(
+                pl.col("organism").is_not_null()
+            )
+            tax = get_tax_data(df, ranks=RANKS, ncbi=NCBI)
+            tax.write_csv(args["output"], separator="\t")
             database_locked = False
         except Exception as e:
-            if not isinstance(e, sqlite3.OperationalError):
-                raise
-    df = pl.read_csv(args["input"], separator="\t", null_values="NA").filter(
-        pl.col("organism").is_not_null()
-    )
-    tax = get_tax_data(df, ranks=RANKS, ncbi=NCBI)
-    tax.write_csv(args["output"], separator="\t")
+            if isinstance(e, sqlite3.OperationalError):
+                continue
+            elif "PanicException" in str(type(e)):
+                continue
+            else:
+                raise e
