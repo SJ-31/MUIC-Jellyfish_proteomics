@@ -175,17 +175,7 @@ main <- function(args) {
     combined <- combined |>
       filter(q_adjust <= args$fdr) %>%
       filter(pep_adjust <= args$pep_thresh)
-
-    redundant <- local({
-      cols <- sapply(
-        colnames(combined),
-        function(x) all(is.na(combined[[x]]))
-      )
-      names(cols[cols])
-    })
   }
-
-  combined <- select(combined, -all_of(redundant))
 
   ## Map pfam domains to GO and get GO IDs
   if ("GO" %in% colnames(combined)) {
@@ -263,7 +253,7 @@ main <- function(args) {
     relocate(where(is.numeric),
       .after = where(is.character)
     ) %>%
-    relocate(c("q.value", "posterior_error_prob"), .before = "q_adjust") %>%
+    relocate(c("q.value", "posterior_error_prob"), .after = "num_unique_peps") %>%
     relocate(any_of(c("peptideIds", "seq")), .after = where(is.numeric)) %>%
     relocate(any_of(contains("interpro"))) %>%
     relocate(any_of(contains("KEGG"))) %>%

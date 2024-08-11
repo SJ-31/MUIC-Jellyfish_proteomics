@@ -192,6 +192,14 @@ fix <- function(filename, fix) {
       relocate(GroupSB, sb_rep, .after = GroupUP) |>
       write_tsv(file = filename)
   }
+  if (fix == "filename_fdr") {
+    filename <- str_replace(filename, "_FDR.tsv", ".tsv")
+    write_tsv(tb, file = filename)
+  }
+}
+
+delete_all <- function(file_list) {
+  lapply(file_list, file.remove)
 }
 
 get_to_fix <- function(pattern) {
@@ -210,7 +218,3 @@ get_to_fix <- function(pattern) {
 apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
-
-files <- get_to_fix("*_all.tsv|*_all_wcoverage.tsv") |> discard(\(x) str_detect(x, "blast|lfq|percolator"))
-
-apply_fixes(files, "group_subsets")

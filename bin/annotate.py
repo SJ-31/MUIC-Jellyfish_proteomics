@@ -321,9 +321,7 @@ def anno(args: dict):
     to_map = pd.read_csv(args["input"], sep="\t")
     if args["previous_saved"]:
         saved_ref = pd.read_csv(args["previous_saved"], sep="\t")
-        saved: pd.DataFrame = to_map.merge(
-            saved_ref, on="header", suffixes=[None, "_y"]
-        ).drop("inferred_by_y", axis="columns")
+        saved: pd.DataFrame = to_map.merge(saved_ref, on="header")
         to_map = to_map[~to_map["header"].isin(saved_ref["header"])]
     else:
         saved = pd.DataFrame()

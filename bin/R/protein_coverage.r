@@ -196,6 +196,8 @@ identify_peptides <- function(protein_id, matched_peptide_ids, unique_peptides) 
       \(x) {
         # Want to search for the id in a narrowed window so as to reduce instances
         # of spurious matches
+        # id is the same as protein id if the peptide is an engine peptide, otherwise
+        # it is a matched de novo peptide
         id_row <- filter(cur_seq_map, seq == x)
         if (nrow(id_row) > 0) {
           return(get_id_from_rows(id_row, "id"))

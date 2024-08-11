@@ -60,7 +60,8 @@ def save_seen_anno(
             pl.col("*").replace_strict(old="-", new=None, default=pl.col("*"))
         )
     )
-    if previous_saved:
+    if previous_saved is not None:
+        print("Using saved")
         together = together.filter(~pl.col("header").is_in(previous_saved["header"]))
         together = pl.concat([together, previous_saved])
     mask = together.with_columns(pl.col(ANNO_COLS).is_not_null()).with_columns(
@@ -131,8 +132,6 @@ def save_seen_interpro(rpath: str, header_mapping: str, write_dir: str = ""):
     return df
 
 
-c_indra_a = "./results/C_indra_A"
-
 prefix = "C_indra"
 results = f"./results/{prefix}"
 header_mapping = f"{results}/Databases/seq-header_mappings.tsv"
@@ -143,6 +142,6 @@ annotations_path = f"{saved}/annotations.tsv"
 eggnog_path = f"{saved}/eggnog.tsv"
 interpro_path = f"{saved}/interpro.tsv"
 
-# anno: pl.DataFrame = save_seen_anno(c_indra_a, "C_indra", annotations_path, write=True)
-# eggnog = save_seen_eggnog(results, header_mapping, "./results/C_indra_A/.saved")
-# interpro = save_seen_interpro(results, header_mapping, "./results/C_indra_A/.saved")
+# anno: pl.DataFrame = save_seen_anno(results, "C_indra", annotations_path, write=True)
+# eggnog = save_seen_eggnog(results, header_mapping, "./results/C_indra/.saved")
+interpro = save_seen_interpro(results, header_mapping, "./results/C_indra/.saved")
