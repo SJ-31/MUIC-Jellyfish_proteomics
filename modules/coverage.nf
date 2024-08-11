@@ -80,7 +80,7 @@ process COVERAGE_MERGE {
 
     parse_alignment.py \
         -a aligned_peptides.tsv \
-        -s seq_header_map \
+        -s $seq_header_map \
         -m alignment_metrics.tsv \
         -r all_mismatches.tsv
     """

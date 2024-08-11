@@ -41,7 +41,7 @@ process SORT_BLAST {
             -d !{database_hits} \
             -m !{mapping} \
             -i 85 \
-            -e 0.00001 \
+            -e !{params.blast_evalue} \
             -p 0.05 \
             -o !{params.pref}_blast_matched.tsv \
             -f !{params.pref}_blast_unmatched.fasta  \

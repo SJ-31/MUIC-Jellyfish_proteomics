@@ -17,11 +17,12 @@ process VIEW_ALIGNMENTS {
     """
     view_alignments.py \
         -r $identifications \
-        -c 0.8 \
+        -c 70.0 \
         -a $alignments \
         -o . \
         -m "engine_alignment" \
-        -p $peptide_map
+        -p $peptide_map \
+        --header_query $params.config_dir/view_header_queries.txt
 
     cp .command.out .log
     """

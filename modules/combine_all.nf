@@ -43,7 +43,8 @@ process COMBINE_ALL {
         --go_path $params.go \
         --go_slim_path $params.go_slims \
         --r_source ${params.bin}/R \
-        --python_source ${params.bin}
+        --python_source ${params.bin} \
+        --filter_fdr ${params.filter_fdr}
 
     get_tax_data.py -i "${params.pref}_all.tsv" \
         -o  "${params.pref}_taxonomy.tsv" \
