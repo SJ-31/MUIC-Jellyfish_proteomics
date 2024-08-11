@@ -11,24 +11,24 @@ windows:
   - window_name: results
     start_directory: ./results
     panes:
-      - "ranger"
+      - "yazi"
   - window_name: "analysis"
     layout: even-horizontal
     start_directory: ./docs/figures
     panes:
-      - "ranger"
+      - "yazi"
       -
   - window_name: "pytest"
     layout: even-horizontal
     panes:
       -
-      - "ranger"
+      - "yazi"
     start_directory: ./tests/pytest
   - window_name: "testzone"
     start_directory: "/home/shannc/Downloads/thesis_testzone"
     panes:
-      - "ranger"
+      - "yazi"
   - window_name: "reference"
     start_directory: ./data/reference
     panes:
-      - "ranger"
+      - "yazi"

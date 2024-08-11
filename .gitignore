@@ -59,3 +59,6 @@ docs/figures
 docs/flow/id_inference.png
 docs/flow/id_inference.svg
 docs/flow/annotation.png
+docs/benchmark.calibrated_prop_comparison.png
+docs/benchmark.msconvert_prop_comparison.png
+.tmuxp.yaml
