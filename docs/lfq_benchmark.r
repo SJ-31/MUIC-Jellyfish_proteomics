@@ -1,5 +1,7 @@
 library("glue")
+library("ggpattern")
 library("gridExtra")
+library("grid")
 library("paletteer")
 library("tidyverse")
 if (str_detect(getwd(), "Bio_SDD")) {
@@ -126,6 +128,7 @@ args <- list(
   python_source = glue("{wd}/bin"),
   chosen_pass = "2-Second_pass"
 )
+reticulate::source_python(glue("{args$python_source}/helpers.py"))
 source(glue("{args$r_source}/helpers.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
@@ -159,33 +162,19 @@ main <- function(args, palette) {
   tax <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/{args$prefix}_taxonomy.tsv")) |>
     filter(ProteinId %in% data$ProteinId)
 
-  blast <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/Unmatched/BLAST/accepted_queries.tsv")) |>
-    select(ProteinId, MatchedPeptideIds)
-  blast <- blast %>% separate_longer_delim(MatchedPeptideIds, ";")
-  perc_file <- glue("{benchmark_dir}/{args$chosen_pass}/percolator_all.tsv")
-  perc <- read_tsv(perc_file) |>
-    mutate(join_key = paste0(ProteinId, engine, collapse = "-"))
+  # blast <- read_tsv(glue("{benchmark_dir}/{args$chosen_pass}/Unmatched/BLAST/accepted_queries.tsv")) |>
+  #   select(ProteinId, MatchedPeptideIds)
+  # blast <- blast %>% separate_longer_delim(MatchedPeptideIds, ";")
+  # perc_file <- glue("{benchmark_dir}/{args$chosen_pass}/percolator_all.tsv")
+  # perc <- read_tsv(perc_file) |>
+  #   mutate(join_key = paste0(ProteinId, engine, collapse = "-"))
 
-  browser()
   # if (!"Genus" %in% colnames(perc)) {
   #   perc <- inner_join(perc, SEQ_MAP, by = join_by(x$ProteinId == y$id)) |>
   #     mutate(Genus = map_chr(organism, \(x) str_split_1(x, " ")[1]))
-  #   write_tsv(perc, perc_file)
   # }
 
-  # if (!"unique_peptides" %in% colnames(perc)) {
-  #   perc <- perc |> mutate(
-  #     unique_peptides = purrr::map_chr(peptideIds, \(x) {
-  #       if (is.na(x)) {
-  #         return(NA)
-  #       }
-  #       x <- str_split_1(x, ";") %>% map_chr(clean_peptide)
-  #       return(paste0(unique(x), collapse = ";"))
-  #     })
-  #   )
-  #   write_tsv(perc, perc_file)
-  # }
-
+  # browser()
   # matching <- perc |>
   #   inner_join(blast, by = join_by(x$ProteinId == y$MatchedPeptideIds)) |>
   #   group_by(ProteinId.y, engine) |>
@@ -196,11 +185,12 @@ main <- function(args, palette) {
   #   mutate(join_key = paste0(ProteinId.y, engine, collapse = "-")) |>
   #   inner_join(SEQ_MAP, by = join_by(x$ProteinId.y == y$id))
 
-  # browser()
+  # # browser()
   # perc <- bind_rows(
   #   perc,
   #   filter(matching, !ProteinId.y %in% perc$ProteinId)
   # ) |> filter(!grepl("D", ProteinId))
+
   # left_join(perc, matching, by = join_by(join_key))
 
 
@@ -252,17 +242,101 @@ main <- function(args, palette) {
     filename = glue("{wd}/docs/{args$prefix}_prop_comparison.png"),
     plot = GRAPHS$prop_comparison
   )
-  GRAPHS$prop_comparison
+  list(graph = GRAPHS$prop_comparison, data = compare_props)
 }
 
 default <- main(args, "PNWColors::Shuksan2")
-default <- default + guides(fill = "none")
+default_g <- default$graph + guides(fill = "none")
+
 args$prefix <- "benchmark.calibrated"
-calib <- main(args, "khroma::pale") + theme(axis.title.y = element_blank()) + guides(fill = "none")
+calib <- main(args, "khroma::pale")
+
+calib_g <- calib$graph + theme(axis.title.y = element_blank()) + guides(fill = "none")
 args$prefix <- "benchmark.msconvert"
-msconvert <- main(args, "khroma::pale") + theme(axis.title.y = element_blank())
 
-all_lfq <- cowplot::plot_grid(default, calib, msconvert, labels = c("default", "Calibrated", "msConvert"), ncol = 3)
+msconvert <- main(args, "khroma::pale")
+msconvert_g <- msconvert$graph + theme(axis.title.y = element_blank())
 
-all_lfq
-# DO this for individual engines
+all <- bind_rows(
+  mutate(default$data, param = "default"),
+  mutate(calib$data, param = "Calibrated"),
+  mutate(msconvert$data, param = "msConvert"),
+) |>
+  mutate(proportion = round(proportion, 2)) |>
+  filter(source != "spike-in ratio")
+
+pos <- list(
+  yeast = 12.5 / 2,
+  human = (65 / 2) + 12.5,
+  ecoli = (22.5 / 2) + 12.5 + 65
+)
+colors <- list(
+  yeast = CATPUCCIN_LATTE$green,
+  human = CATPUCCIN_LATTE$yellow,
+  ecoli = CATPUCCIN_LATTE$red
+)
+
+midpoint <- mean(seq_along(unique(all$param)))
+ref_size <- 30
+
+ref_legend <- grid::legendGrob(
+  c("Yeast (0.225)", "Human (0.65)", "E. coli (0.125)"),
+  gp = grid::gpar(col = c(colors$yeast, colors$human, colors$ecoli)),
+  vgap = 0.4,
+  pch = 15
+)
+
+GRAPHS$all_lfq <- all |> ggplot(aes(param, proportion, fill = taxon)) +
+  geom_col() +
+  scale_fill_paletteer_d("PNWColors::Sailboat") +
+  geom_text(aes(label = proportion),
+    position = position_stack(vjust = 0.5),
+    size = 5, color = "black"
+  ) +
+  annotate("segment",
+    x = 0, y = 0, yend = 22.5,
+    color = colors$yeast, size = ref_size,
+  ) +
+  annotate("segment",
+    x = 0, y = 22.5, yend = 65 + 22.5,
+    color = colors$human, size = ref_size,
+  ) +
+  annotate("segment",
+    x = 0, y = 65 + 22.5, yend = 100,
+    color = colors$ecoli, size = ref_size,
+  ) +
+  guides(custom = ggplot2::guide_custom(ref_legend, title = "True ratios")) +
+  xlab("Run parameter") +
+  ylab("Proportion") +
+  theme(
+    legend.title = element_text(face = "bold", size = 13),
+    axis.text.x = element_text(size = 12),
+    strip.text.x = element_text(size = 13),
+    legend.text = element_text(size = 10),
+    axis.title.x = element_text(size = 15),
+    axis.title.y = element_text(size = 15),
+  ) +
+  facet_wrap(~source)
+attr(GRAPHS$all_lfq, "width") <- 12
+
+# DO this for individual engines BUT maybe latter
+
+join_denovo <- function(perc, blast) {
+  matching <- perc |>
+    inner_join(blast, by = join_by(x$proteinid == y$matchedpeptideids)) |>
+    group_by(proteinid.y, engine) |>
+    summarise(
+      peptideids = paste0(peptideids, collapse = ";"),
+      `q-value` = median(`q-value`)
+    ) |>
+    mutate(join_key = paste0(proteinid.y, engine, collapse = "-")) |>
+    inner_join(seq_map, by = join_by(x$proteinid.y == y$id))
+
+  perc <- bind_rows(
+    perc,
+    filter(matching, !proteinid.y %in% perc$proteinid)
+  ) |> filter(!grepl("D", proteinid))
+  perc <- left_join(perc, matching, by = join_by(join_key))
+}
+
+save(GRAPHS, outdir)

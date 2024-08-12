@@ -3,6 +3,7 @@ library("glue")
 library("seqinr")
 library("gridExtra")
 library("paletteer")
+library("ggpattern")
 library("tidyverse")
 library("reticulate")
 if (str_detect(getwd(), "Bio_SDD")) {
@@ -44,6 +45,7 @@ CATPUCCIN_LATTE <- list(
 
 
 GRAPHS <- list()
+TABLES <- list()
 
 run <- "ptools"
 RESULTS <- glue("{wd}/results")
@@ -99,7 +101,6 @@ get_true_positives <- function(peptides) {
 reticulate::source_python(glue("{wd}/bin/helpers.py"))
 
 main <- function(prefix, pass) {
-  browser()
   result <- list(source = c(), n_true_positives = c(), true_positive_ratio = c())
   peptides <- read_tsv(glue("{RESULTS}/{prefix}/{pass}/percolator_peptide_map.tsv"))
   data <- read_tsv(glue("{RESULTS}/{prefix}/{pass}/{prefix}_all_wcoverage.tsv")) |>
@@ -111,54 +112,178 @@ main <- function(prefix, pass) {
   unique_peps <- flatten_by(data$unique_peptides, ";") |> unique()
   engines <- unique(peptides$engine)
 
+  headers <- data$header |> unique()
+  result$source <- "combined_protein"
+  tp_prot <- sum(headers %in% TRUE_PROT)
+  result$n_true_positives <- tp_prot
+  result$true_positive_ratio <- tp_prot / length(headers)
+
   all_peps <- lapply(engines, \(x) {
     cur_filtered <- peptides |> filter(engine == x)
     cur_filtered$peptideIds %>% unique()
   }) %>%
     `names<-`(engines)
-  # TODO: do this
-  # all_headers <-
   all_peps$combined <- unique_peps
-  match_comparison <- lapply(names(all_peps), \(x) {
+  t_query <- lapply(names(all_peps), \(x) {
     result$source <<- append(result$source, x)
     peps <- all_peps[[x]]
-    headers <- NULL
-    # headers <- all_headers[[x]]
-    tp <- get_true_positives(peps, headers)
+    tp <- get_true_positives(peps)
     result$n_true_positives <<- append(result$n_true_positives, tp[1])
     result$true_positive_ratio <<- append(result$true_positive_ratio, tp[2])
-    find_matches(peps, TRUE_PEPS) |>
+    find_matches(TRUE_PEPS, peps) |> # Check if all true peptides are represented
+      # by found peptides
       as_tibble() |>
       mutate(source = x)
   }) |>
     bind_rows()
-  list(metrics = as_tibble(result), tb = match_comparison)
+  obs_query <- lapply(names(all_peps), \(x) {
+    # Check if the found peptides deviate strongly from the true peptides
+    find_matches(all_peps[[x]], TRUE_PEPS) |>
+      as_tibble() |>
+      mutate(source = x)
+  }) |>
+    bind_rows()
+  list(metrics = as_tibble(result), true_as_query = t_query, obs_as_query = obs_query)
 }
 
 outdir <- glue("{wd}/docs/figures/benchmark")
-f1c <- glue("{outdir}/ptools_compare_1.tsv")
+f1tq <- glue("{outdir}/ptools_t_query_1.tsv")
+f1oq <- glue("{outdir}/ptools_obs_query_1.tsv")
 f1m <- glue("{outdir}/ptools_metrics_1.tsv")
-f2c <- glue("{outdir}/ptools_compare_2.tsv")
+
+f2tq <- glue("{outdir}/ptools_t_query_2.tsv")
+f2oq <- glue("{outdir}/ptools_obs_query_2.tsv")
 f2m <- glue("{outdir}/ptools_metrics_2.tsv")
 
-get_id_files <- function(comparison, metrics) {
-  list(tb = read_tsv(comparison), metrics = read_tsv(metrics))
+get_id_files <- function(t_query, obs_query, metrics) {
+  list(
+    true_as_query = read_tsv(t_query), metrics = read_tsv(metrics),
+    obs_as_query = read_tsv(obs_query)
+  )
 }
 
 
-if (!file.exists(f1c)) {
+if (!file.exists(f1tq)) {
   first <- main("ptools", "1-First_pass")
   write_tsv(first$metrics, f1m)
-  write_tsv(first$tb, f1c)
+  write_tsv(first$obs_as_query, f1oq)
+  write_tsv(first$true_as_query, f1tq)
 } else {
-  first <- get_id_files(f1c, f1m)
+  first <- get_id_files(f1tq, f1oq, f1m)
 }
 
-if (!file.exists(f2c)) {
+if (!file.exists(f2tq)) {
   second <- main("ptools", "2-Second_pass")
   write_tsv(second$metrics, f2m)
-  write_tsv(second$tb, f2c)
-  second <- get_id_files(f2c, f2m)
+  write_tsv(second$obs_as_query, f2oq)
+  write_tsv(second$true_as_query, f2tq)
+} else {
+  second <- get_id_files(f2tq, f2oq, f2m)
 }
 
-main("ptools", "1-First_pass")
+
+combined_tq <- bind_rows(
+  mutate(first$true_as_query, pass = "First pass"),
+  mutate(second$true_as_query, pass = "Second pass"),
+)
+
+combined_oq <- bind_rows(
+  mutate(first$obs_as_query, pass = "First pass"),
+  mutate(second$obs_as_query, pass = "Second pass"),
+)
+
+sources <- unique(combined_tq$source)
+
+plot_helper <- function(tb, palette) {
+  tb |> ggplot(aes(y = similarity, fill = source)) +
+    geom_boxplot(size = 1) +
+    scale_fill_paletteer_d(palette) +
+    M$default_theme +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    ) +
+    facet_wrap(~pass)
+}
+
+GRAPHS$compared_tq <- plot_helper(combined_tq, "rcartocolor::Pastel")
+attr(GRAPHS$compared_tq, "width") <- 18
+GRAPHS$compared_oq <- plot_helper(combined_oq, "RColorBrewer::Set3")
+attr(GRAPHS$compared_oq, "width") <- 18
+
+compare_helper <- function(current, name, paired = TRUE) {
+  query_sims <- lapply(sources, \(x) {
+    filter(current, source == x)$similarity
+  }) %>% `names<-`(sources)
+  if (paired) {
+    fn2 <- \(x, y) wilcox.test(x, y, alternative = "greater", paired = TRUE)
+  } else {
+    fn2 <- \(x, y) wilcox.test(x, y, alternative = "greater")
+  }
+  tests <- bind_rows(
+    test_all_pairs(query_sims, \(x, y) wilcox.test(x, y), two_sided = TRUE),
+    test_all_pairs(query_sims, fn2, "greater")
+  ) |> get_adjusted_p()
+  conclusion <- conclude_one_sided(tests)
+  format <- pairwise_conclusion2gt(conclusion)
+  TABLES[[glue("{name}_all_tests")]] <<- conclusion
+  TABLES[[glue("{name}_significant")]] <<- format
+}
+
+to_test <- list(
+  ptools_true_as_query = combined_tq,
+  ptools_obs_as_query = combined_oq
+)
+temp <- c(TRUE, FALSE)
+
+lapply(seq_along(to_test), \(x) {
+  cur <- names(to_test)[x]
+  compare_helper(to_test[[cur]], cur, temp[x])
+})
+
+
+combined_m <- bind_rows(
+  mutate(first$metrics, pass = "First"),
+  mutate(second$metrics, pass = "Second"),
+) |> mutate(tpr = round(true_positive_ratio, 2))
+
+GRAPHS$ptools_true_positive <- combined_m |> ggplot(aes(
+  y = n_true_positives, x = source,
+  fill = source, pattern = pass
+)) +
+  geom_bar_pattern(
+    position = "dodge", stat = "identity", pattern_density = 0.1,
+    pattern_spacing = 0.03
+  ) +
+  ylab("Number of true positives") +
+  M$default_theme +
+  geom_text(aes(label = tpr, y = n_true_positives + 15),
+    position = position_dodge(width = 1), vjust = 0,
+    size = 4
+  ) +
+  scale_fill_paletteer_d("ggthemes::Green_Orange_Teal") +
+  theme(
+    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+    axis.title.x = element_blank()
+  ) +
+  scale_pattern_manual(values = c(First = "none", Second = "stripe"))
+
+attr(GRAPHS$ptools_true_positive, "width") <- 17
+
+
+TABLES$ptools_metrics <- combined_m |>
+  select(-tpr) |>
+  arrange(source) |>
+  gt() |>
+  text_case_match(
+    "combined_protein" ~ "combined (proteins)",
+    "combined" ~ "combined (peptides)",
+    .locations = cells_body(source)
+  ) |>
+  cols_label(
+    source = "Source",
+    n_true_positives = "Number of true positives",
+    true_positive_ratio = "True positive ratio",
+  )
+
+save(c(GRAPHS, TABLES), outdir)
