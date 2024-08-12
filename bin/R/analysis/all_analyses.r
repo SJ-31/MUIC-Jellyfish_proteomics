@@ -9,6 +9,7 @@ library("Peptides")
 library("glue")
 
 
+
 save <- function(to_save, outdir) {
   by_type <- function(name, object) {
     if ("gg" %in% class(object) || "grob" %in% class(object)) {
@@ -57,6 +58,15 @@ M$chosen_path <- glue("{M$wd}/results/C_indra")
 # ----------------------------------------
 
 
+M$default_theme <- theme(
+  legend.title = element_text(face = "bold", size = 15),
+  legend.text = element_text(size = 13),
+  axis.text.y = element_text(size = 13),
+  axis.text.x = element_text(size = 13),
+  axis.title.y = element_text(size = 15),
+  strip.text = element_text(size = 13),
+  axis.title.x = element_text(size = 15)
+)
 M$path <- glue("{M$wd}/results/C_indra")
 M$cpath <- glue("{M$wd}/results/C_indra.calibrated")
 M$mpath <- glue("{M$wd}/results/C_indra.msconvert")
