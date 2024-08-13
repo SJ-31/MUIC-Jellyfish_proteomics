@@ -90,7 +90,7 @@ GRAPHS$mismatch_comparison <- compare_vals_x_y(
   merged_prot_compare,
   color = "length",
   palette = "viridis::inferno"
-)
+) + M$default_theme
 
 TABLES$mismatch_metrics <- gt(mismatch_metrics$default)
 
@@ -98,7 +98,8 @@ TABLES$mismatch_metrics <- gt(mismatch_metrics$default)
 GRAPHS$conservative_ratio <- ggplot(merged, aes(x = nc_c_ratio, fill = mode)) +
   geom_histogram(position = "identity", alpha = 0.7) +
   xlab("Ratio of non-conservative to conservative mismatches") +
-  scale_fill_paletteer_d(PALETTE)
+  scale_fill_paletteer_d(PALETTE) +
+  M$default_theme
 
 
 mapped_by <- list()
@@ -111,10 +112,9 @@ mapped_by$transcriptome <- data %>%
 #' Map peptides from the "alignments" file onto the original sequences of the denovo peptides
 #' Get the original sequence
 denovo_metrics <- reticulate_show_error(it$denovo_mismatch_metrics(
-  to_keep,
-  to_keep_denovo, M$seq_map_path, M$unmatched_path,
-  alignments$peptides, alignments$mismatches
+  to_keep, to_keep_denovo, M$seq_map_path, alignments$peptides, alignments$mismatches
 )) %>% lapply(as_tibble)
+
 
 GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
   gg_numeric_dist(list(
@@ -123,12 +123,7 @@ GRAPHS$replacement_hist <- denovo_metrics$metrics %$%
   ), "hist", position = "identity", alpha = 0.6) +
   xlab("Replacement count") +
   ylab("Frequency") +
-  labs(
-    title = "Amino acid substitution frequency",
-    subtitle = glue("from proteins with > {coverage_threshold} coverage"),
-    fill = "Type",
-    color = "Type"
-  ) + scale_fill_paletteer_d(PALETTE)
+  scale_fill_paletteer_d(PALETTE) + M$default_theme
 
 TABLES$denovo_metrics <- gt(denovo_metrics$metrics)
 

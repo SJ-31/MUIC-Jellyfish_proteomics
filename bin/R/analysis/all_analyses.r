@@ -52,8 +52,10 @@ if (str_detect(getwd(), "Bio_SDD")) {
 # ----------------------------------------
 #' Main entry point to choose paths
 M$prefixes <- list("C_indra", "C_indra.msconvert", "C_indra.calibrated", "ND_C_indra")
+M$params <- list("default", "msConvert", "Calibrated", "ND")
 M$chosen_prefix <- M$prefixes[[1]]
-M$chosen_pass <- "2-Second_pass"
+M$passes <- list(First = "1-First_pass", Second = "2-Second_pass")
+M$chosen_pass <- M$passes$Second
 M$chosen_path <- glue("{M$wd}/results/C_indra")
 # ----------------------------------------
 

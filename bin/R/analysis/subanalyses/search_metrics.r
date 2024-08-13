@@ -274,9 +274,12 @@ library("ggpattern")
 
 standard_search <- keep(previous_saved, \(x) str_detect(x, "engine_psm_counts") & !str_detect(x, "open"))
 open_search <- keep(previous_saved, \(x) str_detect(x, "engine_psm_counts") & str_detect(x, "open"))
-GRAPHS$standard_psms <- plot_param_psms(standard_search, "ggthemes::excel_Depth")
+GRAPHS$standard_psms <- plot_param_psms(standard_search, "ggthemes::excel_Depth") +
+  M$default_theme +
+  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
 attr(GRAPHS$standard_psms, "height") <- 5
-GRAPHS$open_psms <- plot_param_psms(open_search, "ggthemes::Classic_Purple_Gray_12")
+GRAPHS$open_psms <- plot_param_psms(open_search, "ggthemes::Classic_Purple_Gray_12") + M$default_theme +
+  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
 attr(GRAPHS$open_psms, "height") <- 5
 
 
@@ -314,7 +317,7 @@ for (i in seq_along(os)) {
       distinct() |>
       mutate(n = lapply(param, get_subtable)) |>
       gt() |>
-      tab_header("Number of inferred protein groups")
+      tab_header(table_col)
   }
   TABLES[[glue("n_groups_{os[i]}_table")]] <- get_search_table("n_groups")
   TABLES[[glue("n_psms_{os[i]}_table")]] <- get_search_table("n_psms")
@@ -323,9 +326,12 @@ for (i in seq_along(os)) {
   GRAPHS[[glue("n_groups_{os[i]}")]] <- plot_grouped_bar(
     search_metrics, show_col,
     palettes[i]
-  ) + ylab("log2 n groups")
+  ) + ylab("log2 n groups") + M$default_theme +
+    theme(axis.text.y = element_blank(), axis.title.y = element_blank())
   if (os[i] == "open") {
-    GRAPHS[[glue("n_groups_{os[i]}")]] <- GRAPHS[[glue("n_groups_{os[i]}")]] + theme(axis.title.y = element_blank())
+    GRAPHS[[glue("n_groups_{os[i]}")]] <- GRAPHS[[glue("n_groups_{os[i]}")]] + theme(axis.title.y = element_blank()) +
+      M$default_theme +
+      theme(axis.text.y = element_blank(), axis.title.y = element_blank())
   }
   groups_below <- lapply(run_names, \(x) {
     f <- filter(search_metrics, param == x)
@@ -378,7 +384,10 @@ GRAPHS$open_spectra_stats <- open_spectra |> ggplot(aes(x = file, y = n_ms2_spec
   scale_pattern_manual(values = c(First = "none", Second = "stripe")) +
   theme(axis.text.x = element_blank(), axis.title.x = element_blank()) +
   facet_wrap(~param) +
-  scale_fill_paletteer_d("lisa::BridgetRiley")
+  scale_fill_paletteer_d("lisa::BridgetRiley") +
+  M$default_theme +
+  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
 attr(GRAPHS$open_spectra_stats, "height") <- 6
+
 
 save(c(TABLES, GRAPHS), glue("{M$wd}/docs/figures/search_metrics"))

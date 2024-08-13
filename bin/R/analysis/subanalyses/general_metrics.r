@@ -13,7 +13,7 @@ cov_align <- compare_first_sec_L(
   M$run, "pcoverage_align",
   TRUE, "ProteinId"
 )
-GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent coverage")
+GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent coverage") + M$default_theme
 
 TABLES$run_stats <- get_run_stats(read_tsv(M$data_path)) |> gt()
 
@@ -22,10 +22,12 @@ run_uniques <- get_pass_uniques(M$run)
 percent_found <- dplyr::bind_cols(
   not_missing(M$run$first),
   not_missing(M$run$sec)
-) %>%
+) |>
   `colnames<-`(c("first", "sec")) %>%
   tibble::rownames_to_column(., var = "metric") %>%
   as_tibble()
+
+
 wanted <- c(
   "lineage", "Mods", "flashlfq_mean", "maxlfq_mean",
   "CAZy", "PFAMs", "EC", "BRITE",
@@ -37,8 +39,8 @@ GRAPHS$percent_found <- percent_found %>%
   ggplot(aes(x = metric, y = value, fill = name)) +
   geom_bar(position = "dodge", stat = "identity") +
   ylab("% not missing") +
-  scale_fill_discrete("Pass")
-
+  scale_fill_discrete("Pass") +
+  M$default_theme
 
 # Check if coverage and intensity differs significantly between protein groups
 # for confirmation only (we expect them to differ)
@@ -65,7 +67,8 @@ if (!is.null(M$data_w_cat)) {
       axis.text.x = element_blank(),
       axis.title.x = element_blank()
     ) +
-    guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE)
+    guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE) +
+    M$default_theme
   GRAPHS$coverage_categories <- gg_numeric_dist(cov_list, "boxplot") +
     labs(y = "coverage (%)", x = grouping_metric) + theme(
       axis.text.x = element_blank(),
@@ -73,7 +76,8 @@ if (!is.null(M$data_w_cat)) {
       legend.title = element_text(face = "bold")
     ) +
     guides(color = guide_legend(grouping_metric)) +
-    scale_color_paletteer_d(PALETTE)
+    scale_color_paletteer_d(PALETTE) +
+    M$default_theme
   attr(GRAPHS$coverage_categories, "width") <- 15
 
   with_category <- inner_join(tb, lfq) %>%
@@ -85,7 +89,8 @@ if (!is.null(M$data_w_cat)) {
     ggplot(aes(x = rank, y = log_intensity, color = !!as.symbol(grouping_metric))) +
     geom_point() +
     labs(x = "Rank", y = "Log intensity") +
-    scale_color_paletteer_d(PALETTE)
+    scale_color_paletteer_d(PALETTE) +
+    M$default_theme
 
   # Top ten most intense proteins
   top_ten <- lfq %>%
@@ -191,7 +196,7 @@ for (i in seq_along(M$prefixes)) {
   covs[[names[i]]] <- cov_compare_helper(compare_tb, palettes[i], names[i])
 }
 
-GRAPHS$header_overlap <- do.call("plot_grid", c(venns))
+GRAPHS$header_overlap <- do.call("plot_grid", c(venns)) + M$default_theme
 if (!interactive()) {
   GRAPHS$pass_cov_comparison <- do.call("grid.arrange", c(covs, ncol = 2))
 }
@@ -205,7 +210,7 @@ sub <- substitute_all(
   \(x) gsub("_", " ", x)
 )
 
-GRAPHS$peptide_lengths <- do.call("grid.arrange", c(pep_lengths, ncol = 2))
+GRAPHS$peptide_lengths <- do.call("grid.arrange", c(pep_lengths, ncol = 2)) + M$default_theme
 
 wilcox_peptides <- wilcox_peptides |>
   mutate(
@@ -290,6 +295,7 @@ GRAPHS$per_protein_change <- per_protein %>%
   pivot_longer(cols = c(first, sec)) %>%
   ggplot(aes(y = percent_change, x = metric, fill = metric)) +
   geom_bar(stat = "identity") +
-  theme(axis.ticks.x = element_blank(), axis.title.x = element_blank(), axis.text.x = element_blank())
+  theme(axis.ticks.x = element_blank(), axis.title.x = element_blank(), axis.text.x = element_blank()) +
+  M$default_theme
 
 save(c(GRAPHS, TABLES), glue("{M$outdir}/general_metrics"))
