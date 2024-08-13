@@ -180,7 +180,7 @@ main <- function(args) {
   ## Map pfam domains to GO and get GO IDs
   if ("GO" %in% colnames(combined)) {
     combined <- combined %>% mutate(GO_evidence = apply(., 1, get_evidence))
-    cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+    base::cat("BEGIN: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
     tryCatch(
       expr = {
         pfam_env <- new.env()
@@ -203,7 +203,7 @@ main <- function(args) {
         stop("Caught reticulate error")
       }
     )
-    cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
+    base::cat("COMPLETE: mapping pfam domains to GO IDs\n", file = LOGFILE, append = TRUE)
   }
   if ("GO" %in% colnames(combined)) {
     combined$GO_slims <- combined$GO_IDs %>%
@@ -221,7 +221,7 @@ main <- function(args) {
 
   ## Map KEGG Genes to KEGG pathways
   if (any(grepl("KEGG", colnames(combined)))) {
-    cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
+    base::cat("BEGIN: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
     kegg_env <- new.env()
     source_python(glue("{args$python_source}/map2kegg.py"), envir = kegg_env)
     tryCatch(
@@ -236,7 +236,7 @@ main <- function(args) {
         stop("Caught reticulate error")
       }
     )
-    cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
+    base::cat("COMPLETE: mapping kegg genes to pathways\n", file = LOGFILE, append = TRUE)
   }
 
   ## Arrange columns
