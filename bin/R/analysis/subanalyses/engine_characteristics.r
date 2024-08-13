@@ -9,152 +9,204 @@ library("ggVennDiagram")
 TABLES <- list()
 GRAPHS <- list()
 
+
 # File and path setup
 open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
 percolator_all <- read_tsv(M$percolator_all)
 ENGINES <- percolator_all$engine |> unique()
 alignment_types <- c("denovo", "transcriptome", "database", "unmatched_peptide")
-standard_search_engines <- ENGINES[!ENGINES %in% open_search_engines]
+standard_search_engines <- c("comet", "identipy", "metamorpheus", "msfragger", "msgf", "tide")
 
 
-data <- M$data
 ta <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
+ALIGN_DIR <- glue("{M$outdir}/alignment_metrics")
 
 # Get general alignment metrics
-per_protein_alignment_metrics_file <- glue("{M$outdir}/per_protein_alignment_metrics.tsv")
-if (file.exists(per_protein_alignment_metrics_file)) {
-  per_protein_alignment_metrics <- read_tsv(per_protein_alignment_metrics_file)
-} else {
-  tracer <- ta$AlignmentTracer(M$aligned_peptides_path, M$peptide_map_path)
-  per_protein_alignment_metrics <- tracer$run() |> as_tibble()
-  write_tsv(per_protein_alignment_metrics, per_protein_alignment_metrics_file)
+get_general_alignment <- function(path, param, prefix) {
+  get_pass <- function(pass) {
+    data <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) |>
+      mutate(combined_coverage = pcoverage_align) |>
+      select(ProteinId, combined_coverage)
+    aligned_peptides_path <- glue("{path}/{pass}/aligned_peptides.tsv")
+    peptide_map_path <- glue("{path}/{pass}/percolator_peptide_map.tsv")
+    per_protein_alignment_metrics_file <- glue("{ALIGN_DIR}/per_protein_{param}_{pass}.tsv")
+    if (file.exists(per_protein_alignment_metrics_file)) {
+      per_protein_alignment_metrics <- read_tsv(per_protein_alignment_metrics_file)
+    } else {
+      tracer <- ta$AlignmentTracer(aligned_peptides_path, peptide_map_path)
+      per_protein_alignment_metrics <- tracer$run() |>
+        as_tibble() |>
+        mutate(
+          pass = pass, param = param
+        ) |>
+        inner_join(data, by = join_by(ProteinId))
+      write_tsv(
+        per_protein_alignment_metrics,
+        per_protein_alignment_metrics_file
+      )
+    }
+
+    # Get file for evaluating cost of removing a type of alignment from data
+    per_protein_alignment_differences_file <- glue("{ALIGN_DIR}/per_protein_differences_{param}_{pass}.tsv")
+    if (file.exists(per_protein_alignment_differences_file)) {
+      per_protein_alignment_differences <- read_tsv(per_protein_alignment_differences_file)
+    } else {
+      tracer <- ta$AlignmentTracer(aligned_peptides_path, peptide_map_path)
+      per_protein_alignment_differences <- tracer$run(mode = "differences") |>
+        as_tibble() |>
+        mutate(
+          pass = pass, param = param
+        )
+      write_tsv(
+        per_protein_alignment_differences,
+        per_protein_alignment_differences_file
+      )
+    }
+    list(
+      metrics = per_protein_alignment_metrics,
+      diff = per_protein_alignment_differences
+    )
+  }
+  ran <- lapply(M$passes, get_pass)
+  metrics <- bind_rows(
+    ran[[1]]$metrics,
+    ran[[2]]$metrics
+  )
+  diff <- bind_rows(
+    ran[[1]]$diff,
+    ran[[2]]$diff
+  )
+  return(list(metrics = metrics, diff = diff))
 }
 
-# Get file for evaluating cost of removing a type of alignment from data
-per_protein_alignment_differences_file <- glue("{M$outdir}/per_protein_alignment_differences.tsv")
-if (file.exists(per_protein_alignment_differences_file)) {
-  per_protein_alignment_differences <- read_tsv(per_protein_alignment_differences_file)
-} else {
-  tracer <- ta$AlignmentTracer(M$aligned_peptides_path, M$peptide_map_path)
-  per_protein_alignment_differences <- tracer$run(mode = "differences") |> as_tibble()
-  write_tsv(per_protein_alignment_differences, per_protein_alignment_differences_file)
-}
+all_data <- lapply(seq_along(M$params), \(x) {
+  get_general_alignment(M$all_paths[[x]], M$params[[x]], M$prefixes[[x]])
+})
+all_alignment_metrics <- lapply(all_data, \(x) x$metrics) |> bind_rows()
+all_alignment_differences <- lapply(all_data, \(x) x$diff) |> bind_rows()
 
 
 # ----------------------------------------
 # Engine alignments
-engine_alignment_metrics <- per_protein_alignment_metrics |> select(
+engine_alignment_metrics <- all_alignment_metrics |> select(
   ProteinId,
-  contains(ENGINES), -matches("count|unmatched")
+  contains(ENGINES), -matches("count|unmatched"), combined_coverage, param, pass
 )
+TABLES$engine_alignment_metrics <- engine_alignment_metrics
 
-GRAPHS$engine_peptide_coverage <- engine_alignment_metrics %>%
-  pivot_longer(., cols = -ProteinId) %>%
-  mutate(
-    value = log(value * 100),
-    name = map_chr(name, \(x) str_replace(x, "_coverage", "")),
-    type = case_when(
-      name %in% standard_search_engines ~ "standard",
-      name %in% open_search_engines ~ "open search",
-    )
-  ) |>
-  ggplot(aes(y = value, x = name, fill = name, color = type)) +
-  geom_boxplot() +
+
+reticulate::source_python(glue("{args$python_source}/plotting.py"))
+
+library("ggpattern")
+to_plot <- format_engine_alignment(TABLES$engine_alignment_metrics) |> as_tibble()
+
+GRAPHS$engine_peptide_coverage <- to_plot |>
+  ggplot(aes(y = ln_value, x = variable, fill = variable, pattern = type)) +
+  geom_boxplot_pattern(size = 1) +
+  guides(fill = guide_legend("Engine")) +
   ylab("log coverage (%)") +
-  xlab("Engine name") +
-  guides(fill = "none") +
+  M$default_theme +
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank()) +
   scale_fill_paletteer_d(PALETTE2) +
-  scale_color_manual(values = c("standard" = "#4c4f69", "open search" = "#d20f39")) +
+  scale_pattern_manual(values = c(
+    standard = "none", open = "stripe",
+    combined = "circle"
+  )) +
   scale_x_discrete(
-    limits = c(standard_search_engines, open_search_engines)
-  )
+    limits = c("combined", standard_search_engines, open_search_engines)
+  ) +
+  facet_grid(rows = vars(pass), cols = vars(param))
+attr(GRAPHS$engine_peptide_coverage, "width") <- 20
 
 
 # Identify which engine, if any, is the best-performing
-cov_list <- engine_alignment_metrics %>%
-  select(-ProteinId) |>
-  as.list()
-names(cov_list) <- names(cov_list) |> map_chr(\(x) str_replace(x, "_coverage", ""))
 
-engine_alignment_metrics
+test_helper <- function(cur_param, cur_pass) {
+  cov_list <- engine_alignment_metrics %>%
+    filter(param == chosen_param & pass == cur_pass) |>
+    select(-c(ProteinId, pass, param)) |>
+    as.list()
+  names(cov_list) <- names(cov_list) |> map_chr(\(x) str_replace(x, "_coverage", ""))
 
-ks <- kruskal.test(cov_list)
-combos <- combn(names(cov_list), 2)
-test_tb <- lapply(
-  seq_len(ncol(combos)),
-  \(x) {
-    greater <- wilcox.test(cov_list[[combos[1, x]]],
-      cov_list[[combos[2, x]]],
-      alternative = "greater"
-    )
-    greater$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
-    greater$alternative <- glue("{combos[1, x]} greater")
-    two_sided <- wilcox.test(
-      cov_list[[combos[1, x]]],
-      cov_list[[combos[2, x]]]
-    )
-    two_sided$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
-    two_sided$alternative <- glue("two sided")
-    bind_rows(htest2tb(greater), htest2tb(two_sided))
-  }
-) %>% bind_rows()
-test_tb <- test_tb %>%
-  dplyr::select(-c(method, null)) %>%
-  mutate(
-    p_adjust = p.adjust(p_value),
-    significant = map_dbl(p_adjust, \(x) x < 0.05)
-  ) %>%
-  rename(pair = data)
+  combos <- combn(names(cov_list), 2)
+
+  test_tb <- lapply(
+    seq_len(ncol(combos)),
+    \(x) {
+      greater <- wilcox.test(cov_list[[combos[1, x]]],
+        cov_list[[combos[2, x]]],
+        alternative = "greater"
+      )
+      greater$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
+      greater$alternative <- glue("{combos[1, x]} greater")
+      two_sided <- wilcox.test(
+        cov_list[[combos[1, x]]],
+        cov_list[[combos[2, x]]]
+      )
+      two_sided$data.name <- glue("{combos[1, x]} x {combos[2, x]}")
+      two_sided$alternative <- glue("two sided")
+      bind_rows(htest2tb(greater), htest2tb(two_sided))
+    }
+  ) %>% bind_rows()
+  test_tb <- test_tb %>%
+    dplyr::select(-c(method, null)) %>%
+    get_adjusted_p() |>
+    rename(pair = data) |>
+    mutate(param = cur_param, pass = cur_pass)
+  sig <- conclude_one_sided(test_tb)
+  list(all_tests = test_tb, sig = sig)
+}
+
+all_tests <- lapply(M$params, \(param) {
+  lapply(M$passes, \(pass) {
+    test_helper(param, pass)
+  })
+})
+params_reduced <- purrr::reduce(all_tests, \(l, r) {
+  first <- bind_rows_list(l$First, r$First)
+  second <- bind_rows_list(l$Second, r$Second)
+  list(First = first, Second = second)
+})
+passes_reduced <- bind_rows_list(params_reduced$First, params_reduced$Second)
+test_tb <- passes_reduced$all_tests
+
+sig <- passes_reduced$sig |>
+  mutate(pass = case_match(pass, "1-First_pass" ~ "1", "2-Second_pass" ~ "2"))
+
+param_str_helper <- function(param, string) {
+  nums <- str_extract_all(string, glue("{param}-[12]")) |>
+    unlist() |>
+    str_remove("[A-Za-z\\-]*")
+  glue("{param} ({paste0(nums, collapse = ',')})")
+}
+
+
+TABLES$engine_coverage_pairwise_sig_reduced <- sig |>
+  group_by(conclusion) |>
+  summarise(param = paste0(param, "-", pass, collapse = ";"), count = n()) |>
+  mutate(param = map_chr(param, \(pstring) {
+    present <- str_split_1(pstring, ";") |>
+      map_chr(\(y) str_remove(y, "-.*")) |>
+      unique()
+    map_chr(present, \(v) param_str_helper(v, pstring)) |> paste0(collapse = ";")
+  })) |>
+  gt()
+
+
 TABLES$engine_coverage_pairwise <- gt(test_tb)
 TABLES$engine_coverage_pairwise_sig <- conclude_one_sided(test_tb) |> pairwise_conclusion2gt()
 
-num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |>
-  as_tibble() |>
-  distinct()
-
-# #' Group engines that identify the same peptide groups using Jaccard distance
-
-enginesXProtein <- num_peptides_matched %>%
-  tb_transpose()
-
-engine_dist <- vegan::vegdist(enginesXProtein, method = "jaccard")
-dist_longer <- engine_dist |>
-  as.matrix() |>
-  as.data.frame() |>
-  rownames_to_column(var = "engine") |>
-  pivot_longer(cols = -engine)
-pcoa <- vegan::wcmdscale(engine_dist, eig = TRUE)$points %>%
-  as.data.frame() |>
-  rownames_to_column(var = "engine")
-GRAPHS$engine_sim_jaccard <- dist_longer |> ggplot(aes(x = engine, y = name, fill = value)) +
-  geom_tile() +
-  ylab("Engine") +
-  xlab("Engine") +
-  scale_fill_paletteer_c("ggthemes::Orange-Gold", name = "Jaccard distance") +
-  theme(axis.text.x = element_text(angle = 90))
-GRAPHS$engine_sim_jaccard_biplot <- pcoa |> ggplot(aes(x = Dim1, y = Dim2, color = engine)) +
-  geom_point()
-
-standard_engine_tbs <- lapply(standard_search_engines, \(x) {
-  percolator_all |> filter(engine == x)
-}) %>%
-  `names<-`(standard_search_engines)
-
-#' Venn diagram for overlap
-id_list <- lapply(standard_engine_tbs, \(x) x$ProteinId) %>%
-  `names<-`(names(standard_engine_tbs))
-venn <- ggVennDiagram(id_list, label = "none") +
-  scale_fill_paletteer_c("ggthemes::Classic Blue")
-GRAPHS$engine_venn <- venn
-
-
+# TODO: next one
 # ----------------------------------------
 # Evaluate the contribution of each engine onto the protein
 
-engine_tb <- per_protein_alignment_differences |>
+
+engine_tb <- all_alignment_differences |>
   select(ProteinId, contains(ENGINES)) |>
   select(-unmatched_peptide)
+
+
 engine_longer <- engine_tb |>
   pivot_longer(cols = -ProteinId)
 
@@ -181,14 +233,14 @@ if (nrow(cov_test_conclusion) > 0) {
 
 
 GRAPHS$engines_removed <- engine_longer |> ggplot(aes(y = value, fill = name)) +
-  geom_boxplot() +
+  geom_boxplot(size = 1) +
+  M$default_theme +
   scale_fill_paletteer_d(PALETTE2) +
   guides(fill = guide_legend(title = "Engine")) +
   ylab("Coverage (%) if engine's peptides were removed")
 
 # ----------------------------------------
-# Comparison of engine peptide characteristics
-pepmap <- read_tsv(M$peptide_map_path)
+
 all_mapped_scans <- read_tsv(M$mapped_scan_path)
 
 joined <- inner_join(pepmap, all_mapped_scans,
@@ -247,7 +299,6 @@ matched_peptide_map <- {
     separate_longer_delim(MatchedPeptideIds, ";")
   temp
 }
-
 
 # Map any matched UP peptides back into DBPs
 pepmap_joined <- left_join(pepmap, matched_peptide_map,
