@@ -14,12 +14,13 @@ library("venn")
 library("Peptides")
 library("glue")
 
-CHOSEN_PASS <- "first"
+CHOSEN_PASS <- "second"
 VIEW_GO <- FALSE
 args <- list(
   r_source = glue("{M$wd}/bin/R"),
   python_source = glue("{M$wd}/bin")
 )
+
 source(glue("{M$r_source}/helpers.r"))
 source(glue("{M$r_source}/GO_helpers.r"))
 source(glue("{M$r_source}/cluster_helpers.r"))
@@ -42,10 +43,22 @@ GRAPHS <- list()
 TABLES <- list()
 
 # Intersection of protein_ids
+
 header_list <- lapply(data, \(x) x$header)
-venn <- ggVennDiagram(header_list, label_alpha = 0) +
+GRAPHS$run_param_venn <- ggVennDiagram(within(header_list, rm(ND))) +
   scale_fill_gradient(low = "#eff1f5", high = "#40a02b")
-GRAPHS$run_param_venn <- venn
+
+GRAPHS$nd_venn <- ggVennDiagram(c(header_list[3], header_list[4])) +
+  scale_fill_gradient(low = "#eff1f5", high = "#fe640b")
+
+peptide_list <- lapply(data, \(x) flatten_by(x$peptideIds, ";") |> unique())
+
+GRAPHS$pep_venn <- ggVennDiagram(within(peptide_list, rm(ND))) +
+  scale_fill_gradient(low = "#eff1f5", high = "#e64553")
+
+GRAPHS$nd_pep_venn <- ggVennDiagram(c(peptide_list[3], peptide_list[4])) +
+  scale_fill_gradient(low = "#eff1f5", high = "#ea76cb")
+
 
 get_common_col <- function(tb_list, target_col, predicate) {
   lapply(tb_list, \(x) {
