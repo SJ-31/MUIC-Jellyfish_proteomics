@@ -109,7 +109,7 @@ class AlignmentTracer:
         self.alignments = alignments.with_columns(
             length=pl.col("end") - pl.col("start"),
             interval=pl.Series(zip(alignments["start"], alignments["end"])),
-        ).filter(pl.col("length") != 0)
+        ).filter(pl.col("length") > 0)
         self.peptide_map: pl.DataFrame = pl.read_csv(
             peptide_map_path, separator="\t", null_values="NA"
         )
@@ -441,7 +441,6 @@ def denovo_mismatch_metrics(
     ids_to_keep: list,
     ids_to_keep_denovo: list,
     seq_map_path: str,
-    unmatched_path: str,
     aligned_peptides: pd.DataFrame,
     mismatches: pd.DataFrame,
 ):
@@ -456,7 +455,7 @@ def denovo_mismatch_metrics(
         ids_to_keep_denovo
     )
     mismatches = pl.from_pandas(mismatches)
-    id_map = get_seq_map(seq_map_path, unmatched_path, ids_to_keep_denovo)
+    id_map = get_seq_map(seq_map_path, ids_to_keep_denovo)
     peptides = (
         pl.from_pandas(aligned_peptides).filter(pl.col("ProteinId").is_in(ids_to_keep))
     ).select(pl.col("*").exclude("UniProtKB_ID", "alignment"))
@@ -473,27 +472,14 @@ def denovo_mismatch_metrics(
     return {"mapping": denovo_map, "metrics": metrics}
 
 
-def get_seq_map(file_path: str, unmatched_path: str, ids_to_keep: list) -> pl.DataFrame:
+def get_seq_map(file_path: str, ids_to_keep: list) -> pl.DataFrame:
     map_to = pl.Series(ids_to_keep)
     id_map = (
         pl.read_csv(file_path, separator="\t")
         .filter(pl.col("id").is_in(map_to))
         .select(pl.col("*").exclude("header", "mass", "length"))
     )
-    unmatched = (
-        (
-            pl.read_csv(unmatched_path, separator="\t", null_values="NA")
-            .with_columns(
-                seq=pl.col("peptideIds").map_elements(
-                    clean_peptide, return_dtype=pl.String
-                )
-            )
-            .rename({"ProteinId": "id"})
-        )
-        .select("id", "seq")
-        .filter(pl.col("id").is_in(map_to))
-    )
-    return pl.concat([id_map, unmatched])
+    return id_map
 
 
 def get_engine_counts(percolator_path: str, data: pd.DataFrame) -> pl.DataFrame:
