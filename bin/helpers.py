@@ -1,15 +1,20 @@
 #!/usr/bin/env python
 
 from collections import Counter
+from concurrent.futures import ProcessPoolExecutor
 import sys
 from Bio import SeqIO
 import pandas as pd
 from scipy.cluster.hierarchy import DisjointSet
 import numpy as np
+import thefuzz
 import polars.selectors as cs
+from rapidfuzz import distance as di
 import polars as pl
 import functools
 import re
+
+import thefuzz.process
 
 AA_LOOKUP = {
     "A": "Ala",  # Alanine
@@ -184,6 +189,54 @@ def resolve_matches(dlfq: pl.DataFrame, df: pl.DataFrame):
         .rename({"ProteinId": "protein"})
         .select(dlfq.columns)
     )
+
+
+def py_cat(lines: list[str], filename: str, append: bool = False):
+    text = "\n".join([str(l) for l in lines])
+    if not append:
+        with open(filename, "w") as f:
+            f.write(text)
+    else:
+        with open(filename, "a") as f:
+            f.write(text)
+
+
+def find_matches(queries, targets) -> pd.DataFrame:
+    matches: dict = {"query": [], "best_hit": [], "similarity": []}
+    for q in queries:
+        find = thefuzz.process.extract(
+            q, targets, scorer=di.Levenshtein.normalized_similarity
+        )
+        if find:
+            matches["best_hit"].append(find[0][0])
+            matches["similarity"].append(find[0][1])
+        else:
+            matches["best_hit"].append("None")
+            matches["similarity"].append(0)
+        matches["query"].append(q)
+    return pd.DataFrame(matches)
+
+
+def find_matches_par(queries, targets) -> pd.DataFrame:
+    matches: dict = {"query": [], "best_hit": [], "similarity": []}
+
+    def helper(q):
+        result = thefuzz.process.extract(
+            q, targets, scorer=di.Levenshtein.normalized_similarity
+        )
+        if result:
+            return (q, result[0][0], result[0][1])
+        return (q, "None", 0)
+
+    with ProcessPoolExecutor() as exec:
+        matched = exec.map(helper, queries)
+
+    for m in matched:
+        matches["query"].append(m[0])
+        matches["best_hit"].append(m[1])
+        matches["similarity"].append(m[2])
+
+    return pd.DataFrame(matches)
 
 
 def get_top3(dlfq_path: str, df: pd.DataFrame):
@@ -436,6 +489,40 @@ def subsets2df(DS: DisjointSet, items: dict) -> pl.DataFrame:
     return pl.DataFrame(results)
 
 
+def clean_peptide(peptide):
+    if re.search("[a-z]", peptide):
+        mod_regex = re.compile(r"\[[A-Za-z_]+\:[_A-Za-z]+\]")
+        peptide = re.subn(mod_regex, "", peptide)[0]
+    peptide = peptide.replace("X", "")
+    peptide = re.sub("^n", "", peptide)
+    return "".join(re.findall("[A-Z]+", peptide))
+
+
+def clean_peptide_joined(peptide_str) -> str:
+    cleaned = ""
+
+    if peptide_str:
+        splits = set(peptide_str.split(";"))
+        cleaned = ";".join([clean_peptide(p) for p in splits])
+    return cleaned
+
+
+def get_unique_peptides_py(data: pd.DataFrame, filename: str) -> pd.DataFrame:
+    df = pl.from_pandas(data)
+    key = (
+        df.unique("ProteinId")
+        .select("ProteinId", "peptideIds")
+        .with_columns(
+            unique_peptides=pl.col("peptideIds").map_elements(
+                clean_peptide_joined, return_dtype=pl.String
+            )
+        )
+    )
+    df = df.join(key.select("ProteinId", "unique_peptides"), on="unique_peptides")
+    df.write_csv(filename, separator="\t", null_value="NA")
+    return df.to_pandas()
+
+
 def group_by_subsets(data: pd.DataFrame) -> pd.DataFrame:
     df: pl.DataFrame = pl.from_pandas(data).with_columns(
         pl.col("unique_peptides").str.split(";").alias("split_peps_temp")
@@ -445,12 +532,28 @@ def group_by_subsets(data: pd.DataFrame) -> pd.DataFrame:
     result = subsets2df(merged, pep_dict).rename(
         {"set": "GroupSB", "representative": "sb_rep"}
     )
-    print(result)
     return (
         df.join(result, left_on="ProteinId", right_on="item")
         .drop("split_peps_temp")
         .to_pandas()
     )
+
+
+def get_unique_peptides_py(filename: str) -> None:
+    df = pl.read_csv(filename, separator="\t", null_values="NA").drop(
+        cs.contains("unique_peptides")
+    )
+    key = (
+        df.unique("ProteinId")
+        .select("ProteinId", "peptideIds")
+        .with_columns(
+            unique_peptides=pl.col("peptideIds").map_elements(
+                clean_peptide_joined, return_dtype=pl.String
+            )
+        )
+    )
+    df = df.join(key.select("ProteinId", "unique_peptides"), on="ProteinId")
+    df.write_csv(filename, separator="\t", null_value="NA")
 
 
 def parse_args():
