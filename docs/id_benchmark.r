@@ -3,7 +3,6 @@ library("glue")
 library("seqinr")
 library("gridExtra")
 library("paletteer")
-library("ggpattern")
 library("tidyverse")
 library("reticulate")
 if (str_detect(getwd(), "Bio_SDD")) {
@@ -61,6 +60,7 @@ args <- list(
 # CHOSEN_PASS <- "1-First_pass"
 CHOSEN_PASS <- "2-Second_pass"
 source(glue("{args$r_source}/helpers.r"))
+source(glue("{args$r_source}/analysis/all_analyses.r"))
 source(glue("{args$r_source}/analysis/metric_functions.r"))
 
 
@@ -95,41 +95,83 @@ true_positive_denovo <- sum(TRUE_PEPS %in% all_denovo$sequence)
 
 get_true_positives <- function(peptides) {
   tp <- sum(peptides %in% TRUE_PEPS)
-  c(tp, tp / length(peptides))
+  c(tp, tp / length(peptides), tp / length(TRUE_PEPS))
+}
+
+get_true_positives_prot <- function(proteins) {
+  tp <- sum(proteins %in% TRUE_PROT)
+  c(tp, tp / length(proteins), tp / length(TRUE_PROT))
 }
 
 reticulate::source_python(glue("{wd}/bin/helpers.py"))
 
 main <- function(prefix, pass) {
-  result <- list(source = c(), n_true_positives = c(), true_positive_ratio = c())
+  result <- list(
+    source = c(), n_true_positives = c(),
+    true_positive_ratio = c(),
+    ratio_total = c()
+  )
+  result_prot <- list(
+    source = c(), n_true_positives = c(),
+    true_positive_ratio = c(),
+    ratio_total = c()
+  )
   peptides <- read_tsv(glue("{RESULTS}/{prefix}/{pass}/percolator_peptide_map.tsv"))
+
   data <- read_tsv(glue("{RESULTS}/{prefix}/{pass}/{prefix}_all_wcoverage.tsv")) |>
+    mutate(header = map_chr(header, \(x) {
+      str_remove(x, "^ACC:")
+    }))
+  seq_map <- read_tsv(glue("{RESULTS}/{prefix}/{pass}/seq-header_map_found.tsv")) |>
     mutate(header = map_chr(header, \(x) {
       str_remove(x, "^ACC:")
     }))
   perc_proteins <- distinct(peptides, ProteinId, engine, .keep_all = TRUE)
 
+  obs_proteins <- perc_proteins |>
+    filter(!grepl("D", ProteinId)) |>
+    inner_join(seq_map, by = join_by(x$ProteinId == y$id))
+
   unique_peps <- flatten_by(data$unique_peptides, ";") |> unique()
   engines <- unique(peptides$engine)
 
   headers <- data$header |> unique()
-  result$source <- "combined_protein"
+
+  result_prot$source <- "combined"
   tp_prot <- sum(headers %in% TRUE_PROT)
-  result$n_true_positives <- tp_prot
-  result$true_positive_ratio <- tp_prot / length(headers)
+  result_prot$n_true_positives <- tp_prot
+  result_prot$ratio_total <- tp_prot / length(TRUE_PROT)
+  result_prot$true_positive_ratio <- tp_prot / length(headers)
 
   all_peps <- lapply(engines, \(x) {
     cur_filtered <- peptides |> filter(engine == x)
     cur_filtered$peptideIds %>% unique()
   }) %>%
     `names<-`(engines)
+
+  all_prot <- lapply(engines, \(x) {
+    cur_filtered <- obs_proteins |> filter(engine == x)
+    cur_filtered$header %>% unique()
+  }) %>%
+    `names<-`(engines)
+
   all_peps$combined <- unique_peps
   t_query <- lapply(names(all_peps), \(x) {
     result$source <<- append(result$source, x)
     peps <- all_peps[[x]]
+    prots <- all_prot[[x]]
+
     tp <- get_true_positives(peps)
     result$n_true_positives <<- append(result$n_true_positives, tp[1])
     result$true_positive_ratio <<- append(result$true_positive_ratio, tp[2])
+    result$ratio_total <<- append(result$ratio_total, tp[3])
+
+    tp2 <- get_true_positives_prot(prots)
+    result_prot$source <<- append(result$source, x)
+    result_prot$n_true_positives <<- append(result_prot$n_true_positives, tp2[1])
+    result_prot$true_positive_ratio <<- append(result_prot$true_positive_ratio, tp2[2])
+    result_prot$ratio_total <<- append(result_prot$ratio_total, tp2[3])
+
     find_matches(TRUE_PEPS, peps) |> # Check if all true peptides are represented
       # by found peptides
       as_tibble() |>
@@ -143,22 +185,27 @@ main <- function(prefix, pass) {
       mutate(source = x)
   }) |>
     bind_rows()
-  list(metrics = as_tibble(result), true_as_query = t_query, obs_as_query = obs_query)
+  list(
+    metrics = as_tibble(result),
+    true_as_query = t_query, obs_as_query = obs_query, pmetrics = as_tibble(result_prot)
+  )
 }
 
 outdir <- glue("{wd}/docs/figures/benchmark")
 f1tq <- glue("{outdir}/ptools_t_query_1.tsv")
 f1oq <- glue("{outdir}/ptools_obs_query_1.tsv")
 f1m <- glue("{outdir}/ptools_metrics_1.tsv")
+f1pm <- glue("{outdir}/ptools_pmetrics_1.tsv")
 
 f2tq <- glue("{outdir}/ptools_t_query_2.tsv")
 f2oq <- glue("{outdir}/ptools_obs_query_2.tsv")
 f2m <- glue("{outdir}/ptools_metrics_2.tsv")
+f2pm <- glue("{outdir}/ptools_pmetrics_2.tsv")
 
-get_id_files <- function(t_query, obs_query, metrics) {
+get_id_files <- function(t_query, obs_query, metrics, pmetrics) {
   list(
     true_as_query = read_tsv(t_query), metrics = read_tsv(metrics),
-    obs_as_query = read_tsv(obs_query)
+    obs_as_query = read_tsv(obs_query), pmetrics = read_tsv(pmetrics)
   )
 }
 
@@ -166,21 +213,22 @@ get_id_files <- function(t_query, obs_query, metrics) {
 if (!file.exists(f1tq)) {
   first <- main("ptools", "1-First_pass")
   write_tsv(first$metrics, f1m)
+  write_tsv(first$pmetrics, f1pm)
   write_tsv(first$obs_as_query, f1oq)
   write_tsv(first$true_as_query, f1tq)
 } else {
-  first <- get_id_files(f1tq, f1oq, f1m)
+  first <- get_id_files(f1tq, f1oq, f1m, f2pm)
 }
 
 if (!file.exists(f2tq)) {
   second <- main("ptools", "2-Second_pass")
   write_tsv(second$metrics, f2m)
+  write_tsv(second$pmetrics, f2pm)
   write_tsv(second$obs_as_query, f2oq)
   write_tsv(second$true_as_query, f2tq)
 } else {
-  second <- get_id_files(f2tq, f2oq, f2m)
+  second <- get_id_files(f2tq, f2oq, f2m, f2pm)
 }
-
 
 combined_tq <- bind_rows(
   mutate(first$true_as_query, pass = "First pass"),
@@ -247,39 +295,60 @@ combined_m <- bind_rows(
   mutate(second$metrics, pass = "Second"),
 ) |> mutate(tpr = round(true_positive_ratio, 2))
 
-GRAPHS$ptools_true_positive <- combined_m |> ggplot(aes(
-  y = n_true_positives, x = source,
-  fill = source, pattern = pass
-)) +
-  geom_bar_pattern(
-    position = "dodge", stat = "identity", pattern_density = 0.1,
-    pattern_spacing = 0.03
-  ) +
-  ylab("Number of true positives") +
-  M$default_theme +
-  geom_text(aes(label = tpr, y = n_true_positives + 15),
-    position = position_dodge(width = 1), vjust = 0,
-    size = 4
-  ) +
-  scale_fill_paletteer_d("ggthemes::Green_Orange_Teal") +
-  theme(
-    axis.text.x = element_blank(), axis.ticks.x = element_blank(),
-    axis.title.x = element_blank()
-  ) +
-  scale_pattern_manual(values = c(First = "none", Second = "stripe"))
 
-attr(GRAPHS$ptools_true_positive, "width") <- 17
+combined_pm <- bind_rows(
+  mutate(first$pmetrics, pass = "First"),
+  mutate(second$pmetrics, pass = "Second"),
+) |> mutate(tpr = round(true_positive_ratio, 2))
+
+graph_helper <- function(data, palette) {
+  data |> ggplot(aes(
+    y = n_true_positives, x = source,
+    fill = source, pattern = pass
+  )) +
+    geom_bar_pattern(
+      position = "dodge", stat = "identity", pattern_density = 0.1,
+      pattern_spacing = 0.03
+    ) +
+    ylab("Number of true positives") +
+    M$default_theme +
+    geom_text(aes(label = tpr, y = n_true_positives + 15),
+      position = position_dodge(width = 1), vjust = 0,
+      size = 4
+    ) +
+    scale_fill_paletteer_d(palette) +
+    theme(
+      axis.text.x = element_blank(), axis.ticks.x = element_blank(),
+      axis.title.x = element_blank()
+    ) +
+    scale_pattern_manual(values = c(First = "none", Second = "stripe"))
+}
+
+
+if ("ggpattern" %in% as_tibble(installed.packages())$Package) {
+  library("ggpattern")
+  GRAPHS$ptools_true_positive <- graph_helper(combined_m, "ggthemes::Green_Orange_Teal")
+  GRAPHS$ptools_true_positive_prot <- graph_helper(combined_pm, "ggthemes::Red_Blue_Brown")
+  GRAPHS$ptools_true_positive_prot
+  attr(GRAPHS$ptools_true_positive, "width") <- 17
+  attr(GRAPHS$ptools_true_positive_prot, "width") <- 17
+}
 
 
 TABLES$ptools_metrics <- combined_m |>
   select(-tpr) |>
   arrange(source) |>
   gt() |>
-  text_case_match(
-    "combined_protein" ~ "combined (proteins)",
-    "combined" ~ "combined (peptides)",
-    .locations = cells_body(source)
-  ) |>
+  cols_label(
+    source = "Source",
+    n_true_positives = "Number of true positives",
+    true_positive_ratio = "True positive ratio",
+  )
+
+TABLES$ptools_pmetrics <- combined_pm |>
+  select(-tpr) |>
+  arrange(source) |>
+  gt() |>
   cols_label(
     source = "Source",
     n_true_positives = "Number of true positives",
