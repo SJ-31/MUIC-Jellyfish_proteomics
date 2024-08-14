@@ -276,10 +276,10 @@ standard_search <- keep(previous_saved, \(x) str_detect(x, "engine_psm_counts") 
 open_search <- keep(previous_saved, \(x) str_detect(x, "engine_psm_counts") & str_detect(x, "open"))
 GRAPHS$standard_psms <- plot_param_psms(standard_search, "ggthemes::excel_Depth") +
   M$default_theme +
-  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())
 attr(GRAPHS$standard_psms, "height") <- 5
 GRAPHS$open_psms <- plot_param_psms(open_search, "ggthemes::Classic_Purple_Gray_12") + M$default_theme +
-  theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+  theme(axis.text.x = element_blank(), axis.title.x = element_blank())
 attr(GRAPHS$open_psms, "height") <- 5
 
 
@@ -327,11 +327,11 @@ for (i in seq_along(os)) {
     search_metrics, show_col,
     palettes[i]
   ) + ylab("log2 n groups") + M$default_theme +
-    theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+    theme(axis.text.x = element_blank(), axis.title.x = element_blank())
   if (os[i] == "open") {
     GRAPHS[[glue("n_groups_{os[i]}")]] <- GRAPHS[[glue("n_groups_{os[i]}")]] + theme(axis.title.y = element_blank()) +
       M$default_theme +
-      theme(axis.text.y = element_blank(), axis.title.y = element_blank())
+      theme(axis.text.x = element_blank(), axis.title.x = element_blank())
   }
   groups_below <- lapply(run_names, \(x) {
     f <- filter(search_metrics, param == x)
@@ -389,5 +389,31 @@ GRAPHS$open_spectra_stats <- open_spectra |> ggplot(aes(x = file, y = n_ms2_spec
   theme(axis.text.y = element_blank(), axis.title.y = element_blank())
 attr(GRAPHS$open_spectra_stats, "height") <- 6
 
+# ----------------------------------------
+# Overall basic stats
+stats <- lapply(seq_along(M$all_paths), \(x) {
+  run <- get_run(M$prefixes[[x]], M$all_paths[[x]])
+  stat_helper <- function(tb) {
+    list(
+      n_groups = tb$GroupUP |> unique() |> length(),
+      n_peps = flatten_by(tb$peptideIds, ";") |> unique() |> length(),
+      median_cov = tb$pcoverage_align |> median(),
+      median_matched_peps = tb$num_peps |> median()
+    )
+  }
+  f <- stat_helper(run$first)
+  s <- stat_helper(run$second)
+  as_tibble(list(
+    Parameter = rep(M$params[[x]], 2),
+    Pass = c("First", "Second"),
+    `no. protein groups` = c(f$n_groups, s$n_groups),
+    `no. unique peptides` = c(f$n_peps, s$n_peps),
+    `Median protein coverage` = round(c(f$median_cov, s$median_cov), 3),
+    `Median number of matched peptides` = round(c(f$median_matched_peps, s$median_matched_peps), 3)
+  ))
+}) |>
+  bind_rows()
+
+TABLES$basic_group_stats <- stats |> gt()
 
 save(c(TABLES, GRAPHS), glue("{M$wd}/docs/figures/search_metrics"))
