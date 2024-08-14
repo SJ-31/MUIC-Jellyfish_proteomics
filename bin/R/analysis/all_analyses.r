@@ -24,9 +24,9 @@ save <- function(to_save, outdir) {
     } else if ("plotly" %in% class(object) && "htmlwidget" %in% class(object)) {
       plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
     } else if (object == 0) {
-      cat("", file = glue("{outdir}/{name}.txt"))
+      base::cat("", file = glue("{outdir}/{name}.txt"))
     } else if (is.character(object) && is.atomic(object)) {
-      cat(object, file = glue("{outdir}/{name}.txt"))
+      base::cat(object, file = glue("{outdir}/{name}.txt"))
     }
   }
   if (!dir.exists(outdir)) {

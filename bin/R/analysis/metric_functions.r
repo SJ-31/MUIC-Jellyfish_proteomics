@@ -21,12 +21,15 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
 #' Helper function for collecting all the data from a single run for
 #' comparison
 #'
-get_run <- function(prefix, path, which = "both") {
+get_run <- function(prefix, path, which = "both", expand = TRUE) {
   get_pass <- function(pass) {
-    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv")) %>%
-      filter(q_adjust < M$fdr) |>
-      separate_longer_delim(header, ";") |>
-      distinct()
+    tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv"))
+      # filter(q_adjust < M$fdr)
+    if (expand) {
+      tb <- tb |>
+        separate_longer_delim(header, ";") |>
+        distinct(header, .keep_all = TRUE)
+    }
     return(tb)
   }
   if (which == "both") {
@@ -599,4 +602,28 @@ get_run_stats <- function(tb) {
     as_tibble() |>
     pivot_longer(everything()) |>
     rename(Metric = name)
+}
+
+
+simplify_cog <- function(tb, cog_col = "assigned_COG") {
+  tb |>
+    replace_in_col(
+      cog_col,
+      c("Nuclear structure", "Chromatin structure and dynamics"),
+      "Nuclear + chromatin structure"
+    ) |>
+    replace_in_col(
+      cog_col,
+      c("Transcription", "Translation, ribosomal structure, and biogenesis"),
+      "Transcription + Translation"
+    ) |>
+    replace_in_col(
+      cog_col,
+      c(
+        "Amino acid transport and metabolism", "Carbohydrate transport and metabolism",
+        "Coenzyme transport and metabolism", "Lipid transport and metabolism",
+        "Nucleotide transport and metabolism"
+      ),
+      "Nutrient transport and metabolism"
+    )
 }
