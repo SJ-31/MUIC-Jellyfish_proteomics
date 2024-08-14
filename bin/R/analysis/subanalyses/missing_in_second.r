@@ -3,7 +3,6 @@ if (!exists("SOURCED")) {
   SOURCED <- TRUE
 }
 SECOND_PASS_ENGINES <- c("identipy", "msgf", "msfragger", "comet")
-library("ggpattern")
 
 # ----------------------------------------
 # Compare expect values between passes
@@ -24,58 +23,50 @@ JOIN_SUFFIX <- c(".first", ".sec")
 
 SCORE_COLS <- list(
   identipy = "hyperscore",
-  comet = "xcorr",
+  comet = "Xcorr",
   msfragger = "hyperscore",
   msgf = "RawScore"
 )
 
-EXEPCTED_COLS <- list(
-  identipy = "expect",
-  comet = "e-value",
-  msfragger = "expect",
-  msgf = "expect"
-)
-
 format_pin <- function(tb) {
-  filter(tb, Label != -1)
+  filter(tb, Label != -1) |>
+    mutate(
+      SpecId = gsub(".*/", "", SpecId),
+      join = paste0(SpecId, ScanNr)
+    )
 }
 
 format_comet <- function(tb) {
   filter(tb, !grepl("rev_", protein))
 }
 
+EXPECT_COLS <- list(msgf = "lnEValue", comet = "lnExpect")
+
 merge_engines <- function(first, second, engine_name) {
-  if (engine_name %in% c("identipy", "msfragger", "msgf")) {
-    join_col <- "Peptide"
-    if (engine_name == "msfragger") {
-      format_fn <- \(x) {
-        format_pin(x) |> mutate(
-          expect = 10^log10_evalue
-        )
-      }
-    } else if (engine_name == "msgf") {
-      format_fn <- \(x) {
-        format_pin(x) |> mutate(
-          expect = exp(lnEValue)
-        )
-      }
-    } else {
-      format_fn <- format_pin
+  if (engine_name == "msfragger") {
+    format_fn <- \(x) {
+      format_pin(x) |> mutate(
+        expect = 10^log10_evalue
+      )
     }
-  } else if (engine_name == "comet") {
-    format_fn <- format_comet
-    join_col <- "modified_peptide"
+  } else if (engine_name %in% c("comet", "msgf")) {
+    format_fn <- \(x) {
+      format_pin(x) |> mutate(
+        expect = exp(!!as.symbol(EXPECT_COLS[[engine_name]]))
+      )
+    }
+  } else {
+    format_fn <- format_pin
   }
   rename_fn <- \(x) {
     rename(x,
-      e_value = all_of(EXEPCTED_COLS[[engine_name]]),
+      e_value = expect,
       psm_score = all_of(SCORE_COLS[[engine_name]])
     )
   }
   f <- format_fn(first) |> rename_fn()
   s <- format_fn(second) |> rename_fn()
-  inner_join(f, s, by = join_by(!!as.symbol(join_col)), suffix = JOIN_SUFFIX) |>
-    distinct(!!as.symbol(join_col), .keep_all = TRUE)
+  inner_join(f, s, by = join_by(join), suffix = JOIN_SUFFIX)
 }
 
 outdir <- glue("{M$outdir}/pass_differences")
@@ -92,7 +83,7 @@ if (!file.exists(results_file)) {
       engine_dir <- glue("{current_path}/{passes[[x]]}/Engines")
       e <- list()
       e$identipy <- read_tsv(glue("{engine_dir}/Identipy/identipy_all_pins.temp"))
-      e$comet <- read_tsv(glue("{engine_dir}/Comet/{prefix}_comet.tsv"))
+      e$comet <- read_tsv(glue("{engine_dir}/Comet/comet_all_pins.temp"))
       e$msfragger <- read_tsv(glue("{engine_dir}/MsFragger/fragger_all_pins.temp"))
       e$msgf <- get_msgf(glue("{engine_dir}/MSGF"))
       e
@@ -103,7 +94,7 @@ if (!file.exists(results_file)) {
       s <- engines$Second[[x]]
       merge_engines(f, s, x) |>
         mutate(engine = x) |>
-        select(engine, contains("psm_score"), contains("e_value"))
+        select(engine, contains("psm_score"), contains("e_value"), contains("peptide"))
     }) |>
       bind_rows() |>
       mutate(across(where(is.double), log), param = cur_param)
@@ -111,10 +102,11 @@ if (!file.exists(results_file)) {
     write_tsv(psm_comparisons, results_file)
   }
 } else {
-  psm_comparisons <- read_tsv(results_file)
+  psm_comparisons <- read_tsv(results_file) |> select(-any_of(contains("length")))
 }
 
 TABLES <- list()
+GRAPHS <- list()
 plot <- FALSE
 if (plot) {
   reticulate::source_python(glue("{args$python_source}/plotting.py"))
@@ -125,11 +117,19 @@ if (plot) {
 }
 
 
-cols <- c("e_value", "psm_score")
+psm_comparisons$e_value_lower_in_first <- psm_comparisons$e_value.first < psm_comparisons$e_value.sec
+
+GRAPHS$psm_e_value <- ggplot(psm_comparisons, aes(x = e_value.first, y = e_value.sec, color = e_value_lower_in_first)) +
+  geom_point() +
+  facet_grid(rows = vars(engine), cols = vars(param))
+
+
+cols <- c("e_value", "psm_score", "Peptide")
 equals <- list(
   engine = c(), var = c(), param = c(), n_equal = c(),
   fr_equal = c()
 )
+
 all_tests <- lapply(cols, \(p) {
   test_tb <- lapply(SECOND_PASS_ENGINES, \(x) {
     cur <- psm_comparisons |> filter(engine == x)
@@ -146,11 +146,15 @@ all_tests <- lapply(cols, \(p) {
       equals$fr_equal <<- append(equals$fr_equal, nrow(cur_eq) / nrow(cur_p))
 
       pair <- glue("First x Second {x}, {p}, {rr}")
-      two_sided <- wilcox.test(cur_p[[left]], cur_p[[right]], paired = TRUE) |> htest2tb(data.name = pair)
-      greater <- wilcox.test(cur_p[[left]], cur_p[[right]],
-        paired = TRUE, alternative = "greater"
-      ) |> htest2tb(data.name = pair, alternative = "First greater")
-      bind_rows(two_sided, greater) |> mutate(param = rr)
+      if (p != "Peptide") {
+        two_sided <- wilcox.test(cur_p[[left]], cur_p[[right]], paired = TRUE) |> htest2tb(data.name = pair)
+        greater <- wilcox.test(cur_p[[left]], cur_p[[right]],
+          paired = TRUE, alternative = "greater"
+        ) |> htest2tb(data.name = pair, alternative = "First greater")
+        bind_rows(two_sided, greater) |> mutate(param = rr)
+      } else {
+        tibble()
+      }
     }) |>
       bind_rows() |>
       mutate(engine = x)
@@ -167,32 +171,31 @@ all_tests <- lapply(cols, \(p) {
 eq_tb <- as_tibble(equals)
 
 
-
 TABLES$psm_evalue_tests <- all_tests |>
   conclude_one_sided() |>
   pairwise_conclusion2gt()
 
 TABLES$psm_evalue_tests_raw <- all_tests
 
+if ("ggpattern" %in% as_tibble(installed.packages())$Package) {
+  library("ggpattern")
+  TABLES$equality_graph <- eq_tb |> ggplot(aes(
+    y = fr_equal, fill = engine,
+    x = engine,
+    pattern = var
+  )) +
+    geom_bar_pattern(
+      stat = "identity", position = "dodge",
+      pattern_density = 0.1,
+      pattern_spacing = 0.03
+    ) +
+    facet_wrap(~param) +
+    M$default_theme +
+    scale_pattern_manual(values = c(e_value = "none", psm_score = "stripe", Peptide = "circle")) +
+    theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
+    ylab("Proportion") +
+    scale_fill_paletteer_d("NineteenEightyR::sonny")
+}
 
 
-TABLES$equality_graph <- eq_tb |> ggplot(aes(
-  y = fr_equal, fill = engine,
-  x = engine,
-  pattern = var
-)) +
-  geom_bar_pattern(
-    stat = "identity", position = "dodge",
-    pattern_density = 0.1,
-    pattern_spacing = 0.03
-  ) +
-  facet_wrap(~param) +
-  M$default_theme +
-  scale_pattern_manual(values = c(e_value = "none", psm_score = "stripe")) +
-  theme(axis.title.x = element_blank(), axis.text.x = element_blank()) +
-  ylab("Proportion") +
-  scale_fill_paletteer_d("NineteenEightyR::sonny")
-
-TABLES$equality_graph
-
-save(TABLES, outdir)
+save(c(TABLES, GRAPHS), outdir)
