@@ -14,14 +14,23 @@ main <- function(args) {
   reticulate::source_python(glue("{args$python_source}/ontologizer_wrapper.py"), envir = ont)
   combined <- read_tsv(args$input)
 
-  O <- reticulate_show_error(ont$Ontologizer(combined, args$executable, args$go_path))
+  grouped <- combined |>
+    group_by(GroupUP) |>
+    summarise(GO_IDs = paste0(GO_IDs, collapse = ";")) |>
+    mutate(GO_IDs = map_chr(GO_IDs, split_unique_join)) |>
+    filter(!is.na(GO_IDs))
+  O <- reticulate_show_error(ont$Ontologizer(grouped, args$executable, args$go_path, "GroupUP"))
   groups <- list()
   groups[["id_with_open"]] <- dplyr::filter(combined, ID_method == "open" |
-    ID_method == "both") |> pluck("ProteinId")
+    ID_method == "both") |>
+    pluck("GroupUP") |>
+    unique()
   # Modified proteins or identified in open search
   groups[["unknown_to_db"]] <- dplyr::filter(combined, inferred_by == "interpro" |
     inferred_by == "eggNOG" |
-    grepl("[DT]", ProteinId)) |> pluck("ProteinId")
+    grepl("[DT]", ProteinId)) |>
+    pluck("GroupUP") |>
+    unique()
   # Proteins not known to database, inferred with eggNOG and interpro
   params <- list(`-m` = "Bonferroni-Holm")
   print(groups)
