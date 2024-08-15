@@ -6,8 +6,9 @@ sys.path.append("/home/shannc/Bio_SDD/MUIC_senior_project/workflow/bin")
 import tree_viz as tv
 
 taxdump = "/home/shannc/Bio_SDD/tools/taxdb/taxdump.tar.gz"
-tax = "../results/C_indra/1-First_pass/C_indra_taxonomy.tsv"
-outdir = "../results/C_indra/Analysis/Taxonomy"
+tax = "../results/C_indra.calibrated/2-Second_pass/C_indra.calibrated_taxonomy.tsv"
+outdir = "../results/C_indra.calibrated/Analysis/Taxonomy"
+
 
 if not Path(outdir).exists():
     Path(outdir).mkdir()

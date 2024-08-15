@@ -56,9 +56,10 @@ workflow {
                    db.seq_header_mapping);
             break;
         case "analyze":
-            first_final = "${params.results}/1-First_pass/${params.pref}_all_wcoverage.tsv"
-            alignments = "${params.results}/1-First_pass/aligned_peptides.tsv"
-            peptide_map = "${params.results}/1-First_pass/percolator_peptide_map.tsv"
+            pass = "2-Second_pass"
+            first_final = "${params.results}/${pass}/${params.pref}_all_wcoverage.tsv"
+            alignments = "${params.results}/${pass}/aligned_peptides.tsv"
+            peptide_map = "${params.results}/${pass}/percolator_peptide_map.tsv"
             analyze(Channel.fromPath(first_final),
                  Channel.fromPath(alignments),
                  Channel.fromPath(peptide_map),

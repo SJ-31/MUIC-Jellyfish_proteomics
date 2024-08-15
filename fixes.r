@@ -196,6 +196,12 @@ fix <- function(filename, fix) {
     filename <- str_replace(filename, "_FDR.tsv", ".tsv")
     write_tsv(tb, file = filename)
   }
+  if (fix == "remove_group_subsets") {
+    tb |>
+      select(-contains("GroupSB")) |>
+      select(-contains("sb_rep")) |>
+      write_tsv(file = filename)
+  }
 }
 
 delete_all <- function(file_list) {
@@ -214,7 +220,10 @@ get_to_fix <- function(pattern) {
   ))
 }
 
-
 apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
+
+to_fix <- get_to_fix("*all_wcoverage*")
+
+apply_fixes(to_fix, "remove_group_subsets")

@@ -12,12 +12,11 @@ windows:
     start_directory: ./results
     panes:
       - "yazi"
-  - window_name: "analysis"
+  - window_name: "figures"
     layout: even-horizontal
     start_directory: ./docs/figures
     panes:
       - "yazi"
-      -
   - window_name: "pytest"
     layout: even-horizontal
     panes:
