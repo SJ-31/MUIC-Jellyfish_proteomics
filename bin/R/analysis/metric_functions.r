@@ -24,7 +24,7 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
 get_run <- function(prefix, path, which = "both", expand = TRUE) {
   get_pass <- function(pass) {
     tb <- read_tsv(glue("{path}/{pass}/{prefix}_all_wcoverage.tsv"))
-      # filter(q_adjust < M$fdr)
+    # filter(q_adjust < M$fdr)
     if (expand) {
       tb <- tb |>
         separate_longer_delim(header, ";") |>
@@ -385,11 +385,11 @@ min_max_scaler <- function(vec) {
 #' in them
 #' 2. A tibble mapping ProteinIds->KEGG Pathways, used to generate 1
 #' Optionally filter pathways that have fewer than the `minimum` proteins
-group_pathways <- function(tb, minimum = 20) {
+group_pathways <- function(tb, minimum = 50) {
   id2pathway <- tb %>%
     filter(!is.na(KEGG_Pathway)) %>%
     dplyr::select(ProteinId, KEGG_Pathway) %>%
-    separate_longer_delim("KEGG_Pathway", "[;,]")
+    separate_longer_delim("KEGG_Pathway", ";")
   pathway_lists <- id2pathway %>%
     group_by(KEGG_Pathway) %>%
     nest() %>%

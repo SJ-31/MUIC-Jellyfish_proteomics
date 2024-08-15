@@ -13,18 +13,18 @@ def cleanGO(go_string):
 
 
 class Ontologizer:
-    def __init__(self, go_df: pd.DataFrame, executable: str, go_path: str):
+    def __init__(self, go_df: pd.DataFrame, executable: str, go_path: str, id_col: str):
         """Initialize universe of all GO ids and create mappings of protein ids to GO terms"""
         go_df = go_df[~go_df["GO_IDs"].isna()]
         go_df["GO"] = go_df["GO_IDs"].apply(cleanGO)
         del go_df["GO_IDs"]
         go_df = go_df[go_df["GO"] != ""]
         mlist: list = ["GoStat IDs Format Version 1.0\n"]
-        for id, gos in zip(go_df["ProteinId"], go_df["GO"]):
+        for id, gos in zip(go_df[id_col], go_df["GO"]):
             mlist.append(f"{id}\t{gos}\n")
         self.go_path = go_path
         self.mapping: str = "".join(mlist)
-        self.universe = go_df["ProteinId"]
+        self.universe = go_df[id_col]
         self.executable = executable
 
     def _enrich(self, group_name: str, group_members: list) -> pd.DataFrame:

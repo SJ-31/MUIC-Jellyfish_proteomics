@@ -4,6 +4,7 @@ library("glue")
 main <- function(args) {
   library(reticulate)
   source(glue("{args$r_source}/GO_helpers.r"))
+  source(glue("{args$r_source}/analysis/metric_functions.r"))
   source(glue("{args$r_source}/DR_helpers.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
   if (!is.null(args$compare) && args$compare) {
@@ -36,6 +37,12 @@ main <- function(args) {
     glue("{args$sample_name} sample")
   )
   for (color in e$color) {
+    if (color == "assigned_COG") {
+      result$to_plot <- simplify_cog(result$to_plot) |>
+        filter(!is.na(assigned_COG)) |>
+        group_by(GroupUP) |>
+        slice_sample(n = 1)
+    }
     label <- label_gen(args$technique, title_str, "")
     plot_dr(
       to_plot = result$to_plot,
@@ -44,7 +51,7 @@ main <- function(args) {
       technique = args$technique,
       labels = label,
       twod = TRUE,
-      unwanted = c("unknown", "other", "Function unknown")
+      unwanted = c("Function unknown")
     )
   }
 }

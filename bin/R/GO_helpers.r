@@ -416,48 +416,6 @@ prep_sorted <- function(df, col_spec, type) {
   return(sort(vec, decreasing = TRUE))
 }
 
-
-TARGET_TERMS <- list(toxins = c(
-  "GO:0090719", # Toxin activity
-  "GO:0046930", # pore complex/pore-forming toxin activity
-  "GO:0015288", # porin activity
-  "GO:0031640", # Killing cells of another organism
-  "GO:0015473" # Fimbrial usher porin activity
-))
-TARGET_TERMS <- purrr::map(TARGET_TERMS, \(x) {
-  purrr::map(x, go_offspring) %>%
-    unlist() %>%
-    unique() %>%
-    discard(is.na)
-})
-
-get_toxin_proteins <- function(prot2go_map) {
-  prot2go_map %>%
-    keep(\(x) any(x %in% TARGET_TERMS$toxins))
-}
-
-# A list of important, higher-level GO categories (somewhat arbitrary)
-# Can have up to 20 to be visualized (due to restrictions with
-# color palettes)
-GO_CATEGORIES <- list(
-  venom_component = c(
-    "GO:0090719", "GO:0046930", # 1
-    "GO:0031640", "GO:0015473"
-  ),
-  small_molecule_binding = "GO:0036094", # 2
-  translation = "GO:0006412", # 3
-  transport = "GO:0006810", # 4
-  cell_projection = "GO:0042995", # 5
-  cytoskeleton = "GO:0005856", # 6
-  membrane = "GO:0016020", # 7
-  catalytic_activity = "GO:0003824", # 8
-  organelle = "GO:0043226" # 9
-)
-GO_CATEGORIES <- lapply(GO_CATEGORIES, \(x) {
-  offspring <- lapply(x, go_offspring) %>% unlist()
-  return(c(x, offspring))
-})
-
 header_freqs <- function(header_vec) {
   header_vec %>%
     lapply(., str_split_1, pattern = " ") %>%
@@ -475,8 +433,6 @@ header_freqs <- function(header_vec) {
   # Remove database classifications
   # Get rid of tiny words
 }
-
-
 
 
 GO_DAG <- NULL
@@ -567,7 +523,9 @@ ids_into_ontology <- function(id_vector, target = "Term", collapse = TRUE) {
 
 # Map vector of Protein ids their groups,
 map_unique <- function(ids, map) {
-  map_chr(ids, \(x) map[[x]]) %>%
+  map_chr(ids, \(x) {
+    map[[x]]
+  }) %>%
     unique() %>%
     discard(is.na)
 }
