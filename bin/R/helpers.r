@@ -5,6 +5,15 @@ flatten_by <- function(vector, sep, na.rm = TRUE) {
   lapply(vector, \(x) str_split(x, sep)) %>% unlist()
 }
 
+split_unique_join <- function(str, sep = ";") {
+  if (is.na(str)) {
+    return(str)
+  }
+  str_split_1(str, ";") |>
+    unique() |>
+    paste0(collapse = sep)
+}
+
 modes <- function(x) {
   x <- discard(x, is.na)
   if (length(x) == 0) {
@@ -86,6 +95,18 @@ merge_lists <- function(A, B) {
   }
   map2(A, B, \(x, y) c(x, y))
 }
+
+bind_rows_list <- function(A, B) {
+  if ((!is.null(names(A)) && !is.null(names(B))) && any(names(A) != names(B))) {
+    stop("If lists are named, they must have the same elements!")
+  }
+  lapply(names(A), \(x) {
+    left <- A[[x]]
+    right <- B[[x]]
+    bind_rows(left, right)
+  }) |> `names<-`(names(A))
+}
+
 
 #' Return a function that for a given string,
 #'  substitutes a element in vector `old` with
@@ -489,7 +510,7 @@ conclude_one_sided <- function(htest_tb, pair_sep = "x", sig_col = "significant"
   unique_pairs <- htest_tb$pair |> unique()
   two_sided_was_significant <- lapply(unique_pairs, \(x) {
     row <- htest_tb |> filter(pair == x & alternative == "two sided")
-    if (row$significant == 1) {
+    if (!is.na(row$significant) && row$significant == 1) {
       return(x)
     }
     NA
@@ -647,7 +668,8 @@ replace_in_col <- function(tb, col, vals, new) {
 compare_vals_x_y <- function(
     left, right, left_col,
     right_col, tb, segment_color = "green",
-    palette = "grDevices::Blue-Red", label = TRUE, color = NULL) {
+    palette = "grDevices::Blue-Red", label = TRUE, color = NULL, continuous = TRUE,
+    with_segment = TRUE) {
   left_vals <- tb[[left_col]]
   right_vals <- tb[[right_col]]
   x_max <- max(left_vals)
@@ -663,12 +685,16 @@ compare_vals_x_y <- function(
   }
   plot <- plot + geom_point() +
     xlab(left) +
-    ylab(right) +
-    scale_color_paletteer_c(palette) +
-    annotate("segment",
+    ylab(right)
+  if (with_segment) {
+    plot <- plot + annotate("segment",
       x = 0, y = 0, xend = max, yend = max,
       color = segment_color, size = 1
     )
+  }
+  if (continuous) {
+    plot <- plot + scale_color_paletteer_c(palette)
+  }
   if (label) {
     left_coord <- c(x_max * 0.75, y_max / 4)
     right_coord <- c(x_max / 4, y_max * 0.75)
