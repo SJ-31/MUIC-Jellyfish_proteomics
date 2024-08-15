@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from collections import Counter
+import kegg_pull.pull as kpp
 from concurrent.futures import ProcessPoolExecutor
 import sys
 from Bio import SeqIO
@@ -554,6 +555,125 @@ def get_unique_peptides_py(filename: str) -> None:
     )
     df = df.join(key.select("ProteinId", "unique_peptides"), on="ProteinId")
     df.write_csv(filename, separator="\t", null_value="NA")
+
+
+def is_kegg_header(query: str) -> bool:
+    return query in {
+        "NAME",
+        "CLASS",
+        "DESCRIPTION",
+        "COMPOUND",
+        "REFERENCE",
+        "AUTHORS",
+        "TITLE",
+        "JOURNAL",
+        "DOI",
+        "ENTRY",
+        "CLASS",
+        "PATHWAY_MAP",
+        "DBLINKS",
+        "ORTHOLOGY",
+        "///",
+    }
+
+
+def get_splits(line: str):
+    return list(filter(lambda x: x != "", line.split(" ")))
+
+
+class KeggParser:
+
+    def __init__(self, kegg_text: str, fill_dict: dict = None) -> None:
+        self.lines = kegg_text.splitlines()
+        self.index = 0
+        self.length = len(self.lines)
+        if fill_dict:
+            self.fill_into = True
+            self.parsed = fill_dict
+        else:
+            self.fill_into = False
+            self.parsed: dict = {}
+
+    def get_entry_list(self, start) -> list:
+        lst = []
+        lst.append(start[1])
+        l = self.lines[self.index + 1]
+        split_tmp = get_splits(l)
+        while not is_kegg_header(split_tmp[0]) and self.index < self.length:
+            lst.append(split_tmp[0])
+            self.index += 1
+            if self.index >= self.length:
+                return lst
+            l = self.lines[self.index]
+            split_tmp = get_splits(l)
+        if len(lst) > 1:
+            self.index -= 1
+        return lst
+
+    def fill(self, key, value) -> None:
+        if self.fill_into:
+            self.parsed[key].append(value)
+        else:
+            self.parsed[key] = value
+
+    def __call__(self) -> dict:
+        to_join_lines: dict = {
+            "NAME": "name",
+            "CLASS": "class",
+            "DESCRIPTION": "description",
+        }
+        multiline_entries: dict = {
+            "ORTHOLOGY": "orthologs",
+            "COMPOUND": "compounds",
+            "REL_PATHWAY": "related",
+        }
+
+        not_filled: set = {
+            "name",
+            "class",
+            "description",
+            "orthologs",
+            "compounds",
+            "related",
+        }
+        while self.index < self.length:
+            l: str = self.lines[self.index]
+            split: list = get_splits(l)
+            first: str = split[0]
+            if first == "ENTRY":
+                self.fill("entry", split[1])
+                self.fill("db", split[2])
+            elif first in to_join_lines:
+                self.fill(to_join_lines[first], " ".join(split[1:]))
+                not_filled.remove(to_join_lines[first])
+            elif first in multiline_entries:
+                joined = ";".join(self.get_entry_list(split))
+                self.fill(multiline_entries[first], joined)
+                not_filled.remove(multiline_entries[first])
+            self.index += 1
+        if not_filled:
+            for f in not_filled:
+                self.fill(f, None)
+        return self.parsed
+
+
+def get_kegg_metadata(kegg_ids: list) -> pl.DataFrame:
+    single_pull = kpp.SinglePull()
+    data = {
+        "entry": [],
+        "db": [],
+        "name": [],
+        "class": [],
+        "description": [],
+        "orthologs": [],
+        "compounds": [],
+        "related": [],
+    }
+    for k in kegg_ids:
+        find = single_pull.pull_dict([k])
+        if k in find[0].successful_entry_ids:
+            KeggParser(find[1][k], fill_dict=data)()
+    return pl.DataFrame(data)
 
 
 def parse_args():
