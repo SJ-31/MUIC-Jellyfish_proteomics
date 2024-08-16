@@ -5,6 +5,7 @@ if (!exists("SOURCED")) {
 ta <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
 
+open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
 GRAPHS <- list()
 TABLES <- list()
 
@@ -54,8 +55,8 @@ ENGINES <- names(engine_counts)
 
 all_pepmaps <- lapply(M$all_paths, \(x) {
   c(
-    glue("{x}/{M$passes[[1]]}/percolator_peptide_map.tsv"),
-    glue("{x}/{M$passes[[2]]}/percolator_peptide_map.tsv")
+    glue("{x}/{M$passes[[1]]}/percolator_peptide_map_all.tsv"),
+    glue("{x}/{M$passes[[2]]}/percolator_peptide_map_all.tsv")
   )
 }) |> `names<-`(M$params)
 
@@ -66,23 +67,6 @@ all_aq_reformat <- lapply(M$all_paths, \(x) {
     glue("{x}/{M$passes[[2]]}/Quantify/directlfq.aq_reformat.tsv")
   )
 }) |> `names<-`(M$params)
-
-
-# An example of what the contingency table for the tests would look like,
-# and what the expected values would be under the chi-square test of independence
-categories <- unique(engine_hits[[compare_col]])
-current <- "comet"
-tl <- table(engine_hits[[compare_col]], engine_hits[[current]])
-ct <- "low"
-show_contigency <- table(engine_hits[[compare_col]] == ct, engine_hits[[current]])
-expected <- format_engine_contingency(show_contigency, ct, TRUE)
-
-TABLES$sample_expected <- expected %>%
-  gt() %>%
-  tab_header(
-    title = glue("Engine: {current}, Category: {ct}"),
-    subtitle = "Expected values under chi-square in parentheses"
-  )
 
 # Correlation between no. identifications by engines and coverage
 engine_cor <- cor.test(num_ids$engine_count, num_ids$pcoverage_align)
@@ -95,6 +79,7 @@ TABLES$correlation <- gt(bind_rows(htest2tb(engine_cor), htest2tb(n_peps_cor)))
 # A weak positive correlation, but statistically significant
 
 intensity_bias <- list()
+matches <- list()
 length_bias <- list()
 CONTINGENCY <- list()
 
@@ -102,16 +87,18 @@ for (i in M$params) {
   pepmap <- all_pepmaps[[i]]
   aq_reformat <- all_aq_reformat[[i]]
   cur_hits <- ta$get_peptide_match_df(
-    M$peptide_map_path,
-    M$aq_reformat_path
+    pepmap[2],
+    aq_reformat[2]
   ) |>
     as_tibble()
+
   cur_hits <- cur_hits |>
     mutate(length_category = levels_by_quartile(cur_hits$length))
 
-  leq_intensity1st <- cur_hits$mean_intensity <= quantile(hits$mean_intensity, 0.25)
-  geq_intensity3nd <- quantile(cur_hits$mean_intensity, 0.75) <= hits$mean_intensity
-  cur_hits$intensity_class <- map2_chr(leq_intensity1st, geq_intensity3nd, \(x, y) {
+  w_intensity <- cur_hits |> filter(!is.na(mean_intensity))
+  leq_intensity1st <- w_intensity$mean_intensity <= quantile(w_intensity$mean_intensity, 0.25)
+  geq_intensity3nd <- quantile(w_intensity$mean_intensity, 0.75) <= w_intensity$mean_intensity
+  w_intensity$intensity_class <- map2_chr(leq_intensity1st, geq_intensity3nd, \(x, y) {
     if (x) {
       "low"
     } else if (y) {
@@ -121,7 +108,7 @@ for (i in M$params) {
     }
   })
   intense <- chisqNME(
-    tb = cur_hits, var_a_levels = ENGINES,
+    tb = w_intensity, var_a_levels = ENGINES,
     var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class",
     binary = TRUE
   )
@@ -130,19 +117,28 @@ for (i in M$params) {
   # peptides from a protein of the given category
   # Confidence interval is 95%
 
+  match_type <- chisqNME(
+    tb = cur_hits, var_a_levels = ENGINES,
+    var_b_col = "match_type", var_a = "engine", var_b = "match_type",
+    binary = TRUE
+  )
+
   length_tests <- chisqNME(
     tb = cur_hits, var_a_levels = ENGINES,
     var_b_col = "length_category", var_a = "engine", var_b = "length_category",
     binary = TRUE
   )
+  CONTINGENCY[[glue("match_{i}")]] <- match_type$gt$contingency
   CONTINGENCY[[glue("intensity_{i}")]] <- intense$gt$contingency
   CONTINGENCY[[glue("length_{i}")]] <- length_tests$gt$contingency
+  matches[[i]] <- match_type$tb$chi |> mutate(param = i)
   intensity_bias[[i]] <- intense$tb$chi |> mutate(param = i)
   length_bias[[i]] <- length_tests$tb$chi |> mutate(param = i)
 }
 
 all_intensity_bias <- bind_rows(intensity_bias)
 all_length_bias <- bind_rows(length_bias)
+all_match_bias <- bind_rows(matches)
 
 or_graph <- function(tb, x, palette) {
   tb |>
@@ -159,28 +155,25 @@ or_graph <- function(tb, x, palette) {
 }
 
 GRAPHS$all_intensity_bias <- all_intensity_bias |>
-  or_graph("intensity_class", "basetheme::deepblue")
+  or_graph("intensity_class", "basetheme::deepblue") + xlab("Intensity class")
 
 GRAPHS$all_length_bias <- all_length_bias |> or_graph(
   "length_category",
   "ggthemr::flat"
 ) +
-  ylab("Length category")
+  xlab("Length category")
 
+bias_to_plot <- all_match_bias |>
+  # mutate(across(contains("OR"), log2)) |>
+  filter(param != "ND" & !engine %in% open_search_engines)
+GRAPHS$match_bias <- or_graph(bias_to_plot, "match_type", "MoMAColors::Warhol") + xlab("Match type")
 
-match_type <- chisqNME(
-  tb = hits, var_a_levels = ENGINES,
-  var_b_col = "match_type", var_a = "engine", var_b = "match_type",
-  binary = TRUE
-)
-
+TABLES$match_bias <- all_match_bias
+TABLES$intensity_bias <- all_intensity_bias
+TABLES$length_bias <- all_length_bias
 attr(GRAPHS$all_intensity_bias, "width") <- 18
 attr(GRAPHS$all_length_bias, "width") <- 18
-
-TABLES$match_type_chi <- match_type$gt$chi
-TABLES$match_type_contingency <- match_type$gt$contingency
-TABLES$engine_intensity_chi <- intense$gt$chi
-TABLES$engine_intensity_contingency <- intense$gt$contingency
+attr(GRAPHS$match_bias, "width") <- 18
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/engine_category_bias"))
 save(CONTINGENCY, glue("{M$outdir}/engine_category_bias/contingency"))
