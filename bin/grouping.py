@@ -59,6 +59,8 @@ def get_pfam_acc(pfam, mapping):
 
 ADDED = ["PFAM_IDs"]
 
+GROUP_WEIGHTS = {"venom_component": 100}
+
 
 class Grouper:
 
@@ -119,7 +121,9 @@ class Grouper:
                     self.evidence_map["Evidence"].append(element)
                     self.evidence_map["Group"].append(mapped_group)
                     self.evidence_map["Source"].append(source)
-                    group_tracker[mapped_group] = group_tracker.get(mapped_group, 0) + 1
+                    group_tracker[mapped_group] = group_tracker.get(
+                        mapped_group, 0
+                    ) + GROUP_WEIGHTS.get(mapped_group, 1)
         if group_tracker:
             top = sorted(group_tracker.items(), key=lambda x: x[1])[-1]
             return {"group": top[0], "count": top[1]}
@@ -180,17 +184,22 @@ def mapping_from_definition(dct: dict[str, list]) -> dict:
 def find_in_headers(
     up_group, headers, mapping: dict, evidence_map: dict = None
 ) -> dict:
+    """
+    Find a specific group from header words
+    :param: mapping a dictionary of word->group, defining what words to look out
+    for in the headers and which group to assign the header to based on that
+    """
     tracker = {}
 
     def find_one(header: str):
         for k, v in mapping.items():
-            if re.match(k.lower(), header.lower()):
+            if re.search(k, header.lower()):
                 if evidence_map:
                     evidence_map["GroupUP"].append(up_group)
                     evidence_map["Evidence"].append(header)
                     evidence_map["Group"].append(v)
                     evidence_map["Source"].append("header")
-                tracker[v] = tracker.get(v, 0) + 1
+                tracker[v] = tracker.get(v, 0) + GROUP_WEIGHTS.get(v, 1)
 
     [find_one(q) for q in headers]
     if not tracker:
