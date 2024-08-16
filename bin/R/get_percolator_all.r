@@ -52,24 +52,24 @@ main <- function(args) {
   mass <- reticulate::import("pyteomics.mass")
 
   percolator_tb <- dplyr::bind_rows(protein_tbs)
-  peptide_tb <- percolator_tb |>
+  all_peptide_tb <- percolator_tb |>
     separate_longer_delim(peptideIds, ";") |>
-    distinct(engine, peptideIds, .keep_all = TRUE) |>
     mutate(
       modifiedPeptideIds = peptideIds,
       peptideIds = map_chr(peptideIds, clean_peptide)
-    )
-  peptide_tb <- peptide_tb |>
+    ) |>
     mutate(
       length = nchar(peptideIds),
       mass = map_dbl(peptideIds, \(x) {
         mass$fast_mass(x)
       })
     )
+  peptide_tb <- all_peptide_tb |> distinct(engine, peptideIds, .keep_all = TRUE)
   result <- list(
     percolator_all = percolator_tb,
     seq_map = seq_map,
-    peptides = peptide_tb
+    peptides = peptide_tb,
+    peptides_all = all_peptide_tb
   )
 }
 
@@ -109,4 +109,5 @@ if (sys.nframe() == 0) {
   write_tsv(results$percolator_all, glue("{args$outdir}/percolator_all.tsv"))
   write_tsv(results$seq_map, glue("{args$outdir}/seq-header_map_found.tsv"))
   write_tsv(results$peptides, glue("{args$outdir}/percolator_peptide_map.tsv"))
+  write_tsv(results$peptides_all, glue("{args$outdir}/percolator_peptide_map_all.tsv"))
 }
