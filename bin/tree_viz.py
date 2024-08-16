@@ -17,7 +17,7 @@ class Colormaps(Enum):
     RANKS = colormaps.get_cmap("Set1")
 
 
-def dfToDict(df: pl.DataFrame, keys: str = None, values: str = None) -> dict:
+def df2dict(df: pl.DataFrame, keys: str = None, values: str = None) -> dict:
     """Convert polars df into a dictionary. By default, takes the first and
     second columns as keys and values respectively
     """
@@ -37,24 +37,24 @@ RANKS: dict = {
 }
 
 
-def fillNodeStyle(node: et.PhyloTree, **kwargs):
+def fill_node_style(node: et.PhyloTree, **kwargs):
     for k, v in kwargs.items():
         node.img_style[k] = v
 
 
-def getRankColor(rank: str):
+def get_rank_color(rank: str):
     return rgb2hex(Colormaps.RANKS.value(RANKS[rank]))
 
 
-def getRankSize(rank: str):
+def get_rank_size(rank: str):
     return RANKS[rank] + 10 - RANKS[rank]
 
 
-def rankStyle(node: et.PhyloTree, rank: str):
-    rgb: tuple = getRankColor(rank)
+def get_rank_style(node: et.PhyloTree, rank: str):
+    rgb: tuple = get_rank_color(rank)
     color: str = rgb2hex(rgb)
-    size = getRankSize(rank)
-    fillNodeStyle(node, size=size, fgcolor=color, shape="square")
+    size = get_rank_size(rank)
+    fill_node_style(node, size=size, fgcolor=color, shape="square")
 
 
 class TaxaTree:
@@ -70,8 +70,8 @@ class TaxaTree:
             percent_df = count_df.with_columns(
                 count=pl.col("count") / pl.sum("count")
             ).rename({"count": "percent"})
-            counts.append(dfToDict(count_df))
-            percents.append(dfToDict(percent_df))
+            counts.append(df2dict(count_df))
+            percents.append(df2dict(percent_df))
         all_rank_percents: ChainMap = ChainMap(*percents)
         all_rank_counts: ChainMap = ChainMap(*counts)
 
@@ -106,7 +106,7 @@ class TaxaTree:
             map(lambda x: x.delete(), others)
         return T, id_map
 
-    def getSubtree(
+    def get_subtree(
         self, rank="", taxid: int = None, sci_name: str = ""
     ) -> et.PhyloTree:
         T = self.T.copy()
@@ -117,17 +117,17 @@ class TaxaTree:
                 ):
                     T = node.detach()
         if rank:
-            keepRanksAbove(T, rank)
+            keep_ranks_above(T, rank)
         return T
 
-    def findTaxon(self, rank="genus", **props) -> et.PhyloTree:
+    def find_taxon(self, rank="genus", **props) -> et.PhyloTree:
         subtree: et.PhyloTree = list(self.T.search_nodes(**props))[0].copy()
         if rank:
-            keepRanksAbove(subtree, rank)
+            keep_ranks_above(subtree, rank)
         return subtree
 
 
-def keepRanksAbove(T: et.PhyloTree, rank: str):
+def keep_ranks_above(T: et.PhyloTree, rank: str):
     """Keep all taxonomic ranks in T that are above `rank`.
     Removes all ranks lower than or equal to `rank`"""
     rank_num: int = RANKS[rank]
@@ -136,8 +136,8 @@ def keepRanksAbove(T: et.PhyloTree, rank: str):
     T.prune(kept_nodes)
 
 
-def defaultLayout(node):
-    def addWeight(cm):
+def default_layout(node):
+    def add_weight(cm):
         if weight := props.get("weight"):
             node.img_style["bgcolor"] = rgb2hex(cm(weight))
             return weight
@@ -153,7 +153,7 @@ def defaultLayout(node):
         label_text: str = props["sci_name"]
     if (rank := props.get("rank")) and rank != "no rank":
         if rank in RANKS:
-            rankStyle(node, rank)
+            get_rank_style(node, rank)
         else:
             node.img_style["shape"] = "sphere"
             node.img_style["fgcolor"] = "black"
@@ -169,7 +169,7 @@ def defaultLayout(node):
         label_text, fsize=10, ftype=FONT, margin_left=5, margin_right=3
     )
     if node.is_leaf:
-        weight = addWeight(Colormaps.LEAVES.value)
+        weight = add_weight(Colormaps.LEAVES.value)
         if weight > 0.7:
             label_face.fgcolor = "white"
     tvf.add_face_to_node(label_face, node, 0)
@@ -178,7 +178,7 @@ def defaultLayout(node):
 def show(
     tree: et.PhyloTree,
     circular=False,
-    layout=defaultLayout,
+    layout=default_layout,
     legendFun: Callable[[tv.FaceContainer], None] = None,
     arc_start=0,
     arc_span=0,
@@ -215,7 +215,7 @@ def TextFace(text: str, **kwargs) -> tvf.TextFace:
     return face
 
 
-def rankLegend(
+def rank_legend(
     legend: tv.FaceContainer, max_rank: str, min_ranks: tuple = tuple()
 ) -> None:
     left_margin, top_margin = 20, 15
@@ -230,11 +230,11 @@ def rankLegend(
     for rank in RANKS:
         if rank in min_ranks:
             continue
-        size = getRankSize(rank)
+        size = get_rank_size(rank)
         item = TextFace(
             f"{rank.capitalize()}",
             fsize=size,
-            fgcolor=getRankColor(rank),
+            fgcolor=get_rank_color(rank),
             ftype=FONT,
             margin_left=left_margin + 5,
         )
