@@ -556,9 +556,9 @@ metalloprotease = [
     "disintegrin",
     "reprolysin",
 ]
-jft = ["cftx"]
+jft = [" cftx", " catx", " cqtx"]
 pore_forming = ["neoverrucotoxin", "porin"]
-pesticidal_crystal = ["Pesticidal crystal"]
+pesticidal_crystal = ["pesticidal crystal"]
 phospholipase = []
 enterotoxin = []
 natriuretic = []

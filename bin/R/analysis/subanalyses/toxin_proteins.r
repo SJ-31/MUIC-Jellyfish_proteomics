@@ -11,21 +11,22 @@ GRAPHS <- list()
 # ----------------------------------------
 # Toxin protein analysis
 
-
 rename_toxins <- swap_w_map(c(
   "c_type_lectin" = "C-type lectin", "nerve_growth_factor" = "nerve growth factor",
   "pesticidal_crystal" = "pesticidal crystal", "pore_forming" = "pore-forming",
   "serine_protease" = "serine protease", "amino_acid_oxidase" = "amino acid oxidase"
 ))
-toxin_groups <- read_tsv(glue("{M$outdir}/toxin_groups.tsv")) |>
+toxin_groups <- read_tsv(glue("{M$chosen_path}/Analysis/toxin_groups.tsv")) |>
   filter(!is.na(Group)) |>
   mutate(Group = rename_toxins(Group), Group = map_chr(Group, str_to_title))
 
 
-rename_tax <- swap_w_map(c("Cnidaria;Chytridiomycota" = "Cnidaria"))
-w_intensity <- M$data |>
+data <- read_tsv(M$data_w_cat_path) |>
+  inner_join(M$lfq, by = join_by(ProteinId))
+
+w_intensity <- data |>
   inner_join(M$taxa_tb, by = join_by(ProteinId)) |>
-  inner_join(merge_lfq(M$data, "mean"), by = join_by(ProteinId)) |>
+  inner_join(merge_lfq(data, "mean"), by = join_by(ProteinId)) |>
   select(ProteinId, log_intensity, organism, header, GroupUP, all_of(M$taxa_cols)) |>
   filter(!is.na(log_intensity)) |>
   group_by(GroupUP) |>
@@ -38,7 +39,7 @@ w_intensity <- M$data |>
   ) |>
   mutate(across(
     all_of(M$taxa_cols),
-    \(x) lapply(x, \(y) rename_tax(modes_concat((y)))) |> unlist()
+    \(x) lapply(x, \(y) modes(y, first = TRUE)) |> unlist()
   ))
 
 toxin_tb <- w_intensity |>
@@ -51,6 +52,7 @@ toxin_tb <- w_intensity |>
     }
   }))
 
+tax_col <- "Phylum"
 
 toxin_w_lfq <- toxin_tb |>
   group_by(Group, !!as.symbol(tax_col)) |>
@@ -71,11 +73,10 @@ toxin_counts <- table(toxin_tb$Group) |>
   table2tb(id_col = "Group") |>
   inner_join(toxin_w_lfq)
 
-tax_col <- "Phylum"
 toxin_w_tax <- toxin_tb |>
   select(Group, {{ tax_col }}) |>
   group_by(Group) |>
-  count(!!as.symbol(tax_col), name = "taxa_counts") |>
+  dplyr::count(!!as.symbol(tax_col), name = "taxa_counts") |>
   ungroup() |>
   inner_join(toxin_counts) |>
   mutate(
@@ -104,7 +105,10 @@ toxin_stacked_bar <- toxin_w_tax |>
   ylab("log intensity") +
   xlab("Toxin group")
 
-GRAPHS$toxin_stacked_bar <- toxin_stacked_bar
+
+GRAPHS$toxin_stacked_bar <- toxin_stacked_bar + M$default_theme
+
+GRAPHS$toxin_stacked_bar
 attr(GRAPHS$toxin_stacked_bar, "width") <- 15
 
 GRAPHS$toxin_tm_plotly <- toxin_tm
