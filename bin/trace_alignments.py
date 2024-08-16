@@ -563,12 +563,16 @@ def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.Dat
     )
     pep_map = pl.read_csv(peptide_map_path, separator="\t", null_values="NA")
     pep_map = pep_map.join(intensity, left_on="peptideIds", right_on="ion")
-    grouping_vars = ["mass", "length", "mean_intensity"]
+    grouping_vars = ["mass", "length", "mean_intensity", "match_type"]
     id_aliases: dict = {
         p: f"p{i}" for i, p in enumerate(pep_map["peptideIds"].unique())
     }
+    # TODO categorize the peptides by the proteins they match to
     pep_map = pep_map.with_columns(
-        PeptideId=pl.col("peptideIds").map_elements(lambda x: id_aliases[x])
+        PeptideId=pl.col("peptideIds").map_elements(lambda x: id_aliases[x]),
+        match_type=pl.col("ProteinId")
+        .str.head(1)
+        .str.replace_many(["D", "T", "P"], ["denovo", "transcriptome", "DBP"]),
     )
     engines: list = list(pep_map["engine"].unique())
     if None in engines:
