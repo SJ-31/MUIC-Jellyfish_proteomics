@@ -23,169 +23,82 @@ rm(noq)
 rm(hasq)
 # --------------------------------------------------------
 
-# Show that property of every protein in a Percolator group being matched
-# by the exact same peptides gets lost when creating new groups via union-find
-# data <- M$data %>% inner_join(M$taxa_tb, by = join_by(ProteinId))
-# nested <- data |>
-#   group_by(Group) |>
-#   nest() |>
-#   mutate(
-#     unique_peptides = map_dbl(data, \(x) {
-#       x$peptideIds |>
-#         unique() |>
-#         length()
-#     }),
-#     size = map_dbl(data, \(x) nrow(x))
-#   ) |>
-#   arrange(desc(size))
+fragment_names <- c("fragment", "partial")
+fragment_regex <- paste0(fragment_names, collapse = "|")
 
-# ----------------------------------------
-# Identify enriched terms by intensity
-filter_intensity <- function(tb, quantile = ? Character()) {
-  if (quantile == "first") {
-    filterFun <- \(x) filter(x, x$log_intensity <= quantile(x$log_intensity, 0.25))
-  } else if (quantile == "second") {
-    filterFun <- \(x) {
-      filter(x, x$log_intensity > quantile(x$log_intensity, 0.25) &
-        x$log_intensity < quantile(x$log_intensity, 0.75))
-    }
-  } else if (quantile == "third") {
-    filterFun <- \(x) filter(x, x$log_intensity >= quantile(x$log_intensity, 0.75))
-  }
-  tb |>
-    filterFun() |>
-    purrr::pluck("ProteinId")
-}
+unique_entries <- flatten_by(M$data$entry_name, ";") |>
+  unique() |>
+  discard(\(x) str_detect(x, "-DENOVO|-TRANSCRIPTOME"))
 
-data <- M$data |>
-  inner_join(M$lfq, by = join_by(ProteinId)) |>
-  distinct(ProteinId, .keep_all = TRUE)
-if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
-  ont <- new.env()
-  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
-  by_intensity <- merge_lfq(data, "mean") %>%
-    inner_join(., dplyr::select(data, ProteinId, GO_IDs), by = join_by(ProteinId)) |>
-    filter(!is.na(log_intensity))
-  O <- ont$Ontologizer(by_intensity, M$ontologizer_exec, M$go_path)
-  groups <- list(
-    low_intensity = filter_intensity(by_intensity, "first"),
-    medium_intensity = filter_intensity(by_intensity, "second"),
-    high_intensity = filter_intensity(by_intensity, "third")
-  )
-  params <- list(`-m` = "Bonferroni-Holm")
-  enriched_intensity <- O$runAll(groups, params)
+fragments <- M$data |>
+  mutate(entry_name = str_to_lower(entry_name)) |>
+  filter(grepl(fragment_regex, entry_name))
 
-  lmap(enriched_intensity, \(x) {
-    write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
-  })
-  plot <- ggplot(by_intensity, aes(x = log_intensity)) +
-    geom_histogram(fill = "#69d2e7") +
-    xlab("log 10 intensity")
-  ggsave(glue("{M$outdir}/intensity_histogram.svg"), plot)
-} else {
-  intensity <- lapply(c("low", "medium", "high"), \(x) read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")))
-}
-
-
-# ----------------------------------------
-# Enrich terms based on modifications
-mod_names <- c("Met_ox", "Nterm_acetyl", "Lys_acetyl")
-if (!file.exists(glue("{M$ontologizer_path}/met_ox.tsv"))) {
-  has_mods <- read_tsv(M$percolator_all_path) |>
-    filter(ProteinId %in% data$ProteinId) |>
-    filter(!is.na(mods)) |>
-    fix_all_mods()
-
-  all_mods <- flatten_by(has_mods$mods, ";")
-  mod_table <- all_mods |>
-    map_chr(\(x) str_extract(x, "(.*\\|.*)\\|[1-9]+", group = 1)) |>
-    discard(\(x) str_detect(x, "229.16")) |> # This shouldn't be here...
-    table()
-
-  has_mods_ids <- lapply(c("Met\\|15.99", "Nterm\\|42.0", "Lys\\|42.01"), \(x) {
-    filter(has_mods, grepl(x, mods)) |> pluck("ProteinId")
-  }) |>
-    `names<-`(mod_names)
-  ont <- new.env()
-
-  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
-  O <- ont$Ontologizer(data, M$ontologizer_exec, M$go_path)
-  params <- list(`-m` = "Bonferroni-Holm")
-
-  enriched_mods <- O$runAll(has_mods_ids, params)
-  lmap(enriched_mods, \(x) {
-    write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
-  })
-  enriched_mods <- lapply(enriched_mods, as_tibble)
-} else {
-  enriched_mods <- lapply(mod_names, \(x) {
-    read_tsv(glue("{M$ontologizer_path}/{x}.tsv")) |>
-      mutate(subset = str_replace(x, "_", " "))
-  })
-}
-
-# ----------------------------------------
-# Analyses for intensity-enriched terms
-intensities <- c("high", "medium", "low")
-intensity_tbs <- lapply(
-  intensities,
-  \(x) {
-    read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")) |>
-      mutate(subset = glue("{x} intensity"))
-  }
-) |>
-  `names<-`(intensities)
-
-intensity_vecs <- intensity_tbs |>
-  lapply(\(x) {
-    x |>
-      filter(p.adjusted < 0.05) |>
-      pluck("ID")
-  })
-
-
-go_data <- read_tsv(M$go_reference)
-ontologizer <- get_ontologizer(M$ontologizer_path)
-all_ontologizer <- bind_rows(
-  mutate(ontologizer$id_with_open, subset = "id with open"),
-  mutate(ontologizer$unknown_to_db, subset = "not DBP")
-) |>
-  bind_rows(
-    bind_rows(intensity_tbs),
-    bind_rows(enriched_mods)
+grouped <- read_tsv(M$data_w_cat_path) |>
+  group_by(GroupUP) |>
+  summarize(
+    assigned_COG = paste0(unique(assigned_COG), collapse = ";"),
+    entry_name = paste0(entry_name, collapse = ";"),
+    size = n()
   ) |>
-  inner_join(go_data, by = join_by(x$ID == y$GO_IDs)) |>
-  filter(p.adjusted < 0.05)
+  mutate(entry_name = map_chr(entry_name, split_unique_join)) |>
+  arrange(desc(size))
+TABLES$grouped_cog_sizes <- grouped
 
-intensity_vecs_ontology <- lapply(intensity_vecs, \(x) {
-  ids_into_ontology(x, target = "GOID", collapse = FALSE)
-})
-TABLES$all_ontologizer_sig <- all_ontologizer
 
-GRAPHS$intensity_overlap <- ggVennDiagram(intensity_vecs) + scale_fill_paletteer_c("ggthemes::Classic Red")
+
+# Get Count of fragments
+
+
+# Just to check if group assignments are correct
+cog_evidence <- read_tsv(glue("{M$chosen_path}/Analysis/cog_assignment_evidence.tsv"))
+venom_evidence <- cog_evidence |> filter(Group == "venom_component")
+venom_gos <- inner_join(venom_evidence, read_tsv(M$go_reference), by = join_by(x$Evidence == y$GO_IDs))
 
 # ----------------------------------------
-# Verification for new grouping strategy
+# Merging results
+nd_merged_path <- glue("{M$wd}/results/ND_MERGED")
+nd_run <- get_run(M$prefixes[[4]], M$ndpath)
+ndm_run <- get_run(M$prefixes[[4]], nd_merged_path)
 
-# Show that lfq intensity is consistent when grouping by unmatched peptides
-# stderrs <- list()
-# stds <- list()
-# grouping_cols <- c("GroupUP", "Group")
-# data <- inner_join(M$data, M$lfq, by = join_by(ProteinId))
-# for (g in grouping_cols) {
-#   by_intensity <- M$data |>
-#     inner_join(merge_lfq(data, "mean"), by = join_by(ProteinId)) |>
-#     select(ProteinId, log_intensity, {{ g }})
-#   summarized <- by_intensity |>
-#     filter(!is.na(log_intensity)) |>
-#     group_by(!!as.symbol(g)) |>
-#     summarize(intensity_std = sd(log_intensity, na.rm = TRUE))
-#   stderrs[[g]] <- sd(summarized$intensity_std, na.rm = TRUE)
-#   stds[[g]] <- summarized$intensity_std
-# }
 
-# stderr was lower when grouping by unmatched peptides, indicating this is a better way
-# to form protein groups between different engines
+all_tests <- tibble()
+stats <- tibble()
+joined <- lapply(c("first", "second"), \(x) {
+  tmp_joined <- inner_join(nd_run[[x]], ndm_run[[x]], by = join_by(header), suffix = c(".nd", ".ndm")) |>
+    mutate(pass = x)
+  test <- with(tmp_joined, wilcox.test(pcoverage_align.nd,
+    pcoverage_align.ndm,
+    paired = TRUE, alternative = "less"
+  )) |>
+    htest2tb(data.name = "ND x ND merged", alternative = "ND less") |>
+    mutate(pass = x)
+  all_tests <<- bind_rows(all_tests, test)
+  tmp_stats <- with(tmp_joined, tibble(
+    equals = sum(pcoverage_align.nd == pcoverage_align.ndm),
+    nd_greater = sum(pcoverage_align.nd > pcoverage_align.ndm),
+    ndm_greater = sum(pcoverage_align.nd < pcoverage_align.ndm),
+    pass = x
+  ))
+  stats <<- bind_rows(stats, tmp_stats)
+
+  tmp_joined
+}) |>
+  bind_rows()
+
+stats <- mutate(stats, prop_ndm_greater = ndm_greater / (ndm_greater + equals + nd_greater)) |> gt()
+
+TABLES$nd_ndm_comparison <- stats
+
+GRAPHS$nd_ndm_comparison <- compare_vals_x_y(
+  "ND", "ND merged", "pcoverage_align.nd",
+  "pcoverage_align.ndm", joined,
+  color = "pass", continuous = FALSE, segment_color = "black"
+) +
+  M$default_theme
+attr(GRAPHS$nd_ndm_comparison, "width") <- 15
+
+# ----------------------------------------
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/misc"))
 # ----------------------------------------
