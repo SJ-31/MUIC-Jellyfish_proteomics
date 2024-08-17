@@ -15,10 +15,9 @@ matplotlib.rcParams["font.family"] = "sans-serif"
 def get_cmap(colormap: str):
     if "ch:" in colormap:
         return sns.color_palette(colormap, as_cmap=True)
-    try:
-        return mpl.colormaps.get(colormap)
-    except ValueError:
-        return sns.light_palette(colormap, as_cmap=True)
+    elif "#" in colormap:
+        return sns.dark_palette(colormap, as_cmap=True, reverse=True)
+    return mpl.colormaps.get(colormap)
 
 
 class ColorMapper:
@@ -51,6 +50,8 @@ class ColorMapper:
                 self.item2colormap[i] = cm
                 if c not in self.all_colormaps:
                     self.all_colormaps[cm] = get_cmap(cm)
+            print("Initiated the following colormaps:\n")
+            print(self.all_colormaps)
         else:
             self.item2colormap = None
 

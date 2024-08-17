@@ -20,7 +20,7 @@ def plotly_save(figure, metadata) -> None:
         )
 
 
-def plotly_sunburst(sunburst, metadata: dict, layout_params: dict = None):
+def plotly_sunburst(sunburst, layout_params: dict = None):
     fig = go.Figure(
         go.Sunburst(
             labels=sunburst["name"],
@@ -34,10 +34,10 @@ def plotly_sunburst(sunburst, metadata: dict, layout_params: dict = None):
     )
     if layout_params:
         fig.update_layout(**layout_params)
-    plotly_save(fig, metadata)
+    return fig
 
 
-def plotly_treemap(treemap, metadata, layout_params: dict = None):
+def plotly_treemap(treemap, layout_params: dict = None):
     fig = go.Figure(
         go.Treemap(
             labels=treemap["name"],
@@ -51,7 +51,7 @@ def plotly_treemap(treemap, metadata, layout_params: dict = None):
     )
     if layout_params:
         fig.update_layout(**layout_params)
-    plotly_save(fig, metadata)
+    return fig
 
 
 def plotly_psm_comparisons(df, compare_col: str):
