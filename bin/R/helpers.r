@@ -14,14 +14,21 @@ split_unique_join <- function(str, sep = ";") {
     paste0(collapse = sep)
 }
 
-modes <- function(x) {
+modes <- function(x, first = FALSE, drop = NULL) {
   x <- discard(x, is.na)
   if (length(x) == 0) {
     return(NA)
   }
   ux <- unique(x)
+  if (!is.null(drop)) {
+    ux <- discard(ux, \(x) x %in% drop)
+  }
   tab <- tabulate(match(x, ux))
-  ux[tab == max(tab)]
+  if (first) {
+    ux[tab == max(tab)][1]
+  } else {
+    ux[tab == max(tab)]
+  }
 }
 
 modes_concat <- function(x, sep = ";") {
@@ -290,6 +297,17 @@ format_chi_expected <- function(table) {
   )
 }
 
+get_chi_gt <- function(tb) {
+  tb |>
+    mutate(across(is.double, \(x) round(x, 4))) %>%
+    mutate(
+      OR = paste0(OR, " [", OR_lower_ci, ", ", OR_upper_ci, "]"),
+      OR = map_chr(OR, \(x) ifelse(grepl("NA|NaN", x), "NA", x))
+    ) %>%
+    select(-matches("OR_")) %>%
+    rename("Odds ratio, 95% CI [lower, upper]" = OR) %>%
+    gt()
+}
 
 #' Compute odds ratios and chi square tests between a NON mutually exclusive categorical
 #' variable `a` and exclusive categorical variable `b`.
@@ -369,15 +387,7 @@ chisqNME <- function(
 
   chi_f <- bind_cols(chi, odds_ratios) |> arrange(desc(OR))
   tables$chi <- chi_f
-  gt$chi <- chi_f %>%
-    mutate(across(is.double, \(x) round(x, 4))) %>%
-    mutate(
-      OR = paste0(OR, " [", OR_lower_ci, ", ", OR_upper_ci, "]"),
-      OR = map_chr(OR, \(x) ifelse(grepl("NA|NaN", x), "NA", x))
-    ) %>%
-    select(-matches("OR_")) %>%
-    rename("Odds ratio, 95% CI [lower, upper]" = OR) %>%
-    gt()
+  gt$chi <- chi_f %>% get_chi_gt()
   # Record all results
   var_a_table_tb <- tibble(!!var_b := var_b_levels)
   remove_cat <- FALSE
@@ -719,4 +729,29 @@ compare_vals_x_y <- function(
       )
   }
   plot
+}
+
+get_attr <- function(object, attr, default) {
+  find_attr <- attr(object, attr)
+  if (is.null(find_attr)) {
+    default
+  } else {
+    find_attr
+  }
+}
+
+set_attrs <- function(object, list) {
+  for (attr in names(list)) {
+    attr(object, attr) <- list[[attr]]
+  }
+}
+
+invert_p_values <- function(p_vec) {
+  lg <- -log(p_vec)
+  lg[lg == Inf] <- .Machine$integer.max
+  lg
+}
+
+tb2named_list <- function(tb, names, vals) {
+  with(tb, setNames(as.list(tb[[vals]]), tb[[names]]))
 }

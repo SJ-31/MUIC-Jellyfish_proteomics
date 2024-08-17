@@ -10,23 +10,28 @@ library("glue")
 
 save <- function(to_save, outdir) {
   by_type <- function(name, object) {
-    if ("gg" %in% class(object) || "grob" %in% class(object)) {
+    C <- class(object)
+    if ("gg" %in% C || "grob" %in% C) {
       width <- ifelse(is.null(attr(object, "width")), 10, attr(object, "width"))
       height <- ifelse(is.null(attr(object, "height")), 10, attr(object, "height"))
       ggsave(glue("{outdir}/{name}.png"), object, width = width, height = height)
-    } else if ("gt_tbl" %in% class(object)) {
+    } else if ("gt_tbl" %in% C) {
       gtsave(object, glue("{outdir}/{name}.html"))
       gtsave(object, glue("{outdir}/{name}.tex"))
-    } else if ("tbl_df" %in% class(object)) {
+    } else if ("tbl_df" %in% C) {
       write_tsv(object, glue("{outdir}/{name}.tsv"))
-    } else if ("plotly" %in% class(object) && "htmlwidget" %in% class(object)) {
+    } else if ("plotly" %in% C && "htmlwidget" %in% C) {
       plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
     } else if (object == 0) {
       base::cat("", file = glue("{outdir}/{name}.txt"))
-    } else if ("matplotlib.figure.Figure" %in% class(object)) {
+    } else if ("matplotlib.figure.Figure" %in% C) {
       object$savefig(glue("{outdir}/{name}.png"), bbox_inches = "tight")
     } else if (is.character(object) && is.atomic(object)) {
       base::cat(object, file = glue("{outdir}/{name}.txt"))
+    } else if ("python.builtin.object" %in% C && "plotly.graph_objs._figure.Figure" %in% C) {
+      width <- get_attr(object, "width", 1500)
+      height <- get_attr(object, "height", 1500)
+      object$write_image(glue("{outdir}/{name}.png"), height = height, width = width)
     }
   }
   if (!dir.exists(outdir)) {
