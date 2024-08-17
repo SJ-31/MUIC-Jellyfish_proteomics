@@ -109,33 +109,35 @@ toxin_stacked_bar <- toxin_w_tax |>
 GRAPHS$toxin_stacked_bar <- toxin_stacked_bar + M$default_theme
 
 GRAPHS$toxin_stacked_bar
-attr(GRAPHS$toxin_stacked_bar, "width") <- 15
+attr(GRAPHS$toxin_stacked_bar, "width") <- 18
 
-GRAPHS$toxin_tm_plotly <- toxin_tm
+# GRAPHS$toxin_tm_plotly <- toxin_tm
 
 hemolysins <- toxin_tb |> filter(Group == "Hemolysin")
 pore_forming <- toxin_tb |> filter(Group == "Pore Forming")
+
 
 to_chord <- toxin_w_tax |>
   rename(from = Group, to = !!as.symbol(tax_col)) |>
   select(from, to)
 # https://yjunechoe.github.io/posts/2020-06-30-treemap-with-ggplot/
-# save_chord(to_chord,
-#   filename = glue("{M$outdir}/taxonomy/toxin_chord.svg"), width = 15, height = 15
-# )
 
-py_plots$plotly_sunburst(
-  to_sb, list(
-    file = glue("{M$outdir}/taxonomy/toxin_sb_plotly.html"),
-    width = 1500, height = 1200
-  ),
-  list(title = list(text = "Toxin intensities"))
+source(glue("{M$r_source}/GO_chord.r"))
+plot_chord(to_chord)
+save_chord(to_chord,
+  filename = glue("{M$outdir}/taxonomy/toxin_chord.svg"), width = 15, height = 15
 )
-py_plots$plotly_treemap(to_sb,
-  list(
-    file = glue("{M$outdir}/taxonomy/toxin_tm_plotly.html"),
-    width = 1500, height = 1200
-  ),
+
+sunburst <- py_plots$plotly_sunburst(
+  to_sb, list(title = list(text = "Toxin intensities"))
+)
+set_attrs(sunburst, list(height = 1200, width = 1500))
+
+GRAPHS$sunburst <- sunburst
+
+GRAPHS$treemap <- py_plots$plotly_treemap(to_sb,
   layout_params = list(title = list(text = "Toxin intensities"))
 )
+set_attrs(GRAPHS$treemap, list(height = 1200, width = 1500))
+
 save(c(TABLES, GRAPHS), glue("{M$outdir}/taxonomy"))

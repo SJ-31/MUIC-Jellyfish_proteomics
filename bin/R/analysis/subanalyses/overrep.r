@@ -4,107 +4,10 @@ if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
   SOURCED <- TRUE
 }
+source(glue("{args$r_source}/GO_text_mining_helpers.r"))
+source(glue("{args$r_source}/GO_chord.r"))
 TABLES <- list()
 GRAPHS <- list()
-# ----------------------------------------
-# Identify enriched terms by intensity
-filter_intensity <- function(tb, quantile = ? Character()) {
-  if (quantile == "first") {
-    filterFun <- \(x) filter(x, x$log_intensity <= quantile(x$log_intensity, 0.25))
-  } else if (quantile == "second") {
-    filterFun <- \(x) {
-      filter(x, x$log_intensity > quantile(x$log_intensity, 0.25) &
-        x$log_intensity < quantile(x$log_intensity, 0.75))
-    }
-  } else if (quantile == "third") {
-    filterFun <- \(x) filter(x, x$log_intensity >= quantile(x$log_intensity, 0.75))
-  }
-  tb |>
-    filterFun() |>
-    purrr::pluck("GroupUP")
-}
-
-
-
-data <- M$data |>
-  inner_join(M$lfq, by = join_by(ProteinId)) |>
-  distinct(ProteinId, .keep_all = TRUE)
-if (!file.exists(glue("{M$ontologizer_path}/high_intensity.tsv"))) {
-  ont <- new.env()
-  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
-  by_intensity <- merge_lfq(data, "mean") %>%
-    inner_join(., dplyr::select(data, ProteinId, GO_IDs, GroupUP), by = join_by(ProteinId)) |>
-    filter(!is.na(log_intensity)) |>
-    group_by(GroupUP) |>
-    summarise(GO_IDs = paste0(GO_IDs, collapse = ";"), log_intensity = mean(log_intensity)) |>
-    mutate(GO_IDs = map_chr(GO_IDs, split_unique_join)) |>
-    filter(!is.na(GO_IDs))
-  O <- ont$Ontologizer(by_intensity, M$ontologizer_exec, M$go_path, "GroupUP")
-  groups <- list(
-    low_intensity = filter_intensity(by_intensity, "first"),
-    medium_intensity = filter_intensity(by_intensity, "second"),
-    high_intensity = filter_intensity(by_intensity, "third")
-  )
-  params <- list(`-m` = "Bonferroni-Holm")
-  enriched_intensity <- O$runAll(groups, params)
-
-  lmap(enriched_intensity, \(x) {
-    write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
-  })
-  plot <- ggplot(by_intensity, aes(x = log_intensity)) +
-    geom_histogram(fill = "#69d2e7") +
-    xlab("log 10 intensity")
-  ggsave(glue("{M$outdir}/intensity_histogram.svg"), plot)
-} else {
-  intensity <- lapply(c("low", "medium", "high"), \(x) read_tsv(glue("{M$ontologizer_path}/{x}_intensity.tsv")))
-}
-
-
-# ----------------------------------------
-# Enrich terms based on modifications
-mod_names <- c("Met_ox", "Nterm_acetyl", "Lys_acetyl")
-if (!file.exists(glue("{M$ontologizer_path}/met_ox.tsv"))) {
-  grouped <- data |>
-    group_by(GroupUP) |>
-    summarise(GO_IDs = paste0(GO_IDs, collapse = ";")) |>
-    mutate(GO_IDs = map_chr(GO_IDs, split_unique_join)) |>
-    filter(!is.na(GO_IDs))
-
-  has_mods <- read_tsv(M$percolator_all_path) |>
-    inner_join(data, by = join_by(ProteinId)) |>
-    filter(GroupUP %in% grouped$GroupUP) |>
-    filter(!is.na(mods)) |>
-    fix_all_mods()
-
-  all_mods <- flatten_by(has_mods$mods, ";")
-  mod_table <- all_mods |>
-    map_chr(\(x) str_extract(x, "(.*\\|.*)\\|[1-9]+", group = 1)) |>
-    discard(\(x) str_detect(x, "229.16")) |> # This shouldn't be here...
-    table()
-
-  has_mods_ids <- lapply(c("Met\\|15.99", "Nterm\\|42.0", "Lys\\|42.01"), \(x) {
-    filter(has_mods, grepl(x, mods)) |>
-      pluck("GroupUP") |>
-      unique()
-  }) |>
-    `names<-`(mod_names)
-  ont <- new.env()
-
-  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
-  O <- ont$Ontologizer(grouped, M$ontologizer_exec, M$go_path, id_col = "GroupUP")
-  params <- list(`-m` = "Bonferroni-Holm")
-
-  enriched_mods <- O$runAll(has_mods_ids, params)
-  lmap(enriched_mods, \(x) {
-    write_tsv(x[[1]], glue("{M$ontologizer_path}/{names(x)}.tsv"))
-  })
-  enriched_mods <- lapply(enriched_mods, as_tibble)
-} else {
-  enriched_mods <- lapply(mod_names, \(x) {
-    read_tsv(glue("{M$ontologizer_path}/{x}.tsv")) |>
-      mutate(subset = str_replace(x, "_", " "))
-  })
-}
 
 # ----------------------------------------
 # Analyses for intensity-enriched terms
@@ -124,47 +27,285 @@ intensity_vecs <- intensity_tbs |>
       filter(p.adjusted < 0.05) |>
       pluck("ID")
   })
+data <- read_tsv(M$data_w_cat_path)
 
 go_data <- read_tsv(M$go_reference)
 ontologizer <- get_ontologizer(M$ontologizer_path)
+
+
+mod_names <- c("Met_ox", "Nterm_acetyl", "Lys_acetyl")
+enriched_mods <- lapply(mod_names, \(x) {
+  read_tsv(glue("{M$ontologizer_path}/{x}.tsv")) |>
+    mutate(subset = str_replace(x, "_", " "))
+})
+
 all_ontologizer <- bind_rows(
   mutate(ontologizer$id_with_open, subset = "id with open"),
-  mutate(ontologizer$unknown_to_db, subset = "not DBP")
+  mutate(ontologizer$unknown_to_db, subset = "not DBP"),
+  mutate(ontologizer$transcriptome, subset = "transcriptome"),
+  mutate(ontologizer$denovo, subset = "denovo"),
 ) |>
   bind_rows(
     bind_rows(intensity_tbs),
     bind_rows(enriched_mods)
   ) |>
   inner_join(go_data, by = join_by(x$ID == y$GO_IDs)) |>
-  filter(p.adjusted < 0.05)
+  filter(p.adjusted < 0.05) |>
+  mutate(sorted_p = invert_p_values(p.adjusted))
 
 intensity_vecs_ontology <- lapply(intensity_vecs, \(x) {
   ids_into_ontology(x, target = "GOID", collapse = FALSE)
 })
 
+ta <- new.env()
+reticulate::source_python(glue("{args$python_source}/trace_alignments.py"), envir = ta)
 
-all_ontologizer$subset |> table()
-see(all_ontologizer)
+subsets <- unique(all_ontologizer$subset)
+id_lists <- lapply(subsets, \(x) filter(all_ontologizer, subset == x)$ID) |> `names<-`(subsets)
 
 
+id2term <- with(go_data, setNames(term, GO_IDs))
 slims <- get_go_slim(unique(all_ontologizer$ID), M$go_path, M$go_slim_path)
-all_ontologizer$slim <- map_chr(all_ontologizer$ID, \(x) {
-  find_slims <- slims[[x]]$all |> discard(\(y) y == x)
-  if (length(find_slims) > 0) {
-    paste0(find_slims, collapse = ";")
-  } else {
-    "NONE"
-  }
-})
+all_ontologizer <- mutate(all_ontologizer,
+  slim = map_chr(all_ontologizer$ID, \(x) {
+    find_slims <- slims[[x]]$all |> discard(\(y) y == x)
+    if (length(find_slims) > 0) {
+      base::sample(find_slims, size = 1)
+    } else {
+      "NONE"
+    }
+  }),
+  slim_name = map_chr(slim, \(x) id2term[x])
+)
+# ----------------------------------------
+# Check if each of the subsets are associated with one another in terms
+# of protein groups
 
-all_ontologizer |> see()
+sort_pairs_overlap <- function(tb) {
+  tb |>
+    distinct(pair, .keep_all = TRUE) |>
+    mutate(
+      pair = mapply(\(x, y) paste0(str_sort(c(x, y)), collapse = "_"), first, second),
+      first = gsub("_.*", "", pair),
+      second = gsub(".*_", "", pair)
+    )
+}
+
+id_overlap <- ta$calculate_overlaps(id_lists) |> as_tibble()
+mod_names2 <- map_chr(mod_names, \(x) str_replace(x, "_", " "))
+GRAPHS$subset_overlap <- id_overlap |>
+  sort_pairs_overlap() |>
+  filter(first %in% mod_names2 & second %in% mod_names2) |>
+  ggplot(aes(x = first, y = second, fill = overlap)) +
+  geom_tile() +
+  theme_minimal() +
+  scale_fill_paletteer_c("ggthemes::Classic Area Red", name = "Overlap coefficient\n (Enriched terms)") +
+  M$default_theme +
+  theme(
+    axis.text.x = element_text(angle = 90),
+    legend.position = "inside",
+    legend.position.inside = c(.70, .25),
+    panel.grid = element_blank(), axis.title.x = element_blank()
+  ) +
+  scale_x_discrete(position = "top") +
+  ylab("Subset")
+
+GRAPHS$subset_overlap
+
+mod_binary <- read_tsv(glue("{M$ontologizer_path}/mod_binary.tsv"))
+colnames(mod_binary) <- colnames(mod_binary) |> map_chr(\(x) str_replace(x, "_", " "))
+
+lfq <- merge_lfq(inner_join(data, M$lfq), "mean") |>
+  inner_join(select(data, ProteinId, GroupUP), by = join_by(ProteinId)) |>
+  group_by(GroupUP) |>
+  summarize(
+    log_intensity = mean(log_intensity, na.rm = TRUE),
+  ) |>
+  mutate(
+    `high intensity` = log_intensity >= quantile(log_intensity, 0.75),
+    `medium intensity` = log_intensity > quantile(log_intensity, 0.25) & log_intensity < quantile(log_intensity, 0.75),
+    `low intensity` = ifelse(!`high intensity` & !`medium intensity`, TRUE, FALSE)
+  )
+paste_unique <- function(x) {
+  paste0(unique(x), collapse = ";")
+}
+
+# Cell 1: Met ox, no Lys acetyl, Cell 2: Met ox, Lys acetyl
+# Cell 3: No Met ox, no lys aceytl, Cell 4: No Met, Lys acetyl
+ox_acetyl <- table(!mod_binary$`Met ox`, !mod_binary$`Lys acetyl`)
+chi <- chisq.test(ox_acetyl) |> htest2tb(data.name = "Association between Met ox and Lys acetyl")
+# Was significant
+
+grouped <- data |>
+  group_by(GroupUP) |>
+  mutate(ProteinId = str_sub(ProteinId, 1, 1)) |>
+  summarise(
+    GO_IDs = paste0(GO_IDs, collapse = ";"),
+    ID_method = paste_unique(ID_method),
+    ProteinId = paste_unique(ProteinId)
+  ) |>
+  filter(!is.na(GO_IDs)) |>
+  mutate(
+    `not DBP` = ifelse(str_detect(ProteinId, "P"), FALSE, TRUE),
+    `id with open` = ifelse(str_detect(ID_method, "standard"), FALSE, TRUE)
+  )
+
+subset_binary <- grouped |>
+  left_join(lfq, by = join_by(GroupUP)) |>
+  left_join(mod_binary, by = join_by(GroupUP)) |>
+  select(-c(ID_method, GO_IDs, log_intensity, ProteinId)) |>
+  replace_na_all(FALSE)
+
+investigate_association <- subsets[subsets %in% colnames(subset_binary)]
+
+combos <- combn(investigate_association, 2)
+
+independence <- lapply(seq_len(ncol(combos)), \(i) {
+  x <- combos[1, i]
+  y <- combos[2, i]
+  contigency <- table(subset_binary[[x]], subset_binary[[y]])
+  if (length(contigency) != 4) {
+    return(tibble())
+  }
+  chisq.test(contigency) |>
+    htest2tb(data.name = glue("{x} x {y}")) |>
+    mutate(left = x, right = y)
+}) |>
+  bind_rows() |>
+  select(-c(alternative, null)) |>
+  get_adjusted_p() |>
+  mutate(method = "Chi-squared")
+
+TABLES$subset_chi <- independence
+
+odds <- independence |>
+  filter(significant == 1) |>
+  apply(1, \(x) {
+    left <- x[["left"]]
+    right <- x[["right"]]
+    tab <- table(subset_binary[[left]], !subset_binary[[right]],
+      dnn = c(left, right)
+    )
+    or <- get_odds_ratio(tab)
+    tibble(
+      pair = glue("{left} x {right}"), OR = or,
+      interpretation = glue("Odds of '{right}' are {round(or, 2)} times higher in 'not {left}' than '{left}'")
+    )
+  }) |>
+  bind_rows()
+
+TABLES$subset_odds <- odds
+
+ta <- new.env()
+reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
+group_sets <- lapply(subsets, \(s) {
+  if (s %in% colnames(subset_binary)) {
+    subset_binary |>
+      filter(!!as.symbol(s)) |>
+      pluck("GroupUP")
+  } else {
+    NULL
+  }
+}) |>
+  `names<-`(subsets) |>
+  discard(is.null)
+
+group_overlap <- ta$calculate_overlaps(group_sets) |> as_tibble()
+GRAPHS$group_overlap <- group_overlap |>
+  sort_pairs_overlap() |>
+  ggplot(aes(x = second, y = first, fill = overlap)) +
+  geom_tile() +
+  theme_minimal() +
+  scale_fill_paletteer_c("ggthemes::Red-Gold", name = "Overlap coefficient\n (Protein groups)") +
+  M$default_theme +
+  theme(
+    axis.text.x = element_text(angle = 90),
+    legend.position = "inside",
+    legend.position.inside = c(.35, .70),
+    panel.grid = element_blank(), axis.title.x = element_blank()
+  ) +
+  scale_y_discrete(position = "right") +
+  ylab("Subset")
+
+
+joined_overlap <- group_overlap |>
+  sort_pairs_overlap() |>
+  inner_join(sort_pairs_overlap(id_overlap), by = join_by(pair))
+
+ggplot(joined_overlap, aes(x = overlap.x, y = overlap.y)) +
+  geom_point() +
+  xlab("Overlap coefficient (Group)") +
+  ylab("Overlap coefficient (Enriched terms)")
+# with(joined_overlap, wilcox.test(overlap.x, overlap.y, paired = TRUE))
+
+# ----------------------------------------
+# Plot word clouds
+
+wc <- new.env()
+reticulate::source_python(glue("{M$python_source}/word_clouds.py"), envir = wc)
+
+format_for_wc <- function(tb, val_col = "sorted_p") {
+  tokenized <- tb |>
+    group_by(name) |>
+    summarise(
+      sorted_p = mean(sorted_p), n = n(),
+      ontology = dplyr::first(ontology),
+      subset = paste0(subset, collapse = ";")
+    ) |>
+    tokenize2plot(tokenize_params, term_col = "name", sort_by = "sorted_p")
+  list(
+    tokens = tb2named_list(tokenized$tb, "token", val_col),
+    abbrevs = tb2named_list(tokenized$legend_text, "abbrev", "text"),
+    tb = tokenized$tb
+  )
+}
+
+# PTMs
+all_ontologizer$subset
+ptm_colors <- list(
+  `Met ox` = "#95d0fc",
+  `Lys acetyl` = "#96f97b",
+  Both = "#ffff14"
+)
+ptm_wc <- all_ontologizer |>
+  filter(subset == "Met ox" | subset == "Lys acetyl") |>
+  # filter(subset %in% mod_names2) |>
+  format_for_wc()
+
+ptm_wc$tb <- ptm_wc$tb |> mutate(subset = case_when(str_detect(subset, ";") ~ "Both", .default = subset))
+ptm_map <- ptm_wc$tb |>
+  tb2named_list("token", "subset")
+wc_params <- list(
+  category2colormap = ptm_colors, item2category = ptm_map,
+  abbrev_size = 20, cmap_size = 20
+)
+GRAPHS$ptm_wc <- wc$word_cloud_main(
+  ptm_wc$tokens,
+  ptm_wc$abbrevs,
+  params = wc_params
+)
+
+# Identification method
+
+
+# Intensity
+intensity_colors <- list(`high intensity` = "ch:s=-.2,r=.6", `low intensity` = "Reds", `medium intensity` = "Greens")
+intensity_wc <- all_ontologizer |>
+  filter(grepl("intensity", subset)) |>
+  format_for_wc()
+intensity_wc$tb <- intensity_wc$tb |> filter(!grepl(";", subset))
+
+intensity_map <- intensity_wc$tb |> tb2named_list("token", "subset")
+intensity_wc$tokens <- intensity_wc$tb |>
+  tb2named_list("token", "sorted_p")
+
+wc_params2 <- list(
+  category2colormap = intensity_colors, item2category = intensity_map,
+  abbrev_size = 20, cmap_size = 20
+)
+GRAPHS$intensity_wc <- wc$word_cloud_main(intensity_wc$tokens, intensity_wc$abbrevs, params = wc_params2)
 
 TABLES$all_ontologizer_sig <- all_ontologizer
-
-
-
-intensity_vecs_ontology
-all_ontologizer$ontology
 
 GRAPHS$intensity_overlap <- ggVennDiagram(intensity_vecs) + scale_fill_paletteer_c("ggthemes::Classic Red")
 
