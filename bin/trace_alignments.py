@@ -1,4 +1,5 @@
 import sys
+from collections import Counter
 import polars.selectors as cs
 import itertools
 from Bio.motifs.matrix import GenericPositionMatrix
@@ -532,6 +533,24 @@ def overlap(x, y):
     return len(x & y) / min(len(x), len(y))
 
 
+def calculate_overlaps(dct: dict) -> pl.DataFrame:
+    combos = itertools.permutations(dct.keys(), 2)
+    overlap_dct = {"first": [], "second": [], "smaller": [], "overlap": [], "pair": []}
+    for x, y in combos:
+        x_set, y_set = dct[x], dct[y]
+        if not isinstance(x_set, set):
+            x_set = set(x_set)
+        if not isinstance(y_set, set):
+            y_set = set(y_set)
+        overlap_dct["overlap"].append(overlap(x_set, y_set))
+        overlap_dct["pair"].append(";".join(sorted([x, y])))
+        overlap_dct["first"].append(x)
+        overlap_dct["second"].append(y)
+        smaller = x if len(x_set) < len(y_set) else y
+        overlap_dct["smaller"].append(smaller)
+    return pl.DataFrame(overlap_dct).sort("overlap")
+
+
 def get_peptide_overlap(pep_map_path: str):
     pep_map = pl.read_csv(pep_map_path, separator="\t", null_values="NA")
     pep_map = pep_map.filter(pl.col("engine").is_not_null())
@@ -539,21 +558,13 @@ def get_peptide_overlap(pep_map_path: str):
         e: set(pep_map.filter(pl.col("engine") == e)["peptideIds"])
         for e in pep_map["engine"].unique()
     }
+    unique_counts: pl.DataFrame = pep_map.group_by("engine").n_unique()
+    peptide_id_counts = dict(zip(unique_counts["engine"], unique_counts["peptideIds"]))
 
     perms = np.array(list(itertools.permutations(peps_dct.keys(), 2)))
     any_subsets = perms[[peps_dct[x] < peps_dct[y] for x, y in perms]]
-
-    combos = itertools.permutations(peps_dct.keys(), 2)
-    overlap_dct = {"first": [], "second": [], "smaller": [], "overlap": []}
-    for x, y in combos:
-        x_set, y_set = peps_dct[x], peps_dct[y]
-        overlap_dct["overlap"].append(overlap(x_set, y_set))
-        overlap_dct["first"].append(x)
-        overlap_dct["second"].append(y)
-        smaller = x if len(x_set) < len(y_set) else y
-        overlap_dct["smaller"].append(smaller)
-    overlap_df = pl.DataFrame(overlap_dct).sort("overlap")
-    return overlap_df, list(any_subsets)
+    overlap_df = calculate_overlaps(peps_dct)
+    return overlap_df, list(any_subsets), peptide_id_counts
 
 
 def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.DataFrame:
@@ -562,12 +573,11 @@ def get_peptide_match_df(peptide_map_path: str, aq_reformat_path: str) -> pl.Dat
         mean_intensity=pl.mean_horizontal(cs.float())
     )
     pep_map = pl.read_csv(peptide_map_path, separator="\t", null_values="NA")
-    pep_map = pep_map.join(intensity, left_on="peptideIds", right_on="ion")
+    pep_map = pep_map.join(intensity, left_on="peptideIds", right_on="ion", how="left")
     grouping_vars = ["mass", "length", "mean_intensity", "match_type"]
     id_aliases: dict = {
         p: f"p{i}" for i, p in enumerate(pep_map["peptideIds"].unique())
     }
-    # TODO categorize the peptides by the proteins they match to
     pep_map = pep_map.with_columns(
         PeptideId=pl.col("peptideIds").map_elements(lambda x: id_aliases[x]),
         match_type=pl.col("ProteinId")
