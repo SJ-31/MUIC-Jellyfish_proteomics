@@ -28,7 +28,13 @@ main <- function(args) {
   # Modified proteins or identified in open search
   groups[["unknown_to_db"]] <- dplyr::filter(combined, inferred_by == "interpro" |
     inferred_by == "eggNOG" |
-    grepl("[DT]", ProteinId)) |>
+    grepl("^[DT]", ProteinId)) |>
+    pluck("GroupUP") |>
+    unique()
+  groups[["denovo"]] <- dplyr::filter(combined, grepl("^D", ProteinId)) |>
+    pluck("GroupUP") |>
+    unique()
+  groups[["transcriptome"]] <- dplyr::filter(combined, grepl("^T", ProteinId)) |>
     pluck("GroupUP") |>
     unique()
   # Proteins not known to database, inferred with eggNOG and interpro
@@ -63,15 +69,10 @@ getSlims <- function(args) {
 }
 
 wordClouds <- function(args) {
-  transformP <- function(p_vec) {
-    lg <- -log(p_vec)
-    lg[lg == Inf] <- .Machine$integer.max
-    lg
-  }
   prep <- function(tb, go_vec) {
     info_tb <- go_info_tb(go_vec)
     tb <- tb %>%
-      mutate(sorted_p = transformP(`p.adjusted`)) %>%
+      mutate(sorted_p = invert_p_values(`p.adjusted`)) %>%
       inner_join(., info_tb, by = join_by(x$ID == y$GO_IDs))
     tb
   }

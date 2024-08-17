@@ -15,6 +15,7 @@ process COMBINE_PERCOLATOR {
     path("percolator_all.tsv")
     path("seq-header_map_found.tsv"), emit: seq_map
     path("percolator_peptide_map.tsv"), emit: peptide_map
+    path("percolator_peptide_map_all.tsv"), emit: peptide_map_all
     path("*.log"), optional: true
     //
 
@@ -25,6 +26,7 @@ process COMBINE_PERCOLATOR {
         cp $check .
         cp ${outdir}/seq-header_map_found.tsv .
         cp ${outdir}/percolator_peptide_map.tsv .
+        cp ${outdir}/percolator_peptide_map_all.tsv .
         """
     } else {
     """

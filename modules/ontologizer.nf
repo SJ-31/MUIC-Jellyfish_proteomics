@@ -10,7 +10,7 @@ process ONTOLOGIZER {
 
     output:
     path("*")
-    path("ontologizer-*"), emit: over
+    path("ontologizer-*.txt"), emit: over
     path("*_GO_slims.tsv")
     path("*.png")
     //

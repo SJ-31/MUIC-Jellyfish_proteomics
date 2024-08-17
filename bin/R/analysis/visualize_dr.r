@@ -4,6 +4,7 @@ library("glue")
 main <- function(args) {
   library(reticulate)
   source(glue("{args$r_source}/GO_helpers.r"))
+  source(glue("{args$r_source}/helpers.r"))
   source(glue("{args$r_source}/analysis/metric_functions.r"))
   source(glue("{args$r_source}/DR_helpers.r"))
   source(glue("{args$r_source}/analysis/prepare_embeddings.r"))
@@ -38,7 +39,9 @@ main <- function(args) {
   )
   for (color in e$color) {
     if (color == "assigned_COG") {
+      data <- read_tsv(args$combined_results) |> select(ProteinId, GroupUP)
       result$to_plot <- simplify_cog(result$to_plot) |>
+        inner_join(data, by = join_by(ProteinId)) |>
         filter(!is.na(assigned_COG)) |>
         group_by(GroupUP) |>
         slice_sample(n = 1)
