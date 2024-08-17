@@ -46,8 +46,9 @@ GRAPHS$percent_found <- percent_found %>%
 # for confirmation only (we expect them to differ)
 tb <- M$data
 grouping_metric <- "assigned_COG"
-if (!is.null(M$data_w_cat)) {
-  tb <- M$data_w_cat %>%
+if (!file.exists(M$data_w_cat_path)) {
+  w_cat <- read_tsv(M$data_w_cat_path)
+  tb <- w_cat %>%
     inner_join(M$lfq, by = join_by(ProteinId)) |>
     simplify_cog() |>
     filter(!is.na(assigned_COG))

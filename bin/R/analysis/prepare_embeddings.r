@@ -75,8 +75,7 @@ embeddingData <- function(
     filter(ProteinId %in% rownames(py_embd$embeddings))
   if (!missing(comparison_meta)) {
     comp_meta <- read_tsv(comparison_meta) %>% rename(ProteinId = Entry)
-    data <- bind_rows(data, comp_meta) %>%
-      mutate(Taxon = sample_name) %>%
+    data <- bind_rows(mutate(data, Taxon = sample_name), comp_meta) %>%
       select(c(ProteinId, Taxon)) %>%
       filter(ProteinId %in% rownames(py_embd$embeddings))
     color <- "Taxon"

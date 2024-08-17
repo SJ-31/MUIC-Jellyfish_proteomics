@@ -10,12 +10,12 @@ save_legend <- function(
     labels = color_map,
     legend_gp = list(fill = names(color_map)), title = title, nrow = nrows
   )
-  height <- grobHeight(lgd@grob) |> convertHeight("inches", valueOnly = TRUE)
-  width <- grobWidth(lgd@grob) |> convertWidth("inches", valueOnly = TRUE)
+  height <- grobHeight(lgd@grob) #|> convertHeight("inches", valueOnly = TRUE)
+  width <- grobWidth(lgd@grob) # |> convertWidth("inches", valueOnly = TRUE)
   if (str_detect(filename, ".svg$")) {
-    saveFun <- \() svg(filename, width = width + 0.5, height = height)
+    saveFun <- \() svg(filename, width = width, height = height)
   } else if (str_detect(filename, ".png$")) {
-    saveFun <- \() png(filename, width = width + 0.5, height = height, units = "in")
+    saveFun <- \() png(filename, width = width, height = height, units = "px")
   }
   saveFun()
   grid.draw(lgd)
@@ -37,7 +37,7 @@ save_chord <- function(tc, filename, width = 10, height = 10) {
     saveFun <- \() svg(filename, width = width + 0.5, height = height)
   } else if (str_detect(filename, ".png$")) {
     ext <- "png"
-    saveFun <- \() png(filename, width = width + 0.5, height = height, units = "in")
+    saveFun <- \() png(filename, width = width, height = height, units = "px")
   }
   saveFun()
   plot_chord(tc, go_colors, TRUE, TRUE)

@@ -105,11 +105,6 @@ resolve_alignment <- function(seq1, seq2) {
   return(str_flatten(resolved))
 }
 
-resolve_alignment2 <- function(seq1, seq2) {
-
-
-}
-
 append_all_list <- function(lst, to_append) {
   if (length(to_append) > 1) {
     new <- lapply(seq_along(lst), \(x) {

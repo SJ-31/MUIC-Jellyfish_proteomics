@@ -20,36 +20,6 @@ texts <- list.files(DATA_DIR, full.names = TRUE) %>%
   lapply(get_text) %>%
   unlist()
 
-other <- c(
-  "amino acid", "fatty acid",
-  "cuticle chitin", "omega N", "gaseous exchange",
-  "smooth muscle", "cardiac muscle",
-  "plasma membrane bounded",
-  "transmembrane transporter", "endoplasmic reticulum",
-  "extracellular matrix", "spindle pole", "antigen processing",
-  "DNA replication", "synaptic vesicle", "calcium ion",
-  "transport vesicle", "viral capsid", "basal body",
-  "myelin sheath",
-  "mitotic spindle", "RNA polymerase", "DNA polymerase",
-  "transcription factor", "vesicle lumen", "ubiquitin ligase",
-  "actin filament", "receptor signaling",
-  "growth factor", "skeletal muscle", "neural retina", "complex assembly",
-  "cellular fusion", "Golgi apparatus", "visible light",
-  "action potential", "synaptic signaling", "Golgi vesicle",
-  "secretory granule", "light stimulus", "heart rate",
-  "external stimulus", "abiotic stimulus", "mechanical stimulus",
-  "lytic vacuole", "pH reduction", "pigment granule",
-  "intracellular vesicle", "pole plasm", "developmental growth"
-)
-PHRASES <- quanteda::phrase(c(other, texts))
-
-tb_compound_word <- function(tb, word, fun) {
-  has <- tb %>% filter(grepl(word, term))
-  has_not <- tb %>% filter(!grepl(word, term))
-  has$term <- fun(has$term)
-  bind_rows(has, has_not)
-}
-
 compound_all <- function(str) {
   check_arg(str, \(x) is.atomic(x))
   str_replace_all(str, " ", "_")
@@ -61,10 +31,13 @@ ABBREVS <- c(
   organization = "org.",
   establishment = "est.",
   processing = "prcs.",
+  process = "prc.",
   biological = "biol.", intracellular = "intr.",
   activity = "act.", extracellular = "extr.",
-  "developmental|development" = "dev.",
-  "metabolic process" = "m.p.",
+  developmental = "dev.",
+  positive = "+", negative = "-",
+  development = "dev.",
+  `metabolic process` = "m.p.",
   proliferation = "prol.",
   response = "resp.",
   migration = "mig.",
@@ -83,43 +56,46 @@ find_abbrev <- function(str) {
     discard(is.na)
 }
 
-tokenize2plot <- function(tb, params = NULL) {
-  min_count <- lget(params, "min_count", quantile(tb$n, 0.80, na.rm = TRUE))
-  top_n <- lget(params, "top_n", 50)
-  abbreviate <- lget(params, "abbreviate", TRUE)
-  sort_by <- lget(params, "sort_by", "n")
-  term_col <- lget(params, "term_col", "term")
-  compound <- lget(params, "compound", TRUE)
+tokenize2plot <- function(
+    tb, term_col = "term",
+    sort_by = "n", params = NULL, top_n = NULL,
+    abbreviate = TRUE, compound = TRUE, min = NULL) {
   result <- list()
   if (compound) {
     tb <- tb %>%
       mutate(., term = compound_all(!!as.symbol(term_col))) %>%
-      tidytext::unnest_tokens(., token, term) %>%
-      filter(., !token %in% UNWANTED & nchar(token) > 2) %>%
+      tidytext::unnest_tokens(., token, term,
+        to_lower = FALSE,
+        token = "regex",
+        pattern = " ",
+      ) %>%
       mutate(token = map_chr(token, \(x) str_replace_all(x, "_", " ")))
   } else {
     tb <- dplyr::rename(tb, token = !!as.symbol(term_col)) %>% filter(., !is.na(token))
   }
   tb <- tb %>%
-    {
-      if (sort_by == "n") filter(., n > min_count) else .
-    } %>%
     distinct(token, .keep_all = TRUE) %>%
-    arrange(., desc(!!as.symbol(sort_by))) %>%
-    slice(1:top_n)
+    arrange(., desc(!!as.symbol(sort_by)))
+  if (!is.null(top_n)) {
+    tb <- slice(tb, 1:top_n)
+  }
   if (abbreviate) {
     found_abbrevs <- tb$token |>
       lapply(find_abbrev) |>
       unlist() |>
       discard(is.na)
     if (length(found_abbrevs) != 0) {
+      legend_list <- list(abbrev = c(), text = c())
       legend_text <- found_abbrevs %>%
         map_chr(., \(x)  {
           key <- ABBREVS[x]
+          legend_list$abbrev <<- append(legend_list$abbrev, key)
+          legend_list$text <<- append(legend_list$text, x)
           glue("{key} = {x}")
         }) %>%
         unique()
       result$abbrevs <- grid::legendGrob(legend_text)
+      result$legend_text <- as_tibble(legend_list) |> distinct(abbrev, .keep_all = TRUE)
     }
     tb$token <- tb$token %>% map_chr(., \(x) str_replace_all(x, F_ABBREVS))
   }
@@ -147,19 +123,15 @@ wordcloud_custom <- function(tb, params, abbrev_legend = NULL) {
   }
   plot <- plot +
     ggwordcloud::geom_text_wordcloud_area(
-      show.legend = TRUE, family = "serif",
+      show.legend = TRUE, family = lget(params, "font_face", "serif"),
       grid_size = grid_size,
       max_grid_size = max_grid_size,
       rm_outside = TRUE,
       shape = shape
     ) +
     theme(panel.background = element_rect(fill = "#eff1f5")) +
-    scale_size_area(max_size = max_size) +
-    guides(size = FALSE, alpha = FALSE) +
-    theme(
-      text = element_text(family = "Ubuntu"), legend.title = element_text(face = "bold"),
-      legend.text = element_text(family = "Ubuntu")
-    )
+    scale_size_area(max_size = max_size, trans = power_trans(1 / .8)) +
+    guides(size = FALSE, alpha = FALSE)
   if (!is.null(abbrev_legend)) {
     plot <- plot + guides(custom = ggplot2::guide_custom(abbrev_legend, title = "Abbreviations"))
   }
@@ -177,7 +149,7 @@ special_go_clouds <- function(
     is_info_tb = FALSE,
     plot_special = TRUE, frequencies = NULL, to_generic = TRUE) {
   check_arg(tb, \(x) ("tbl" %in% class(x)) && (go_column %in% colnames(x)))
-  gos <- get_go_vec(tb, go_column = "GO_IDs") |> discard(\(x) x %in% UNWANTED)
+  gos <- get_go_vec(tb, go_column = "GO_IDs")
   if (to_generic) {
     ref <- read_tsv(MAP_REF_FILE)
     map <- hash::hash(key = ref["child"], values = ref["parent"])

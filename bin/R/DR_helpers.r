@@ -76,11 +76,7 @@ biplot_custom <- function(ordination_tb, colour_column, x, y, palette, labels) {
       )) +
         geom_point(size = 1, stroke = 1) +
         scale_color_paletteer_d(p) +
-        theme_bw() +
-        labs(
-          title = labels$title,
-          caption = labels$caption
-        )
+        theme_bw()
     },
     error = \(cnd) {
       message("Error in plotting")

@@ -8,8 +8,6 @@ library("paletteer")
 library("Peptides")
 library("glue")
 
-
-
 save <- function(to_save, outdir) {
   by_type <- function(name, object) {
     if ("gg" %in% class(object) || "grob" %in% class(object)) {
@@ -25,6 +23,8 @@ save <- function(to_save, outdir) {
       plotly::save_image(object, glue("{outdir}/{name}.svg"), width = 1000, height = 800)
     } else if (object == 0) {
       base::cat("", file = glue("{outdir}/{name}.txt"))
+    } else if ("matplotlib.figure.Figure" %in% class(object)) {
+      object$savefig(glue("{outdir}/{name}.png"), bbox_inches = "tight")
     } else if (is.character(object) && is.atomic(object)) {
       base::cat(object, file = glue("{outdir}/{name}.txt"))
     }
@@ -37,7 +37,6 @@ save <- function(to_save, outdir) {
   })
 }
 
-
 M <- list()
 if (str_detect(getwd(), "Bio_SDD")) {
   M$wd <- "/home/shannc/Bio_SDD/MUIC_senior_project/workflow"
@@ -49,14 +48,20 @@ if (str_detect(getwd(), "Bio_SDD")) {
   M$tools <- "/home/shannc/workflow/tools"
 }
 
+M$path <- glue("{M$wd}/results/C_indra")
+M$cpath <- glue("{M$wd}/results/C_indra.calibrated")
+M$mpath <- glue("{M$wd}/results/C_indra.msconvert")
+M$ndpath <- glue("{M$wd}/results/ND_C_indra")
+M$all_paths <- list(M$path, M$mpath, M$cpath, M$ndpath)
+
 # ----------------------------------------
 #' Main entry point to choose paths
 M$prefixes <- list("C_indra", "C_indra.msconvert", "C_indra.calibrated", "ND_C_indra")
 M$params <- list("default", "msConvert", "Calibrated", "ND")
-M$chosen_prefix <- M$prefixes[[1]]
+M$chosen_prefix <- M$prefixes[[3]]
 M$passes <- list(First = "1-First_pass", Second = "2-Second_pass")
 M$chosen_pass <- M$passes$Second
-M$chosen_path <- glue("{M$wd}/results/C_indra")
+M$chosen_path <- M$cpath
 # ----------------------------------------
 
 
@@ -69,11 +74,6 @@ M$default_theme <- theme(
   strip.text = element_text(size = 13),
   axis.title.x = element_text(size = 15)
 )
-M$path <- glue("{M$wd}/results/C_indra")
-M$cpath <- glue("{M$wd}/results/C_indra.calibrated")
-M$mpath <- glue("{M$wd}/results/C_indra.msconvert")
-M$ndpath <- glue("{M$wd}/results/ND_C_indra")
-M$all_paths <- list(M$path, M$mpath, M$cpath, M$ndpath)
 M$fdr <- 0.05
 M$outdir <- glue("{M$wd}/docs/figures")
 M$prottrans_embd <- glue("{M$outdir}/Embeddings_prottrans/embeddings.hdf5")
@@ -89,6 +89,7 @@ M$uniprot_data_dir <- glue("{M$wd}/data/protein_databases/comparison_taxa")
 M$data_path <- glue("{M$chosen_path}/{M$chosen_pass}/{M$chosen_prefix}_all_wcoverage.tsv")
 M$peptide_map_path <- glue("{M$chosen_path}/{M$chosen_pass}/percolator_peptide_map.tsv")
 M$ontologizer_path <- glue("{M$chosen_path}/Analysis/Ontologizer")
+M$toxin_map_path <- glue("{M$chosen_path}/Analysis/toxin_groups.tsv")
 M$embedding_path <- glue("{M$wd}/data/reference/go_embedded.npz")
 M$ontologizer_exec <- glue("{M$tools}/Ontologizer.jar")
 M$orgdb_path <- glue("{M$chosen_path}/Analysis/{M$chosen_prefix}_org.db")
@@ -141,9 +142,7 @@ if (str_detect(M$chosen_pass, "Second")) {
 } else {
   M$data <- M$run$first
 }
-if (file.exists(glue("{M$chosen_path}/Analysis/{M$chosen_prefix}_all_wcog.tsv"))) {
-  M$data_w_cat <- read_tsv(glue("{M$chosen_path}/Analysis/{M$chosen_prefix}_all_wcog.tsv"))
-}
+M$data_w_cat_path <- glue("{M$chosen_path}/Analysis/{M$chosen_prefix}_all_wcog.tsv")
 M$alignments <- get_alignment_data(M$chosen_path, M$chosen_pass)
 M$taxa_cols <- c("Kingdom", "Phylum", "Class", "Order", "Family", "Genus")
 
@@ -183,3 +182,32 @@ if (PLOT_GO) {
 #' - Isolate cases where peptides are longer than proteins they were matched to
 #'   by blast
 SOURCED <- TRUE
+
+M$cog_map <- list(
+  j = "Translation, ribosomal structure, and biogenesis",
+  a = "RNA processing and modification",
+  k = "Transcription",
+  l = "Replication, recombination, and repair",
+  b = "Chromatin structure and dynamics",
+  d = "Cell cycle control, cell division, chromosome partitioning",
+  y = "Nuclear structure",
+  v = "Defense mechanisms",
+  t = "Signal transduction mechanisms",
+  m = "Cell wall/membrane/envelope biogenesis",
+  n = "Cell motility",
+  z = "Cytoskeleton",
+  w = "Extracellular structures",
+  u = "Intracellular trafficking, secretion, and vesicular transport",
+  o = "Posttranslational modification, protein turnover, chaperones",
+  c = "Energy production and conversion",
+  g = "Carbohydrate transport and metabolism",
+  e = "Amino acid transport and metabolism",
+  f = "Nucleotide transport and metabolism",
+  h = "Coenzyme transport and metabolism",
+  i = "Lipid transport and metabolism",
+  p = "Inorganic ion transport and metabolism",
+  q = "Secondary metabolites biosynthesis, transport, and catabolism",
+  r = "General function prediction only",
+  s = "Function unknown",
+  venom_component = "venom component"
+)
