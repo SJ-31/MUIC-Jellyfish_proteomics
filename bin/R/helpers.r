@@ -68,7 +68,7 @@ gg_numeric_dist <- function(lst, method = "hist", ...) {
   tb <- purrr::lmap(lst, \(x) tibble(freq = x[[1]], id = names(x))) %>%
     bind_rows()
   if (method == "boxplot") {
-    plot <- tb %>% ggplot(aes(x = id, y = freq, color = id)) +
+    plot <- tb %>% ggplot(aes(x = id, y = freq, fill = id)) +
       geom_boxplot(...)
   } else if (method == "hist") {
     plot <- tb %>% ggplot(aes(x = freq, color = id, fill = id)) +
@@ -754,4 +754,11 @@ invert_p_values <- function(p_vec) {
 
 tb2named_list <- function(tb, names, vals) {
   with(tb, setNames(as.list(tb[[vals]]), tb[[names]]))
+}
+
+named_list2tb <- function(lst) {
+  purrr::reduce(names(lst), \(tb, name) {
+    cur <- tibble(name = name, value = lst[[name]])
+    bind_rows(cur, tb)
+  }, .init = tibble())
 }

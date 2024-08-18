@@ -166,14 +166,14 @@ GRAPHS$all_length_bias <- all_length_bias |> or_graph(
 bias_to_plot <- all_match_bias |>
   # mutate(across(contains("OR"), log2)) |>
   filter(param != "ND" & !engine %in% open_search_engines)
-GRAPHS$match_bias <- or_graph(bias_to_plot, "match_type", "MoMAColors::Warhol") + xlab("Match type")
+GRAPHS$all_match_bias <- or_graph(bias_to_plot, "match_type", "MoMAColors::Warhol") + xlab("Match type")
 
 TABLES$match_bias <- all_match_bias
 TABLES$intensity_bias <- all_intensity_bias
 TABLES$length_bias <- all_length_bias
 attr(GRAPHS$all_intensity_bias, "width") <- 18
 attr(GRAPHS$all_length_bias, "width") <- 18
-attr(GRAPHS$match_bias, "width") <- 18
+attr(GRAPHS$all_match_bias, "width") <- 18
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/engine_category_bias"))
 save(CONTINGENCY, glue("{M$outdir}/engine_category_bias/contingency"))

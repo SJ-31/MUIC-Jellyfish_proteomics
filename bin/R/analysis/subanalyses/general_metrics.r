@@ -1,5 +1,7 @@
 library("ggVennDiagram")
 library("cowplot")
+library("ggpattern")
+library("ggbeeswarm")
 library("gridExtra")
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
@@ -17,8 +19,30 @@ GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent co
 
 TABLES$run_stats <- get_run_stats(read_tsv(M$data_path)) |> gt()
 
-# Unique proteins to each run
-run_uniques <- get_pass_uniques(M$run)
+stat_cols <- c("ID_method", "inferred_by", "source")
+id_stats <- read_tsv(M$data_w_cat_path) |>
+  mutate(source = case_when(
+    str_detect(ProteinId, "P") ~ "DBP",
+    str_detect(ProteinId, "T") ~ "transcriptome",
+    .default = "denovo"
+  )) |>
+  group_by(GroupUP) |>
+  summarise(across(all_of(stat_cols), \(x) modes(x, first = TRUE)))
+
+GRAPHS$id_method_source <- id_stats |> ggplot(aes(x = ID_method, fill = source)) +
+  geom_bar(position = "dodge") +
+  geom_text(aes(label = after_stat(count)),
+    stat = "count",
+    position = position_dodge(width = 0.9), vjust = 0.1,
+    fontface = "bold", size = 5
+  ) +
+  M$default_theme +
+  guides(fill = guide_legend("Protein group type")) +
+  ylab("Count") +
+  xlab("Identification method") +
+  scale_fill_paletteer_d("ltc::fernande")
+
+
 percent_found <- dplyr::bind_cols(
   not_missing(M$run$first),
   not_missing(M$run$sec)
@@ -44,16 +68,20 @@ GRAPHS$percent_found <- percent_found %>%
 
 # Check if coverage and intensity differs significantly between protein groups
 # for confirmation only (we expect them to differ)
-tb <- M$data
 grouping_metric <- "assigned_COG"
-if (!file.exists(M$data_w_cat_path)) {
+if (file.exists(M$data_w_cat_path)) {
   w_cat <- read_tsv(M$data_w_cat_path)
+  lfq <- merge_lfq(inner_join(w_cat, M$lfq, by = join_by(ProteinId)), "mean")
   tb <- w_cat %>%
-    inner_join(M$lfq, by = join_by(ProteinId)) |>
+    inner_join(lfq, by = join_by(ProteinId)) |>
     simplify_cog() |>
-    filter(!is.na(assigned_COG))
-  lfq <- dplyr::select(tb, all_of(grouping_metric), ProteinId) %>%
-    inner_join(., merge_lfq(tb, "mean"))
+    mutate(assigned_COG = replace(assigned_COG, is.na(assigned_COG), "Function unknown")) |>
+    group_by(GroupUP) |>
+    summarise(
+      assigned_COG = modes(assigned_COG),
+      size = n(),
+      across(where(is.double), \(x) mean(x, na.rm = TRUE))
+    )
   apply_over <- tb[[grouping_metric]] %>%
     table() %>%
     discard(., \(x) x < 100) %>%
@@ -62,7 +90,7 @@ if (!file.exists(M$data_w_cat_path)) {
     v = apply_over, col_from = grouping_metric,
     target_col = "pcoverage_align"
   )
-  intensity_list <- group_list_from_tb(lfq, apply_over, grouping_metric, "log_intensity")
+  intensity_list <- group_list_from_tb(tb, apply_over, grouping_metric, "log_intensity")
   GRAPHS$intensity_categories <- gg_numeric_dist(intensity_list, "boxplot") +
     labs(y = "log intensity", x = grouping_metric) + theme(
       axis.text.x = element_blank(),
@@ -71,29 +99,56 @@ if (!file.exists(M$data_w_cat_path)) {
     guides(color = guide_legend(grouping_metric)) + scale_color_paletteer_d(PALETTE) +
     M$default_theme
   GRAPHS$coverage_categories <- gg_numeric_dist(cov_list, "boxplot") +
-    labs(y = "coverage (%)", x = grouping_metric) + theme(
+    labs(y = "Coverage (%)", x = grouping_metric) +
+    M$default_theme +
+    theme(
       axis.text.x = element_blank(),
       axis.title.x = element_blank(),
       legend.title = element_text(face = "bold")
     ) +
-    guides(color = guide_legend(grouping_metric)) +
-    scale_color_paletteer_d(PALETTE) +
-    M$default_theme
-  attr(GRAPHS$coverage_categories, "width") <- 15
+    guides(fill = guide_legend("Assigned COG")) +
+    scale_fill_paletteer_d(PALETTE)
+  attr(GRAPHS$coverage_categories, "width") <- 18
 
-  with_category <- inner_join(tb, lfq) %>%
-    select(ProteinId, log_intensity, !!grouping_metric) %>%
-    filter(!is.na(log_intensity)) %>%
+  with_category <- tb |>
+    select(GroupUP, log_intensity, !!grouping_metric, size) %>%
+    filter(!is.na(log_intensity) & !is.na(!!grouping_metric)) %>%
     arrange(log_intensity) %>%
     mutate(rank = seq_len(nrow(.)))
-  GRAPHS$category_ranks <- with_category %>%
+
+  with_category$assigned_COG <- factor(with_category$assigned_COG)
+  category_ranks <- with_category %>%
     ggplot(aes(x = rank, y = log_intensity, color = !!as.symbol(grouping_metric))) +
     geom_point() +
     labs(x = "Rank", y = "Log intensity") +
     scale_color_paletteer_d(PALETTE) +
-    M$default_theme
+    M$default_theme +
+    guides(color = guide_legend("Assigned COG"))
 
+  category_box <- with_category |>
+    filter(assigned_COG != "Function unknown") |>
+    ggplot(aes(y = log_intensity, fill = str_wrap(assigned_COG, 30))) +
+    geom_boxplot() +
+    M$default_theme +
+    scale_fill_paletteer_d(PALETTE) +
+    ylab("Log intensity") +
+    theme(axis.text.x = element_blank()) +
+    guides(fill = guide_legend("Assigned COG"))
+
+  cog_hist <- tb |>
+    filter(assigned_COG != "Function unknown") |>
+    ggplot(aes(x = size, fill = assigned_COG)) +
+    geom_histogram() +
+    scale_y_log10() +
+    M$default_theme +
+    scale_fill_paletteer_d(PALETTE) +
+    guides(fill = "none") +
+    ylab("Log 10 count") +
+    xlab("Protein group size")
+
+  GRAPHS$cog_hist_intensity <- cowplot::plot_grid(cog_hist, category_box, rel_widths = c(1, 1))
   # Top ten most intense proteins
+  attr(GRAPHS$cog_hist_intensity, "width") <- 20
   top_ten <- lfq %>%
     arrange(desc(log_intensity)) %>%
     slice(1:10)

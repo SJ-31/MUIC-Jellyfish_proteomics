@@ -55,6 +55,8 @@ fgseaWrapper <- function(quant, tb, gene_sets, id_col = "ProteinId") {
   return(list(result = fgsea, ranked = ranked))
 }
 
+
+
 # See here for more plotting
 # https://yulab-smu.top/biomedical-knowledge-mining-book/enrichplot.html
 plotFgsea <- function(gene_sets, ranked_list, fgsea_result, p_cutoff = 0.05) {
