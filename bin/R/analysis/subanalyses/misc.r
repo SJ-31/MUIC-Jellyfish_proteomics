@@ -22,6 +22,7 @@ capture.output(missing_quant_tests, file = glue("{M$outdir}/missing_quantificati
 rm(noq)
 rm(hasq)
 # --------------------------------------------------------
+# Get Count of fragments
 
 fragment_names <- c("fragment", "partial")
 fragment_regex <- paste0(fragment_names, collapse = "|")
@@ -30,24 +31,35 @@ unique_entries <- flatten_by(M$data$entry_name, ";") |>
   unique() |>
   discard(\(x) str_detect(x, "-DENOVO|-TRANSCRIPTOME"))
 
-fragments <- M$data |>
-  mutate(entry_name = str_to_lower(entry_name)) |>
-  filter(grepl(fragment_regex, entry_name))
+data <- read_tsv(M$data_w_cat_path) |> mutate(
+  is_fragment =
+    as.double(str_detect(str_to_lower(entry_name), fragment_regex))
+)
 
-grouped <- read_tsv(M$data_w_cat_path) |>
+fragments <- data |> filter(is_fragment == 1)
+
+grouped <- data |>
   group_by(GroupUP) |>
   summarize(
     assigned_COG = paste0(unique(assigned_COG), collapse = ";"),
     entry_name = paste0(entry_name, collapse = ";"),
+    is_fragment = sum(is_fragment),
     size = n()
   ) |>
   mutate(entry_name = map_chr(entry_name, split_unique_join)) |>
   arrange(desc(size))
+
+
 TABLES$grouped_cog_sizes <- grouped
 
+TABLES$fragment_info <- glue("
+Total number of groups: {nrow(grouped)}
+Number of protein fragments: {nrow(fragments)}
+Number of groups with no fragments: {(grouped$is_fragment == 0) |> sum()}
+Number of groups consisting only of fragments: {filter(grouped, is_fragment == size) |> nrow()}
+Number of groups containing fragments: {length(unique(fragments$GroupUP))}
+")
 
-
-# Get Count of fragments
 
 
 # Just to check if group assignments are correct
@@ -88,14 +100,16 @@ joined <- lapply(c("first", "second"), \(x) {
 
 stats <- mutate(stats, prop_ndm_greater = ndm_greater / (ndm_greater + equals + nd_greater)) |> gt()
 
-TABLES$nd_ndm_comparison <- stats
+TABLES$nd_ndm_comparison_stats <- stats
 
 GRAPHS$nd_ndm_comparison <- compare_vals_x_y(
   "ND", "ND merged", "pcoverage_align.nd",
   "pcoverage_align.ndm", joined,
   color = "pass", continuous = FALSE, segment_color = "black"
 ) +
-  M$default_theme
+  M$default_theme +
+  xlab("Coverage (%), ND") +
+  ylab("Coverage (%), ND merged")
 attr(GRAPHS$nd_ndm_comparison, "width") <- 15
 
 # ----------------------------------------
