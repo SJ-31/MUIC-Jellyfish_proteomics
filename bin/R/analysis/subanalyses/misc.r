@@ -73,7 +73,6 @@ nd_merged_path <- glue("{M$wd}/results/ND_MERGED")
 nd_run <- get_run(M$prefixes[[4]], M$ndpath)
 ndm_run <- get_run(M$prefixes[[4]], nd_merged_path)
 
-
 all_tests <- tibble()
 stats <- tibble()
 joined <- lapply(c("first", "second"), \(x) {
@@ -102,78 +101,65 @@ stats <- mutate(stats, prop_ndm_greater = ndm_greater / (ndm_greater + equals + 
 
 TABLES$nd_ndm_comparison_stats <- stats
 
-GRAPHS$nd_ndm_comparison <- compare_vals_x_y(
+default_run <- get_run("C_indra", M$path)
+default <- bind_rows(
+  mutate(default_run$first, pass = "first"),
+  mutate(default_run$second, pass = "second")
+)
+
+joined_def <- joined |>
+  select(header, pcoverage_align.ndm) |>
+  inner_join(default, by = join_by(header))
+
+ndm_default_comparison <- compare_vals_x_y("default", "ND merged", "pcoverage_align",
+  "pcoverage_align.ndm", joined_def,
+  color = "pass",
+  continuous = FALSE, segment_color = "black"
+) + M$default_theme +
+  theme(
+    axis.title.y = element_blank(), axis.text.y = element_blank(),
+    axis.ticks.y = element_blank(),
+  ) +
+  xlab("Coverage (%), default")
+
+nd_ndm_comparison <- compare_vals_x_y(
   "ND", "ND merged", "pcoverage_align.nd",
   "pcoverage_align.ndm", joined,
   color = "pass", continuous = FALSE, segment_color = "black"
 ) +
   M$default_theme +
   xlab("Coverage (%), ND") +
-  ylab("Coverage (%), ND merged")
-attr(GRAPHS$nd_ndm_comparison, "width") <- 15
+  ylab("Coverage (%), ND merged") +
+  guides(color = "none")
+
+diff <- joined$pcoverage_align.ndm - joined$pcoverage_align.nd
+summary(diff[diff != 0])
+
+GRAPHS$nd_ndm_comparison <- cowplot::plot_grid(nd_ndm_comparison, ndm_default_comparison)
+attr(GRAPHS$nd_ndm_comparison, "width") <- 17
+
+# Show that peptides are lost in default
+get_combined <- function(path) {
+  lst <- list(
+    first = read_tsv(glue("{path}/{M$passes[[1]]}/Combined/database_hits.tsv")),
+    second = read_tsv(glue("{path}/{M$passes[[2]]}/Combined/database_hits.tsv"))
+  )
+  merge_runs(lst)
+}
+
+nd_all <- get_combined(M$ndpath) |> mutate(num_peps = str_count(peptideIds, ";") + 1)
+def_all <- get_combined(M$path) |> mutate(num_peps = str_count(peptideIds, ";") + 1)
+
+n_peps_compare <- inner_join(nd_all, def_all, by = join_by(header))
+
+test <- with(n_peps_compare, wilcox.test(num_peps.x, num_peps.y,
+  paired = TRUE,
+  alternative = "greater"
+)) |> htest2tb(data.name = "Peptide number ND x default", alternative = "ND greater")
+TABLES$nd_d_peptide_number_test <- test
+
+n_peps <- list(default = n_peps_compare$num_peps.y, ND = n_peps_compare$num_peps.x)
 
 # ----------------------------------------
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/misc"))
-# ----------------------------------------
-# De novo
-denovo_dir <- glue("{M$outdir}/denovo_matches")
-all_d <- read_tsv(glue("{denovo_dir}/COMPLETE_final.tsv"))
-all_t <- read_tsv(glue("{denovo_dir}/denovo_ND_hits-TRANSCRIPTOME.tsv"))
-
-
-choose_best <- function(tb) {
-  group_by(tb, query) |>
-    nest() |>
-    mutate(data = lapply(data, \(x) {
-      arrange(x, desc(similarity)) |> slice(1)
-    })) |>
-    unnest(cols = data) |>
-    ungroup()
-}
-
-from_engines <- all_d |>
-  filter(from_engine_ids) |>
-  choose_best()
-
-from_ds <- all_d |>
-  filter(!from_engine_ids) |>
-  choose_best()
-
-matched_denovo_ids <- {
-  run <- get_run("C_indra", M$path)
-  unique(
-    flatten_by(run$second$MatchedPeptideIds, ";")
-  ) |> discard(\(x) str_detect(x, "T"))
-}
-
-combined <- bind_rows(from_engines, filter(from_ds, !query %in% from_engines$query)) |>
-  mutate(is_in_matched = ProteinId %in% matched_denovo_ids)
-# Those that aren't matched
-
-D_GRAPHS <- list()
-
-D_GRAPHS$denovo_match_hist <- combined |> ggplot(aes(x = similarity, fill = is_in_matched)) +
-  geom_histogram(binwidth = 0.02) +
-  M$default_theme +
-  ylab("Count") +
-  xlab("Levenshtein similarity") +
-  guides(fill = guide_legend("Was matched to DBP")) +
-  scale_fill_paletteer_d("MoMAColors::Koons")
-
-D_GRAPHS$denovo_match_hist
-
-high_score <- (combined$similarity > 0.7) |> sum()
-ratio <- high_score / nrow(combined)
-
-D_GRAPHS$denovo_match_hist_t <- all_t |> ggplot(aes(x = similarity)) +
-  geom_histogram(binwidth = 0.02) +
-  M$default_theme +
-  ylab("Count") +
-  xlab("Levenshtein similarity") +
-  guides(fill = guide_legend("From engine peptides")) +
-  scale_fill_paletteer_d("MoMAColors::Koons")
-
-
-
-save(D_GRAPHS, denovo_dir)
