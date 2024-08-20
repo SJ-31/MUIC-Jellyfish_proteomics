@@ -762,3 +762,14 @@ named_list2tb <- function(lst) {
     bind_rows(cur, tb)
   }, .init = tibble())
 }
+
+summary_tb <- function(vec) {
+  s <- summary(vec) |> as.list()
+  tibble(
+    min = s[["Min."]], max = s[["Max."]], q1 = s[["1st Qu."]],
+    q3 = s[["3rd Qu."]],
+    median = s[["Median"]],
+    mean = s[["Mean"]],
+    sd = sd(vec)
+  )
+}

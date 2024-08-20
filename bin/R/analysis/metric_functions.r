@@ -17,6 +17,13 @@ get_deeploc <- function(deeploc_path, unmatched_path) {
   return(merged)
 }
 
+merge_runs <- function(run_list) {
+  bind_rows(
+    mutate(run_list$first, pass = "first"),
+    mutate(run_list$second, pass = "second")
+  )
+}
+
 
 #' Helper function for collecting all the data from a single run for
 #' comparison
@@ -479,8 +486,9 @@ get_odds_ratio <- function(ctable, CI = FALSE, side = "upper") {
   d <- ctable[2, 2]
   b <- ctable[1, 2]
   c <- ctable[2, 1]
-  odds_ratio <- (a * d) / (c * b) # a * d = number of ways of getting exposed P and not exposed A
-  # c * b = number of ways of not exposed P, exposed A
+  odds_ratio <- (a * d) / (c * b)
+  # a * d = number of ways of (exposed, P) and (not exposed, A)
+  # c * b = number of ways of (not exposed, P) and (exposed, A)
   # Basically
   if (!CI) {
     return(odds_ratio)
@@ -626,4 +634,17 @@ simplify_cog <- function(tb, cog_col = "assigned_COG") {
       ),
       "Nutrient transport and metabolism"
     )
+}
+
+get_msgf <- function(dir) {
+  to_character <- c("Label")
+  to_double <- c("ScanNr", "ExpMass", "CalcMass")
+  list.files(dir, pattern = "*pin", full.names = TRUE) |>
+    lapply(\(x) {
+      read_tsv(x) |> mutate(
+        across(all_of(to_character), as.character),
+        across(all_of(to_double), as.double)
+      )
+    }) |>
+    bind_rows()
 }

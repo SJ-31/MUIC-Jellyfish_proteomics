@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import subprocess
+import sys
 import re
 import pandas as pd
 import time
@@ -287,6 +288,18 @@ def map_list(id_list, origin_db: str) -> tuple[dict, list]:
     return anno_dict, []
 
 
+def id_from_header_str(header):
+    """
+    Reformat fasta header
+    Return ncbi or UniProt id if present
+    """
+    if "|" in header and (find := re.search(r"\|(.*)\|", header)):
+        return find.groups()[0]
+    elif "." in header:
+        return header.split(" ")[0]
+    return "NONE"
+
+
 def id_from_header(row):
     """
     Reformat fasta header
@@ -294,11 +307,7 @@ def id_from_header(row):
     """
     header = row["header"]
     cur_id = row["ProteinId"]
-    if "|" in header and (find := re.search(r"\|(.*)\|", header)):
-        return [cur_id, find.groups()[0]]
-    elif "." in header:
-        return [cur_id, header.split(" ")[0]]
-    return cur_id, "NONE"
+    return [cur_id, id_from_header_str(header)]
 
 
 def write_fasta(needs_annotating: pd.DataFrame, file_name: str):
@@ -503,7 +512,7 @@ def parse_args():
     return args
 
 
-if __name__ == "__main__":
+if __name__ == "__main__" and "radian" not in sys.argv[0] and len(sys.argv) > 1:
     args = parse_args()
     if args["merge_eggnog"]:
         m = merge_annotated_eggnog(args)
