@@ -13,10 +13,8 @@ matplotlib.rcParams["font.family"] = "sans-serif"
 
 
 def get_cmap(colormap: str):
-    if "ch:" in colormap:
+    if ":" in colormap:
         return sns.color_palette(colormap, as_cmap=True)
-    elif "#" in colormap:
-        return sns.dark_palette(colormap, as_cmap=True, reverse=True)
     return mpl.colormaps.get(colormap)
 
 
@@ -152,7 +150,6 @@ def word_cloud_main(tokens: dict, abbrevs: dict = None, params: dict = {}):
         - cb_shrink: Fraction by which to multiply size of colorbar (default 1.5)
         - fig_size: Figure size as a tuple (width, height) in inches (default is (15, 15)).
     """
-
     color_mapper: ColorMapper = ColorMapper(
         tokens,
         colormap=params.get("colormap", "magma"),
@@ -161,8 +158,8 @@ def word_cloud_main(tokens: dict, abbrevs: dict = None, params: dict = {}):
     )
     cloud: wc.WordCloud = wc.WordCloud(
         background_color=params.get("background_color", "white"),
-        width=params.get("width", 1000),
-        height=params.get("height", 1000),
+        width=params.get("width", 1500),
+        height=params.get("height", 1500),
         min_font_size=params.get("min_font_size", 10),
         font_path=params.get("font", "/home/shannc/.fonts/FiraSans-Regular.ttf"),
         color_func=color_mapper,
@@ -175,17 +172,13 @@ def word_cloud_main(tokens: dict, abbrevs: dict = None, params: dict = {}):
             ax[0].set_title(title, weight="bold", size=params.get("title_size", 20))
         ax[1].set_aspect("equal")
         add_abbrev_legend(ax[1], abbrevs, size=params.get("abbrev_size", 15))
-        color_mapper.add_cmap_legend(
-            ax[1],
-            fraction=params.get("cb_fraction", 0.15),
-            shrink=params.get("cb_shrink", 1),
-        )
     else:
         fig, ax = plt.subplots(layout="constrained")
+    if params.get("cmap_legend", True):
         color_mapper.add_cmap_legend(
             ax,
-            fraction=params.get("cb_fraction", 0.10),
-            shrink=params.get("cb_shrink", 1.5),
+            fraction=params.get("cb_fraction", 0.15),
+            shrink=params.get("cb_shrink", 0.5),
         )
     for a in ax:
         a.axis("off")

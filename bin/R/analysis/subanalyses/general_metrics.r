@@ -255,6 +255,7 @@ for (i in seq_along(M$prefixes)) {
 GRAPHS$header_overlap <- do.call("plot_grid", c(venns)) + M$default_theme
 if (!interactive()) {
   GRAPHS$pass_cov_comparison <- do.call("grid.arrange", c(covs, ncol = 2))
+  attr(GRAPHS$pass_cov_comparison, "width") <- 16
 }
 
 compare_tb <- inner_join(M$run$first, M$run$second, by = join_by(header), suffix = c(".first", ".sec")) |>

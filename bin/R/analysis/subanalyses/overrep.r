@@ -75,7 +75,13 @@ all_ontologizer <- mutate(all_ontologizer,
       "NONE"
     }
   }),
-  slim_name = map_chr(slim, \(x) id2term[x])
+  slim_name = map_chr(slim, \(x) id2term[x]),
+  ontology_full = case_match(
+    ontology,
+    "MF" ~ "Molecular Function",
+    "CC" ~ "Cellular Component",
+    "BP" ~ "Biological Process"
+  )
 )
 # ----------------------------------------
 # Check if each of the subsets are associated with one another in terms
@@ -244,40 +250,40 @@ ggplot(joined_overlap, aes(x = overlap.x, y = overlap.y)) +
 wc <- new.env()
 reticulate::source_python(glue("{M$python_source}/word_clouds.py"), envir = wc)
 
-format_for_wc <- function(tb, val_col = "sorted_p") {
+format_for_wc <- function(tb, val_col = "sorted_p", max = 30) {
   tokenized <- tb |>
     group_by(name) |>
     summarise(
       sorted_p = mean(sorted_p), n = n(),
       ontology = dplyr::first(ontology),
+      ontology_full = dplyr::first(ontology_full),
       subset = paste0(subset, collapse = ";")
     ) |>
-    tokenize2plot(tokenize_params, term_col = "name", sort_by = "sorted_p")
+    tokenize2plot(tokenize_params, term_col = "name", sort_by = val_col)
+  tokenized$tb <- tokenized$tb |>
+    arrange(desc(val_col)) |>
+    slice(1:max)
   list(
     tokens = tb2named_list(tokenized$tb, "token", val_col),
     abbrevs = tb2named_list(tokenized$legend_text, "abbrev", "text"),
-    tb = tokenized$tb
+    tb = tokenized$tb,
+    map = tokenized$tb |> tb2named_list("token", "ontology_full")
   )
 }
 
 # PTMs
-all_ontologizer$subset
-ptm_colors <- list(
-  `Met ox` = "#95d0fc",
-  `Lys acetyl` = "#96f97b",
-  Both = "#ffff14"
+onto_colors <- list(
+  `Biological Process` = "dark:salmon_r",
+  `Cellular Component` = "dark:#008000_r",
+  `Molecular Function` = "dark:#0000FF_r"
 )
 ptm_wc <- all_ontologizer |>
-  filter(subset == "Met ox" | subset == "Lys acetyl") |>
-  # filter(subset %in% mod_names2) |>
+  filter(subset %in% mod_names2) |>
   format_for_wc()
 
-ptm_wc$tb <- ptm_wc$tb |> mutate(subset = case_when(str_detect(subset, ";") ~ "Both", .default = subset))
-ptm_map <- ptm_wc$tb |>
-  tb2named_list("token", "subset")
 wc_params <- list(
-  category2colormap = ptm_colors, item2category = ptm_map,
-  abbrev_size = 20, cmap_size = 20
+  category2colormap = onto_colors, item2category = ptm_wc$map,
+  abbrev_size = 20
 )
 GRAPHS$ptm_wc <- wc$word_cloud_main(
   ptm_wc$tokens,
@@ -286,24 +292,29 @@ GRAPHS$ptm_wc <- wc$word_cloud_main(
 )
 
 # Identification method
-
+id_wc <- all_ontologizer |>
+  filter(subset %in% c("id with open", "not DBP")) |>
+  format_for_wc()
+wc_params3 <- list(
+  category2colormap = onto_colors, item2category = id_wc$map,
+  abbrev_size = 20, cmap_legend = FALSE
+)
+GRAPHS$id_wc <- wc$word_cloud_main(id_wc$tokens, id_wc$abbrevs,
+  params = wc_params3
+)
 
 # Intensity
-intensity_colors <- list(`high intensity` = "ch:s=-.2,r=.6", `low intensity` = "Reds", `medium intensity` = "Greens")
 intensity_wc <- all_ontologizer |>
   filter(grepl("intensity", subset)) |>
   format_for_wc()
-intensity_wc$tb <- intensity_wc$tb |> filter(!grepl(";", subset))
-
-intensity_map <- intensity_wc$tb |> tb2named_list("token", "subset")
-intensity_wc$tokens <- intensity_wc$tb |>
-  tb2named_list("token", "sorted_p")
 
 wc_params2 <- list(
-  category2colormap = intensity_colors, item2category = intensity_map,
-  abbrev_size = 20, cmap_size = 20
+  category2colormap = onto_colors, item2category = intensity_wc$map,
+  abbrev_size = 20, cmap_legend = FALSE
 )
 GRAPHS$intensity_wc <- wc$word_cloud_main(intensity_wc$tokens, intensity_wc$abbrevs, params = wc_params2)
+
+# EXTRA
 
 TABLES$all_ontologizer_sig <- all_ontologizer
 

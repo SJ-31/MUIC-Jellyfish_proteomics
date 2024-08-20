@@ -6,19 +6,6 @@ SECOND_PASS_ENGINES <- c("identipy", "msgf", "msfragger", "comet")
 
 # ----------------------------------------
 # Compare expect values between passes
-get_msgf <- function(dir) {
-  to_character <- c("Label")
-  to_double <- c("ScanNr", "ExpMass", "CalcMass")
-  list.files(dir, pattern = "*pin", full.names = TRUE) |>
-    lapply(\(x) {
-      read_tsv(x) |> mutate(
-        across(all_of(to_character), as.character),
-        across(all_of(to_double), as.double)
-      )
-    }) |>
-    bind_rows()
-}
-
 JOIN_SUFFIX <- c(".first", ".sec")
 
 SCORE_COLS <- list(

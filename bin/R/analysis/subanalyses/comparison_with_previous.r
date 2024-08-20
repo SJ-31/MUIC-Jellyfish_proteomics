@@ -1,10 +1,19 @@
+options(
+  browser = "firefox",
+  rlang_backtrace_on_error = "full",
+  error = rlang::entrace
+)
+rlang::global_entrace()
+
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
   SOURCED <- TRUE
 }
 
 an <- new.env()
-reticulate::source_python(glue("{args$python_source}/annotate.py"), envir = an)
+reticulate_show_error(
+  reticulate::source_python(glue("{args$python_source}/annotate.py"), envir = an)
+)
 PALETTE <- "ggthemes::excel_Slipstream"
 BIG_PALETTE <- "ggthemes::Tableau_20"
 TABLES <- list()
@@ -118,11 +127,13 @@ cog_counts <- table(cur_grouped$assigned_COG) |>
 
 compare_cogs <- bind_rows(cog_counts, prev_cog_counts) |> simplify_cog(cog_col = "COG")
 
-GRAPHS$compare_cog <- ggplot(compare_cogs, aes(y = prop, x = source, fill = COG)) +
+GRAPHS$compare_cog <- ggplot(compare_cogs, aes(y = prop, x = source, fill = str_wrap(COG, 30))) +
   geom_col() +
   M$default_theme +
   scale_fill_paletteer_d(BIG_PALETTE) +
-  ylab("Proportion")
+  ylab("Proportion") +
+  xlab("Source") +
+  guides(fill = guide_legend("Assigned COG"))
 
 compare_all <- inner_join(p_all, M$data, by = join_by(header)) |>
   mutate(
@@ -131,7 +142,7 @@ compare_all <- inner_join(p_all, M$data, by = join_by(header)) |>
   )
 
 grouped_cov <- compare_all |>
-  group_by(peptideIds) |>
+  group_by(peptideIds.x) |>
   summarize(
     pcoverage_align.x = max(pcoverage_align.x),
     pcoverage_align.y = max(pcoverage_align.y)
@@ -143,7 +154,7 @@ cov_longer <- grouped_cov %>%
     diff = current - previous,
   ) %>%
   select(-c(current, previous)) %>%
-  pivot_longer(cols = !peptideIds) %>%
+  pivot_longer(cols = !peptideIds.x) %>%
   mutate(value = round(value, 2))
 
 
@@ -155,7 +166,7 @@ GRAPHS$shared_cov_bp <- cov_longer %>% ggplot(aes(y = value)) +
 
 
 compare_long <- compare_all |>
-  select(ID, pcoverage_align.prev, pcoverage_align) |>
+  select(ID, pcoverage_align.x, pcoverage_align.y) |>
   rename(previous = pcoverage_align.x, first = pcoverage_align.y)
 
 
