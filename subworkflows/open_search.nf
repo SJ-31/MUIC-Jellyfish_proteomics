@@ -34,7 +34,7 @@ workflow 'open_search' {
         .set { xml_ch }
     METAMORPHEUS_SEARCH_GPTMD(mzML.collect(),
                               "$outdir/Metamorpheus_gptmd_search",
-                              "$outdir/Logs", "GTPMD",
+                              "$outdir/Logs", "GPTMD",
                               "$params.config_dir/metamorpheus_params.toml", xml_ch)
     METAMORPHEUS_SEARCH_GPTMD.out.percolator.mix(
         MSFRAGGER_OPEN.out.percolator,

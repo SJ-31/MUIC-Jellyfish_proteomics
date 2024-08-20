@@ -11,7 +11,7 @@ GRAPHS <- list()
 
 
 # File and path setup
-open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
+open_search_engines <- c("metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco")
 percolator_all <- read_tsv(M$percolator_all)
 ENGINES <- percolator_all$engine |> unique()
 alignment_types <- c("denovo", "transcriptome", "database", "unmatched_peptide")

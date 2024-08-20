@@ -5,7 +5,7 @@ if (!exists("SOURCED")) {
 ta <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
 
-open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
+open_search_engines <- c("metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco")
 GRAPHS <- list()
 TABLES <- list()
 
@@ -52,6 +52,7 @@ levels_by_quartile <- function(vec) {
 }
 
 ENGINES <- names(engine_counts)
+ENGINES <- replace(ENGINES, ENGINES == "metamorpheusGTPMD", "metamorpheusGPTMD")
 
 all_pepmaps <- lapply(M$all_paths, \(x) {
   c(
@@ -83,6 +84,9 @@ matches <- list()
 length_bias <- list()
 CONTINGENCY <- list()
 
+
+
+var_stats <- tibble()
 for (i in M$params) {
   pepmap <- all_pepmaps[[i]]
   aq_reformat <- all_aq_reformat[[i]]
@@ -94,6 +98,9 @@ for (i in M$params) {
 
   cur_hits <- cur_hits |>
     mutate(length_category = levels_by_quartile(cur_hits$length))
+  s <- summary_tb(cur_hits$length) |> mutate(param = i, var = "length")
+  var_stats <- bind_rows(var_stats, s)
+
 
   w_intensity <- cur_hits |> filter(!is.na(mean_intensity))
   leq_intensity1st <- w_intensity$mean_intensity <= quantile(w_intensity$mean_intensity, 0.25)
@@ -107,6 +114,8 @@ for (i in M$params) {
       "medium"
     }
   })
+  s <- summary_tb(w_intensity$mean_intensity) |> mutate(param = i, var = "PI")
+  var_stats <- bind_rows(var_stats, s)
   intense <- chisqNME(
     tb = w_intensity, var_a_levels = ENGINES,
     var_b_col = "intensity_class", var_a = "engine", var_b = "intensity_class",
@@ -151,29 +160,66 @@ or_graph <- function(tb, x, palette) {
       position = position_dodge(width = 0.9), width = 0.2
     ) +
     scale_fill_paletteer_d(palette) +
-    ylab("OR")
+    ylab("OR") +
+    annotate("segment",
+      x = -Inf, xend = Inf, y = 1, yend = 1, linetype = 2,
+      color = "red"
+    )
 }
 
 GRAPHS$all_intensity_bias <- all_intensity_bias |>
-  or_graph("intensity_class", "basetheme::deepblue") + xlab("Intensity class")
+  or_graph("intensity_class", "basetheme::deepblue") + xlab("Intensity class") +
+  scale_x_discrete(limits = c("low", "medium", "high"))
 
 GRAPHS$all_length_bias <- all_length_bias |> or_graph(
   "length_category",
   "ggthemr::flat"
 ) +
-  xlab("Length category")
+  xlab("Length category") + scale_x_discrete(limits = c("low", "medium", "high"))
 
 bias_to_plot <- all_match_bias |>
-  # mutate(across(contains("OR"), log2)) |>
   filter(param != "ND" & !engine %in% open_search_engines)
-GRAPHS$all_match_bias <- or_graph(bias_to_plot, "match_type", "MoMAColors::Warhol") + xlab("Match type")
+GRAPHS$all_match_bias <- or_graph(bias_to_plot, "match_type", "MoMAColors::Warhol") + xlab("Peptide source")
 
-TABLES$match_bias <- all_match_bias
-TABLES$intensity_bias <- all_intensity_bias
-TABLES$length_bias <- all_length_bias
+TABLES$match_bias <- all_match_bias |>
+  arrange(desc(OR)) |>
+  gt()
+TABLES$intensity_bias <- all_intensity_bias |>
+  arrange(desc(OR)) |>
+  gt()
+TABLES$length_bias <- all_length_bias |>
+  arrange(desc(OR)) |>
+  gt()
+
+all_bias <- bind_rows(
+  mutate(all_match_bias, var = "source"),
+  mutate(all_intensity_bias, var = "intensity"),
+  mutate(all_length_bias, var = "length")
+) |> mutate(category = dplyr::coalesce(length_category, match_type, intensity_class))
+
+grouped_bias <- all_bias |>
+  group_by(engine, var, category) |>
+  nest() |>
+  mutate(
+    mean_OR = map_dbl(data, \(x) mean(x$OR, na.rm = TRUE)),
+    sd_OR = map_dbl(data, \(x) sd(x$OR, na.rm = TRUE))
+  )
+summary(grouped_bias$sd_OR)
+
+# TODO: Can you do this with logistic regression
+
+
 attr(GRAPHS$all_intensity_bias, "width") <- 18
 attr(GRAPHS$all_length_bias, "width") <- 18
 attr(GRAPHS$all_match_bias, "width") <- 18
+
+
+TABLES$bias_stats <- var_stats |>
+  group_by(var) |>
+  summarize(across(is.double, mean)) |>
+  gt() |>
+  cols_label(sd = "Standard deviation", var = "Variable") |>
+  cols_label_with(fn = str_to_title)
 
 save(c(TABLES, GRAPHS), glue("{M$outdir}/engine_category_bias"))
 save(CONTINGENCY, glue("{M$outdir}/engine_category_bias/contingency"))

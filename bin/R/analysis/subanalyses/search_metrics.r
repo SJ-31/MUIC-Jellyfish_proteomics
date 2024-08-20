@@ -61,7 +61,7 @@ get_all_ids <- function(tb) {
 
 get_engine_counts <- function(type, run_data, path = M$path) {
   if (type == "open") {
-    engines <- c("msfraggerGlyco", "msfraggerGPTMD", "metamorpheusGTPMD")
+    engines <- c("msfraggerGlyco", "msfraggerGPTMD", "metamorpheusGPTMD")
   } else {
     engines <- c("tide", "msfragger", "metamorpheus", "identipy", "comet", "msgf")
   }

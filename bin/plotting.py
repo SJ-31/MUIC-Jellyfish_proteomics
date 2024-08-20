@@ -75,7 +75,7 @@ def plotly_psm_comparisons(df, compare_col: str):
 
 
 def format_engine_alignment(df):
-    open_search_engines = ["metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco"]
+    open_search_engines = ["metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco"]
     standard_search_engines = [
         "comet",
         "identipy",

@@ -9,12 +9,13 @@ library("ggVennDiagram")
 TABLES <- list()
 GRAPHS <- list()
 
-open_search_engines <- c("metamorpheusGTPMD", "msfraggerGPTMD", "msfraggerGlyco")
+open_search_engines <- c("metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco")
 percolator_all <- read_tsv(M$percolator_all)
 ENGINES <- percolator_all$engine |> unique()
 alignment_types <- c("denovo", "transcriptome", "database", "unmatched_peptide")
 standard_search_engines <- ENGINES[!ENGINES %in% open_search_engines]
 
+data <- read_tsv(M$data_path)
 
 num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |>
   as_tibble() |>

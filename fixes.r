@@ -202,6 +202,10 @@ fix <- function(filename, fix) {
       select(-contains("sb_rep")) |>
       write_tsv(file = filename)
   }
+  if (fix == "metamorpheus") {
+    tb$engine <- replace(tb$engine, tb$engine == "metamorpheusGTPMD", "metamorpheusGPTMD")
+    write_tsv(tb, file = filename)
+  }
 }
 
 delete_all <- function(file_list) {
@@ -224,6 +228,6 @@ apply_fixes <- function(file_list, fix_name) {
   lapply(file_list, \(x) fix(x, fix_name))
 }
 
-to_fix <- get_to_fix("*all_wcoverage*")
+to_fix <- c(get_to_fix("*percolator_all.tsv*"), get_to_fix("*percolator_peptide_map*"))
 
-apply_fixes(to_fix, "remove_group_subsets")
+apply_fixes(to_fix, "metamorpheus")
