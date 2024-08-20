@@ -44,7 +44,6 @@ was_matched: set = set(
     )
 )
 
-
 perc_prot = (
     pl.read_csv(
         f"{results}/{prefixes['default']}/{chosen_pass}/percolator_all.tsv",
@@ -154,29 +153,3 @@ df: pl.DataFrame = hits.join(
 )
 
 df.write_csv(f"{outdir}/COMPLETE_final.tsv", separator="\t", null_value="NA")
-
-
-transcriptome: pl.DataFrame = perc.filter(pl.col("ProteinId").str.contains("T"))
-not_confident: pl.DataFrame = hits.filter(pl.col("similarity") < 0.7)
-remaining_nd = set(not_confident["query"])
-direct_matches_t = remaining_nd & set(transcriptome["peptideIds"])
-
-hh.py_cat(
-    [
-        "Number of direct matches between ND engine peptides and transcriptome peptides",
-        len(direct_matches_t),
-        f"Proportion: {len(direct_matches_t)/len(remaining_nd)}",
-        f"Number of total remaining ND engine peptides: {len(remaining_nd)}",
-    ],
-    f"{outdir}/direct_matches-TRANSCRIPTOME.txt",
-)
-# Attempt to check if remaining unconfident de novo peptides are from transcriptome
-# peptides
-result_file = f"{outdir}/denovo_ND_hits-TRANSCRIPTOME.tsv"
-if not Path(result_file).exists():
-    find_in_denovo_t: pl.DataFrame = pl.from_pandas(
-        hh.find_matches(remaining_nd, set(transcriptome["peptideIds"]))
-    )
-    find_in_denovo_t.write_csv(result_file, separator="\t", null_value="NA")
-else:
-    hits_t = pl.read_csv(result_file, separator="\t", null_values="NA")

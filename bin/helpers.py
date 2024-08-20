@@ -101,6 +101,54 @@ COLS = {
 }
 
 
+def parse_bad_lines(concat_at: int, line: list[str]) -> list[str]:
+    together = line[:concat_at] + [";".join(line[concat_at:])]
+    return together
+
+
+def read_pin(pin_file, as_polars: bool = True) -> pl.DataFrame | pd.DataFrame:
+    with open(pin_file, "r") as f:
+        header = f.readline().strip().split("\t")
+    protein_index = header.index("Proteins")
+    pin = pd.read_csv(
+        pin_file,
+        usecols=header,
+        sep="\t",
+        index_col=False,
+        on_bad_lines=lambda x: parse_bad_lines(protein_index, x),
+        engine="python",
+    )
+    if pin["Label"][0] == "-":
+        pin = pin.iloc[1:]
+        pin["Label"] = pin["Label"].astype(int)
+    if as_polars:
+        return pl.from_pandas(pin)
+    return pin
+
+
+def read_tide(path) -> pl.DataFrame:
+    def remove_brackets(protein_ids):
+        splits = protein_ids.split(",")
+        removed = [re.sub("\\(.*\\)", "", s) for s in splits]
+        return ";".join(removed)
+
+    df = pl.read_csv(path, separator="\t", null_values="NA")
+    df = (
+        df.rename({"sequence": "Peptide", "protein id": "Proteins", "scan": "ScanNr"})
+        .with_columns(
+            Proteins=pl.col("Proteins").map_elements(
+                remove_brackets, return_dtype=pl.String
+            ),
+            Label=pl.col("target/decoy").map_elements(
+                lambda x: 1 if x == "target" else -1, return_dtype=pl.Int64
+            ),
+            SpecId=pl.concat_str(["file", pl.lit("_"), "ScanNr"]),
+        )
+        .drop(["target/decoy", "file"])
+    )
+    return df
+
+
 def resolve_duplicate_seq(data: pd.DataFrame, as_pandas=True):
     data = pl.from_pandas(data).with_columns(
         entry_name=pl.col("header").map_elements(
