@@ -13,6 +13,7 @@ if (str_detect(getwd(), "Bio_SDD")) {
   env <- "/home/shannc/anaconda3/envs/reticulate"
   tools <- "/home/shannc/workflow/tools"
 }
+source(glue("{wd}/bin/R/analysis/all_analyses.r"))
 
 CATPUCCIN_LATTE <- list(
   rosewater = "#F2E9E1",

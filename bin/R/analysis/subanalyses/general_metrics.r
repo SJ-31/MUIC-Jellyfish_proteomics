@@ -355,4 +355,98 @@ GRAPHS$per_protein_change <- per_protein %>%
   theme(axis.ticks.x = element_blank(), axis.title.x = element_blank(), axis.text.x = element_blank()) +
   M$default_theme
 
+# Format files for easy reading
+wanted_read <- c(
+  "header", "organism", "lineage", "ID_method", "inferred_by",
+  "PANTHER", "interpro_accession", "interpro_description", "interpro_pathways",
+  "interpro_db", "PFAMs", "eggNOG_description",
+  "entry_name",
+  "length", "mass", "num_peps", "num_unique_peps", "GO_counts", "pcoverage_align", "assigned_COG", "GO_IDs"
+)
+
+an_dir <- glue("{M$chosen_path}/Analysis")
+
+wcat <- read_tsv(M$data_w_cat_path) |>
+  mutate(
+    type = case_when(
+      str_detect(ProteinId, "D") | str_detect(MatchedPeptideIds, "D") ~ "De novo peptide",
+      str_detect(ProteinId, "T") | str_detect(MatchedPeptideIds, "T") ~ "Transcriptome",
+      .default = "DBP, standard search"
+    ),
+    folded_match = case_when(str_detect(ProteinId, "P") ~ "Matched with DBP", .default = "Standalone")
+    # Folded match is true if the
+    # actual protein is a DBP, and the UP was matched to them
+  )
+
+cols <- c("type", "folded_match", "assigned_COG", "ID_method")
+wcat_g <- wcat |>
+  group_by(GroupUP) |>
+  summarize(across(all_of(cols), \(x) modes(x, first = TRUE)))
+
+special <- local({
+  m <- filter(wcat_g, ID_method != "standard") |>
+    mutate(
+      type = "Open search", folded_match =
+        case_when(ID_method == "both" ~ "Matched with DBP", .default = "Standalone")
+    )
+  t <- wcat_g |> filter(type %in% c("De novo peptide", "Transcriptome"))
+  bind_rows(m, t)
+}) |>
+  simplify_cog()
+
+to_plot_dbp <- local({
+  tb <- wcat_g |>
+    filter(ID_method == "standard" & type == "DBP, standard search") |>
+    simplify_cog()
+  n <- nrow(tb)
+  tb |>
+    group_by(assigned_COG) |>
+    summarise(prop = n() / n) |>
+    mutate(type = "DBP, standard search", folded_match = "DBP")
+})
+
+to_plot <- special |>
+  group_by(type, folded_match) |>
+  select(type, folded_match, assigned_COG) |>
+  mutate(size = n()) |>
+  group_by(type, folded_match, assigned_COG) |>
+  summarise(size_cog = n(), size = unique(size)) |>
+  ungroup() |>
+  mutate(prop = size_cog / size) |>
+  ungroup() |>
+  bind_rows(to_plot_dbp)
+
+cog_helper <- function(tb) {
+  ggplot(tb, aes(x = type, fill = str_wrap(assigned_COG, 30), y = prop)) +
+    geom_col() +
+    M$default_theme +
+    scale_fill_paletteer_d(PALETTE) +
+    guides(fill = guide_legend("Assigned COG"))
+}
+
+
+GRAPHS$type_plot <- to_plot |>
+  cog_helper() +
+  guides(fill = guide_legend("Assigned COG")) +
+  facet_wrap(~folded_match, scales = "free") +
+  xlab("Protein group type") +
+  ylab("Proportion")
+# scale_x_discrete(limits = c("Open search", "Transcriptome", "De novo peptide"))
+
+attr(GRAPHS$type_plot, "width") <- 18
+
+
+grouped <- wcat |>
+  group_by(GroupUP) |>
+  summarize(across(all_of(wanted_read), \(x) paste0(x, collapse = ";"))) |>
+  mutate(across(all_of(wanted_read), \(x) map_chr(x, split_unique_join)))
+
+grouped |>
+  write_tsv(glue("{an_dir}/grouped_annotations_only.tsv"))
+
+wcat |>
+  select(all_of(wanted_read)) |>
+  write_tsv(glue("{an_dir}/annotations_only.tsv"))
+
+
 save(c(GRAPHS, TABLES), glue("{M$outdir}/general_metrics"))

@@ -327,10 +327,16 @@ graph_helper <- function(data, palette) {
 
 if ("ggpattern" %in% as_tibble(installed.packages())$Package) {
   library("ggpattern")
+  combined_both <- bind_rows(
+    mutate(combined_m, type = "Peptides"),
+    mutate(combined_pm, type = "Proteins")
+  )
   GRAPHS$ptools_true_positive <- graph_helper(combined_m, "ggthemes::Green_Orange_Teal")
   GRAPHS$ptools_true_positive_prot <- graph_helper(combined_pm, "ggthemes::Red_Blue_Brown")
   GRAPHS$ptools_true_positive_prot
+  GRAPHS$ptools_both <- graph_helper(combined_both, "ggthemes::Green_Orange_Teal") + facet_wrap(~type)
   attr(GRAPHS$ptools_true_positive, "width") <- 17
+  attr(GRAPHS$ptools_both, "width") <- 20
   attr(GRAPHS$ptools_true_positive_prot, "width") <- 17
 }
 
