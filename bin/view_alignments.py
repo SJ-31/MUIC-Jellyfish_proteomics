@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from matplotlib.collections import PatchCollection
+import matplotlib.pyplot as plt
 from matplotlib.axes import Axes
 from Bio import Align
 from pathlib import Path
@@ -18,6 +19,10 @@ from requests.adapters import Retry, HTTPAdapter
 from Bio import SeqIO
 import matplotlib as ml
 import dna_features_viewer as dv
+import matplotlib.pyplot as plt
+from matplotlib.figure import Figure
+from matplotlib.gridspec import GridSpec
+
 
 non_polar = {a: "#a6e3a1" for a in ["A", "G", "L", "I", "M", "P", "F", "W", "V"]}
 polar_neutral = {a: "#89b4fa" for a in ["T", "C", "N", "Q", "S", "Y"]}
@@ -534,6 +539,49 @@ class PeptideViz(pv.MsaViz):
         # Plot colored rectangle patch collection (Use collection for speedup)
         collection = PatchCollection(plot_patches, match_original=True, clip_on=False)
         ax.add_collection(collection)  # type: ignore
+
+    def savefig(
+        self,
+        savefile: str | Path,
+        dpi: int = 100,
+        pad_inches: float = 0.5,
+    ) -> None:
+        """Save figure to file
+
+        Parameters
+        ----------
+        savefile : str | Path
+            Save file
+        dpi : int, optional
+            DPI
+        pad_inches : float, optional
+            Padding inches
+        """
+        fig = self.plotfig(dpi=dpi)
+        fig.savefig(
+            fname=str(savefile),
+            dpi=dpi,
+            pad_inches=pad_inches,
+        )
+        # Clear & close figure to suppress memory leak
+        fig.clear()
+        plt.close(fig)
+
+    def plotfig(self, dpi: int = 100) -> Figure:
+        """Plot figure
+
+        Parameters
+        ----------
+        dpi : int, optional
+            Figure DPI
+
+        Returns
+        -------
+        fig : Figure
+            Figure
+        """
+        fig = super().plotfig()
+        return fig
 
 
 def main(args):

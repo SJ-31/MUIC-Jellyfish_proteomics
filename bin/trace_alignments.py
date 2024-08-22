@@ -15,6 +15,7 @@ import polars as pl
 import intervaltree as it
 
 AMINO_ACIDS = "ACDEFGHIKLMNPQRSTVWYUO"
+OPEN_SEARCH_ENGINES = {"metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco"}
 
 
 def parent_dir(file_str, parent_level=-1):
@@ -139,6 +140,10 @@ class AlignmentTracer:
             "unidentified_count": [],
             "total_count": [],
         }
+        self.temp_data_combos: dict = {
+            "ProteinId": [],
+            "total_coverage": [],
+        }
         self.temp_data_differences: dict = {"ProteinId": [], "total_coverage": []}
         for lst in [self.alignment_types, self.engines]:
             for val in lst:
@@ -147,7 +152,12 @@ class AlignmentTracer:
                     self.temp_data[f"{val}_{metric}"] = []
 
     def get_id2metadata(self, data_path: str) -> None:
-        df = pl.read_csv(data_path, separator="\t", null_values="NA")
+        df = (
+            pl.read_csv(data_path, separator="\t", null_values="NA")
+            .with_columns(pl.col("header").str.split(";"))
+            .explode("header")
+            .unique("ProteinId")
+        )
         meta = [(s, h) for s, h in zip(df["seq"], df["header"])]
         self.id2metadata = dict(zip(df["ProteinId"], meta))
 
@@ -197,6 +207,38 @@ class AlignmentTracer:
             self.temp_data_differences[val].append(coverage_without)
         return coverage
 
+    def get_coverage_combos(
+        self, protein_id: str, df: pl.DataFrame, all_combos: list[set]
+    ) -> dict:
+        """ """
+        coverage_dict: dict = {}
+        total_coverage = coverage_helper(df)
+        coverage_dict["total"] = total_coverage
+        self.temp_data_combos["total_coverage"].append(total_coverage)
+        self.temp_data_combos["ProteinId"].append(protein_id)
+
+        for combo in all_combos:
+            contains = [
+                pl.col("engine_matches").list.contains(n).alias(f"CONTAINS_{n}")
+                for n in combo
+            ]
+            filtered = df.with_columns(contains).filter(
+                pl.any_horizontal(cs.contains("CONTAINS"))
+            )
+            # print(f"Combo: {combo}, filtered from: {df.shape}")
+            # print(filtered)
+            coverage = coverage_helper(filtered)
+            # print(f"Combo: {combo}, cov: {coverage}")
+            # print(filtered)
+            name = "_".join(combo)
+            coverage_dict[name] = coverage
+            self.temp_data_combos[f"n_alignments-{name}"].append(filtered.shape[0])
+            self.temp_data_combos[name].append(coverage)
+        cov = np.array(list(coverage_dict.values()))
+        cov = cov[cov != 0]
+        print(f"stdev cov of {protein_id}, {np.std(cov)}")
+        return coverage_dict
+
     def get_coverage_contributions(self, protein_id: str, df: pl.DataFrame) -> dict:
         """
         Retrieves the coverage (and aligned peptide count) contributions of the different engines and aligned peptide types for the given protein
@@ -231,7 +273,6 @@ class AlignmentTracer:
     ) -> None:
         data_dict["ProteinId"].append(protein_id)
         for val in [*self.engines]:
-            # Remove alignments identified ONLY by `e`
             filtered = df.filter(
                 ~(
                     (pl.col("engine_matches").list.set_union([val]) == [val])
@@ -251,19 +292,33 @@ class AlignmentTracer:
         return pl.DataFrame(peptide_dict)
 
     def run(self, mode="contributions") -> pl.DataFrame:
+        if mode == "combos":
+            standard: set = set(self.engines) - OPEN_SEARCH_ENGINES
+            all_combos = set()
+            for i in range(1, len(standard) - 1):
+                all_combos |= set(itertools.combinations(standard, i))
+            for c in all_combos:
+                name = "_".join(c)
+                self.temp_data_combos[name] = []
+                self.temp_data_combos[f"n_alignments-{name}"] = []
         for id in self.alignments["ProteinId"].unique():
             df = self.filter_protein_id(id)
             if mode == "contributions":
                 _ = self.get_coverage_contributions(id, df)
+            elif mode == "combos":
+                _ = self.get_coverage_combos(id, df, all_combos)
             else:
                 _ = self.get_coverage_differences(id, df)
+            # print(_)
         if mode == "contributions":
             return pl.DataFrame(self.temp_data)
+        elif mode == "combos":
+            return pl.DataFrame(self.temp_data_combos)
         return pl.DataFrame(self.temp_data_differences)
 
     def plot_engines_alignment(
-        self, protein_id: str, outdir: str, filetype: str = "svg"
-    ) -> None:
+        self, protein_id: str, wrap: int = 90, outdir: str = "", filetype: str = "svg"
+    ) -> PeptideViz:
         """Obtain the consensus sequnces of each engines' peptides
         for `protein_id`, creating a visualization of the peptides
         aligned onto the sequence of `protein_id`
@@ -292,7 +347,7 @@ class AlignmentTracer:
         try:
             msa = PeptideViz(
                 seqs,
-                wrap_length=90,
+                wrap_length=wrap,
                 show_consensus=True,
                 aligned_to=cur_seq,
             )
@@ -300,11 +355,13 @@ class AlignmentTracer:
             print(f"Ignoring ZeroDivisionError for {cur_seq}")
             return
         msa.set_custom_color_scheme(COLOR_SCHEME)
-        outfile = f"{outdir}/{protein_id}.{filetype}"
-        try:
-            msa.savefig(outfile)
-        except ValueError as ve:
-            print(f"Ignoring value error: {repr(ve)}")
+        if outdir:
+            outfile = f"{outdir}/{protein_id}.{filetype}"
+            try:
+                msa.savefig(outfile)
+            except ValueError as ve:
+                print(f"Ignoring value error: {repr(ve)}")
+        return msa.plotfig()
 
 
 def get_engine_consensus(df, engine) -> Seq | None:
@@ -357,7 +414,9 @@ def coverage_helper(df: pl.DataFrame) -> float:
     for seq, interval in zip(df["original"], df["interval"]):
         start, end = interval
         tree[start:end] = seq
+    # print("Before:", tree)
     tree.merge_overlaps()
+    # print("After merged", tree)
     lst = [list(v)[:-1] for v in tree]
     return total_coverage(lst)
 
@@ -369,7 +428,7 @@ ENGINE_LIST = [
     "msfragger",
     "msgf",
     "tide",
-    "metamorpheusGTPMD",
+    "metamorpheusGPTMD",
     "msfraggerGPTMD",
     "msfraggerGlyco",
 ]
