@@ -149,7 +149,6 @@ add_medians <- function(pw_conclusion, mapping) {
 }
 
 TABLES$peptide_number_conclusion <- peptide_number$pairwise_conclusion |>
-  add_medians(num_peps) |>
   pairwise_conclusion2gt()
 
 TABLES$peptide_number <- peptide_number$pairwise
@@ -165,7 +164,6 @@ unique_peptide_number_g <- unique_peptide_number$graph +
   theme(axis.text.x = element_blank(), axis.title.x = element_blank()) + guides(color = "none")
 
 TABLES$unique_peptide_number_conclusion <- unique_peptide_number$pairwise_conclusion |>
-  add_medians(num_unique_peps) |>
   pairwise_conclusion2gt()
 
 TABLES$unique_peptide_number <- unique_peptide_number$pairwise

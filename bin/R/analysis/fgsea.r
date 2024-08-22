@@ -113,7 +113,7 @@ if (!file.exists(fgsea_result_file)) {
     theme_bw() +
     M$default_theme +
     guides(
-      color = guide_legend("Protein group\n(In order of appearance from top)"),
+      color = guide_legend("Protein subset\n(In order of appearance from top)"),
       alpha = guide_legend("-Log adjusted p-value"),
     ) +
     ylab("Normalized Enrichment Score (NES)") +
@@ -126,7 +126,7 @@ if (!file.exists(fgsea_result_file)) {
     ) +
     scale_color_discrete(breaks = top)
   GRAPHS$top_enriched <- top_enriched
-  attr(GRAPHS$top_enriched, "width") <- 20
+  attr(GRAPHS$top_enriched, "width") <- 16
 
 
   if (!dir.exists(fgsea_dir)) {

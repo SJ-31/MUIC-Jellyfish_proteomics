@@ -113,3 +113,35 @@ if (!file.exists(glue("{M$ontologizer_path}/Met_ox.tsv"))) {
   })
   enriched_mods <- lapply(enriched_mods, as_tibble)
 }
+
+if (!dir.exists(glue("{M$ontologizer_path}/COG"))) {
+  dir.create(glue("{M$ontologizer_path}/COG"))
+  ont <- new.env()
+  reticulate::source_python(glue("{M$python_source}/ontologizer_wrapper.py"), envir = ont)
+  data <- read_tsv(M$data_w_cat_path)
+  with_cog <- group_by(data, GroupUP) |>
+    summarise(
+      GO_IDs = paste0(GO_IDs, collapse = ";")
+    ) |>
+    mutate(
+      GO_IDs = map_chr(GO_IDs, split_unique_join),
+    ) |>
+    filter(!is.na(GO_IDs))
+  O <- ont$Ontologizer(with_cog, M$ontologizer_exec, M$go_path, "GroupUP")
+  cog_names <- unique(with_cog$assigned_COG)
+  cleaned_names <- cog_names |> map_chr(\(x) str_replace_all(x, "/", "_") |> str_replace_all(" ", "_"))
+  groups <- lapply(cog_names, \(x) {
+    data |>
+      filter(assigned_COG == x) |>
+      pluck("GroupUP") |>
+      unique()
+  }) |>
+    `names<-`(cleaned_names)
+
+  params <- list(`-m` = "Bonferroni-Holm")
+  enriched_cog <- O$runAll(groups, params)
+
+  lmap(enriched_cog, \(x) {
+    write_tsv(x[[1]], glue("{M$ontologizer_path}/COG/{names(x)}.tsv"))
+  })
+}
