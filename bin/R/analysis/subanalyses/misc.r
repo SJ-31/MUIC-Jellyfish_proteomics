@@ -27,13 +27,10 @@ rm(hasq)
 fragment_names <- c("fragment", "partial")
 fragment_regex <- paste0(fragment_names, collapse = "|")
 
-unique_entries <- flatten_by(M$data$entry_name, ";") |>
-  unique() |>
-  discard(\(x) str_detect(x, "-DENOVO|-TRANSCRIPTOME"))
-
 data <- read_tsv(M$data_w_cat_path) |> mutate(
   is_fragment =
-    as.double(str_detect(str_to_lower(entry_name), fragment_regex))
+    as.double(str_detect(str_to_lower(entry_name), fragment_regex)),
+  is_denovo = str_detect(ProteinId, "D")
 )
 
 fragments <- data |> filter(is_fragment == 1)
@@ -44,6 +41,7 @@ grouped <- data |>
     assigned_COG = paste0(unique(assigned_COG), collapse = ";"),
     entry_name = paste0(entry_name, collapse = ";"),
     is_fragment = sum(is_fragment),
+    is_denovo = sum(is_denovo),
     size = n()
   ) |>
   mutate(entry_name = map_chr(entry_name, split_unique_join)) |>
@@ -107,6 +105,7 @@ default <- bind_rows(
   mutate(default_run$second, pass = "second")
 )
 
+
 joined_def <- joined |>
   select(header, pcoverage_align.ndm) |>
   inner_join(default, by = join_by(header))
@@ -150,6 +149,7 @@ get_combined <- function(path) {
 nd_all <- get_combined(M$ndpath) |> mutate(num_peps = str_count(peptideIds, ";") + 1)
 def_all <- get_combined(M$path) |> mutate(num_peps = str_count(peptideIds, ";") + 1)
 
+
 n_peps_compare <- inner_join(nd_all, def_all, by = join_by(header))
 
 test <- with(n_peps_compare, wilcox.test(num_peps.x, num_peps.y,
@@ -161,5 +161,24 @@ TABLES$nd_d_peptide_number_test <- test
 n_peps <- list(default = n_peps_compare$num_peps.y, ND = n_peps_compare$num_peps.x)
 
 # ----------------------------------------
+# Why is nd_merged so much better than default and has higher coverage than ND?
+# 1. Could it be that the proteins that benefit from the increased coverage in
+# nd_merged simply aren't present in default?
+# 2. Does nd_merged improve the coverage of proteins that
+# had higher coverage in ND than in default or is it other proteins?
 
-save(c(TABLES, GRAPHS), glue("{M$outdir}/misc"))
+better_ndm <- joined |>
+  filter(pcoverage_align.ndm > pcoverage_align.nd) |>
+  distinct(header, .keep_all = TRUE)
+jd2 <- inner_join(nd_run$second, default_run$second, by = join_by(header)) |> distinct(ProteinId.x, .keep_all = TRUE)
+
+nd_better <- jd2 |> filter(pcoverage_align.x > pcoverage_align.y)
+d_better <- jd2 |> filter(pcoverage_align.y > pcoverage_align.x)
+
+nd_better |> select(contains("Matched")) |> pluck("MatchedPeptideIds.x")
+
+nd_better
+# Answer to 2
+improved_by_ndm <- nd_better |> filter(header %in% better_ndm$header)
+already_better_in_nd <- d_better |> filter(header %in% better_ndm$header)
+not <- nd_better |> filter(!header %in% better_ndm$header)

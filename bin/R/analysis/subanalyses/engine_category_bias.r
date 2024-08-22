@@ -4,8 +4,10 @@ if (!exists("SOURCED")) {
 }
 ta <- new.env()
 reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
-
+library("aod")
+library("tidymodels")
 open_search_engines <- c("metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco")
+standard_search_engines <- c("comet", "identipy", "metamorpheus", "msfragger", "msgf", "tide")
 GRAPHS <- list()
 TABLES <- list()
 
@@ -21,13 +23,8 @@ TABLES <- list()
 num_peps <- compare_first_sec_W(M$run, "num_peps", "ProteinId", TRUE)
 tb <- inner_join(M$data, M$lfq, by = join_by(ProteinId))
 num_ids <- tb %>%
-  filter(ProteinGroupId != "U") %>%
   select(c(ProteinGroupId, pcoverage_align, ProteinId, num_peps, num_unique_peps)) %>%
-  mutate(engine_count = purrr::map_dbl(ProteinGroupId, \(x) {
-    x <- split_group_str(x, TRUE, TRUE) %>%
-      discard(\(x) x == "U")
-    return(length(x))
-  }))
+  mutate(engine_count = str_count(ProteinGroupId, ";") + 1)
 
 # Figure out which engines had the biggest contributions
 engine_counts <- num_ids$ProteinGroupId %>%
@@ -83,7 +80,6 @@ intensity_bias <- list()
 matches <- list()
 length_bias <- list()
 CONTINGENCY <- list()
-
 
 
 var_stats <- tibble()
@@ -204,9 +200,63 @@ grouped_bias <- all_bias |>
     mean_OR = map_dbl(data, \(x) mean(x$OR, na.rm = TRUE)),
     sd_OR = map_dbl(data, \(x) sd(x$OR, na.rm = TRUE))
   )
-summary(grouped_bias$sd_OR)
 
 # TODO: Can you do this with logistic regression
+clean_engine_str <- function(x) {
+  str_replace_all(x, "[0-9]+", "") |>
+    str_split_1(";") |>
+    unique() |>
+    paste0(collapse = ";")
+}
+
+d <- M$data |>
+  distinct(ProteinId, .keep_all = TRUE) |>
+  select(ProteinId, ProteinGroupId, pcoverage_align) |>
+  mutate(
+    Engines = map_chr(ProteinGroupId, clean_engine_str)
+  ) |>
+  select(-ProteinGroupId) |>
+  separate_longer_delim(Engines, ";") |>
+  mutate(hit = TRUE)
+
+pivot <- d |> pivot_wider(
+  id_cols = c(ProteinId, pcoverage_align),
+  names_from = Engines, values_from = hit, values_fill = FALSE
+)
+# emod <- lm(pcoverage_align ~ . - ProteinId, data = pivot)
+# summary(emod)
+logit_helper <- function(tb, engine) {
+  # model <- glm()
+}
+tb <- cur_hits
+tb$metamorpheus <- as.factor(tb$metamorpheus)
+vars <- recipe(metamorpheus ~ mean_intensity + length + match_type,
+  data = tb
+)
+lmodel <- logistic_reg()
+
+wflow <- workflow() %>%
+  add_model(lmodel) %>%
+  add_recipe(vars)
+fit <- wflow %>% fit(tb)
+fit_params <- extract_fit_parsnip(fit) |> tidy()
+fit_params
+prediction <- predict(fit, tb)
+aug <- augment(fit, tb)
+
+aug %>%
+  roc_curve(truth = metamorpheus, .pred_FALSE) |>
+  autoplot()
+
+tb$match_type <- as.factor(tb$match_type)
+
+
+model <- glm(metamorpheus ~ mean_intensity + length_category + match_type, data = tb, family = "binomial")
+summary(model)
+confint(model)
+# ----------------------------------------
+
+
 
 
 attr(GRAPHS$all_intensity_bias, "width") <- 18

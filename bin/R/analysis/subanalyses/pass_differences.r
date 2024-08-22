@@ -95,7 +95,7 @@ per_engine <- function(engine) {
 
 
   lost_in_sec <- filter(first, !ProteinId %in% sec$ProteinId)
-  print(all(sec$header %in% first$header))
+  # print(all(sec$header %in% first$header))
   NEW_IN_SEC <<- c(NEW_IN_SEC, filter(sec, !header %in% first$header) |> pluck("ProteinId")) # Should be empty
 
   found_in_both <- inner_join(first, sec,
@@ -140,7 +140,7 @@ per_engine <- function(engine) {
     \(x) {
       data$lost_in_sec
       table <- table(data$from != x, data$lost_in_sec)
-      print(table)
+      # print(table)
       or <- table %>% get_odds_ratio()
       upper <- table %>% get_odds_ratio(CI = TRUE)
       lower <- table %>% get_odds_ratio(CI = TRUE, side = "lower")
@@ -200,7 +200,7 @@ pw$conclusion <- pmap(
   list(pw$alternative, pw$two_sided_significant, pw$alternative_significant),
   \(alt, two_sided_significant, alternative_significant) {
     alt <- ifelse(str_detect(alt, "less"), "less", "greater")
-    if (two_sided_significant != "Y") {
+    if (two_sided_significant != "Y" || is.na(two_sided_significant)) {
       NA
     } else if (alternative_significant == "Y") {
       glue("first {alt}")

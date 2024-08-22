@@ -17,6 +17,9 @@ standard_search_engines <- ENGINES[!ENGINES %in% open_search_engines]
 
 data <- read_tsv(M$data_path)
 
+
+ta <- new.env()
+reticulate::source_python(glue("{M$python_source}/trace_alignments.py"), envir = ta)
 num_peptides_matched <- ta$get_engine_counts(M$percolator_all, data) |>
   as_tibble() |>
   distinct()

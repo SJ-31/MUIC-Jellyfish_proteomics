@@ -42,12 +42,12 @@ save_chord <- function(tc, filename, width = 10, height = 10) {
   saveFun()
   plot_chord(tc, go_colors, TRUE, TRUE)
   dev.off()
-  save_legend(
-    go_colors,
-    glue("{filename}-legend.{ext}"),
-    "GO key",
-    nrows = 6
-  )
+  # save_legend(
+  #   go_colors,
+  #   glue("{filename}-legend.{ext}"),
+  #   "GO key",
+  #   nrows = 6
+  # )
 }
 
 plot_chord <- function(tc, colors = NULL, show_to = TRUE, show_from = FALSE) {
@@ -58,7 +58,7 @@ plot_chord <- function(tc, colors = NULL, show_to = TRUE, show_from = FALSE) {
       big.gap = 20,
       direction.type = "arrows",
       link.arr.type = "big.arrow",
-      preAllocateTracks = list(track.hieght = 5),
+      preAllocateTracks = list(track.height = 5),
       annotationTrack = "grid",
       transparency = 0.8
     )

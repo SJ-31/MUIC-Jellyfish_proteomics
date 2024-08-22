@@ -5,7 +5,6 @@ if (!exists("SOURCED")) {
 PALETTE <- "ggthemes::colorblind"
 PALETTE2 <- "ggthemes::Classic_10_Medium"
 library("ggplot2")
-library("ggVennDiagram")
 TABLES <- list()
 GRAPHS <- list()
 
@@ -44,6 +43,28 @@ get_general_alignment <- function(path, param, prefix) {
       write_tsv(
         per_protein_alignment_metrics,
         per_protein_alignment_metrics_file
+      )
+    }
+
+    combo_alignment_metrics_file <- glue("{ALIGN_DIR}/combos_{param}_{pass}.tsv")
+    if (file.exists(combo_alignment_metrics_file)) {
+      combo_alignment_metrics <- read_tsv(combo_alignment_metrics_file)
+    } else {
+      tracer <- ta$AlignmentTracer(aligned_peptides_path, peptide_map_path)
+      combo_alignment_metrics <- tracer$run(mode = "combos")
+      print(combo_alignment_metrics)
+      # if (length(combo_alignment_metrics) > 1) {
+      #   combo_alignment_metrics <- combo_alignment_metrics[1]
+      # }
+      combo_alignment_metrics <- combo_alignment_metrics |>
+        as_tibble() |>
+        mutate(
+          pass = pass, param = param
+        ) |>
+        inner_join(data, by = join_by(ProteinId))
+      write_tsv(
+        combo_alignment_metrics,
+        combo_alignment_metrics_file
       )
     }
 
