@@ -71,93 +71,55 @@ engine_files <- list(
   tide = "Tide/tide_search.target.txt"
 )
 
-all_def <- read_tsv(glue("{denovo_dir}/default_prot_all.tsv")) |>
-  mutate(
-    type = case_when(
-      n_denovo > 0 & n_full > 0 ~ "Matched to both",
-      n_denovo > 0 & n_full == 0 ~ "Matched to de novo only",
-      n_denovo == 0 & n_full > 0 ~ "Matched to DBP only"
-    ),
-    data = "default"
-  )
-all_joined <- read_tsv(glue("{denovo_dir}/joined_prot_all.tsv"))
-
+record_stats <- function(tb, filter_list, source) {
+  stats <- list(source = c(), count = c(), prop = c(), total = c(), criteria = c())
+  size <- nrow(tb)
+  for (n in names(filter_list)) {
+    filter <- filter_list[[n]]
+    f <- tb |> filter(filter)
+    count <- nrow(f)
+    stats$count <- append(stats$count, count)
+    stats$source <- append(stats$source, source)
+    stats$total <- append(stats$total, size)
+    stats$prop <- append(stats$prop, count / size)
+    stats$criteria <- append(stats$criteria, n)
+  }
+  return(as_tibble(stats))
+}
 
 # Check if de novo peptides and full length-proteins are ever found together
-together <- all_def |> filter(n_full > 0 & n_denovo > 0)
-(together$engine |> table()) / nrow(together)
-together$n_denovo |> mean()
+all_def <- read_tsv(glue("{denovo_dir}/default_prot_all.tsv"))
+all_joined <- read_tsv(glue("{denovo_dir}/joined_prot_all.tsv"))
+all_joined_pep <- all_joined |> filter(Peptide == Peptide_nd)
 
+def_filters <- with(all_def, list(
+  "Matched to both" = n_denovo > 0 & n_full > 0,
+  "Matched to de novo only" = n_denovo > 0 & n_full == 0,
+  "Matched to DBP only" = n_denovo == 0 & n_full > 0
+))
 
-# Proportion of unique shared spectra where de novo peptides were matched in default, but no DBP was matched in default
-matches <- all_joined |> filter(n_denovo > 0)
-no_dbp_matches <- all_joined |> filter(n_denovo > 0 & n_full == 0)
-no_dbp_matches$n_denovo |> mean()
+def_stats <- record_stats(all_def, def_filters, "default")
 
-same_peptides <- all_joined |>
-  filter(Peptide == Peptide_nd) |>
-  mutate(
-    type = case_when(
-      n_denovo > 0 ~ "De novo matched in default",
-      Proteins == Proteins ~ "Same DBP match",
-      .default = "Different DBP match"
-    ),
-    data = "ND & default joined (same peptides)"
-  )
+all_joined_filters <- with(all_joined, list(
+  "Matched to both" = n_denovo > 0 & n_full > 0,
+  "Matched to de novo only" = n_denovo > 0 & n_full == 0,
+  "Matched to DBP only" = n_denovo == 0 & n_full > 0
+))
 
+aj_stats <- record_stats(all_joined, all_joined_filters, "ND x default")
 
-all_joined <- mutate(all_joined,
-  type =
-    case_when(
-      n_denovo > 0 & n_full == 0 ~ "Only de novo matched in default",
-      n_denovo > 0 & n_full > 0 ~ "De novo and DBP matched in default",
-      n_denovo == 0 ~ "DBP matched only"
-    ),
-  data = "ND & default joined"
-)
+same_pep_filters <- with(all_joined_pep, list(
+  "Matched to de novo only" = n_denovo > 0 & n_full == 0,
+  "Matched to both" = n_denovo > 0 & n_full > 0,
+  "Matched to DBP only" = n_denovo == 0 & n_full > 0,
+  "Identical set of protein matches" = Proteins == Proteins_nd
+))
 
-to_plot <- bind_rows(all_joined, all_def, same_peptides)
+sp_stats <- record_stats(all_joined_pep, same_pep_filters, "ND x default shared peptides")
 
+to_plot <- bind_rows(def_stats, aj_stats, sp_stats)
 
-ggplot(to_plot, aes(x = data, fill = type)) +
-  geom_bar() +
-  scale_y_log10()
-
-to_plot$type |> table()
-
-
-TABLES$psm_stats <- table(to_plot$type, to_plot$data) |>
-  as.data.frame() |>
-  as_tibble() |>
-  relocate(Var2, .before = everything()) |>
-  group_by(Var2) |>
-  mutate(proportion = round(Freq / sum(Freq), 2), ) |>
-  filter(Freq > 0) |>
-  ungroup() |>
-  mutate(Index = seq_len(n())) |>
-  relocate(Index, .before = everything()) |>
-  gt() |>
-  cols_label(
-    Freq = "Count", proportion = "Proportion",
-    Var2 = "PSM source", Var1 = "Type"
-  )
-
-same_pep_denovo <- all_joined |> filter(Peptide == Peptide_nd & n_denovo > 0)
-same_pep <- all_joined |> filter(Peptide == Peptide_nd & Proteins == Proteins_nd)
-
-TABLES$denovo_and_full <- glue("
-Number of PSMs where de novo peptides and full DBPs were matched together: {nrow(together)}
-Total: {nrow(all_def)}
-Proportion of above out of all PSMs: {nrow(together)/nrow(all_def)}
-
-With respect to ND and default
-total joined: {nrow(all_joined)}
-1) n unique shared spectra where de novo peptides were matched: {nrow(matches)}, prop: {nrow(matches)/nrow(all_joined)}
-2) n unique shared spectra where de novo peptides were matched, but no DBPs matched
-in default: {nrow(no_dbp_matches)}, prop: {nrow(no_dbp_matches)/nrow(all_joined)}
-Prop of 2) in 1): {nrow(no_dbp_matches)/nrow(matches)}
-
-")
+TABLES$psm_stats <- to_plot |> gt()
 
 
 save(c(TABLES, GRAPHS), denovo_dir)
