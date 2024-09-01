@@ -559,12 +559,13 @@ metalloprotease = [
 jft = [" cftx", " catx", " cqtx"]
 pore_forming = ["neoverrucotoxin", "porin"]
 pesticidal_crystal = ["pesticidal crystal"]
-phospholipase = []
-enterotoxin = []
+phospholipase = ["phospholipase"]
+enterotoxin = ["enterotoxin"]
 natriuretic = []
 nerve_growth_factor = []
 amino_acid_oxidase = []
 nucleotidase = []
+other = ["dermonecrotic"]
 
 [toxins]
 hemolysin = [
@@ -572,6 +573,16 @@ hemolysin = [
     "GO:0044468", # envenomation resulting in modulation of blood coagulation in another organism
     "GO:0044483", # envenomation resulting in impairment of hemostasis in another organism:
     "GO:0044358", # envenomation resulting in hemorrhagic damage in another organism
+]
+other = [
+    "GO:0000269", # MF toxin export channel activity
+    "GO:0062048", # CC lymphotoxin complex
+    "GO:0110001", # CC toxin-antitoxin complex
+    "GO:0042151", # CC nematocyst
+    "GO:0019534", # MF toxin transmembrane transporter activity
+    "GO:0090729", # MF toxin activity
+    "GO:0009404", # BP toxin metabolic process
+    "GO:0035738", # BP envenomation resulting in modulation of process in another organism
 ]
 c_type_lectin = [
     "GO:0001862",
@@ -598,6 +609,7 @@ jft = []
 pore_forming = [
     "GO:0008282", # inward rectifying potassium channel
     "GO:0140911", # pore-forming activity
+    "GO:0015288", # MF porin activity
     "GO:0046931", # pore complex assembly
     "GO:0046930", # pore complex
     "GO:0044471", # envenomation resulting in pore formation in membrane of another organism

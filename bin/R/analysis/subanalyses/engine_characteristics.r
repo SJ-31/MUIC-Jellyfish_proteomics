@@ -481,7 +481,7 @@ overlap_plot <- to_plot |>
   ) +
   scale_x_discrete(position = "top")
 
-GRAPHS$engine_sim_overlap <- cowplot::plot_grid(overlap_plot, pep_counts)
+GRAPHS$engine_sim_overlap <- cowplot::plot_grid(overlap_plot, pep_counts, labels = "AUTO")
 attr(GRAPHS$engine_sim_overlap, "width") <- 18
 
 

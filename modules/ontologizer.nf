@@ -12,7 +12,6 @@ process ONTOLOGIZER {
     path("*")
     path("ontologizer-*.txt"), emit: over
     path("*_GO_slims.tsv")
-    path("*.png")
     //
 
     script:
@@ -35,15 +34,6 @@ process ONTOLOGIZER {
         --r_source $params.bin/R \
         --go_slim_path $params.go_slims \
         --go_path $params.go
-
-    Rscript $params.bin/R/ontologizer.r \
-        -m word_cloud \
-        --results_path . \
-        -w $projectDir \
-        --r_source $params.bin/R \
-        --go_slim_path $params.go_slims \
-        --go_path $params.go \
-        --go_tm_dir $params.go_texts
     """
     //
 }

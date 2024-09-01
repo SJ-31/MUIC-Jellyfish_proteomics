@@ -280,8 +280,53 @@ def main(args):
         return result, G, cog_map
 
 
+def correct_cog(df: pl.DataFrame) -> pl.DataFrame:
+    """Correct blatant cases of mismatched categories using entry names"""
+    correct_cogs: dict = {
+        "Cytoskeleton": ["tubulin", "actin", "myosin", "kinesin"],
+        "Extracellular structures": ["collagen"],
+        "Replication, recombination, and repair": ["dna repair"],
+        "Defense mechanisms": ["cytochrome p450"],
+        "Transcription": ["transcription"],
+    }
+    cog_map = mapping_from_definition(correct_cogs)
+
+    def reassign(entry: str, original: str) -> str | None:
+        entry = entry.lower()
+        for check, cog in cog_map.items():
+            if re.search(check, entry):
+                return cog
+        return original
+
+    df = df.with_columns(
+        pl.struct("entry_name", "assigned_COG")
+        .map_elements(
+            lambda x: reassign(x["entry_name"], x["assigned_COG"]),
+            return_dtype=pl.String,
+        )
+        .alias("assigned_COG")
+    )
+    return df
+
+
 if __name__ == "__main__":
     args = parse_args()
     result, G, mapping = main(args)
+    if args["mode"] == "cog":
+        args["mode"] = "toxin"
+        tox_result, G, mapping = main(args)
+        tox_map = {
+            g: "venom component"
+            for g, t in zip(tox_result["GroupUP"], tox_result["Group"])
+            if t != "NA"
+        }
+        result = result.with_columns(
+            pl.struct("GroupUP", "assigned_COG")
+            .map_elements(
+                lambda x: tox_map.get(x["GroupUP"], x["assigned_COG"]), pl.String
+            )
+            .alias("assigned_COG")
+        ).with_columns(pl.col("assigned_COG").fill_null("Function unknown"))
+        result = correct_cog(result)
     result.write_csv(args["output"], separator="\t", null_value="NA")
     G.evidence_df.write_csv(args["evidence_file_output"], separator="\t")

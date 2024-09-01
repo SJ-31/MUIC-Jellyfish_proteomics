@@ -4,6 +4,7 @@ shell_command_before:
   - cmd: source ~/.venv/default/bin/activate
 environment:
   bin: "./bin"
+  wd: "."
   config: "./config"
   results: "./results"
   data: "./data"
@@ -11,6 +12,8 @@ environment:
   nf_test: "./tests/nf-test-out"
 windows:
   - window_name: "main"
+    panes:
+      - "tmuxp load -d ./tmuxp_results.yaml"
   - window_name: results
     start_directory: ./results
     panes:

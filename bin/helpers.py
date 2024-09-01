@@ -401,10 +401,11 @@ def flatten_by(lst, by=";"):
 
 
 def fasta2df(fasta: str) -> pl.DataFrame:
-    tmp = {"header": [], "seq": []}
+    tmp = {"header": [], "id": [], "seq": []}
     for entry in SeqIO.parse(fasta, format="fasta"):
-        tmp["header"].append(entry.id)
-        tmp["seq"].append(entry.seq)
+        tmp["header"].append(entry.description)
+        tmp["id"].append(entry.id)
+        tmp["seq"].append(str(entry.seq))
     return pl.DataFrame(tmp)
 
 

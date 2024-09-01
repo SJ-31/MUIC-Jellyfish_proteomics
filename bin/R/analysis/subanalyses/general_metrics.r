@@ -17,7 +17,11 @@ cov_align <- compare_first_sec_L(
 )
 GRAPHS$run_coverage <- pass_density_plot(cov_align, 0.05) + labs(x = "percent coverage") + M$default_theme
 
-TABLES$run_stats <- get_run_stats(read_tsv(M$data_path)) |> gt()
+TABLES$run_stats <- get_run_stats(read_tsv(M$data_path)) |>
+  gt() |>
+  fmt_number(decimals = 0) |>
+  cols_label(value = "Value")
+
 
 stat_cols <- c("ID_method", "inferred_by", "source")
 id_stats <- read_tsv(M$data_w_cat_path) |>
@@ -146,7 +150,7 @@ if (file.exists(M$data_w_cat_path)) {
     ylab("Log 10 count") +
     xlab("Protein group size")
 
-  GRAPHS$cog_hist_intensity <- cowplot::plot_grid(cog_hist, category_box, rel_widths = c(1, 1))
+  GRAPHS$cog_hist_intensity <- cowplot::plot_grid(cog_hist, category_box, rel_widths = c(1, 1), labels = "AUTO")
   # Top ten most intense proteins
   attr(GRAPHS$cog_hist_intensity, "width") <- 20
   top_ten <- lfq %>%
@@ -252,6 +256,20 @@ for (i in seq_along(M$prefixes)) {
   covs[[names[i]]] <- cov_compare_helper(compare_tb, palettes[i], names[i])
 }
 
+covs$msConvert <- covs$msConvert + theme(
+  axis.text.x = element_blank(),
+  axis.ticks.x = element_blank(), axis.title.x = element_blank(),
+  axis.text.y = element_blank(),
+  axis.ticks.y = element_blank(), axis.title.y = element_blank()
+)
+covs$default <- covs$default + theme(
+  axis.text.x = element_blank(),
+  axis.ticks.x = element_blank(), axis.title.x = element_blank()
+)
+covs$ND <- covs$ND + theme(
+  axis.text.y = element_blank(),
+  axis.ticks.y = element_blank(), axis.title.y = element_blank()
+)
 GRAPHS$header_overlap <- do.call("plot_grid", c(venns)) + M$default_theme
 if (!interactive()) {
   GRAPHS$pass_cov_comparison <- do.call("grid.arrange", c(covs, ncol = 2))
@@ -435,11 +453,13 @@ GRAPHS$type_plot <- to_plot |>
 
 attr(GRAPHS$type_plot, "width") <- 18
 
-
 grouped <- wcat |>
   group_by(GroupUP) |>
   summarize(across(all_of(wanted_read), \(x) paste0(x, collapse = ";"))) |>
-  mutate(across(all_of(wanted_read), \(x) map_chr(x, split_unique_join)))
+  mutate(across(all_of(wanted_read), \(x) map_chr(x, split_unique_join))) |>
+  left_join(select(tb, GroupUP, log_intensity), by = join_by(GroupUP)) |>
+  relocate(c(entry_name, pcoverage_align, log_intensity), .before = everything())
+
 
 grouped |>
   write_tsv(glue("{an_dir}/grouped_annotations_only.tsv"))
@@ -447,6 +467,8 @@ grouped |>
 wcat |>
   select(all_of(wanted_read)) |>
   write_tsv(glue("{an_dir}/annotations_only.tsv"))
+
+
 
 
 save(c(GRAPHS, TABLES), glue("{M$outdir}/general_metrics"))

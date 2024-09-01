@@ -106,7 +106,32 @@ all_joined_filters <- with(all_joined, list(
   "Matched to DBP only" = n_denovo == 0 & n_full > 0
 ))
 
+clean_peptide_all <- function(x) {
+  clean_peptide(x) |>
+    str_remove_all("\\.") |>
+    str_remove_all("-") |>
+    str_remove_all("n")
+}
+
+pyt <- reticulate::import("pyteomics.mass")
+compare_peps <- all_joined |>
+  filter(n_denovo > 0 & n_full == 0) |>
+  select(Peptide, Peptide_nd) |>
+  mutate(across(everything(), clean_peptide_all),
+    n_mismatch = map2_dbl(Peptide, Peptide_nd, \(x, y) {
+      stringdist::stringdist(x, y, method = "lv")
+    }),
+    mass = map_dbl(Peptide, pyt$fast_mass),
+    mass_nd = map_dbl(Peptide_nd, pyt$fast_mass),
+    mass_diff = abs(mass - mass_nd)
+  )
+
+see(compare_peps)
+
+compare_peps$n_mismatch |> hist()
+
 aj_stats <- record_stats(all_joined, all_joined_filters, "ND x default")
+
 
 same_pep_filters <- with(all_joined_pep, list(
   "Matched to de novo only" = n_denovo > 0 & n_full == 0,
@@ -114,6 +139,7 @@ same_pep_filters <- with(all_joined_pep, list(
   "Matched to DBP only" = n_denovo == 0 & n_full > 0,
   "Identical set of protein matches" = Proteins == Proteins_nd
 ))
+aj_stats
 
 sp_stats <- record_stats(all_joined_pep, same_pep_filters, "ND x default shared peptides")
 
@@ -121,5 +147,6 @@ to_plot <- bind_rows(def_stats, aj_stats, sp_stats)
 
 TABLES$psm_stats <- to_plot |> gt()
 
+sp_stats
 
 save(c(TABLES, GRAPHS), denovo_dir)

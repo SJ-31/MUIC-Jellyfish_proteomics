@@ -69,6 +69,9 @@ M$chosen_pass <- M$passes$Second
 M$chosen_path <- M$cpath
 # ----------------------------------------
 
+M$open_search_engines <- c("metamorpheusGPTMD", "msfraggerGPTMD", "msfraggerGlyco")
+M$standard_search_engines <- c("comet", "identipy", "metamorpheus", "msfragger", "msgf", "tide")
+
 
 M$default_theme <- theme(
   legend.title = element_text(face = "bold", size = 15),
@@ -93,6 +96,7 @@ M$go_reference <- glue("{M$wd}/data/reference/with_levels.tsv")
 M$uniprot_data_dir <- glue("{M$wd}/data/protein_databases/comparison_taxa")
 M$data_path <- glue("{M$chosen_path}/{M$chosen_pass}/{M$chosen_prefix}_all_wcoverage.tsv")
 M$peptide_map_path <- glue("{M$chosen_path}/{M$chosen_pass}/percolator_peptide_map.tsv")
+M$peptide_map_all_path <- glue("{M$chosen_path}/{M$chosen_pass}/percolator_peptide_map_all.tsv")
 M$ontologizer_path <- glue("{M$chosen_path}/Analysis/Ontologizer")
 M$toxin_map_path <- glue("{M$chosen_path}/Analysis/toxin_groups.tsv")
 M$embedding_path <- glue("{M$wd}/data/reference/go_embedded.npz")

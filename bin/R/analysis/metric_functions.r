@@ -410,6 +410,28 @@ group_pathways <- function(tb, minimum = 50) {
   return(list(map = id2pathway, grouped = pathway_lists))
 }
 
+
+group_go <- function(tb, wanted_terms) {
+  id2go <- tb %>%
+    filter(!is.na(GO_IDs)) %>%
+    dplyr::select(ProteinId, GO_IDs) %>%
+    separate_longer_delim(GO_IDs, ";") |>
+    filter(GO_IDs %in% wanted_terms)
+  id2name <- setNames(names(wanted_terms), wanted_terms)
+  pathway_lists <- id2go %>%
+    group_by(GO_IDs) %>%
+    nest() %>%
+    apply(1, \(x) {
+      lst <- list()
+      lst[[x$GO_IDs]] <- x$data$ProteinId
+      return(lst)
+    }) %>%
+    do.call(c, .)
+  names(pathway_lists) <- map_chr(names(pathway_lists), \(x) id2name[[x]])
+  return(list(map = id2go, grouped = pathway_lists))
+}
+
+
 #' Split and a ProteinGroupId string by the ";", optionally remove the
 #' numbers and leave unique groups
 #'
@@ -592,7 +614,7 @@ get_run_stats <- function(tb) {
     filter(!is.na(MatchedPeptideIds)) |>
     nrow()
   vars[["Median GO terms per protein"]] <- median(tb$GO_counts, na.rm = TRUE)
-  vars[["Median % coverage"]] <- median(tb$pcoverage_align, na.rm = TRUE)
+  vars[["Median % coverage"]] <- median(tb$pcoverage_align, na.rm = TRUE) * 100
   vars[["Median peptide length"]] <- median(pep_lengths, na.rm = TRUE)
   vars[["Max peptide length"]] <- max(pep_lengths, na.rm = TRUE)
   vars[["Min peptide length"]] <- min(pep_lengths, na.rm = TRUE)
@@ -605,7 +627,7 @@ get_run_stats <- function(tb) {
       contains("KEGG"), "PFAMs", contains("interpro")
     ), is.na)) |>
     nrow()
-  vars[["Percentage of proteins with annotations"]] <- (nrow(tb) - n_without_anno) / nrow(tb)
+  vars[["Percentage of proteins with annotations"]] <- (nrow(tb) - n_without_anno) / nrow(tb) * 100
   vars |>
     as_tibble() |>
     pivot_longer(everything()) |>
@@ -614,7 +636,7 @@ get_run_stats <- function(tb) {
 
 
 simplify_cog <- function(tb, cog_col = "assigned_COG") {
-  tb |>
+  tb <- tb |>
     replace_in_col(
       cog_col,
       c("Nuclear structure", "Chromatin structure and dynamics"),
@@ -634,6 +656,8 @@ simplify_cog <- function(tb, cog_col = "assigned_COG") {
       ),
       "Nutrient transport and metabolism"
     )
+  tb[[cog_col]] <- replace_na(tb[[cog_col]], "Function unknown")
+  tb
 }
 
 get_msgf <- function(dir) {

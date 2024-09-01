@@ -23,11 +23,6 @@ d$sample_tb <- d$sample_tb |>
   left_join(perc_mods, by = join_by(ProteinId)) |>
   inner_join(M$lfq, by = join_by(ProteinId))
 
-toxins <- d$sample_tb |>
-  inner_join(read_tsv(M$toxin_map_path), by = join_by(GroupUP)) |>
-  filter(!is.na(Group)) |>
-  pluck("ProteinId")
-
 # Gene Set enrichment analysis
 gene_sets <- list(
   unknown_to_db = d$sample_tb %>%
@@ -37,8 +32,7 @@ gene_sets <- list(
     pluck("ProteinId"),
   has_mods = d$sample_tb %>%
     filter(ID_method == "open" | !is.na(mods)) %>%
-    pluck("ProteinId"),
-  toxins = toxins
+    pluck("ProteinId")
 )
 
 kegg_metadata_file <- glue("{fgsea_dir}/kegg_metadata.tsv")
@@ -52,7 +46,20 @@ if (!file.exists(kegg_metadata_file)) {
   kegg_metadata <- read_tsv(kegg_metadata_file)
 }
 
-pwy <- group_pathways(d$sample_tb)
+# pwy <- group_pathways(d$sample_tb)
+terms <- list(
+  porin_activity = "GO:0015288",
+  proteolysis = "GO:0006508",
+  phospholipase_activity = "GO:0004620",
+  pore_forming_activity = "GO:0140911",
+  protein_folding = "GO:0006457",
+  folding_chaperone = "GO:0140662",
+  apoptotic_process = "GO:0006915",
+  antioxidant_activity = "GO:0016209",
+  metallopeptidase_activity = "GO:0008237",
+  transporter_activity = "GO:0005215"
+)
+pwy <- group_go(d$sample_tb, wanted_terms = terms)
 
 categories <- table(d$sample_tb$assigned_COG) %>%
   discard(., \(x) x < 100) %>%
@@ -61,100 +68,109 @@ category_lists <- group_list_from_tb(d$sample_tb, categories, "assigned_COG", "P
 
 grouping_col <- "GroupUP"
 gene_sets <- c(gene_sets, pwy$grouped, category_lists)
+
 by_intensity <- merge_lfq(d$sample_tb, "mean") %>%
   inner_join(., dplyr::select(d$sample_tb, c(ProteinId, {{ grouping_col }})))
 
 fgsea_result_file <- glue("{fgsea_dir}/results.tsv")
-if (!file.exists(fgsea_result_file)) {
-  fgsea_percolator_groups <- fgseaGroup(by_intensity,
-    grouping_col = grouping_col,
-    gene_sets = gene_sets
-  )
+fgsea_percolator_groups <- fgseaGroup(by_intensity,
+  grouping_col = grouping_col,
+  gene_sets = gene_sets
+)
 
-  fgsea_sig <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
+fgsea_sig <- fgsea_percolator_groups$fgsea$result %>% filter(padj < 0.05)
 
-  keggid2pathway_name <- tb2named_list(kegg_metadata, "entry", "name")
-  fgsea_sig <- fgsea_sig |>
-    mutate(
-      new_pathway =
-        map_chr(pathway, \(x) ifelse(x %in% names(keggid2pathway_name), keggid2pathway_name[[x]], x))
-    ) |>
-    distinct(new_pathway, .keep_all = TRUE)
+top <- fgsea_sig[head(order(NES, decreasing = TRUE), n = 15), pathway]
 
-  renamed_groups <- local({
-    g <- fgsea_percolator_groups$groups
-    g <- g[names(g) %in% fgsea_sig$pathway]
-    names(g) <- fgsea_sig$new_pathway
-    g
-  })
-  fgsea_sig <- fgsea_sig |>
-    mutate(pathway = new_pathway) |>
-    select(-new_pathway)
+group_tb <- named_list2tb(fgsea_percolator_groups$groups)
 
-  top <- fgsea_sig[head(order(NES, decreasing = TRUE), n = 15), pathway]
+rank_tb <- fgsea_percolator_groups$fgsea$ranked |>
+  as_tibble() |>
+  mutate(group = names(fgsea_percolator_groups$fgsea$ranked), rank = rank(-value))
 
-  group_tb <- named_list2tb(fgsea_percolator_groups$groups) |>
-    mutate(name = map_chr(name, \(x) lget(keggid2pathway_name, x, x)))
-
-  rank_tb <- fgsea_percolator_groups$fgsea$ranked |>
-    as_tibble() |>
-    mutate(group = names(fgsea_percolator_groups$fgsea$ranked), rank = rank(-value))
-
-  formatted <- fgsea_sig |>
-    as_tibble() |>
-    inner_join(group_tb, by = join_by(x$pathway == y$name)) |>
-    inner_join(rank_tb, by = join_by(x$value == y$group))
-
-  top_enriched <- formatted |>
-    filter(pathway %in% top) |>
-    mutate(padj = -log(padj)) |>
-    ggplot(aes(x = rank, y = NES, color = pathway, alpha = padj)) +
-    geom_point(shape = 3, size = 4) +
-    theme_bw() +
-    M$default_theme +
-    guides(
-      color = guide_legend("Protein subset\n(In order of appearance from top)"),
-      alpha = guide_legend("-Log adjusted p-value"),
-    ) +
-    ylab("Normalized Enrichment Score (NES)") +
-    xlab("Intensity rank") +
-    scale_x_continuous(
-      breaks = seq(0, max(formatted$rank), by = 500)
-    ) +
-    scale_y_continuous(
-      breaks = seq(4, max(formatted$NES), by = 0.2)
-    ) +
-    scale_color_discrete(breaks = top)
-  GRAPHS$top_enriched <- top_enriched
-  attr(GRAPHS$top_enriched, "width") <- 16
+formatted <- fgsea_sig |>
+  as_tibble() |>
+  inner_join(group_tb, by = join_by(x$pathway == y$name)) |>
+  inner_join(rank_tb, by = join_by(x$value == y$group))
 
 
-  if (!dir.exists(fgsea_dir)) {
-    dir.create(fgsea_dir)
-  }
+top_enriched <- formatted |>
+  filter(pathway %in% top) |>
+  mutate(padj = -log(padj)) |>
+  ggplot(aes(x = rank, y = NES, color = pathway, alpha = padj)) +
+  geom_point(shape = 3, size = 4) +
+  theme_bw() +
+  M$default_theme +
+  guides(
+    color = guide_legend("Protein subset\n(In order of appearance from top)"),
+    alpha = guide_legend("-Log adjusted p-value"),
+  ) +
+  ylab("Normalized Enrichment Score (NES)") +
+  xlab("Intensity rank") +
+  scale_x_continuous(
+    breaks = seq(0, max(formatted$rank), by = 500)
+  ) +
+  scale_y_continuous(
+    breaks = seq(4, max(formatted$NES), by = 0.2)
+  ) +
+  scale_color_discrete(breaks = top)
+GRAPHS$top_enriched <- top_enriched
+attr(GRAPHS$top_enriched, "width") <- 16
 
-  if (nrow(fgsea_percolator_groups$fgsea$result) != 0) {
-    write_tsv(fgsea_percolator_groups$fgsea$result, glue("{fgsea_dir}/results.tsv"))
-    write_tsv(fgsea_sig, glue("{fgsea_dir}/formatted_results"))
-    plots <- plotFgsea(
-      fgsea_percolator_groups$groups,
-      fgsea_percolator_groups$fgsea$ranked,
-      fgsea_percolator_groups$fgsea$result
-    )
-    lapply(names(plots), \(x) {
-      ggsave(glue("{fgsea_dir}/{x}.png"), plots[[x]])
-    })
-  } else {
-    cat("", file = glue("{fgsea_dir}/no_results"))
-  }
-  # Note: The sizes are correctly the sizes of the ProteinGroups, not individual
-  # protein ids
-  fgsea_sig <- fgsea_percolator_groups$fgsea$result |> as_tibble()
-} else {
-  fgsea_sig <- read_tsv(fgsea_result_file)
+
+if (!dir.exists(fgsea_dir)) {
+  dir.create(fgsea_dir)
 }
 
-kegg_sig <- fgsea_sig |> inner_join(kegg_metadata, by = join_by(x$pathway == y$entry))
+if (nrow(fgsea_percolator_groups$fgsea$result) != 0) {
+  write_tsv(fgsea_percolator_groups$fgsea$result, glue("{fgsea_dir}/results.tsv"))
+  write_tsv(fgsea_sig, glue("{fgsea_dir}/formatted_results.tsv"))
+  plots <- plotFgsea(
+    fgsea_percolator_groups$groups,
+    fgsea_percolator_groups$fgsea$ranked,
+    fgsea_percolator_groups$fgsea$result
+  )
+  lapply(names(plots), \(x) {
+    ggsave(glue("{fgsea_dir}/enrich_plot/{x}.png"), plots[[x]],
+      create.dir = TRUE
+    )
+  })
+} else {
+  cat("", file = glue("{fgsea_dir}/no_results"))
+}
+
+# Note: The sizes are correctly the sizes of the ProteinGroups, not individual
+# protein ids
+fgsea_sig <- fgsea_percolator_groups$fgsea$result |> as_tibble()
+
+go_id_map <- d$sample_tb |>
+  separate_longer_delim(GO_IDs, ";") |>
+  select(ProteinId, GO_IDs) |>
+  filter(!is.na(GO_IDs))
+
+filtered_pathways <- lapply(formatted$pathway, \(x) {
+  current <- go_id_map |> filter(GO_IDs == x)
+  name <- pathway_id_map[[x]]
+  result <- list()
+  result[[name]] <- d$sample_tb |> filter(ProteinId %in% current$ProteinId)
+  result
+}) |>
+  unlist(recursive = FALSE)
+
+
+for (n in names(filtered_pathways)) {
+  nn <- str_replace_all(n, " ", "_")
+  cur <- filtered_pathways[[n]] |>
+    relocate(entry_name, pcoverage_align, .before = everything()) |>
+    select(-c(ProteinGroupId, GroupSB))
+  if (nrow(cur) > 0) {
+    if (!dir.exists(glue("{fgsea_dir}/pathway_proteins"))) {
+      dir.create(glue("{fgsea_dir}/pathway_proteins"))
+    }
+    write_tsv(cur, glue("{fgsea_dir}/pathway_proteins/{nn}.tsv"))
+  }
+}
+
 
 TABLES$fgsea_sig_gt <- fgsea_sig |> gt()
 

@@ -24,8 +24,7 @@ results = f"{wd}/results"
 dfs: dict = {}
 peptides: dict = {}
 hits: dict = {}
-perc: dict = {}
-perc2: dict = {}
+perc_d: dict = {}
 
 for p, v in prefixes.items():
     path = f"{results}/{v}/{chosen_pass}"
@@ -35,6 +34,9 @@ for p, v in prefixes.items():
         null_values="NA",
     )
     peptides[p] = set(hh.flatten_by(dfs[p]["unique_peptides"]))
+    perc_d[p] = pl.read_csv(
+        f"{path}/percolator_peptide_map.tsv", separator="\t", null_values="NA"
+    )
 
 was_matched: set = set(
     hh.flatten_by(
@@ -55,6 +57,7 @@ perc_prot = (
 ).with_columns(
     pl.col("peptideIds").map_elements(hh.clean_peptide, return_dtype=pl.String)
 )
+
 perc_peps = pl.read_csv(
     f"{results}/{prefixes['default']}/{chosen_pass}/percolator_peptide_map.tsv",
     separator="\t",
@@ -77,6 +80,9 @@ default_engine_peps = set(
         dfs["default"].filter(pl.col("MatchedPeptideIds").is_null())["unique_peptides"]
     )
 )
+
+nd_peptides = set(perc_d["ND"]["peptideIds"])
+denovo_nd_same = set(denovo["peptideIds"]) & nd_peptides
 
 number_matched_engines = len(peptides["ND"] & default_engine_peps)
 peptides["ND"] = (
@@ -131,6 +137,7 @@ for type, d in zip(types, denovo_peps):
     )
 
 result_file = f"{outdir}/denovo_ND_hits-COMPLETE.tsv"
+
 if not Path(result_file).exists():
     # Attempt to find all matched ND engine peptides in a de novo peptide
     find_in_denovo: pl.DataFrame = pl.from_pandas(
@@ -153,3 +160,7 @@ df: pl.DataFrame = hits.join(
 )
 
 df.write_csv(f"{outdir}/COMPLETE_final.tsv", separator="\t", null_value="NA")
+
+nd_peptide_names = [f"ND_peptide_{i}" for i in range(len(peptides["ND"]))]
+hh.write_fasta(all_denovo["header"], all_denovo["seq"], f"{outdir}/all_denovo.fasta")
+hh.write_fasta(nd_peptide_names, peptides["ND"], f"{outdir}/all_nd.fasta")

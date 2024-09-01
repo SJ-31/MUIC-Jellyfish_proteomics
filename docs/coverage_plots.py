@@ -43,6 +43,10 @@ wanted_ids = {
     "ompa": ("P215233", 50),  # OmpA Serratia fonticola
     "ompa_rah": ("P43540", 100),  # OmpA Rahnella contaminans
     "hyla_crisp": ("P5899", 100),  # CRISP from frog
+    "threefinger": ("P164567", 100),  # Three-finger toxin
+    "dermo": ("P25077", 100),  # Dermonecrotic toxin
+    "myotro": ("P108266", 100),  # myotrophin
+    "cy_transcript": ("T137450", 100),  # Big Cy transcript annotated to pore-forming
 }
 
 

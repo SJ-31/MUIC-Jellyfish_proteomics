@@ -17,16 +17,8 @@ windows:
     start_directory: ./docs/figures
     panes:
       - "yazi"
-  - window_name: "pytest"
-    layout: even-horizontal
-    panes:
-      -
-      - "yazi"
-    start_directory: ./tests/pytest
-  - window_name: "testzone"
-    start_directory: "/home/shannc/Downloads/thesis_testzone"
-    panes:
-      - "yazi"
+  - window_name: "qseqs"
+    start_directory: ./docs/figures/query_seqs/
   - window_name: "reference"
     start_directory: ./data/reference
     panes:

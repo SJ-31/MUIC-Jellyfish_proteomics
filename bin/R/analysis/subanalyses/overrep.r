@@ -1,4 +1,5 @@
 library("paletteer")
+library("seqinr")
 library("ggVennDiagram")
 if (!exists("SOURCED")) {
   source(paste0(dirname(getwd()), "/", "all_analyses.r"))
@@ -277,46 +278,123 @@ onto_colors <- list(
   `Cellular Component` = "dark:#008000_r",
   `Molecular Function` = "dark:#0000FF_r"
 )
-ptm_wc <- all_ontologizer |>
-  filter(subset %in% mod_names2) |>
-  format_for_wc()
 
-wc_params <- list(
-  category2colormap = onto_colors, item2category = ptm_wc$map,
-  abbrev_size = 20
-)
-GRAPHS$ptm_wc <- wc$word_cloud_main(
-  ptm_wc$tokens,
-  ptm_wc$abbrevs,
-  params = wc_params
-)
 
-# Identification method
-id_wc <- all_ontologizer |>
-  filter(subset %in% c("id with open", "not DBP")) |>
-  format_for_wc()
-wc_params3 <- list(
-  category2colormap = onto_colors, item2category = id_wc$map,
-  abbrev_size = 20, cmap_legend = FALSE
-)
-GRAPHS$id_wc <- wc$word_cloud_main(id_wc$tokens, id_wc$abbrevs,
-  params = wc_params3
-)
+get_wc <- function(tb, cmap_legend = FALSE) {
+  prep <- tb |> format_for_wc()
+  params <- list(
+    category2colormap = onto_colors, item2category = prep$map,
+    abbrev_size = 20, cmap_legend = cmap_legend
+  )
+  wc$word_cloud_main(prep$tokens, prep$abbrevs,
+    params = params
+  )
+}
 
-# Intensity
-intensity_wc <- all_ontologizer |>
-  filter(grepl("intensity", subset)) |>
-  format_for_wc()
+GRAPHS$denovo_wc <- get_wc(all_ontologizer |> filter(subset == "denovo"), TRUE)
+GRAPHS$t_wc <- get_wc(all_ontologizer |> filter(subset == "transcriptome"))
 
-wc_params2 <- list(
-  category2colormap = onto_colors, item2category = intensity_wc$map,
-  abbrev_size = 20, cmap_legend = FALSE
-)
-GRAPHS$intensity_wc <- wc$word_cloud_main(intensity_wc$tokens, intensity_wc$abbrevs, params = wc_params2)
+# GRAPHS$denovo_wc <- get_wc()
+
+# ptm_wc <- all_ontologizer |>
+#   filter(subset %in% mod_names2) |>
+#   format_for_wc()
+
+# wc_params <- list(
+#   category2colormap = onto_colors, item2category = ptm_wc$map,
+#   abbrev_size = 20
+# )
+# GRAPHS$ptm_wc <- wc$word_cloud_main(
+#   ptm_wc$tokens,
+#   ptm_wc$abbrevs,
+#   params = wc_params
+# )
+
+# # Identification method
+# # Change this to be de novo and transcriptome peptides
+# id_wc <- all_ontologizer |>
+#   filter(subset %in% c("id with open", "not DBP")) |>
+#   format_for_wc()
+# wc_params3 <- list(
+#   category2colormap = onto_colors, item2category = id_wc$map,
+#   abbrev_size = 20, cmap_legend = FALSE
+# )
+# GRAPHS$id_wc <- wc$word_cloud_main(id_wc$tokens, id_wc$abbrevs,
+#   params = wc_params3
+# )
+
+# # Intensity
+# intensity_wc <- all_ontologizer |>
+#   filter(grepl("intensity", subset)) |>
+#   format_for_wc()
+
+# wc_params2 <- list(
+#   category2colormap = onto_colors, item2category = intensity_wc$map,
+#   abbrev_size = 20, cmap_legend = FALSE
+# )
+# GRAPHS$intensity_wc <- wc$word_cloud_main(intensity_wc$tokens, intensity_wc$abbrevs, params = wc_params2)
 
 # EXTRA
 
 TABLES$all_ontologizer_sig <- all_ontologizer
+
+shared_terms <- function(a, b) {
+  a <- select(a, ID, term, subset)
+  b <- select(b, ID, term, subset)
+  full_join(a, b, by = join_by(ID))
+}
+
+transcriptome <- all_ontologizer |> filter(subset == "transcriptome")
+dnp <- all_ontologizer |> filter(subset == "denovo")
+shared <- shared_terms(transcriptome, dnp)
+
+# Targets
+get_targets <- list(
+  D = list(
+    serine_protease = c("GO:0017171", "GO:0004252", "GO:0006508"),
+    intermediate_filament = c("GO:0045103", "GO:0045104", "GO:0005882"),
+    collagenase = c("GO:0022617", "GO:0030574"),
+    antioxidant = c(
+      "GO:1990748", # cellular detoxification
+      "GO:0016209" # antioxidant activity
+    ),
+    hemostasis = c("GO:1900047", "GO:0030195")
+  ),
+  T = list(
+    actin = c("GO:0030029", "GO:0015629", "GO:0098862"),
+    localization = c("GO:0060341", "GO:0051649"),
+    transporter = c(
+      "GO:0046907", # intracellular transport
+      "GO:0098660" # inorganic ion transmembrane transport
+    ),
+    signal_transduction = c("GO:0035556", "GO:0005102"),
+    cytochrome = c("GO:0070069")
+  )
+)
+
+
+seqs <- read_tsv(M$data_w_cat_path) |>
+  select(ProteinId, header, GO_IDs, seq) |>
+  filter(grepl("D|T", ProteinId) & !is.na(GO_IDs) & !is.na(seq)) |>
+  separate_longer_delim(GO_IDs, ";")
+
+outdir <- glue("{M$outdir}/query_seqs")
+for (type in names(get_targets)) {
+  cur_spec <- get_targets[[type]]
+  for (spec in names(cur_spec)) {
+    filename <- glue("{outdir}/{type}_{spec}.fasta")
+    go_vec <- cur_spec[[spec]]
+    filtered <- seqs |>
+      filter(grepl(type, ProteinId) & GO_IDs %in% go_vec) |>
+      distinct(header, .keep_all = TRUE)
+    seq_vec <- filtered$seq
+    print(seq_vec)
+    id_vec <- filtered$ProteinId
+    write.fasta(as.list(seq_vec), id_vec, file.out = filename, as.string = TRUE)
+  }
+}
+
+
 
 GRAPHS$intensity_overlap <- ggVennDiagram(intensity_vecs) + scale_fill_paletteer_c("ggthemes::Classic Red")
 

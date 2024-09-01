@@ -21,8 +21,7 @@ main <- function(args) {
     filter(!is.na(GO_IDs))
   O <- reticulate_show_error(ont$Ontologizer(grouped, args$executable, args$go_path, "GroupUP"))
   groups <- list()
-  groups[["id_with_open"]] <- dplyr::filter(combined, ID_method == "open" |
-    ID_method == "both") |>
+  groups[["id_with_open"]] <- dplyr::filter(combined, ID_method == "open") |>
     pluck("GroupUP") |>
     unique()
   # Modified proteins or identified in open search

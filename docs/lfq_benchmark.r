@@ -286,6 +286,9 @@ ref_legend <- grid::legendGrob(
   vgap = 0.4,
   pch = 15
 )
+all$source <- case_match(all$source, "identifications" ~ "Identifications",
+  .default = "Intensity"
+)
 
 GRAPHS$all_lfq <- all |> ggplot(aes(param, proportion, fill = taxon)) +
   geom_col() +

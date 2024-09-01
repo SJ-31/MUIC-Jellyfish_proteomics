@@ -128,7 +128,7 @@ if (!dir.exists(glue("{M$ontologizer_path}/COG"))) {
     ) |>
     filter(!is.na(GO_IDs))
   O <- ont$Ontologizer(with_cog, M$ontologizer_exec, M$go_path, "GroupUP")
-  cog_names <- unique(with_cog$assigned_COG)
+  cog_names <- unique(data$assigned_COG)
   cleaned_names <- cog_names |> map_chr(\(x) str_replace_all(x, "/", "_") |> str_replace_all(" ", "_"))
   groups <- lapply(cog_names, \(x) {
     data |>

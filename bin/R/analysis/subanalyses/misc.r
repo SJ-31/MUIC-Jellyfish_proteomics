@@ -175,10 +175,64 @@ jd2 <- inner_join(nd_run$second, default_run$second, by = join_by(header)) |> di
 nd_better <- jd2 |> filter(pcoverage_align.x > pcoverage_align.y)
 d_better <- jd2 |> filter(pcoverage_align.y > pcoverage_align.x)
 
-nd_better |> select(contains("Matched")) |> pluck("MatchedPeptideIds.x")
+nd_better |>
+  select(contains("Matched")) |>
+  pluck("MatchedPeptideIds.x")
 
 nd_better
 # Answer to 2
 improved_by_ndm <- nd_better |> filter(header %in% better_ndm$header)
 already_better_in_nd <- d_better |> filter(header %in% better_ndm$header)
 not <- nd_better |> filter(!header %in% better_ndm$header)
+
+# Check open search peptides
+# Make this into a function and avg across params
+count_open_peps <- function(path, param) {
+  peptide_map_all_path <- glue("{path}/{M$chosen_pass}/percolator_peptide_map_all.tsv")
+  pmap_all <- read_tsv(peptide_map_all_path)
+  open <- filter(pmap_all, engine %in% M$open_search_engines)
+  standard <- filter(pmap_all, !engine %in% M$open_search_engines)
+  n_open <- nrow(open)
+  n_standard <- nrow(standard)
+  new_peps <- open |> filter(!peptideIds %in% standard$peptideIds)
+  n_all_prot <- open$ProteinId |>
+    unique() |>
+    length()
+  new_prot <- open |>
+    filter(!ProteinId %in% standard$ProteinId) |>
+    pluck("ProteinId") |>
+    unique()
+  new_mod_peps <- open |> filter(!modifiedPeptideIds %in% standard$modifiedPeptideIds)
+  n_new_peps <- nrow(new_peps)
+  n_new_mod_peps <- nrow(new_mod_peps)
+  tibble(
+    `Run` = param, `N new peptides (unmodified)` = n_new_peps, `Proportion (unmodified)` = n_new_peps / n_open,
+    `N new peptides` = n_new_mod_peps, `Proportion` = n_new_mod_peps / n_open,
+    `Proportion of new proteins` = length(new_prot) / n_all_prot
+  )
+}
+
+open_stats <- lapply(seq_len(length(M$all_paths)), \(x) {
+  count_open_peps(M$all_paths[[x]], M$params[[x]])
+}) |>
+  bind_rows() |>
+  mutate(across(where(is.double), \(x) round(x, 2)))
+
+TABLES$open_stats <- open_stats |> gt()
+
+# Check if de novo peptides and the proteins they match to go into the same protein groups
+
+path <- M$chosen_path
+tb <- read_tsv(glue("{path}/{M$chosen_pass}/percolator_all.tsv"))
+mod_counts <- tb |>
+  filter(!is.na(mods)) |>
+  pluck("mods") |>
+  lapply(\(x) str_split_1(x, ";")) |>
+  unlist() |>
+  map_chr(\(x) str_remove(x, "\\|[0-9]+$")) |>
+  table()
+
+mod_counts
+
+
+save(TABLES, M$outdir)
